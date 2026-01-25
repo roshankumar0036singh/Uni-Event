@@ -51,7 +51,7 @@
     "expo-camera": "~13.4.4",
     "expo-crypto": "~12.4.1",
     "expo-device": "~5.4.0",
-    "expo-image-picker": "~14.3.2",
+    "expo-image-picker": "~17.0.10",
     "@expo-google-fonts/outfit": "^0.2.3",
     "expo-linear-gradient": "~12.3.0",
     "expo-linking": "~5.0.0",
