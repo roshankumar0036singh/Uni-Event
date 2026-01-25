@@ -1,0 +1,42 @@
+# CodeRabbit AI Configuration
+# Visit: https://coderabbit.ai/docs/configuration
+
+# Language and tone
+language: en-US
+tone_instructions: "Be concise, technical, and constructive. Focus on code quality, performance, and best practices."
+
+# Review settings
+reviews:
+  # Enable automatic reviews on PRs
+  auto_review:
+    enabled: true
+    drafts: false # Don't review draft PRs
+  
+  # Review scope
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/*.lock"
+    - "!**/coverage/**"
+    - "!**/emulator-data/**"
+  
+  # Request changes for critical issues
+  request_changes_workflow: true
+  
+  # Enable inline comments
+  inline_comments: true
+
+# Chat settings
+chat:
+  auto_reply: true
+
+# Knowledge base (optional - helps CodeRabbit understand your project)
+knowledge_base:
+  - "This is a Firebase-based event management platform built with Expo/React Native"
+  - "We use Firebase Emulators for local development"
+  - "All secrets must be in environment variables, never hardcoded"
+  - "Follow the existing code style and use ESLint/Prettier"
+
+# Early access features
+early_access: true

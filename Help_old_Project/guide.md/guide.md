@@ -1,1 +1,0 @@
-npx ngrok http 19006 run this  in separate terminal and also the npm run web and then add this ngrok https in firebase authorization and then open in mobile.. ans also cloud function also needs to be runned as well

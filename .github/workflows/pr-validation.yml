@@ -1,0 +1,39 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-functions:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./cloud-functions
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js 18.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18.x
+        cache: 'npm'
+        cache-dependency-path: cloud-functions/package-lock.json
+    - run: npm ci
+    - run: npm run build
+
+  validate-app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./app
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js 18.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18.x
+        cache: 'npm'
+        cache-dependency-path: app/package-lock.json
+    - run: npm ci
+    # We do not run 'npx expo export:web' here as it might be slow or require more setup,
+    # but npm ci ensures dependencies are resolvable.

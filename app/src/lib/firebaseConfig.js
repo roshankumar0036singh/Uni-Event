@@ -1,9 +1,9 @@
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp } from 'firebase/app';
-import { browserLocalPersistence, getReactNativePersistence, initializeAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getFunctions } from 'firebase/functions';
-import { getStorage } from 'firebase/storage';
+import { browserLocalPersistence, getReactNativePersistence, initializeAuth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
 import { Platform } from 'react-native';
 
 const firebaseConfig = {
@@ -38,7 +38,7 @@ if (Platform.OS === 'web') {
 
 export { auth };
 
-    import { getMessaging } from 'firebase/messaging';
+import { getMessaging } from 'firebase/messaging';
 
 // Initialize other services
 export const db = getFirestore(app);
@@ -46,6 +46,23 @@ export const functions = getFunctions(app);
 export const storage = getStorage(app);
 export const messaging = getMessaging(app);
 
-export const VAPID_KEY = "BP9_8PFuG_8PjpTcK8bXKVSe1G8bOJUTC3XpBusukPPJFXzSn4mIruzTboZPnID_gpS4rG1QtxJVaSGoR6wzCdI"; // Provided by user
+// Connect to Emulators if configured
+if (process.env.EXPO_PUBLIC_USE_EMULATORS === 'true') {
+  const { LogBox } = require('react-native');
+  LogBox.ignoreLogs([
+    /Running in emulator mode/,
+    /emulator/i
+  ]);
+
+  console.log('Using Firebase Emulators...');
+  const EMULATOR_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+
+  connectAuthEmulator(auth, `http://${EMULATOR_HOST}:9099`, { disableWarnings: true });
+  connectFirestoreEmulator(db, EMULATOR_HOST, 8080);
+  connectFunctionsEmulator(functions, EMULATOR_HOST, 5001);
+  connectStorageEmulator(storage, EMULATOR_HOST, 9199);
+}
+
+export const VAPID_KEY = process.env.EXPO_PUBLIC_FCM_VAPID_KEY;
 
 export default app;

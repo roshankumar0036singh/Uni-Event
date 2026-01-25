@@ -2,10 +2,10 @@ import { Alert } from 'react-native';
 
 // EmailJS Configuration
 // EmailJS Configuration
-const EMAILJS_SERVICE_ID = 'service_l8ymwou';
-const EMAILJS_PUBLIC_KEY = 'JEl6-aRIRV9Pbp_ZC';
-const EMAILJS_TEMPLATE_UNIVERSAL = 'template_general'; // Unified template
-const EMAILJS_TEMPLATE_FEEDBACK = 'template_feedback';
+const EMAILJS_SERVICE_ID = process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID;
+const EMAILJS_PUBLIC_KEY = process.env.EXPO_PUBLIC_EMAILJS_PUBLIC_KEY;
+const EMAILJS_TEMPLATE_UNIVERSAL = process.env.EXPO_PUBLIC_EMAILJS_TEMPLATE_UNIVERSAL; // Unified template
+const EMAILJS_TEMPLATE_FEEDBACK = process.env.EXPO_PUBLIC_EMAILJS_TEMPLATE_FEEDBACK;
 
 /**
  * Sends an email using EmailJS

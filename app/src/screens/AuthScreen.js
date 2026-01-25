@@ -46,8 +46,43 @@ export default function AuthScreen() {
         return;
       }
 
-      const credential = GoogleAuthProvider.credential(id_token || null, accessToken || null);
       setLoading(true);
+
+      // --- EMULATOR HYBRID FLOW ---
+      if (process.env.EXPO_PUBLIC_USE_EMULATORS === 'true') {
+        // 1. Fetch real Google Profile using the valid Access Token
+        fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        })
+          .then(res => res.json())
+          .then(async (googleUser) => {
+            // 2. "Sign In" to Emulator using this email
+            // We use a dummy password because we trust the Google Token verification step above
+            try {
+              await signIn(googleUser.email, "google-emulator-pass");
+            } catch (e) {
+              // If user doesn't exist in Emulator, create them
+              if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+                await signUp(googleUser.email, "google-emulator-pass", {
+                  displayName: googleUser.name,
+                  photoURL: googleUser.picture,
+                  provider: 'google' // Mark as google provider
+                });
+              } else {
+                throw e;
+              }
+            }
+          })
+          .catch(err => {
+            Alert.alert("Emulator Auth Error", err.message);
+          })
+          .finally(() => setLoading(false));
+
+        return; // Stop here for Emulator
+      }
+
+      // --- PRODUCTION FLOW ---
+      const credential = GoogleAuthProvider.credential(id_token || null, accessToken || null);
       signInWithCredential(auth, credential)
         .then(async (userCredential) => {
           const user = userCredential.user;
