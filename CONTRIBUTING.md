@@ -1,4 +1,4 @@
-# Contributing to Deploy_UniEvent
+# Contributing to UniEvent
 
 First off, thanks for taking the time to contribute! 🎉
 
