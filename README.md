@@ -1,7 +1,7 @@
 
 <div align="center">
 
-<h1 align="center">Hey <coders>! <img src="https://raw.githubusercontent.com/MartinHeinz/MartinHeinz/master/wave.gif" width="30px"></h1>
+<h1 align="center">Hey Coders! <img src="https://raw.githubusercontent.com/MartinHeinz/MartinHeinz/master/wave.gif" width="30px"></h1>
 
 <img src="./app/assets/banner.png" alt="UniEvent Banner" width="1000" />
 
