@@ -2,9 +2,9 @@
 
 <div align="center">
 
-![UniEvent Logo](./app/assets/UniEvent.png)
+![UniEvent Logo](https://raw.githubusercontent.com/roshankumar0036singh/Uni-Event/main/app/assets/UniEvent.png)
 
-**A modern, comprehensive event management solution for universities and educational institutions**
+**Enterprise-grade event management solution for educational institutions**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
@@ -17,91 +17,91 @@
 [![ESLint](https://img.shields.io/badge/ESLint-4B32C3?logo=eslint&logoColor=white)](https://eslint.org/)
 [![Prettier](https://img.shields.io/badge/Prettier-F7B93E?logo=prettier&logoColor=black)](https://prettier.io/)
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Contributing](#-contributing) • [License](#-license)
+[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Contributing](#contributing) • [License](#license)
 
 </div>
 
 ---
 
-## 🎯 Overview
+## Overview
 
-**UniEvent** bridges the gap between student organizations and the student body by providing a unified platform for event discovery, management, and engagement. Say goodbye to scattered announcements across WhatsApp groups, emails, and notice boards.
+UniEvent is a comprehensive event management platform designed specifically for universities, colleges, and educational institutions. It streamlines event discovery, registration, attendance tracking, and analytics while providing role-based access for students, club administrators, and system administrators.
 
-### Why UniEvent?
+### Key Benefits
 
-- **📱 Centralized Discovery**: All campus events in one place
-- **🔔 Smart Reminders**: Never miss an event with push notifications and calendar sync
-- **📊 Data-Driven Insights**: Track engagement and optimize event promotion
-- **🎮 Gamification**: Leaderboards and reputation system to boost participation
-- **🌐 Multi-Platform**: Native iOS, Android, and Progressive Web App
+- **Centralized Platform**: Single source of truth for all campus events
+- **Data-Driven Insights**: Comprehensive analytics for event organizers
+- **Scalable Architecture**: Built on Firebase for enterprise-grade reliability
+- **Cross-Platform**: Native iOS, Android, and Progressive Web App support
+- **Open Source**: MIT licensed, community-driven development
 
 ---
 
-## ✨ Features
+## Features
 
-### 👨‍🎓 For Students
-
-| Feature | Description |
-|---------|-------------|
-| **Personalized Feed** | Events filtered by department, year, and interests |
-| **One-Tap RSVP** | Quick registration with automatic calendar integration |
-| **Smart Reminders** | Push notifications 10 minutes before events |
-| **QR Check-ins** | Contactless attendance tracking |
-| **Leaderboard** | Earn reputation points for event participation |
-| **Saved Events** | Bookmark events for later |
-| **Event Chat** | Real-time discussion with attendees |
-
-### 🎪 For Club Organizers
+### For Students
 
 | Feature | Description |
 |---------|-------------|
-| **Easy Event Creation** | Rich media support with targeting options |
+| **Event Discovery** | Browse and search events filtered by department, year, and interests |
+| **One-Tap Registration** | Quick RSVP with automatic calendar integration |
+| **Smart Notifications** | Push notifications and reminders before events |
+| **QR Code Check-in** | Contactless attendance tracking |
+| **Gamification** | Earn reputation points and compete on leaderboards |
+| **Saved Events** | Bookmark events for later review |
+| **Event Chat** | Real-time discussion with other attendees |
+
+### For Event Organizers
+
+| Feature | Description |
+|---------|-------------|
+| **Event Creation** | Rich media support with audience targeting |
 | **Attendance Dashboard** | Real-time QR code scanning and tracking |
-| **Analytics Hub** | Branch-wise, year-wise participation insights |
+| **Analytics Suite** | Branch-wise, year-wise participation insights |
 | **Custom Forms** | Dynamic registration forms with validation |
 | **Payment Integration** | Built-in ticketing for paid events |
-| **Google Meet Integration** | Auto-generate meeting links for online events |
-| **Reputation System** | Gamified scoring based on event success |
+| **Google Meet Integration** | Auto-generate meeting links for virtual events |
+| **Reputation Tracking** | Gamified scoring based on event success metrics |
 
-### 👑 For Administrators
+### For Administrators
 
 | Feature | Description |
 |---------|-------------|
-| **Control Panel** | Platform-wide event moderation |
+| **Control Panel** | Platform-wide event moderation and oversight |
 | **Role Management** | Assign admin/club privileges via cloud functions |
-| **Event Suspension** | Moderate events that violate guidelines |
-| **User Analytics** | Track platform engagement metrics |
+| **Event Moderation** | Suspend/unsuspend events that violate guidelines |
+| **User Analytics** | Track platform engagement and usage metrics |
 | **Bulk Operations** | Manage multiple events efficiently |
 
 ---
 
-## 🛠️ Tech Stack
+## Technology Stack
 
 ### Frontend
-- **React Native** + **Expo** (Cross-platform mobile)
-- **React Navigation** (Routing & navigation)
-- **Firebase SDK** (Auth, Firestore, Storage, Functions)
-- **Expo Notifications** (Push notifications)
-- **React Native Reanimated** (Smooth animations)
+- **React Native** + **Expo** - Cross-platform mobile development
+- **React Navigation** - Routing and navigation
+- **Firebase SDK** - Authentication, Firestore, Storage, Functions
+- **Expo Notifications** - Push notification system
+- **React Native Reanimated** - Smooth animations
 
 ### Backend
-- **Firebase Cloud Functions** (Serverless TypeScript)
-- **Firebase Admin SDK** (Server-side operations)
-- **Node.js 18+** (Runtime)
-- **EmailJS & Resend** (Automated emails)
-- **PDF-lib** (Certificate generation)
+- **Firebase Cloud Functions** - Serverless TypeScript functions
+- **Firebase Admin SDK** - Server-side operations
+- **Node.js 18+** - Runtime environment
+- **EmailJS & Resend** - Automated email services
+- **PDF-lib** - Certificate generation
 
 ### DevOps & Quality
-- **GitHub Actions** (CI/CD pipelines)
-- **ESLint + Prettier** (Code quality)
-- **Jest** (Unit testing)
-- **Firebase Emulators** (Local development)
-- **Dependabot** (Automated dependency updates)
-- **CodeRabbit AI** (Automated PR reviews)
+- **GitHub Actions** - CI/CD automation
+- **ESLint + Prettier** - Code quality enforcement
+- **Jest** - Unit testing framework
+- **Firebase Emulators** - Local development environment
+- **Dependabot** - Automated dependency management
+- **CodeRabbit AI** - Automated code reviews
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -133,12 +133,12 @@ npm install
    cp app/.env.example app/.env
    ```
 
-2. **Fill in your credentials** in `app/.env`:
-   - Firebase configuration
+2. **Configure credentials** in `app/.env`:
+   - Firebase project configuration
    - Google OAuth Client IDs
    - EmailJS keys (optional)
 
-3. **For detailed setup instructions**, see [docs/SETUP.md](./docs/SETUP.md)
+3. **Detailed setup**: See [docs/SETUP.md](./docs/SETUP.md)
 
 ### Running Locally
 
@@ -157,26 +157,19 @@ npm start
 
 ---
 
-## 📚 Documentation
+## Documentation
 
-- **[Setup Guide](./docs/SETUP.md)** - Detailed installation and configuration
-- **[Firebase Setup](./docs/FIREBASE_SETUP.md)** - Emulator configuration
-- **[Architecture](./docs/Architecture.md)** - System design overview
-- **[Contributing Guide](./CONTRIBUTING.md)** - How to contribute
-- **[Code of Conduct](./CODE_OF_CONDUCT.md)** - Community guidelines
+- **[Setup Guide](./docs/SETUP.md)** - Comprehensive installation and configuration
+- **[Firebase Setup](./docs/FIREBASE_SETUP.md)** - Emulator configuration details
+- **[Architecture](./docs/Architecture.md)** - System design and architecture
+- **[Contributing Guide](./CONTRIBUTING.md)** - Contribution guidelines
+- **[Code of Conduct](./CODE_OF_CONDUCT.md)** - Community standards
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-We welcome contributions from the community! Whether it's:
-
-- 🐛 Bug reports
-- ✨ Feature requests
-- 📝 Documentation improvements
-- 🔧 Code contributions
-
-Please read our [Contributing Guide](./CONTRIBUTING.md) to get started.
+We welcome contributions from the community. Whether you're fixing bugs, adding features, improving documentation, or reporting issues, your input is valuable.
 
 ### Development Workflow
 
@@ -186,33 +179,35 @@ Please read our [Contributing Guide](./CONTRIBUTING.md) to get started.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
+
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the **MIT License** - see the [LICENSE](./LICENSE) file for details.
 
 ---
 
-## 🌟 Acknowledgments
-
-- Built with ❤️ for the university community
-- Powered by Firebase and Expo
-- Inspired by the need for better campus event management
-
----
-
-## 📞 Support
+## Support
 
 - **Issues**: [GitHub Issues](https://github.com/roshankumar0036singh/Uni-Event/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/roshankumar0036singh/Uni-Event/discussions)
-- **Email**: Open an issue for contact information
+- **Documentation**: [Project Wiki](https://github.com/roshankumar0036singh/Uni-Event/wiki)
+
+---
+
+## Acknowledgments
+
+Built for the university community to streamline event management and enhance student engagement.
+
+Powered by Firebase, Expo, and React Native.
 
 ---
 
 <div align="center">
 
-**Made with ❤️ for students, by students**
+**Professional event management for modern educational institutions**
 
 [⬆ Back to Top](#unievent---university-event-management-platform)
 
