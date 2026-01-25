@@ -75,6 +75,9 @@ firebase-debug.log
 firestore-debug.log
 ui-debug.log
 
+# Generated Service Worker (contains credentials from .env)
+public/firebase-messaging-sw.js
+
 # Service Account Keys (IMPORTANT - Never commit these!)
 *-firebase-adminsdk-*.json
 serviceAccountKey.json
