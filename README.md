@@ -2,9 +2,7 @@
 
 <div align="center">
 
-<img src="./app/assets/UniEvent.png" alt="UniEvent Logo" width="120" height="120" />
-
-**Enterprise-grade event management solution for educational institutions**
+<img src="./app/assets/banner.png" alt="UniEvent Banner" width="600" />
 
 [![GitHub stars](https://img.shields.io/github/stars/roshankumar0036singh/Uni-Event?style=social)](https://github.com/roshankumar0036singh/Uni-Event/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/roshankumar0036singh/Uni-Event?style=social)](https://github.com/roshankumar0036singh/Uni-Event/network/members)
