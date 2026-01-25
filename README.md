@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://unievent-ez2w.onrender.com/">
-    <img src="https://img.shields.io/badge/WEBSITE-FF4F8B?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Website" />
+    <img src="https://img.shields.io/badge/WEBSITE-FF4F8B?style=for-the-badge&logo=google-chrome&logoColor=white" alt="WebApp" />
   </a>
   <a href="./app">
     <img src="https://img.shields.io/badge/CLIENT_APP-3b5998?style=for-the-badge&logo=react&logoColor=white" alt="Client App" />
