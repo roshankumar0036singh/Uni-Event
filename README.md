@@ -2,9 +2,9 @@
 
 <div align="center">
 
-<img src="./app/assets/banner.png" alt="UniEvent Banner" width="1300" height="440" />
-
 <h1 align="center">Hey <coders/>! <img src="https://raw.githubusercontent.com/MartinHeinz/MartinHeinz/master/wave.gif" width="30px"></h1>
+
+<img src="./app/assets/banner.png" alt="UniEvent Banner" width="1000" />
 
 [![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=25&pause=1000&color=1E3A8A&center=true&vCenter=true&width=435&lines=Code.;Build.;Deploy.;Innovate.)](https://git.io/typing-svg)
 
@@ -21,8 +21,20 @@
 </p>
 
 <p align="center">
+  <!-- Tech Stack Badges -->
+  <img src="https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase" />
+  <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React Native" />
+  <img src="https://img.shields.io/badge/Expo-000020?style=for-the-badge&logo=expo&logoColor=white" alt="Expo" />
+  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js" />
+</p>
+
+<p align="center">
   <a href="https://github.com/roshankumar0036singh/Uni-Event/issues">
-    <img src="https://img.shields.io/github/issues/roshankumar0036singh/Uni-Event?style=for-the-badge&logo=github" alt="Issues" />
+    <img src="https://img.shields.io/github/issues/roshankumar0036singh/Uni-Event?style=for-the-badge&logo=github" alt="Open Issues" />
+  </a>
+  <a href="https://github.com/roshankumar0036singh/Uni-Event/issues?q=is%3Aissue+is%3Aclosed">
+    <img src="https://img.shields.io/github/issues-closed/roshankumar0036singh/Uni-Event?style=for-the-badge&logo=github" alt="Closed Issues" />
   </a>
   <a href="https://github.com/roshankumar0036singh/Uni-Event/pulls">
     <img src="https://img.shields.io/github/issues-pr/roshankumar0036singh/Uni-Event?style=for-the-badge&logo=github" alt="Pull Requests" />
