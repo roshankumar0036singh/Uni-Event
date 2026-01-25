@@ -42,7 +42,7 @@
     "@react-native-community/datetimepicker": "7.2.0",
     "@react-native-picker/picker": "2.4.10",
     "@react-navigation/bottom-tabs": "^6.0.0",
-    "@react-navigation/native": "^6.0.0",
+    "@react-navigation/native": "^7.1.28",
     "@react-navigation/stack": "^6.0.0",
     "expo": "~49.0.0",
     "expo-auth-session": "~5.0.2",
