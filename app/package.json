@@ -49,7 +49,7 @@
     "expo-barcode-scanner": "~12.5.3",
     "expo-blur": "~12.4.1",
     "expo-camera": "~13.4.4",
-    "expo-crypto": "~12.4.1",
+    "expo-crypto": "~15.0.8",
     "expo-device": "~5.4.0",
     "expo-image-picker": "~17.0.10",
     "@expo-google-fonts/outfit": "^0.2.3",
