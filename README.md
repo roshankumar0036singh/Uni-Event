@@ -27,7 +27,9 @@
 
 ---
 
-## Overview
+<h2 align="center" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1E3A8A; font-weight: 700; margin-top: 2rem;">
+📋 Overview
+</h2>
 
 UniEvent is a comprehensive event management platform designed specifically for universities, colleges, and educational institutions. It streamlines event discovery, registration, attendance tracking, and analytics while providing role-based access for students, club administrators, and system administrators.
 
@@ -41,7 +43,9 @@ UniEvent is a comprehensive event management platform designed specifically for 
 
 ---
 
-## Features
+<h2 align="center" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1E3A8A; font-weight: 700; margin-top: 2rem;">
+✨ Features
+</h2>
 
 ### For Students
 
