@@ -11,6 +11,11 @@ reviews:
   auto_review:
     enabled: true
     drafts: false # Don't review draft PRs
+    base_branches:
+      - main
+  
+  # Enable reviews for bot-created PRs (Dependabot, Renovate, etc.)
+  bot_prs: true
   
   # Review scope
   path_filters:
