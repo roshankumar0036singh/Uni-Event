@@ -28,11 +28,13 @@ jobs:
       - name: Build Web App
         run: cd app && npm run build:web
 
-      - name: Deploy to Firebase
-        if: github.ref == 'refs/heads/main'
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CENTRALIZED_EVENT_PLATFORM }}'
-          channelId: live
-          projectId: centralized-event-platform 
+      # Uncomment when ready to deploy to Firebase Hosting
+      # Requires FIREBASE_SERVICE_ACCOUNT_CENTRALIZED_EVENT_PLATFORM secret
+      # - name: Deploy to Firebase
+      #   if: github.ref == 'refs/heads/main'
+      #   uses: FirebaseExtended/action-hosting-deploy@v0
+      #   with:
+      #     repoToken: '${{ secrets.GITHUB_TOKEN }}'
+      #     firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CENTRALIZED_EVENT_PLATFORM }}'
+      #     channelId: live
+      #     projectId: centralized-event-platform 
