@@ -4,25 +4,39 @@
 
 <img src="./app/assets/banner.png" alt="UniEvent Banner" width="1300" height="440" />
 
-[![GitHub stars](https://img.shields.io/github/stars/roshankumar0036singh/Uni-Event?style=social)](https://github.com/roshankumar0036singh/Uni-Event/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/roshankumar0036singh/Uni-Event?style=social)](https://github.com/roshankumar0036singh/Uni-Event/network/members)
-[![GitHub watchers](https://img.shields.io/github/watchers/roshankumar0036singh/Uni-Event?style=social)](https://github.com/roshankumar0036singh/Uni-Event/watchers)
+<h1 align="center">Hey <coders/>! <img src="https://raw.githubusercontent.com/MartinHeinz/MartinHeinz/master/wave.gif" width="30px"></h1>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
-[![GitHub issues](https://img.shields.io/github/issues/roshankumar0036singh/Uni-Event)](https://github.com/roshankumar0036singh/Uni-Event/issues)
-[![GitHub pull requests](https://img.shields.io/github/issues-pr/roshankumar0036singh/Uni-Event)](https://github.com/roshankumar0036singh/Uni-Event/pulls)
-[![Firebase](https://img.shields.io/badge/Firebase-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
-[![React Native](https://img.shields.io/badge/React_Native-20232A?logo=react&logoColor=61DAFB)](https://reactnative.dev/)
-[![Expo](https://img.shields.io/badge/Expo-000020?logo=expo&logoColor=white)](https://expo.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?logo=github-actions&logoColor=white)](https://github.com/features/actions)
-[![ESLint](https://img.shields.io/badge/ESLint-4B32C3?logo=eslint&logoColor=white)](https://eslint.org/)
-[![Prettier](https://img.shields.io/badge/Prettier-F7B93E?logo=prettier&logoColor=black)](https://prettier.io/)
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=25&pause=1000&color=1E3A8A&center=true&vCenter=true&width=435&lines=Code.;Build.;Deploy.;Innovate.)](https://git.io/typing-svg)
 
-[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Contributing](#contributing) • [License](#license)
+<p align="center">
+  <a href="./app">
+    <img src="https://img.shields.io/badge/CLIENT_APP-3b5998?style=for-the-badge&logo=react&logoColor=white" alt="Client App" />
+  </a>
+  <a href="./cloud-functions">
+    <img src="https://img.shields.io/badge/SERVER_FUNCTIONS-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Server Functions" />
+  </a>
+  <a href="./docs/SETUP.md">
+    <img src="https://img.shields.io/badge/DOCUMENTATION-4CAF50?style=for-the-badge&logo=readthedocs&logoColor=white" alt="Documentation" />
+  </a>
+</p>
 
+<p align="center">
+  <a href="https://github.com/roshankumar0036singh/Uni-Event/issues">
+    <img src="https://img.shields.io/github/issues/roshankumar0036singh/Uni-Event?style=for-the-badge&logo=github" alt="Issues" />
+  </a>
+  <a href="https://github.com/roshankumar0036singh/Uni-Event/pulls">
+    <img src="https://img.shields.io/github/issues-pr/roshankumar0036singh/Uni-Event?style=for-the-badge&logo=github" alt="Pull Requests" />
+  </a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/repo-size/roshankumar0036singh/Uni-Event?style=flat-square&color=blue" alt="Repo Size" />
+  <img src="https://img.shields.io/github/languages/count/roshankumar0036singh/Uni-Event?style=flat-square&color=green" alt="Languages" />
+  <img src="https://img.shields.io/github/stars/roshankumar0036singh/Uni-Event?style=flat-square&color=orange" alt="Stars" />
+  <img src="https://img.shields.io/github/forks/roshankumar0036singh/Uni-Event?style=flat-square&color=red" alt="Forks" />
+  <img src="https://img.shields.io/github/last-commit/roshankumar0036singh/Uni-Event?style=flat-square&color=yellow" alt="Last Commit" />
+  <img src="https://img.shields.io/github/license/roshankumar0036singh/Uni-Event?style=flat-square&color=purple" alt="License" />
+</p>
 </div>
 
 ---
@@ -83,7 +97,9 @@ UniEvent is a comprehensive event management platform designed specifically for 
 
 ---
 
-## Technology Stack
+<h2 align="center" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1E3A8A; font-weight: 700; margin-top: 2rem;">
+🛠️ Technology Stack
+</h2>
 
 ### Frontend
 - **React Native** + **Expo** - Cross-platform mobile development
@@ -109,7 +125,9 @@ UniEvent is a comprehensive event management platform designed specifically for 
 
 ---
 
-## Quick Start
+<h2 align="center" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1E3A8A; font-weight: 700; margin-top: 2rem;">
+🚀 Quick Start
+</h2>
 
 ### Prerequisites
 
@@ -165,7 +183,9 @@ npm start
 
 ---
 
-## Documentation
+<h2 align="center" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1E3A8A; font-weight: 700; margin-top: 2rem;">
+📚 Documentation
+</h2>
 
 - **[Setup Guide](./docs/SETUP.md)** - Comprehensive installation and configuration
 - **[Firebase Setup](./docs/FIREBASE_SETUP.md)** - Emulator configuration details
