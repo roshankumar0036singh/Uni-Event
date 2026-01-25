@@ -9,6 +9,9 @@
 [![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=25&pause=1000&color=1E3A8A&center=true&vCenter=true&width=435&lines=Code.;Build.;Deploy.;Innovate.)](https://git.io/typing-svg)
 
 <p align="center">
+  <a href="https://unievent-ez2w.onrender.com/">
+    <img src="https://img.shields.io/badge/WEBSITE-FF4F8B?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Website" />
+  </a>
   <a href="./app">
     <img src="https://img.shields.io/badge/CLIENT_APP-3b5998?style=for-the-badge&logo=react&logoColor=white" alt="Client App" />
   </a>
@@ -46,7 +49,7 @@
   <img src="https://img.shields.io/github/languages/count/roshankumar0036singh/Uni-Event?style=flat-square&color=green" alt="Languages" />
   <img src="https://img.shields.io/github/stars/roshankumar0036singh/Uni-Event?style=flat-square&color=orange" alt="Stars" />
   <img src="https://img.shields.io/github/forks/roshankumar0036singh/Uni-Event?style=flat-square&color=red" alt="Forks" />
-  <img src="https://img.shields.io/github/last-commit/roshankumar0036singh/Uni-Event?style=flat-square&color=yellow" alt="Last Commit" />
+  <img src="https://img.shields.io/github/commit-activity/y/roshankumar0036singh/Uni-Event?style=flat-square&color=yellow" alt="Commits" />
   <img src="https://img.shields.io/github/license/roshankumar0036singh/Uni-Event?style=flat-square&color=purple" alt="License" />
 </p>
 </div>
