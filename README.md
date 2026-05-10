@@ -43,6 +43,12 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/roshankumar0036singh/Uni-Event/actions/workflows/ci.yml">
+    <img src="https://github.com/roshankumar0036singh/Uni-Event/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
+  </a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/github/repo-size/roshankumar0036singh/Uni-Event?style=flat-square&color=blue" alt="Repo Size" />
   <img src="https://img.shields.io/github/languages/count/roshankumar0036singh/Uni-Event?style=flat-square&color=green" alt="Languages" />
   <img src="https://img.shields.io/github/stars/roshankumar0036singh/Uni-Event?style=flat-square&color=orange" alt="Stars" />
