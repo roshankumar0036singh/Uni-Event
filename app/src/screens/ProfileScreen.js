@@ -94,7 +94,6 @@ export default function ProfileScreen({ navigation }) {
             const avgRating = (reputation.totalPoints / reputation.totalRatings).toFixed(1);
             setRating(parseFloat(avgRating));
           } else {
-            console.error('No ratings found, setting to 0');
             setRating(0);
           }
         }
