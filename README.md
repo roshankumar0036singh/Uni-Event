@@ -238,6 +238,9 @@ git checkout main
 
 # Merge upstream changes
 git merge upstream/main
+
+# Push the updated main branch to your fork on GitHub
+git push origin main
 ```
 
 ### Development Workflow
