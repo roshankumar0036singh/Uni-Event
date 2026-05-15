@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   # ── App: Lint + Test ─────────────────────────────────────────────
   lint-and-test:
@@ -14,12 +18,9 @@ jobs:
     defaults:
       run:
         working-directory: ./app
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js 18
         uses: actions/setup-node@v4
@@ -34,12 +35,19 @@ jobs:
       - name: Auto-format with Prettier
         run: npx prettier --write .
 
-      - name: Commit formatted files back
+      - name: Create PR for formatted files
         if: github.event_name == 'push'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git diff --quiet || (git add -A && git commit -m "style: auto-format with prettier [skip ci]" && git push)
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "style: auto-format with prettier"
+          branch: auto-format/prettier
+          title: "style: auto-format with prettier"
+          body: |
+            Automated Prettier formatting applied.
+            This PR was created automatically by the CI workflow.
+          delete-branch: true
+          labels: formatting, automated
 
       - name: Run ESLint
         run: npm run lint
