@@ -212,6 +212,34 @@ npm start
 
 We welcome contributions from the community. Whether you're fixing bugs, adding features, improving documentation, or reporting issues, your input is valuable.
 
+### Fork & Upstream Setup
+
+```bash
+# Fork the repository on GitHub first
+
+# Clone your fork
+git clone https://github.com/YOUR_USERNAME/Uni-Event.git
+
+cd Uni-Event
+
+# Add upstream remote
+git remote add upstream https://github.com/roshankumar0036singh/Uni-Event.git
+
+# Verify remotes
+git remote -v
+```
+### Syncing Your Fork
+```bash
+# Fetch latest changes from upstream
+git fetch upstream
+
+# Switch to main branch
+git checkout main
+
+# Merge upstream changes
+git merge upstream/main
+```
+
 ### Development Workflow
 
 1. Fork the repository
