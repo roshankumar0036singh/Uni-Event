@@ -30,21 +30,23 @@ export default function SavedEventsScreen({ navigation }) {
             const list = [];
 
             // Fetch event details for each saved event
-            await Promise.all(snapshot.docs.map(async (docSnap) => {
-                const data = docSnap.data();
-                try {
-                    const eventDoc = await getDoc(doc(db, 'events', data.eventId));
-                    if (eventDoc.exists()) {
-                        list.push({
-                            id: eventDoc.id,
-                            ...eventDoc.data(),
-                            savedAt: data.savedAt
-                        });
+            await Promise.all(
+                snapshot.docs.map(async docSnap => {
+                    const data = docSnap.data();
+                    try {
+                        const eventDoc = await getDoc(doc(db, 'events', data.eventId));
+                        if (eventDoc.exists()) {
+                            list.push({
+                                id: eventDoc.id,
+                                ...eventDoc.data(),
+                                savedAt: data.savedAt,
+                            });
+                        }
+                    } catch (e) {
+                        console.log('Error fetching event:', e);
                     }
-                } catch (e) {
-                    console.log('Error fetching event:', e);
-                }
-            }));
+                }),
+            );
 
             // Sort by savedAt date (most recent first)
             list.sort((a, b) => {
@@ -70,7 +72,11 @@ export default function SavedEventsScreen({ navigation }) {
     if (loading && !refreshing) {
         return (
             <ScreenWrapper showLogo={true}>
-                <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />
+                <ActivityIndicator
+                    size="large"
+                    color={theme.colors.primary}
+                    style={{ marginTop: 50 }}
+                />
             </ScreenWrapper>
         );
     }
@@ -95,18 +101,22 @@ export default function SavedEventsScreen({ navigation }) {
                             colors={[theme.colors.primary]}
                         />
                     }
-                    renderItem={({ item }) => (
-                        <EventCard
-                            event={item}
-                        />
-                    )}
+                    renderItem={({ item }) => <EventCard event={item} />}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
                             <View style={styles.emptyIconCircle}>
-                                <Ionicons name="bookmark-outline" size={48} color={theme.colors.textSecondary} />
+                                <Ionicons
+                                    name="bookmark-outline"
+                                    size={48}
+                                    color={theme.colors.textSecondary}
+                                />
                             </View>
-                            <Text style={[styles.emptyText, { color: theme.colors.text }]}>No saved events</Text>
-                            <Text style={[styles.emptySubText, { color: theme.colors.textSecondary }]}>
+                            <Text style={[styles.emptyText, { color: theme.colors.text }]}>
+                                No saved events
+                            </Text>
+                            <Text
+                                style={[styles.emptySubText, { color: theme.colors.textSecondary }]}
+                            >
                                 Tap the bookmark icon on any event to save it for later
                             </Text>
                         </View>
@@ -119,44 +129,45 @@ export default function SavedEventsScreen({ navigation }) {
     );
 }
 
-const getStyles = (theme) => StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    header: {
-        marginBottom: 20,
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        marginBottom: 5,
-    },
-    subtitle: {
-        fontSize: 14,
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        marginTop: 100,
-        paddingHorizontal: 40,
-    },
-    emptyIconCircle: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: theme.colors.surface,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 20,
-        ...theme.shadows.small,
-    },
-    emptyText: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 10,
-    },
-    emptySubText: {
-        fontSize: 14,
-        textAlign: 'center',
-        lineHeight: 20,
-    },
-});
+const getStyles = theme =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+        },
+        header: {
+            marginBottom: 20,
+        },
+        title: {
+            fontSize: 28,
+            fontWeight: 'bold',
+            marginBottom: 5,
+        },
+        subtitle: {
+            fontSize: 14,
+        },
+        emptyContainer: {
+            alignItems: 'center',
+            marginTop: 100,
+            paddingHorizontal: 40,
+        },
+        emptyIconCircle: {
+            width: 100,
+            height: 100,
+            borderRadius: 50,
+            backgroundColor: theme.colors.surface,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 20,
+            ...theme.shadows.small,
+        },
+        emptyText: {
+            fontSize: 20,
+            fontWeight: 'bold',
+            marginBottom: 10,
+        },
+        emptySubText: {
+            fontSize: 14,
+            textAlign: 'center',
+            lineHeight: 20,
+        },
+    });

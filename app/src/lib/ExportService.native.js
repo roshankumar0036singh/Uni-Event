@@ -14,13 +14,13 @@ export const exportParticipantsToExcel = async (participants, eventTitle) => {
             Branch: p.branch || 'Unknown',
             Year: p.year || 'Unknown',
             'Joined At': p.joinedAt ? new Date(p.joinedAt).toLocaleString() : 'N/A',
-            'User ID': p.userId || p.id || 'N/A'
+            'User ID': p.userId || p.id || 'N/A',
         }));
 
         // 2. Create Workbook
         const worksheet = XLSX.utils.json_to_sheet(data);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Participants");
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Participants');
 
         // Define a safe filename
         const safeTitle = eventTitle.replace(/[^a-z0-9]/gi, '_').substring(0, 30);
@@ -31,7 +31,7 @@ export const exportParticipantsToExcel = async (participants, eventTitle) => {
         const uri = FileSystem.cacheDirectory + fileName;
 
         await FileSystem.writeAsStringAsync(uri, wbout, {
-            encoding: FileSystem.EncodingType.Base64
+            encoding: FileSystem.EncodingType.Base64,
         });
 
         // 4. Share
@@ -44,11 +44,10 @@ export const exportParticipantsToExcel = async (participants, eventTitle) => {
         await Sharing.shareAsync(uri, {
             mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             dialogTitle: 'Download Participant List',
-            UTI: 'com.microsoft.excel.xlsx'
+            UTI: 'com.microsoft.excel.xlsx',
         });
-
     } catch (error) {
-        console.error("Export Error:", error);
-        throw new Error("Failed to generate or share Excel file.");
+        console.error('Export Error:', error);
+        throw new Error('Failed to generate or share Excel file.');
     }
 };

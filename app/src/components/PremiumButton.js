@@ -1,5 +1,12 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
 
 export default function PremiumButton({
@@ -9,18 +16,49 @@ export default function PremiumButton({
     disabled = false,
     loading = false,
     icon,
-    style
+    style,
 }) {
     const { theme } = useTheme();
 
     const getColors = () => {
         if (disabled) return { bg: ['#e0e0e0', '#bdbdbd'], text: '#9e9e9e', border: 'transparent' };
         switch (variant) {
-            case 'primary': return { bg: theme.colors.primaryGradient || [theme.colors.primary || '#6200ee', theme.colors.secondary || '#03dac6'], text: '#fff', border: 'transparent' };
-            case 'secondary': return { bg: [theme.colors.secondary || '#03dac6', theme.colors.secondary || '#018786'], text: '#000', border: 'transparent' };
-            case 'outline': return { bg: ['transparent', 'transparent'], text: theme.colors.primary || '#6200ee', border: theme.colors.primary || '#6200ee' };
-            case 'ghost': return { bg: ['transparent', 'transparent'], text: theme.colors.textSecondary || '#757575', border: 'transparent' };
-            default: return { bg: theme.colors.primaryGradient || [theme.colors.primary || '#6200ee', theme.colors.secondary || '#03dac6'], text: '#fff', border: 'transparent' };
+            case 'primary':
+                return {
+                    bg: theme.colors.primaryGradient || [
+                        theme.colors.primary || '#6200ee',
+                        theme.colors.secondary || '#03dac6',
+                    ],
+                    text: '#fff',
+                    border: 'transparent',
+                };
+            case 'secondary':
+                return {
+                    bg: [theme.colors.secondary || '#03dac6', theme.colors.secondary || '#018786'],
+                    text: '#000',
+                    border: 'transparent',
+                };
+            case 'outline':
+                return {
+                    bg: ['transparent', 'transparent'],
+                    text: theme.colors.primary || '#6200ee',
+                    border: theme.colors.primary || '#6200ee',
+                };
+            case 'ghost':
+                return {
+                    bg: ['transparent', 'transparent'],
+                    text: theme.colors.textSecondary || '#757575',
+                    border: 'transparent',
+                };
+            default:
+                return {
+                    bg: theme.colors.primaryGradient || [
+                        theme.colors.primary || '#6200ee',
+                        theme.colors.secondary || '#03dac6',
+                    ],
+                    text: '#fff',
+                    border: 'transparent',
+                };
         }
     };
 
@@ -42,7 +80,7 @@ export default function PremiumButton({
                 style={[
                     styles.container,
                     variant === 'outline' && { borderWidth: 1.5, borderColor: colors.border },
-                    loading && { opacity: 0.8 }
+                    loading && { opacity: 0.8 },
                 ]}
             >
                 {loading ? (
@@ -62,9 +100,14 @@ const styles = StyleSheet.create({
     touchable: {
         borderRadius: 14, // Modern rounded corners
         ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8 },
-            android: { elevation: 4 }
-        })
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 8,
+            },
+            android: { elevation: 4 },
+        }),
     },
     container: {
         paddingVertical: 14,

@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    Alert,
+    TextInput,
+    ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useTheme } from '../lib/ThemeContext';
@@ -50,7 +59,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
             navigation.navigate('Payment', {
                 event,
                 price: event.price,
-                formResponses: responses
+                formResponses: responses,
             });
             return;
         }
@@ -72,7 +81,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 responses: responses,
                 schemaAtSubmission: event.customFormSchema,
                 timestamp: new Date().toISOString(),
-                status: 'confirmed'
+                status: 'confirmed',
             });
 
             // C. Add to Event Participants
@@ -82,18 +91,18 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 email: user.email,
                 branch: userData.branch || 'Unknown',
                 year: userData.year || 'Unknown',
-                joinedAt: new Date().toISOString()
+                joinedAt: new Date().toISOString(),
             });
 
             // D. Add to User's Participating List
             await setDoc(doc(db, 'users', user.uid, 'participating', event.id), {
                 eventId: event.id,
-                joinedAt: new Date().toISOString()
+                joinedAt: new Date().toISOString(),
             });
 
             // E. Award Points
             await updateDoc(doc(db, 'users', user.uid), {
-                points: increment(10)
+                points: increment(10),
             });
 
             // F. Schedule Reminder
@@ -101,7 +110,6 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
 
             Alert.alert('Success', 'Registered! (+10 Points)');
             navigation.popToTop();
-
         } catch (e) {
             console.error(e);
             Alert.alert('Error', 'Failed to register.');
@@ -110,7 +118,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
         }
     };
 
-    const renderField = (field) => {
+    const renderField = field => {
         switch (field.type) {
             case 'text':
             case 'number':
@@ -119,45 +127,57 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                         key={field.id}
                         label={field.label + (field.required ? ' *' : '')}
                         value={responses[field.id] || ''}
-                        onChangeText={(t) => handleChange(field.id, t)}
+                        onChangeText={t => handleChange(field.id, t)}
                         keyboardType={field.type === 'number' ? 'numeric' : 'default'}
                     />
                 );
             case 'dropdown':
                 return (
                     <View key={field.id} style={styles.fieldContainer}>
-                        <Text style={styles.label}>{field.label + (field.required ? ' *' : '')}</Text>
+                        <Text style={styles.label}>
+                            {field.label + (field.required ? ' *' : '')}
+                        </Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             {field.options.map(opt => (
                                 <TouchableOpacity
                                     key={opt}
                                     style={[
                                         styles.chip,
-                                        responses[field.id] === opt && styles.chipActive
+                                        responses[field.id] === opt && styles.chipActive,
                                     ]}
                                     onPress={() => handleChange(field.id, opt)}
                                 >
-                                    <Text style={[
-                                        styles.chipText,
-                                        responses[field.id] === opt && styles.chipTextActive
-                                    ]}>{opt}</Text>
+                                    <Text
+                                        style={[
+                                            styles.chipText,
+                                            responses[field.id] === opt && styles.chipTextActive,
+                                        ]}
+                                    >
+                                        {opt}
+                                    </Text>
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
                     </View>
                 );
             case 'date':
-                const currentDate = responses[field.id] ? new Date(responses[field.id]) : new Date();
+                const currentDate = responses[field.id]
+                    ? new Date(responses[field.id])
+                    : new Date();
                 return (
                     <View key={field.id} style={styles.fieldContainer}>
-                        <Text style={styles.label}>{field.label + (field.required ? ' *' : '')}</Text>
+                        <Text style={styles.label}>
+                            {field.label + (field.required ? ' *' : '')}
+                        </Text>
                         <TouchableOpacity
                             style={styles.dateBtn}
                             onPress={() => setDatePickers({ ...datePickers, [field.id]: true })}
                         >
                             <Ionicons name="calendar-outline" size={20} color={theme.colors.text} />
                             <Text style={styles.dateText}>
-                                {responses[field.id] ? new Date(responses[field.id]).toLocaleDateString() : 'Select Date'}
+                                {responses[field.id]
+                                    ? new Date(responses[field.id]).toLocaleDateString()
+                                    : 'Select Date'}
                             </Text>
                         </TouchableOpacity>
 
@@ -192,50 +212,81 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 <Text style={styles.eventTitle}>{event.title}</Text>
                 <Text style={styles.subtitle}>Please fill out the form below to register.</Text>
 
-                <View style={styles.form}>
-                    {event.customFormSchema.map(renderField)}
-                </View>
+                <View style={styles.form}>{event.customFormSchema.map(renderField)}</View>
 
                 <TouchableOpacity
                     style={[styles.submitBtn, loading && { opacity: 0.7 }]}
                     onPress={handleSubmit}
                     disabled={loading}
                 >
-                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Registration</Text>}
+                    {loading ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.submitBtnText}>Submit Registration</Text>
+                    )}
                 </TouchableOpacity>
             </ScrollView>
         </ScreenWrapper>
     );
 }
 
-const getStyles = (theme) => StyleSheet.create({
-    header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: 10 },
-    headerTitle: { fontSize: 24, fontWeight: 'bold', color: theme.colors.text, marginLeft: 10 },
-    content: { padding: 20 },
-    eventTitle: { fontSize: 22, fontWeight: 'bold', color: theme.colors.primary, marginBottom: 5 },
-    subtitle: { fontSize: 16, color: theme.colors.textSecondary, marginBottom: 25 },
+const getStyles = theme =>
+    StyleSheet.create({
+        header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: 10 },
+        headerTitle: { fontSize: 24, fontWeight: 'bold', color: theme.colors.text, marginLeft: 10 },
+        content: { padding: 20 },
+        eventTitle: {
+            fontSize: 22,
+            fontWeight: 'bold',
+            color: theme.colors.primary,
+            marginBottom: 5,
+        },
+        subtitle: { fontSize: 16, color: theme.colors.textSecondary, marginBottom: 25 },
 
-    form: { gap: 15 },
-    fieldContainer: { marginBottom: 15 },
-    label: { fontSize: 14, fontWeight: '600', color: theme.colors.textSecondary, marginBottom: 8 },
+        form: { gap: 15 },
+        fieldContainer: { marginBottom: 15 },
+        label: {
+            fontSize: 14,
+            fontWeight: '600',
+            color: theme.colors.textSecondary,
+            marginBottom: 8,
+        },
 
-    chip: {
-        paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-        backgroundColor: theme.colors.surface, marginRight: 10, borderWidth: 1, borderColor: theme.colors.border
-    },
-    chipActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
-    chipText: { color: theme.colors.text, fontWeight: '500' },
-    chipTextActive: { color: '#fff', fontWeight: 'bold' },
+        chip: {
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 20,
+            backgroundColor: theme.colors.surface,
+            marginRight: 10,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+        },
+        chipActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+        chipText: { color: theme.colors.text, fontWeight: '500' },
+        chipTextActive: { color: '#fff', fontWeight: 'bold' },
 
-    dateBtn: {
-        flexDirection: 'row', alignItems: 'center', gap: 10,
-        backgroundColor: theme.colors.surface, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border
-    },
-    dateText: { color: theme.colors.text },
+        dateBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            backgroundColor: theme.colors.surface,
+            padding: 16,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+        },
+        dateText: { color: theme.colors.text },
 
-    submitBtn: {
-        backgroundColor: theme.colors.primary, padding: 18, borderRadius: 16, alignItems: 'center', marginTop: 30,
-        shadowColor: theme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, elevation: 5
-    },
-    submitBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' }
-});
+        submitBtn: {
+            backgroundColor: theme.colors.primary,
+            padding: 18,
+            borderRadius: 16,
+            alignItems: 'center',
+            marginTop: 30,
+            shadowColor: theme.colors.primary,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            elevation: 5,
+        },
+        submitBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+    });

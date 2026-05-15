@@ -1,6 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    Modal,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
 
 export default function AppealModal({ visible, onClose, onSubmit, isSubmitting }) {
@@ -10,7 +19,7 @@ export default function AppealModal({ visible, onClose, onSubmit, isSubmitting }
 
     const handleSubmit = () => {
         if (!subject.trim() || !message.trim()) {
-            Alert.alert("Required", "Please fill in both subject and message.");
+            Alert.alert('Required', 'Please fill in both subject and message.');
             return;
         }
         onSubmit({ subject, message });
@@ -21,8 +30,14 @@ export default function AppealModal({ visible, onClose, onSubmit, isSubmitting }
             <View style={styles.overlay}>
                 <View style={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}>
                     <View style={styles.header}>
-                        <Ionicons name="chatbubbles-outline" size={32} color={theme.colors.primary} />
-                        <Text style={[styles.title, { color: theme.colors.text }]}>Appeal Suspension</Text>
+                        <Ionicons
+                            name="chatbubbles-outline"
+                            size={32}
+                            color={theme.colors.primary}
+                        />
+                        <Text style={[styles.title, { color: theme.colors.text }]}>
+                            Appeal Suspension
+                        </Text>
                     </View>
                     <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
                         Please provide a subject and detailed message for the admin to review.
@@ -30,7 +45,14 @@ export default function AppealModal({ visible, onClose, onSubmit, isSubmitting }
 
                     <Text style={[styles.label, { color: theme.colors.text }]}>Subject</Text>
                     <TextInput
-                        style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text, borderColor: theme.colors.border }]}
+                        style={[
+                            styles.input,
+                            {
+                                backgroundColor: theme.colors.background,
+                                color: theme.colors.text,
+                                borderColor: theme.colors.border,
+                            },
+                        ]}
                         placeholder="e.g. Content Violation Fixed"
                         placeholderTextColor={theme.colors.textSecondary}
                         value={subject}
@@ -39,7 +61,16 @@ export default function AppealModal({ visible, onClose, onSubmit, isSubmitting }
 
                     <Text style={[styles.label, { color: theme.colors.text }]}>Message</Text>
                     <TextInput
-                        style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text, borderColor: theme.colors.border, minHeight: 120, textAlignVertical: 'top' }]}
+                        style={[
+                            styles.input,
+                            {
+                                backgroundColor: theme.colors.background,
+                                color: theme.colors.text,
+                                borderColor: theme.colors.border,
+                                minHeight: 120,
+                                textAlignVertical: 'top',
+                            },
+                        ]}
                         placeholder="Explain why the event should be restored..."
                         placeholderTextColor={theme.colors.textSecondary}
                         value={message}
@@ -48,8 +79,17 @@ export default function AppealModal({ visible, onClose, onSubmit, isSubmitting }
                     />
 
                     <View style={styles.buttons}>
-                        <TouchableOpacity style={[styles.btn, styles.cancelBtn, { borderColor: theme.colors.border }]} onPress={onClose}>
-                            <Text style={{ color: theme.colors.text, fontWeight: '600' }}>Cancel</Text>
+                        <TouchableOpacity
+                            style={[
+                                styles.btn,
+                                styles.cancelBtn,
+                                { borderColor: theme.colors.border },
+                            ]}
+                            onPress={onClose}
+                        >
+                            <Text style={{ color: theme.colors.text, fontWeight: '600' }}>
+                                Cancel
+                            </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.btn, { backgroundColor: theme.colors.primary }]}
@@ -59,7 +99,9 @@ export default function AppealModal({ visible, onClose, onSubmit, isSubmitting }
                             {isSubmitting ? (
                                 <ActivityIndicator size="small" color="#fff" />
                             ) : (
-                                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Submit Appeal</Text>
+                                <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                                    Submit Appeal
+                                </Text>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -75,7 +117,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.7)',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20
+        padding: 20,
     },
     modalContainer: {
         width: '100%',
@@ -87,7 +129,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        marginBottom: 8
+        marginBottom: 8,
     },
     title: {
         fontSize: 20,
@@ -96,35 +138,35 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 14,
         marginBottom: 20,
-        lineHeight: 20
+        lineHeight: 20,
     },
     label: {
         fontSize: 14,
         fontWeight: '700',
         marginBottom: 8,
-        marginLeft: 4
+        marginLeft: 4,
     },
     input: {
         borderRadius: 12,
         padding: 16,
         fontSize: 14,
         borderWidth: 1,
-        marginBottom: 20
+        marginBottom: 20,
     },
     buttons: {
         flexDirection: 'row',
         gap: 12,
-        marginTop: 8
+        marginTop: 8,
     },
     btn: {
         flex: 1,
         height: 50,
         borderRadius: 12,
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
     },
     cancelBtn: {
         backgroundColor: 'transparent',
-        borderWidth: 1
-    }
+        borderWidth: 1,
+    },
 });

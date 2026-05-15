@@ -13,10 +13,10 @@ export default function WebQRScanner({ onScan, style }) {
             // Dynamic import to avoid issues on native
             try {
                 const { Html5Qrcode } = require('html5-qrcode');
-                html5QrCode = new Html5Qrcode("reader");
+                html5QrCode = new Html5Qrcode('reader');
 
                 await html5QrCode.start(
-                    { facingMode: "environment" },
+                    { facingMode: 'environment' },
                     {
                         fps: 10,
                         // qrbox: { width: 250, height: 250 } // Commented out to prevent default library overlay brackets
@@ -24,14 +24,14 @@ export default function WebQRScanner({ onScan, style }) {
                     (decodedText, decodedResult) => {
                         onScan(decodedText);
                         // Optional: Stop scanning after first success if needed, or keep scanning
-                        // html5QrCode.stop(); 
+                        // html5QrCode.stop();
                     },
-                    (errorMessage) => {
+                    errorMessage => {
                         // parsed error, ignore
-                    }
+                    },
                 );
             } catch (err) {
-                console.error("Failed to start scanner", err);
+                console.error('Failed to start scanner', err);
             }
         };
 
@@ -50,7 +50,9 @@ export default function WebQRScanner({ onScan, style }) {
     return (
         <View style={[styles.container, style]}>
             <div id="reader" style={{ width: '100%', height: '100%' }}></div>
-            <Text style={{ textAlign: 'center', marginTop: 10, color: '#666' }}>Allow camera access to scan</Text>
+            <Text style={{ textAlign: 'center', marginTop: 10, color: '#666' }}>
+                Allow camera access to scan
+            </Text>
         </View>
     );
 }
@@ -61,5 +63,5 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: 300,
-    }
+    },
 });

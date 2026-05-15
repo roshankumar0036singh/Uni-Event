@@ -11,7 +11,7 @@ export const exportAttendanceCSV = async (eventId, eventTitle) => {
         // Fetch all check-ins
         const q = query(
             collection(db, 'events', eventId, 'checkIns'),
-            orderBy('checkedInAt', 'asc')
+            orderBy('checkedInAt', 'asc'),
         );
 
         const snapshot = await getDocs(q);
@@ -45,7 +45,7 @@ export const exportAttendanceCSV = async (eventId, eventTitle) => {
             await Sharing.shareAsync(fileUri, {
                 mimeType: 'text/csv',
                 dialogTitle: 'Export Attendance Report',
-                UTI: 'public.comma-separated-values-text'
+                UTI: 'public.comma-separated-values-text',
             });
         } else {
             throw new Error('Sharing is not available on this device');
@@ -54,14 +54,13 @@ export const exportAttendanceCSV = async (eventId, eventTitle) => {
         return {
             success: true,
             message: 'CSV exported successfully',
-            fileUri
+            fileUri,
         };
-
     } catch (error) {
         console.error('CSV export error:', error);
         return {
             success: false,
-            error: error.message || 'Failed to export CSV'
+            error: error.message || 'Failed to export CSV',
         };
     }
 };
@@ -74,7 +73,7 @@ export const exportAttendancePDF = async (eventId, eventTitle, eventData) => {
         // Fetch all check-ins
         const q = query(
             collection(db, 'events', eventId, 'checkIns'),
-            orderBy('checkedInAt', 'asc')
+            orderBy('checkedInAt', 'asc'),
         );
 
         const snapshot = await getDocs(q);
@@ -91,9 +90,8 @@ export const exportAttendancePDF = async (eventId, eventTitle, eventData) => {
         // Calculate stats
         const totalRegistrations = eventData?.stats?.totalRegistrations || 0;
         const totalCheckedIn = checkIns.length;
-        const checkInRate = totalRegistrations > 0
-            ? ((totalCheckedIn / totalRegistrations) * 100).toFixed(1)
-            : 0;
+        const checkInRate =
+            totalRegistrations > 0 ? ((totalCheckedIn / totalRegistrations) * 100).toFixed(1) : 0;
 
         // Build HTML content
         const htmlContent = `
@@ -187,7 +185,7 @@ export const exportAttendancePDF = async (eventId, eventTitle, eventData) => {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
-            day: 'numeric'
+            day: 'numeric',
         })}</div>
     </div>
 
@@ -218,7 +216,9 @@ export const exportAttendancePDF = async (eventId, eventTitle, eventData) => {
             </tr>
         </thead>
         <tbody>
-            ${checkIns.map((item, index) => `
+            ${checkIns
+                .map(
+                    (item, index) => `
                 <tr>
                     <td>${index + 1}</td>
                     <td>${item.userName || 'N/A'}</td>
@@ -227,7 +227,9 @@ export const exportAttendancePDF = async (eventId, eventTitle, eventData) => {
                     <td>${item.userBranch || 'N/A'}</td>
                     <td>${item.checkedInAt?.toDate ? item.checkedInAt.toDate().toLocaleString() : 'N/A'}</td>
                 </tr>
-            `).join('')}
+            `,
+                )
+                .join('')}
         </tbody>
     </table>
 
@@ -259,14 +261,13 @@ export const exportAttendancePDF = async (eventId, eventTitle, eventData) => {
         return {
             success: true,
             message: 'PDF exported successfully',
-            fileUri
+            fileUri,
         };
-
     } catch (error) {
         console.error('PDF export error:', error);
         return {
             success: false,
-            error: error.message || 'Failed to export PDF'
+            error: error.message || 'Failed to export PDF',
         };
     }
 };

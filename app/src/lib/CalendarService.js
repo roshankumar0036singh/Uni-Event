@@ -9,25 +9,21 @@ const DISCOVERY = {
     authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
     tokenEndpoint: 'https://oauth2.googleapis.com/token',
 };
-const SCOPES = [
-    'openid',
-    'https://www.googleapis.com/auth/calendar.events',
-];
+const SCOPES = ['openid', 'https://www.googleapis.com/auth/calendar.events'];
 
 WebBrowser.maybeCompleteAuthSession();
 
 export const useCalendarAuth = () => {
     // Simplified Redirect Logic
-    const redirectUri = Platform.OS === 'web'
-        ? window.location.origin
-        : makeRedirectUri({ useProxy: true });
+    const redirectUri =
+        Platform.OS === 'web' ? window.location.origin : makeRedirectUri({ useProxy: true });
 
     // 🔍 DEBUG: Show Redirect URI only on Mobile Web (Ngrok)
     useEffect(() => {
         if (Platform.OS === 'web' && window.location.hostname !== 'localhost') {
             Alert.alert(
-                "Mobile Web Calendar Debug",
-                `Generated Redirect URI:\n${redirectUri}\n\nPlease add EXACTLY this to Google Console.`
+                'Mobile Web Calendar Debug',
+                `Generated Redirect URI:\n${redirectUri}\n\nPlease add EXACTLY this to Google Console.`,
             );
         }
     }, []);
@@ -41,7 +37,7 @@ export const useCalendarAuth = () => {
             prompt: Prompt.SelectAccount,
             usePKCE: false, // ✅ FIXED: Disable PKCE for Implicit Flow (ResponseType.Token)
         },
-        DISCOVERY
+        DISCOVERY,
     );
 
     // ✅ FIXED: Using Implicit Flow (ResponseType.Token), so we get accessToken directly.
@@ -83,7 +79,7 @@ export const createMeetEvent = async (accessToken, eventDetails) => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(eventBody),
-            }
+            },
         );
 
         const data = await response.json();
@@ -93,11 +89,10 @@ export const createMeetEvent = async (accessToken, eventDetails) => {
         return {
             meetLink: data.hangoutLink,
             eventId: data.id,
-            htmlLink: data.htmlLink // Link to calendar event
+            htmlLink: data.htmlLink, // Link to calendar event
         };
-
     } catch (error) {
-        console.error("Calendar API Error:", error);
+        console.error('Calendar API Error:', error);
         throw error;
     }
 };
@@ -125,14 +120,14 @@ export const addToCalendar = async (accessToken, event) => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(eventBody),
-            }
+            },
         );
 
         const data = await response.json();
         if (data.error) throw new Error(data.error.message);
         return data;
     } catch (error) {
-        console.error("Add to Calendar Error:", error);
+        console.error('Add to Calendar Error:', error);
         throw error;
     }
 };
