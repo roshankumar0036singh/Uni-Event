@@ -19,7 +19,7 @@ const SkeletonItem = ({ style }) => {
                     duration: 800,
                     useNativeDriver: true,
                 }),
-            ])
+            ]),
         ).start();
     }, []);
 
@@ -39,7 +39,7 @@ const SkeletonItem = ({ style }) => {
 export const EventListSkeleton = () => {
     return (
         <View style={styles.container}>
-            {[1, 2, 3].map((key) => (
+            {[1, 2, 3].map(key => (
                 <View key={key} style={styles.card}>
                     <SkeletonItem style={styles.image} />
                     <View style={styles.content}>

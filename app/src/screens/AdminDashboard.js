@@ -4,16 +4,16 @@ import DesktopAdmin from './DesktopAdmin';
 import MobileAdmin from './MobileAdmin';
 
 export default function AdminDashboard() {
-  const { width } = useWindowDimensions();
-  const { role } = useAuth();
+    const { width } = useWindowDimensions();
+    const { role } = useAuth();
 
-  if (role !== 'admin') {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text>Access Denied. Admins only.</Text>
-      </View>
-    );
-  }
+    if (role !== 'admin') {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <Text>Access Denied. Admins only.</Text>
+            </View>
+        );
+    }
 
-  return width >= 1024 ? <DesktopAdmin /> : <MobileAdmin />;
+    return width >= 1024 ? <DesktopAdmin /> : <MobileAdmin />;
 }

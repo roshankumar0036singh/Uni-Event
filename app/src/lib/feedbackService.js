@@ -12,7 +12,7 @@ export const submitFeedback = async ({
     attended,
     eventRating,
     clubRating,
-    feedback
+    feedback,
 }) => {
     const batch = writeBatch(db);
 
@@ -27,14 +27,14 @@ export const submitFeedback = async ({
             feedback: attended ? feedback : null,
             submittedAt: serverTimestamp(),
             eventId,
-            clubId
+            clubId,
         });
 
         // 2. Update event stats
         const eventRef = doc(db, 'events', eventId);
 
         const statsUpdate = {
-            feedbackCount: increment(1)
+            feedbackCount: increment(1),
         };
 
         if (attended) {
@@ -60,17 +60,21 @@ export const submitFeedback = async ({
                 batch.update(clubRef, {
                     'reputation.totalPoints': increment(clubRating),
                     'reputation.totalRatings': increment(1),
-                    'reputation.lastUpdated': serverTimestamp()
+                    'reputation.lastUpdated': serverTimestamp(),
                 });
             } else {
                 // If club document doesn't exist, create it with reputation
-                batch.set(clubRef, {
-                    reputation: {
-                        totalPoints: clubRating,
-                        totalRatings: 1,
-                        lastUpdated: serverTimestamp()
-                    }
-                }, { merge: true });
+                batch.set(
+                    clubRef,
+                    {
+                        reputation: {
+                            totalPoints: clubRating,
+                            totalRatings: 1,
+                            lastUpdated: serverTimestamp(),
+                        },
+                    },
+                    { merge: true },
+                );
             }
         }
 
@@ -78,7 +82,7 @@ export const submitFeedback = async ({
         if (attended) {
             const userRef = doc(db, 'users', userId);
             batch.update(userRef, {
-                points: increment(5) // Award 5 points for giving feedback
+                points: increment(5), // Award 5 points for giving feedback
             });
         }
 
@@ -87,7 +91,7 @@ export const submitFeedback = async ({
             const requestRef = doc(db, 'feedbackRequests', feedbackRequestId);
             batch.update(requestRef, {
                 status: 'completed',
-                completedAt: serverTimestamp()
+                completedAt: serverTimestamp(),
             });
         }
 
@@ -105,7 +109,7 @@ export const submitFeedback = async ({
 /**
  * Calculate average rating from reputation data
  */
-export const calculateAverageRating = (reputation) => {
+export const calculateAverageRating = reputation => {
     if (!reputation || !reputation.totalRatings || reputation.totalRatings === 0) {
         return 0;
     }

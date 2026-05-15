@@ -49,7 +49,7 @@ export default function QRScannerScreen({ navigation, route }) {
                 if (ticketData.eventId !== eventId) {
                     setScanResult({
                         status: 'error',
-                        message: 'This ticket is for a different event!'
+                        message: 'This ticket is for a different event!',
                     });
                     return;
                 }
@@ -80,20 +80,21 @@ export default function QRScannerScreen({ navigation, route }) {
                 userYear: userData.year || ticketData?.year,
                 checkedInAt: serverTimestamp(),
                 checkedBy: user.uid,
-                ticketId: ticketData?.ticketId || null
+                ticketId: ticketData?.ticketId || null,
             });
 
             // 3. Mark registration as attended (optional, if separate collection)
             const registrationRef = doc(db, 'events', eventId, 'registrations', scannedUserId);
             // Check if registration exists first or just set merge
-            await updateDoc(registrationRef, { status: 'attended' }).catch(err => console.log('No reg doc, skipping update'));
+            await updateDoc(registrationRef, { status: 'attended' }).catch(err =>
+                console.log('No reg doc, skipping update'),
+            );
 
             setScanResult({
                 status: 'success',
                 message: `Checked in ${userData.name || ticketData?.attendeeName}!`,
-                user: userData
+                user: userData,
             });
-
         } catch (error) {
             console.error(error);
             setScanResult({ status: 'error', message: 'Check-in failed. Try again.' });
@@ -101,10 +102,18 @@ export default function QRScannerScreen({ navigation, route }) {
     };
 
     if (hasPermission === null) {
-        return <View style={styles.container}><Text>Requesting camera permission...</Text></View>;
+        return (
+            <View style={styles.container}>
+                <Text>Requesting camera permission...</Text>
+            </View>
+        );
     }
     if (hasPermission === false) {
-        return <View style={styles.container}><Text>No access to camera</Text></View>;
+        return (
+            <View style={styles.container}>
+                <Text>No access to camera</Text>
+            </View>
+        );
     }
 
     return (
@@ -119,7 +128,7 @@ export default function QRScannerScreen({ navigation, route }) {
             <View style={styles.cameraContainer}>
                 {Platform.OS === 'web' ? (
                     <WebQRScanner
-                        onScan={(data) => !scanned && handleBarCodeScanned({ type: 'qr', data })}
+                        onScan={data => !scanned && handleBarCodeScanned({ type: 'qr', data })}
                         style={styles.camera}
                     />
                 ) : (
@@ -155,7 +164,12 @@ export default function QRScannerScreen({ navigation, route }) {
                         <TouchableOpacity
                             style={[
                                 styles.actionBtn,
-                                { backgroundColor: scanResult?.status === 'success' ? '#4CAF50' : theme.colors.primary }
+                                {
+                                    backgroundColor:
+                                        scanResult?.status === 'success'
+                                            ? '#4CAF50'
+                                            : theme.colors.primary,
+                                },
                             ]}
                             onPress={() => {
                                 setScanned(false);
@@ -186,7 +200,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     closeBtn: { padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
-    headerTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 10, textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 4 },
+    headerTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+        marginLeft: 10,
+        textShadowColor: 'rgba(0,0,0,0.7)',
+        textShadowRadius: 4,
+    },
     overlayFrame: {
         ...StyleSheet.absoluteFillObject,
         justifyContent: 'center',
@@ -218,5 +239,5 @@ const styles = StyleSheet.create({
     resultTitle: { fontSize: 22, fontWeight: 'bold', marginTop: 10 },
     resultMessage: { fontSize: 16, textAlign: 'center', marginTop: 5, marginBottom: 20 },
     actionBtn: { paddingHorizontal: 40, paddingVertical: 12, borderRadius: 25 },
-    actionBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
+    actionBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 });

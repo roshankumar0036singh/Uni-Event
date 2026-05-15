@@ -1,7 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { Rating } from 'react-native-ratings';
 import { useTheme } from '../lib/ThemeContext';
 
@@ -30,7 +40,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                 attended,
                 eventRating: attended ? eventRating : null,
                 clubRating: attended ? clubRating : null,
-                feedback: attended ? feedback : null
+                feedback: attended ? feedback : null,
             });
 
             // Reset form
@@ -50,12 +60,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
     if (!feedbackRequest) return null;
 
     return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="fade"
-            onRequestClose={onClose}
-        >
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={styles.overlay}>
                 <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
                     <ScrollView showsVerticalScrollIndicator={false}>
@@ -90,21 +95,34 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                     style={[
                                         styles.attendanceButton,
                                         {
-                                            backgroundColor: attended === true ? theme.colors.primary : theme.colors.surface,
-                                            borderColor: attended === true ? theme.colors.primary : theme.colors.border
-                                        }
+                                            backgroundColor:
+                                                attended === true
+                                                    ? theme.colors.primary
+                                                    : theme.colors.surface,
+                                            borderColor:
+                                                attended === true
+                                                    ? theme.colors.primary
+                                                    : theme.colors.border,
+                                        },
                                     ]}
                                     onPress={() => setAttended(true)}
                                 >
                                     <Ionicons
                                         name="checkmark-circle"
                                         size={24}
-                                        color={attended === true ? '#fff' : theme.colors.textSecondary}
+                                        color={
+                                            attended === true ? '#fff' : theme.colors.textSecondary
+                                        }
                                     />
-                                    <Text style={[
-                                        styles.attendanceText,
-                                        { color: attended === true ? '#fff' : theme.colors.text }
-                                    ]}>
+                                    <Text
+                                        style={[
+                                            styles.attendanceText,
+                                            {
+                                                color:
+                                                    attended === true ? '#fff' : theme.colors.text,
+                                            },
+                                        ]}
+                                    >
                                         Yes, I attended
                                     </Text>
                                 </TouchableOpacity>
@@ -113,21 +131,38 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                     style={[
                                         styles.attendanceButton,
                                         {
-                                            backgroundColor: attended === false ? theme.colors.error + '20' : theme.colors.surface,
-                                            borderColor: attended === false ? theme.colors.error : theme.colors.border
-                                        }
+                                            backgroundColor:
+                                                attended === false
+                                                    ? theme.colors.error + '20'
+                                                    : theme.colors.surface,
+                                            borderColor:
+                                                attended === false
+                                                    ? theme.colors.error
+                                                    : theme.colors.border,
+                                        },
                                     ]}
                                     onPress={() => setAttended(false)}
                                 >
                                     <Ionicons
                                         name="close-circle"
                                         size={24}
-                                        color={attended === false ? theme.colors.error : theme.colors.textSecondary}
+                                        color={
+                                            attended === false
+                                                ? theme.colors.error
+                                                : theme.colors.textSecondary
+                                        }
                                     />
-                                    <Text style={[
-                                        styles.attendanceText,
-                                        { color: attended === false ? theme.colors.error : theme.colors.text }
-                                    ]}>
+                                    <Text
+                                        style={[
+                                            styles.attendanceText,
+                                            {
+                                                color:
+                                                    attended === false
+                                                        ? theme.colors.error
+                                                        : theme.colors.text,
+                                            },
+                                        ]}
+                                    >
                                         No, I didn't
                                     </Text>
                                 </TouchableOpacity>
@@ -139,7 +174,9 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                             <>
                                 {/* Event Rating */}
                                 <View style={styles.section}>
-                                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                                    <Text
+                                        style={[styles.sectionTitle, { color: theme.colors.text }]}
+                                    >
                                         How was the event?
                                     </Text>
                                     <Rating
@@ -151,18 +188,31 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                         tintColor={theme.colors.background}
                                         style={styles.rating}
                                     />
-                                    <Text style={[styles.ratingLabel, { color: theme.colors.textSecondary }]}>
-                                        {eventRating === 0 ? 'Tap to rate' :
-                                            eventRating === 1 ? 'Poor' :
-                                                eventRating === 2 ? 'Fair' :
-                                                    eventRating === 3 ? 'Good' :
-                                                        eventRating === 4 ? 'Very Good' : 'Excellent'}
+                                    <Text
+                                        style={[
+                                            styles.ratingLabel,
+                                            { color: theme.colors.textSecondary },
+                                        ]}
+                                    >
+                                        {eventRating === 0
+                                            ? 'Tap to rate'
+                                            : eventRating === 1
+                                              ? 'Poor'
+                                              : eventRating === 2
+                                                ? 'Fair'
+                                                : eventRating === 3
+                                                  ? 'Good'
+                                                  : eventRating === 4
+                                                    ? 'Very Good'
+                                                    : 'Excellent'}
                                     </Text>
                                 </View>
 
                                 {/* Club Rating */}
                                 <View style={styles.section}>
-                                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                                    <Text
+                                        style={[styles.sectionTitle, { color: theme.colors.text }]}
+                                    >
                                         How was the organizer?
                                     </Text>
                                     <Rating
@@ -174,18 +224,31 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                         tintColor={theme.colors.background}
                                         style={styles.rating}
                                     />
-                                    <Text style={[styles.ratingLabel, { color: theme.colors.textSecondary }]}>
-                                        {clubRating === 0 ? 'Tap to rate' :
-                                            clubRating === 1 ? 'Poor' :
-                                                clubRating === 2 ? 'Fair' :
-                                                    clubRating === 3 ? 'Good' :
-                                                        clubRating === 4 ? 'Very Good' : 'Excellent'}
+                                    <Text
+                                        style={[
+                                            styles.ratingLabel,
+                                            { color: theme.colors.textSecondary },
+                                        ]}
+                                    >
+                                        {clubRating === 0
+                                            ? 'Tap to rate'
+                                            : clubRating === 1
+                                              ? 'Poor'
+                                              : clubRating === 2
+                                                ? 'Fair'
+                                                : clubRating === 3
+                                                  ? 'Good'
+                                                  : clubRating === 4
+                                                    ? 'Very Good'
+                                                    : 'Excellent'}
                                     </Text>
                                 </View>
 
                                 {/* Optional Feedback */}
                                 <View style={styles.section}>
-                                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                                    <Text
+                                        style={[styles.sectionTitle, { color: theme.colors.text }]}
+                                    >
                                         Additional Comments (Optional)
                                     </Text>
                                     <TextInput
@@ -194,8 +257,8 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                             {
                                                 backgroundColor: theme.colors.surface,
                                                 color: theme.colors.text,
-                                                borderColor: theme.colors.border
-                                            }
+                                                borderColor: theme.colors.border,
+                                            },
                                         ]}
                                         placeholder="Share your experience..."
                                         placeholderTextColor={theme.colors.textSecondary}
@@ -212,7 +275,11 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                         {/* Action Buttons */}
                         <View style={styles.actions}>
                             <TouchableOpacity
-                                style={[styles.button, styles.cancelButton, { borderColor: theme.colors.border }]}
+                                style={[
+                                    styles.button,
+                                    styles.cancelButton,
+                                    { borderColor: theme.colors.border },
+                                ]}
                                 onPress={onClose}
                                 disabled={loading}
                             >
@@ -225,7 +292,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                 style={[
                                     styles.button,
                                     styles.submitButton,
-                                    { backgroundColor: theme.colors.primary }
+                                    { backgroundColor: theme.colors.primary },
                                 ]}
                                 onPress={handleSubmit}
                                 disabled={loading || attended === null}
@@ -233,9 +300,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                 {loading ? (
                                     <ActivityIndicator color="#fff" />
                                 ) : (
-                                    <Text style={styles.submitButtonText}>
-                                        Submit Feedback
-                                    </Text>
+                                    <Text style={styles.submitButtonText}>Submit Feedback</Text>
                                 )}
                             </TouchableOpacity>
                         </View>

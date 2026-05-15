@@ -14,7 +14,7 @@ export const validateTicket = async (ticketId, eventId) => {
             return {
                 valid: false,
                 error: 'Ticket not found',
-                message: 'This ticket does not exist in our system.'
+                message: 'This ticket does not exist in our system.',
             };
         }
 
@@ -25,7 +25,7 @@ export const validateTicket = async (ticketId, eventId) => {
             return {
                 valid: false,
                 error: 'Wrong event',
-                message: 'This ticket is for a different event.'
+                message: 'This ticket is for a different event.',
             };
         }
 
@@ -34,7 +34,7 @@ export const validateTicket = async (ticketId, eventId) => {
             return {
                 valid: false,
                 error: 'Invalid ticket',
-                message: `Ticket status: ${ticketData.status}. Only paid tickets are valid.`
+                message: `Ticket status: ${ticketData.status}. Only paid tickets are valid.`,
             };
         }
 
@@ -45,7 +45,7 @@ export const validateTicket = async (ticketId, eventId) => {
                 error: 'Already checked in',
                 message: `This attendee was already checked in at ${new Date(ticketData.checkedInAt?.toMillis()).toLocaleTimeString()}.`,
                 alreadyCheckedIn: true,
-                ticketData
+                ticketData,
             };
         }
 
@@ -54,16 +54,15 @@ export const validateTicket = async (ticketId, eventId) => {
             valid: true,
             ticketData: {
                 id: ticketId,
-                ...ticketData
-            }
+                ...ticketData,
+            },
         };
-
     } catch (error) {
         console.error('Ticket validation error:', error);
         return {
             valid: false,
             error: 'Validation failed',
-            message: 'Unable to validate ticket. Please check your connection.'
+            message: 'Unable to validate ticket. Please check your connection.',
         };
     }
 };
@@ -88,7 +87,7 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
             checkedInAt: serverTimestamp(),
             checkedInBy: organizerId,
             checkedInByName: organizerName,
-            status: 'checked-in'
+            status: 'checked-in',
         });
 
         // Update ticket status
@@ -96,27 +95,26 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
         await updateDoc(ticketRef, {
             checkInStatus: 'checked-in',
             checkedInAt: serverTimestamp(),
-            checkedInBy: organizerId
+            checkedInBy: organizerId,
         });
 
         // Update event stats
         const eventRef = doc(db, 'events', eventId);
         await updateDoc(eventRef, {
             'stats.totalCheckedIn': increment(1),
-            'stats.lastCheckInAt': serverTimestamp()
+            'stats.lastCheckInAt': serverTimestamp(),
         });
 
         return {
             success: true,
-            message: `${ticketData.userName} checked in successfully!`
+            message: `${ticketData.userName} checked in successfully!`,
         };
-
     } catch (error) {
         console.error('Check-in error:', error);
         return {
             success: false,
             error: 'Check-in failed',
-            message: 'Unable to complete check-in. Please try again.'
+            message: 'Unable to complete check-in. Please try again.',
         };
     }
 };
@@ -124,7 +122,7 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
 /**
  * Get attendance statistics for an event
  */
-export const getAttendanceStats = async (eventId) => {
+export const getAttendanceStats = async eventId => {
     try {
         const eventRef = doc(db, 'events', eventId);
         const eventSnap = await getDoc(eventRef);
@@ -138,18 +136,16 @@ export const getAttendanceStats = async (eventId) => {
 
         const totalRegistrations = stats.totalRegistrations || 0;
         const totalCheckedIn = stats.totalCheckedIn || 0;
-        const checkInRate = totalRegistrations > 0
-            ? ((totalCheckedIn / totalRegistrations) * 100).toFixed(1)
-            : 0;
+        const checkInRate =
+            totalRegistrations > 0 ? ((totalCheckedIn / totalRegistrations) * 100).toFixed(1) : 0;
 
         return {
             totalRegistrations,
             totalCheckedIn,
             checkInRate: parseFloat(checkInRate),
             lastCheckInAt: stats.lastCheckInAt,
-            pending: totalRegistrations - totalCheckedIn
+            pending: totalRegistrations - totalCheckedIn,
         };
-
     } catch (error) {
         console.error('Error fetching stats:', error);
         return null;
@@ -159,14 +155,14 @@ export const getAttendanceStats = async (eventId) => {
 /**
  * Parse QR code data
  */
-export const parseQRCode = (qrData) => {
+export const parseQRCode = qrData => {
     try {
         const data = JSON.parse(qrData);
 
         if (!data.ticketId || !data.eventId) {
             return {
                 valid: false,
-                error: 'Invalid QR code format'
+                error: 'Invalid QR code format',
             };
         }
 
@@ -178,13 +174,12 @@ export const parseQRCode = (qrData) => {
             attendeeName: data.attendeeName,
             attendeeEmail: data.attendeeEmail,
             year: data.year,
-            branch: data.branch
+            branch: data.branch,
         };
-
     } catch (error) {
         return {
             valid: false,
-            error: 'Unable to parse QR code'
+            error: 'Unable to parse QR code',
         };
     }
 };

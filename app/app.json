@@ -1,48 +1,44 @@
 {
-  "expo": {
-    "name": "Centralized Event Platform",
-    "slug": "centralized-event-platform",
-    "owner": "vinaykt_06",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/UniEvent.png",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/UniEvent.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.hack2skill.eventloop"
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/UniEvent.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.hack2skill.eventloop"
-    },
-    "web": {
-      "favicon": "./assets/UniEvent.png",
-      "bundler": "metro",
-      "name": "UniEvent",
-      "shortName": "UniEvent",
-      "startUrl": "/",
-      "display": "standalone",
-      "backgroundColor": "#ffffff",
-      "themeColor": "#ffffff",
-      "description": "Centralized Event Platform for university clubs and events.",
-      "orientation": "portrait",
-      "dir": "ltr",
-      "lang": "en-US"
-    },
-    "plugins": [
-      "expo-notifications"
-    ],
-    "scheme": "centralized-event-platform"
-  }
+    "expo": {
+        "name": "Centralized Event Platform",
+        "slug": "centralized-event-platform",
+        "owner": "vinaykt_06",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "icon": "./assets/UniEvent.png",
+        "userInterfaceStyle": "light",
+        "splash": {
+            "image": "./assets/UniEvent.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#ffffff"
+        },
+        "assetBundlePatterns": ["**/*"],
+        "ios": {
+            "supportsTablet": true,
+            "bundleIdentifier": "com.hack2skill.eventloop"
+        },
+        "android": {
+            "adaptiveIcon": {
+                "foregroundImage": "./assets/UniEvent.png",
+                "backgroundColor": "#ffffff"
+            },
+            "package": "com.hack2skill.eventloop"
+        },
+        "web": {
+            "favicon": "./assets/UniEvent.png",
+            "bundler": "metro",
+            "name": "UniEvent",
+            "shortName": "UniEvent",
+            "startUrl": "/",
+            "display": "standalone",
+            "backgroundColor": "#ffffff",
+            "themeColor": "#ffffff",
+            "description": "Centralized Event Platform for university clubs and events.",
+            "orientation": "portrait",
+            "dir": "ltr",
+            "lang": "en-US"
+        },
+        "plugins": ["expo-notifications"],
+        "scheme": "centralized-event-platform"
+    }
 }

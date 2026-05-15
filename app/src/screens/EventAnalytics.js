@@ -35,19 +35,29 @@ export default function EventAnalytics({ route, navigation }) {
 
             setLoading(false);
         } catch (e) {
-            console.error("Analytics Error", e);
+            console.error('Analytics Error', e);
             setLoading(false);
         }
     };
 
-    if (loading) return (
-        <ScreenWrapper>
-             <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />
-        </ScreenWrapper>
-    );
+    if (loading)
+        return (
+            <ScreenWrapper>
+                <ActivityIndicator
+                    size="large"
+                    color={theme.colors.primary}
+                    style={{ marginTop: 50 }}
+                />
+            </ScreenWrapper>
+        );
 
     const renderStudent = ({ item }) => (
-        <View style={[styles.studentCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+        <View
+            style={[
+                styles.studentCard,
+                { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+            ]}
+        >
             <View style={styles.studentInfo}>
                 <Text style={[styles.studentName, { color: theme.colors.text }]}>{item.name}</Text>
                 <Text style={{ color: theme.colors.textSecondary }}>{item.email}</Text>
@@ -66,32 +76,48 @@ export default function EventAnalytics({ route, navigation }) {
     return (
         <ScreenWrapper>
             <View style={styles.container}>
-                <Text style={[theme.typography.h2, { color: theme.colors.text, marginBottom: 20 }]}>Stats & Analytics</Text>
-                
+                <Text style={[theme.typography.h2, { color: theme.colors.text, marginBottom: 20 }]}>
+                    Stats & Analytics
+                </Text>
+
                 {/* Summary Cards */}
                 <View style={styles.statsRow}>
                     <View style={[styles.statCard, { backgroundColor: theme.colors.surface }]}>
-                         <Ionicons name="people" size={24} color={theme.colors.primary} />
-                         <Text style={[styles.statValue, { color: theme.colors.text }]}>{participants.length}</Text>
-                         <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Registrations</Text>
+                        <Ionicons name="people" size={24} color={theme.colors.primary} />
+                        <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                            {participants.length}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
+                            Registrations
+                        </Text>
                     </View>
                     <View style={[styles.statCard, { backgroundColor: theme.colors.surface }]}>
-                         <Ionicons name="alarm" size={24} color={theme.colors.secondary} />
-                         <Text style={[styles.statValue, { color: theme.colors.text }]}>{reminderCount}</Text>
-                         <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Reminders Set</Text>
+                        <Ionicons name="alarm" size={24} color={theme.colors.secondary} />
+                        <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                            {reminderCount}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
+                            Reminders Set
+                        </Text>
                     </View>
                 </View>
 
-                <Text style={[theme.typography.h3, { color: theme.colors.text, marginVertical: 15 }]}>
+                <Text
+                    style={[theme.typography.h3, { color: theme.colors.text, marginVertical: 15 }]}
+                >
                     Participant List
                 </Text>
 
-                <FlatList 
+                <FlatList
                     data={participants}
                     keyExtractor={item => item.id}
                     renderItem={renderStudent}
                     contentContainerStyle={{ paddingBottom: 50 }}
-                    ListEmptyComponent={<Text style={{ color: theme.colors.textSecondary }}>No registrations yet.</Text>}
+                    ListEmptyComponent={
+                        <Text style={{ color: theme.colors.textSecondary }}>
+                            No registrations yet.
+                        </Text>
+                    }
                 />
             </View>
         </ScreenWrapper>
@@ -119,12 +145,12 @@ const styles = StyleSheet.create({
     },
     studentName: { fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
     metaRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
-    metaTag: { 
-        paddingHorizontal: 8, 
-        paddingVertical: 2, 
-        borderRadius: 4, 
-        fontSize: 12, 
-        color: '#000', 
-        fontWeight: 'bold' 
-    }
+    metaTag: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 4,
+        fontSize: 12,
+        color: '#000',
+        fontWeight: 'bold',
+    },
 });

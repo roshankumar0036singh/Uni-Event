@@ -7,7 +7,6 @@ import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 
-
 export default function LeaderboardScreen({ navigation }) {
     const { theme } = useTheme();
     const { user } = useAuth();
@@ -20,28 +19,32 @@ export default function LeaderboardScreen({ navigation }) {
 
     useEffect(() => {
         const q = query(collection(db, 'users'), orderBy('points', 'desc'), limit(10));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const list = snapshot.docs.map((doc, index) => ({
-                id: doc.id,
-                rank: index + 1,
-                ...doc.data()
-            }));
-            setUsers(list);
-            setLoading(false);
-        }, (error) => {
-            console.error("Leaderboard Error:", error);
-            setLoading(false);
-        });
+        const unsubscribe = onSnapshot(
+            q,
+            snapshot => {
+                const list = snapshot.docs.map((doc, index) => ({
+                    id: doc.id,
+                    rank: index + 1,
+                    ...doc.data(),
+                }));
+                setUsers(list);
+                setLoading(false);
+            },
+            error => {
+                console.error('Leaderboard Error:', error);
+                setLoading(false);
+            },
+        );
         return () => unsubscribe();
     }, []);
 
-    const togglePrivacy = async (value) => {
+    const togglePrivacy = async value => {
         if (!user) return;
         try {
             const userRef = doc(db, 'users', user.uid);
             await updateDoc(userRef, { isAnonymous: value });
         } catch (error) {
-            Alert.alert("Error", "Failed to update privacy setting.");
+            Alert.alert('Error', 'Failed to update privacy setting.');
         }
     };
 
@@ -52,30 +55,37 @@ export default function LeaderboardScreen({ navigation }) {
 
         if (item.rank === 1) {
             rankColor = '#FFD700';
-            rankIcon = "trophy";
+            rankIcon = 'trophy';
         } else if (item.rank === 2) {
             rankColor = '#C0C0C0';
-            rankIcon = "medal";
+            rankIcon = 'medal';
         } else if (item.rank === 3) {
             rankColor = '#CD7F32';
-            rankIcon = "medal-outline";
+            rankIcon = 'medal-outline';
         }
 
         // Privacy Logic
-        const displayName = item.isAnonymous ? 'Anonymous' : (item.displayName || 'Anonymous');
-        const displayBranch = item.isAnonymous ? 'Hidden' : (item.branch || 'Unknown Branch');
+        const displayName = item.isAnonymous ? 'Anonymous' : item.displayName || 'Anonymous';
+        const displayBranch = item.isAnonymous ? 'Hidden' : item.branch || 'Unknown Branch';
 
         return (
-            <View style={[
-                styles.card,
-                { backgroundColor: theme.colors.surface, borderColor: isMe ? theme.colors.primary : 'transparent' },
-                isMe && styles.myCard
-            ]}>
+            <View
+                style={[
+                    styles.card,
+                    {
+                        backgroundColor: theme.colors.surface,
+                        borderColor: isMe ? theme.colors.primary : 'transparent',
+                    },
+                    isMe && styles.myCard,
+                ]}
+            >
                 <View style={styles.rankContainer}>
                     {rankIcon ? (
                         <Ionicons name={rankIcon} size={24} color={rankColor} />
                     ) : (
-                        <Text style={[styles.rankText, { color: theme.colors.textSecondary }]}>#{item.rank}</Text>
+                        <Text style={[styles.rankText, { color: theme.colors.textSecondary }]}>
+                            #{item.rank}
+                        </Text>
                     )}
                 </View>
 
@@ -89,8 +99,12 @@ export default function LeaderboardScreen({ navigation }) {
                 </View>
 
                 <View style={styles.pointsContainer}>
-                    <Text style={[styles.points, { color: theme.colors.primary }]}>{item.points || 0}</Text>
-                    <Text style={[styles.pointsLabel, { color: theme.colors.textSecondary }]}>pts</Text>
+                    <Text style={[styles.points, { color: theme.colors.primary }]}>
+                        {item.points || 0}
+                    </Text>
+                    <Text style={[styles.pointsLabel, { color: theme.colors.textSecondary }]}>
+                        pts
+                    </Text>
                 </View>
             </View>
         );
@@ -98,12 +112,16 @@ export default function LeaderboardScreen({ navigation }) {
 
     const ListHeader = () => (
         <View style={{ marginBottom: 20 }}>
-            <Text style={[styles.title, { color: theme.colors.text, marginBottom: 15 }]}>Leaderboard</Text>
+            <Text style={[styles.title, { color: theme.colors.text, marginBottom: 15 }]}>
+                Leaderboard
+            </Text>
 
             {/* Privacy Toggle */}
             <View style={[styles.toggleCard, { backgroundColor: theme.colors.surface }]}>
                 <View style={{ flex: 1 }}>
-                    <Text style={[styles.toggleTitle, { color: theme.colors.text }]}>Go Anonymous</Text>
+                    <Text style={[styles.toggleTitle, { color: theme.colors.text }]}>
+                        Go Anonymous
+                    </Text>
                     <Text style={[styles.toggleSubtitle, { color: theme.colors.textSecondary }]}>
                         Hide your name from others on the leaderboard.
                     </Text>
@@ -118,11 +136,16 @@ export default function LeaderboardScreen({ navigation }) {
         </View>
     );
 
-    if (loading) return (
-        <ScreenWrapper showLogo={true}>
-            <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />
-        </ScreenWrapper>
-    );
+    if (loading)
+        return (
+            <ScreenWrapper showLogo={true}>
+                <ActivityIndicator
+                    size="large"
+                    color={theme.colors.primary}
+                    style={{ marginTop: 50 }}
+                />
+            </ScreenWrapper>
+        );
 
     return (
         <ScreenWrapper showLogo={true}>
@@ -135,7 +158,11 @@ export default function LeaderboardScreen({ navigation }) {
                     contentContainerStyle={{ paddingBottom: 100 }}
                     style={{ flex: 1 }}
                     showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={<Text style={{ color: theme.colors.textSecondary, textAlign: 'center' }}>No players yet.</Text>}
+                    ListEmptyComponent={
+                        <Text style={{ color: theme.colors.textSecondary, textAlign: 'center' }}>
+                            No players yet.
+                        </Text>
+                    }
                 />
             </View>
         </ScreenWrapper>
@@ -163,8 +190,12 @@ const styles = StyleSheet.create({
     points: { fontSize: 18, fontWeight: '900' },
     pointsLabel: { fontSize: 10 },
     toggleCard: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        padding: 16, borderRadius: 12, marginBottom: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 20,
     },
     toggleTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
     toggleSubtitle: { fontSize: 12 },

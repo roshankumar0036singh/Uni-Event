@@ -11,7 +11,14 @@ const EMAILJS_TEMPLATE_FEEDBACK = process.env.EXPO_PUBLIC_EMAILJS_TEMPLATE_FEEDB
  * Sends an email using EmailJS
  * ... (same)
  */
-export const sendEmail = async (toName, toEmail, subject, message, additionalData = {}, templateId = EMAILJS_TEMPLATE_UNIVERSAL) => {
+export const sendEmail = async (
+    toName,
+    toEmail,
+    subject,
+    message,
+    additionalData = {},
+    templateId = EMAILJS_TEMPLATE_UNIVERSAL,
+) => {
     const data = {
         service_id: EMAILJS_SERVICE_ID,
         template_id: templateId,
@@ -21,8 +28,8 @@ export const sendEmail = async (toName, toEmail, subject, message, additionalDat
             to_email: toEmail,
             subject: subject,
             message: message,
-            ...additionalData
-        }
+            ...additionalData,
+        },
     };
 
     try {
@@ -66,9 +73,9 @@ export const sendBulkAnnouncement = async (participants, subject, message) => {
                     cert_display: 'none',
                     event_link: 'https://unievent-ez2w.onrender.com', // Default to home/browse
                     download_btn_display: 'none',
-                    browse_btn_display: 'block'
+                    browse_btn_display: 'block',
                 },
-                EMAILJS_TEMPLATE_UNIVERSAL
+                EMAILJS_TEMPLATE_UNIVERSAL,
             );
             if (sent) successCount++;
         }
@@ -93,7 +100,7 @@ export const sendBulkFeedbackRequest = async (participants, eventTitle, eventId)
                 subject,
                 message,
                 { event_title: eventTitle, feedback_link: feedbackLink },
-                EMAILJS_TEMPLATE_FEEDBACK
+                EMAILJS_TEMPLATE_FEEDBACK,
             );
             if (sent) successCount++;
         }
@@ -123,9 +130,9 @@ export const sendBulkCertificates = async (participants, eventTitle, date, event
                     cert_display: 'block',
                     event_link: eventLink || 'https://unievent-ez2w.onrender.com',
                     download_btn_display: 'block',
-                    browse_btn_display: 'none'
+                    browse_btn_display: 'none',
                 },
-                EMAILJS_TEMPLATE_UNIVERSAL
+                EMAILJS_TEMPLATE_UNIVERSAL,
             );
             if (sent) successCount++;
         }
