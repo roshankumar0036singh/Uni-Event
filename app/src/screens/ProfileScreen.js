@@ -3,7 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { updateProfile } from 'firebase/auth';
 import { addDoc, collection, doc, getCountFromServer, getDoc, updateDoc } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     Alert,
     Modal,
@@ -62,6 +63,7 @@ export default function ProfileScreen({ navigation }) {
     const [points, setPoints] = useState(0);
     const [eventsCount, setEventsCount] = useState(0);
     const [rating, setRating] = useState(0);
+    const [badges, setBadges] = useState([]);
     const [isEditing, setIsEditing] = useState(false);
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [requestSubject, setRequestSubject] = useState('Request Club Access');
@@ -71,6 +73,13 @@ export default function ProfileScreen({ navigation }) {
     useEffect(() => {
         if (user?.uid) fetchUserData();
     }, [user]);
+
+    // Re-fetch on every focus so newly earned badges appear immediately.
+    useFocusEffect(
+        useCallback(() => {
+            if (user?.uid) fetchUserData();
+        }, [user]),
+    );
 
     const fetchUserData = async () => {
         try {
@@ -85,6 +94,7 @@ export default function ProfileScreen({ navigation }) {
                 if (data.linkedin) setLinkedin(data.linkedin);
                 if (data.branch) setBranch(data.branch);
                 if (data.points) setPoints(data.points);
+                if (data.badges) setBadges(data.badges);
 
                 // Fetch Club Rating (for club/admin users) from reputation field
                 if (role === 'club' || role === 'admin') {
@@ -308,6 +318,83 @@ export default function ProfileScreen({ navigation }) {
                         )}
                     </View>
                 )}
+
+                {/* Badges Section */}
+                {!isEditing && badges.length > 0 && (() => {
+                    const earlyBirdCount = badges.filter(b => b.startsWith('early_bird')).length;
+                    const otherBadges = badges.filter(b => !b.startsWith('early_bird'));
+
+                    return (
+                        <View style={styles.badgesContainer}>
+                            <Text style={styles.groupTitle}>🏅 My Badges</Text>
+
+                            {/* Early Bird badge card */}
+                            {earlyBirdCount > 0 && (
+                                <View style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    backgroundColor: isDarkMode ? '#78350f30' : '#FEF9C3',
+                                    borderColor: '#EAB308',
+                                    borderWidth: 1.5,
+                                    borderRadius: 16,
+                                    padding: 16,
+                                    marginBottom: 12,
+                                    gap: 14,
+                                }}>
+                                    <View style={{
+                                        width: 56,
+                                        height: 56,
+                                        borderRadius: 28,
+                                        backgroundColor: '#EAB30825',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}>
+                                        <Text style={{ fontSize: 28 }}>🐦</Text>
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ fontWeight: '800', fontSize: 16, color: isDarkMode ? '#fef08a' : '#92400E' }}>
+                                            Early Bird
+                                        </Text>
+                                        <Text style={{ color: isDarkMode ? '#fde68a' : '#a16207', fontSize: 13, marginTop: 2 }}>
+                                            Registered early for {earlyBirdCount} event{earlyBirdCount > 1 ? 's' : ''}
+                                        </Text>
+                                    </View>
+                                    <View style={{
+                                        backgroundColor: '#EAB308',
+                                        borderRadius: 20,
+                                        paddingVertical: 6,
+                                        paddingHorizontal: 14,
+                                    }}>
+                                        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 18 }}>×{earlyBirdCount}</Text>
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* Other badges as chips */}
+                            {otherBadges.length > 0 && (
+                                <View style={styles.badgesRow}>
+                                    {otherBadges.map((badge, index) => (
+                                        <View
+                                            key={index}
+                                            style={[
+                                                styles.badgeChip,
+                                                {
+                                                    backgroundColor: theme.colors.primary + '20',
+                                                    borderColor: theme.colors.primary,
+                                                },
+                                            ]}
+                                        >
+                                            <Text style={{ fontSize: 16 }}>🏅</Text>
+                                            <Text style={[styles.badgeText, { color: theme.colors.primary }]}>
+                                                {badge.replace(/_/g, ' ').toUpperCase()}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    );
+                })()}
 
                 {/* Edit Form */}
                 {isEditing ? (
@@ -969,6 +1056,30 @@ const getStyles = theme =>
         },
         chipTextActive: {
             color: '#fff',
+            fontWeight: 'bold',
+        },
+
+        // Badges Styles
+        badgesContainer: {
+            paddingHorizontal: 20,
+            marginBottom: 20,
+        },
+        badgesRow: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 10,
+        },
+        badgeChip: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 20,
+            borderWidth: 1,
+            gap: 6,
+        },
+        badgeText: {
+            fontSize: 12,
             fontWeight: 'bold',
         },
 

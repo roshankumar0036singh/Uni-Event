@@ -18,6 +18,8 @@ import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 
+import { getEarlyBirdInfo } from '../lib/earlyBird';
+
 export default function PaymentScreen({ route, navigation }) {
     const { event, price, formResponses } = route.params;
     const { user } = useAuth();
@@ -154,27 +156,25 @@ export default function PaymentScreen({ route, navigation }) {
                 }
 
                 // 5. Award Points & Early Bird Badge
-                const userUpdate = {
-                    points: increment(10),
-                };
-
-                if (event.createdAt) {
-                    const createdTime = new Date(event.createdAt).getTime();
-                    const currentTime = Date.now();
-                    if (currentTime - createdTime <= 60 * 60 * 1000) {
-                        userUpdate.badges = arrayUnion('early_bird');
-                    }
+                const { isEligible: earlyBird } = getEarlyBirdInfo(event);
+                const userUpdate = { points: increment(10) };
+                if (earlyBird) {
+                    userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
                 }
                 await updateDoc(doc(db, 'users', user.uid), userUpdate);
 
                 setLoading(false);
 
-                // Show success animation
+                // Show success animation (badge info surfaced via ticketData so TicketScreen can display it)
                 setShowSuccessAnimation(true);
 
                 // Navigate to ticket after animation completes
                 setTimeout(() => {
-                    navigation.replace('TicketScreen', { ticketId: ticketRef.id, ticketData });
+                    navigation.replace('TicketScreen', {
+                        ticketId: ticketRef.id,
+                        ticketData,
+                        earlyBirdEarned: earlyBird,
+                    });
                 }, 2500);
             } catch (error) {
                 console.error('Payment Error:', error);

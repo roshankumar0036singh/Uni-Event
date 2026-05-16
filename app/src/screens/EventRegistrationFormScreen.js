@@ -19,6 +19,9 @@ import { useAuth } from '../lib/AuthContext';
 import { scheduleEventReminder } from '../lib/notificationService';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
+import { getEarlyBirdInfo } from '../lib/earlyBird';
+
+
 export default function EventRegistrationFormScreen({ navigation, route }) {
     const { event } = route.params;
     const { user } = useAuth();
@@ -56,9 +59,10 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
 
         // 1. Paid Event Flow -> Navigate to Payment
         if (event.isPaid) {
+            const { currentPrice } = getEarlyBirdInfo(event);
             navigation.navigate('Payment', {
                 event,
-                price: event.price,
+                price: currentPrice,
                 formResponses: responses,
             });
             return;
@@ -101,24 +105,22 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
             });
 
             // E. Award Points & Early Bird Badge
-            const userUpdate = {
-                points: increment(10),
-            };
-
-            if (event.createdAt) {
-                const createdTime = new Date(event.createdAt).getTime();
-                const currentTime = Date.now();
-                if (currentTime - createdTime <= 60 * 60 * 1000) {
-                    userUpdate.badges = arrayUnion('early_bird');
-                }
+            const { isEligible: earlyBird } = getEarlyBirdInfo(event);
+            const userUpdate = { points: increment(10) };
+            if (earlyBird) {
+                userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
             }
-
             await updateDoc(doc(db, 'users', user.uid), userUpdate);
 
             // F. Schedule Reminder
             await scheduleEventReminder(event);
 
-            Alert.alert('Success', 'Registered! (+10 Points)');
+            Alert.alert(
+                'Registered! 🎉',
+                earlyBird
+                    ? 'You earned +10 Points and the 🐦 Early Bird badge for being one of the first to sign up!'
+                    : 'You earned +10 Points for registering.',
+            );
             navigation.popToTop();
         } catch (e) {
             console.error(e);
