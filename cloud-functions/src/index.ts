@@ -11,7 +11,27 @@ export * from './reminders';
 export * from './reputation';
 export * from './setRole';
 
-// Join waitlist for an event
+/**
+ * Adds a user to the event waitlist when capacity is full.
+ * 
+ * @param request - The callable function request object
+ * @param request.auth - Authentication context containing user UID
+ * @param request.data - Request data containing eventId
+ * @param request.data.eventId - The ID of the event to join waitlist for
+ * 
+ * @returns Promise containing success status, waitlist position, and message
+ * 
+ * @throws {HttpsError} unauthenticated - User not logged in
+ * @throws {HttpsError} invalid-argument - Missing eventId
+ * @throws {HttpsError} not-found - Event doesn't exist
+ * @throws {HttpsError} failed-precondition - Event has open spots
+ * @throws {HttpsError} already-exists - User already on waitlist or registered
+ * 
+ * @example
+ * const joinWaitlist = httpsCallable(functions, 'joinWaitlist');
+ * const result = await joinWaitlist({ eventId: 'abc123' });
+ * console.log(result.data.position); // #1 on waitlist
+ */
 export const joinWaitlist = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be logged in');
@@ -85,7 +105,23 @@ export const joinWaitlist = onCall(async (request) => {
   });
 });
 
-// Leave waitlist
+/**
+ * Removes a user from the event waitlist.
+ * 
+ * @param request - The callable function request object
+ * @param request.auth - Authentication context containing user UID
+ * @param request.data - Request data containing eventId
+ * @param request.data.eventId - The ID of the event to leave waitlist for
+ * 
+ * @returns Promise containing success status and confirmation message
+ * 
+ * @throws {HttpsError} unauthenticated - User not logged in
+ * @throws {HttpsError} not-found - User not on waitlist for this event
+ * 
+ * @example
+ * const leaveWaitlist = httpsCallable(functions, 'leaveWaitlist');
+ * await leaveWaitlist({ eventId: 'abc123' });
+ */
 export const leaveWaitlist = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'You must be logged in');
@@ -93,6 +129,10 @@ export const leaveWaitlist = onCall(async (request) => {
   
   const { eventId } = request.data;
   const userId = request.auth.uid;
+  
+  if (!eventId) {
+    throw new HttpsError('invalid-argument', 'Event ID is required');
+  }
   
   const eventRef = admin.firestore().collection('events').doc(eventId);
   
