@@ -358,8 +358,8 @@ export default function EventDetail({ route, navigation }) {
                 ]);
                 return;
             }
-            // Navigate to Payment
-            navigation.navigate('Payment', { event, price: event.price || 0 });
+            // Navigate to Payment — pass the correct (possibly early-bird) price
+            navigation.navigate('Payment', { event, price: ebInfo.currentPrice ?? event.price ?? 0 });
             return;
         }
 
@@ -824,10 +824,16 @@ export default function EventDetail({ route, navigation }) {
                 name: 'Early Bird Pass',
                 description: `\u26a1 LIMITED TIME OFFER! Grab your spot early and be among the first to experience ${event.title}. Registering early earns you the exclusive 🐦 Early Bird badge and bonus points!`,
                 benefits: [...commonBenefits, 'Exclusive Early Bird badge on your profile', '+10 bonus points reward'],
-                availableTill: ebInfo.isExplicit
-                    ? new Date(ebInfo.deadline)
+                availableTill: ebInfo.deadline
+                    ? new Date(typeof ebInfo.deadline === 'string' || typeof ebInfo.deadline === 'number'
+                        ? ebInfo.deadline
+                        : typeof ebInfo.deadline.toMillis === 'function'
+                            ? ebInfo.deadline.toMillis()
+                            : typeof ebInfo.deadline.toDate === 'function'
+                                ? ebInfo.deadline.toDate()
+                                : ebInfo.deadline.seconds * 1000)
                     : new Date(new Date(event.createdAt).getTime() + 3600000),
-                price: ebInfo.isExplicit ? event.earlyBirdPrice : 0,
+                price: ebInfo.currentPrice ?? 0,
                 isEarlyBird: true,
             }]
             : []
@@ -1674,7 +1680,7 @@ export default function EventDetail({ route, navigation }) {
                                 : rsvpStatus === 'going'
                                   ? 'Registered ✓'
                                   : event.isPaid
-                                    ? `Book Ticket (₹${event.price})`
+                                    ? `Book Ticket (${ebInfo.isEligible ? '\u20B9' + ebInfo.currentPrice + ' Early Bird' : '\u20B9' + (event.price ?? 0)})`
                                     : 'RSVP Now'}
                         </Text>
                     </TouchableOpacity>

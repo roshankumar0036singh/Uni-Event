@@ -27,7 +27,7 @@ export const getEarlyBirdInfo = (event) => {
 
         return {
             isEligible,
-            currentPrice: isEligible && event.earlyBirdPrice ? event.earlyBirdPrice : event.price,
+            currentPrice: isEligible && event.earlyBirdPrice != null ? event.earlyBirdPrice : event.price,
             deadline: event.earlyBirdDeadline,
             isExplicit: true,
         };
