@@ -35,9 +35,13 @@ const TopContributors = () => {
     }
 
     const leaderboardData = leaderboardSnapshot.data();
-    setContributors(leaderboardData.contributors || []);
+    const leaderboardContributors = Array.isArray(leaderboardData.contributors)
+      ? leaderboardData.contributors
+      : [];
+
+    setContributors(leaderboardContributors);
   } catch (error) {
-    console.log('Error fetching top contributors:', error);
+    console.error('Error fetching top contributors:', error);
     setContributors([]);
   } finally {
     setLoading(false);

@@ -10,11 +10,13 @@ import * as functions from 'firebase-functions';
  * +1 point per reminder set
  */
 export const calculateReputation = functions.https.onCall(async (data, context) => {
-    // if (!context.auth || !context.auth.token.admin) {
-    //   throw new functions.https.HttpsError('permission-denied', 'Only admin');
-    // }
+      if (!context.auth || !context.auth.token.admin) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only admins can calculate reputation."
+    );
+  }
 
-    // For demo purposes, we allow anyone to trigger (or check auth if strict)
 
     const db = admin.firestore();
 
@@ -70,33 +72,42 @@ export const calculateReputation = functions.https.onCall(async (data, context) 
  * Stores a precomputed top 10 list to avoid expensive client-side queries.
  */
 export const refreshTopContributorsLeaderboard = functions.pubsub
-    .schedule('every 24 hours')
-    .onRun(async () => {
-        const db = admin.firestore();
+  .schedule("every 24 hours")
+  .onRun(async () => {
+    const db = admin.firestore();
 
-        const clubsSnapshot = await db
-            .collection('clubs')
-            .orderBy('reputation.points', 'desc')
-            .limit(10)
-            .get();
+    const clubsSnapshot = await db
+      .collection("clubs")
+      .orderBy("reputation.points", "desc")
+      .limit(10)
+      .get();
 
-        const contributors = clubsSnapshot.docs.map((clubDoc, index) => {
-            const clubData = clubDoc.data();
-            const reputation = clubData.reputation || {};
+    const contributors = clubsSnapshot.empty
+      ? []
+      : clubsSnapshot.docs.map((clubDoc, index) => {
+          const clubData = clubDoc.data();
+          const reputation = clubData.reputation || {};
 
-            return {
-                id: clubDoc.id,
-                rank: index + 1,
-                name: clubData.name || clubData.clubName || clubData.title || 'Unknown Contributor',
-                department: clubData.department || clubData.departmentName || 'General',
-                reputationPoints: reputation.points || 0,
-            };
+          return {
+            id: clubDoc.id,
+            rank: index + 1,
+            name:
+              clubData.name ||
+              clubData.clubName ||
+              clubData.title ||
+              "Unknown Contributor",
+            department:
+              clubData.department ||
+              clubData.departmentName ||
+              "General",
+            reputationPoints: reputation.points || 0,
+          };
         });
 
-        await db.collection('leaderboards').doc('topContributors').set({
-            contributors,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-
-        return null;
+    await db.collection("leaderboards").doc("topContributors").set({
+      contributors,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+
+    return null;
+  });
