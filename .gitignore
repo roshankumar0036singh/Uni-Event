@@ -28,3 +28,6 @@ coverage/
 emulator-data/
 .firebase/
 .firebaserc
+
+# Compiled output
+lib/
