@@ -36,6 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const zoomWebhook_1 = require("./zoomWebhook");
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
@@ -226,6 +227,13 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, async (req, res) => {
         console.error("Digest Error", error);
         res.status(500).json({ error: error.message });
     }
+});
+// Zoom Webhook — capture raw body before JSON parsing
+app.post('/api/zoom/webhook', express_1.default.raw({ type: 'application/json' }), async (req, res) => {
+    const rawBody = req.body.toString('utf8');
+    const parsedBody = JSON.parse(rawBody);
+    const result = await (0, zoomWebhook_1.handleZoomWebhook)(rawBody, parsedBody, req.headers);
+    res.status(result.status).json(result.data);
 });
 // Start Server
 const PORT = process.env.PORT || 3000;

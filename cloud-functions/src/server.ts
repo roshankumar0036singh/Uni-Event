@@ -1,3 +1,4 @@
+import { handleZoomWebhook } from './zoomWebhook';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
@@ -5,7 +6,6 @@ import * as admin from 'firebase-admin';
 
 // Load environment variables
 dotenv.config();
-
 // Initialize Firebase Admin (ensure service account is available or uses default credentials)
 // For Render, we might need to rely on strict env vars or a service account file
 if (admin.apps.length === 0) {
@@ -216,6 +216,18 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, async (req: express.Re
     res.status(500).json({ error: (error as Error).message });
   }
 });
+
+// Zoom Webhook — capture raw body before JSON parsing
+app.post(
+  '/api/zoom/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req: express.Request, res: express.Response) => {
+    const rawBody = req.body.toString('utf8');
+    const parsedBody = JSON.parse(rawBody);
+    const result = await handleZoomWebhook(rawBody, parsedBody, req.headers);
+    res.status(result.status).json(result.data);
+  }
+);
 
 // Start Server
 const PORT = process.env.PORT || 3000;
