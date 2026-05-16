@@ -2,17 +2,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Users collection
     match /users/{userId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Events collection with waitlist support
     match /events/{eventId} {
       allow read: if true;
       allow create: if request.auth != null && 
-        (request.auth.token.role == 'organizer' || request.auth.token.role == 'admin');
+        (request.auth.token.role == 'organizer' || request.auth.token.role == 'admin') &&
+        request.resource.data.ownerId == request.auth.uid;
       allow update: if request.auth != null && 
         (resource.data.ownerId == request.auth.uid || 
          request.auth.token.role == 'admin');
@@ -20,7 +19,6 @@ service cloud.firestore {
         (resource.data.ownerId == request.auth.uid || 
          request.auth.token.role == 'admin');
       
-      // Waitlist subcollection
       match /waitlist/{waitlistId} {
         allow read: if request.auth != null && 
           (request.auth.uid == resource.data.userId || 
@@ -31,7 +29,8 @@ service cloud.firestore {
         allow update: if request.auth != null && 
           (request.auth.uid == resource.data.userId ||
            get(/databases/$(database)/documents/events/$(eventId)).data.ownerId == request.auth.uid ||
-           request.auth.token.role == 'admin');
+           request.auth.token.role == 'admin') &&
+          request.resource.data.userId == resource.data.userId;
         allow delete: if request.auth != null && 
           (request.auth.uid == resource.data.userId ||
            get(/databases/$(database)/documents/events/$(eventId)).data.ownerId == request.auth.uid ||
@@ -39,7 +38,6 @@ service cloud.firestore {
       }
     }
     
-    // Registrations collection
     match /registrations/{registrationId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null && 
