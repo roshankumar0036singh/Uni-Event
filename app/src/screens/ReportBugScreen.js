@@ -16,7 +16,7 @@ import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { db, storage } from '../lib/firebaseConfig';
 import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
@@ -129,7 +129,7 @@ export default function ReportBugScreen({ navigation }) {
     });
 
     const uploadScreenshot = async uid => {
-        if (!screenshotUri) return null;
+        if (!screenshotUri) return { url: null, path: null };
         const response = await fetch(screenshotUri);
         const blob = await response.blob();
 
@@ -151,7 +151,8 @@ export default function ReportBugScreen({ navigation }) {
         const path = `feedback/${uid}/${Date.now()}.${extension}`;
         const sRef = storageRef(storage, path);
         await uploadBytes(sRef, blob, { contentType });
-        return await getDownloadURL(sRef);
+        const url = await getDownloadURL(sRef);
+        return { url, path };
     };
 
     const handleSubmit = async () => {
@@ -164,30 +165,46 @@ export default function ReportBugScreen({ navigation }) {
             return;
         }
         setSubmitting(true);
+        let uploadedPath = null;
+    try {
+      const { url: screenshotUrl, path: screenshotPath } = await uploadScreenshot(user.uid);
+      uploadedPath = screenshotPath;
+
+      await addDoc(collection(db, 'feedback'), {
+        userId: user.uid,
+        userEmail: user.email || null,
+        userRole: role || 'student',
+        category,
+        description: description.trim(),
+        screenshotUrl,
+        telemetry: collectTelemetry(),
+        status: 'open',           
+        createdAt: serverTimestamp(),
+      });
+
+     
+      uploadedPath = null;
+
+      showAlert('Thank you!', 'Your feedback has been submitted.', () => navigation.goBack());
+    } catch (e) {
+      console.error('Feedback submit failed', e);
+
+      
+      if (uploadedPath) {
         try {
-            const screenshotUrl = await uploadScreenshot(user.uid);
-            await addDoc(collection(db, 'feedback'), {
-                userId: user.uid,
-                userEmail: user.email || null,
-                userRole: role || 'student',
-                category,
-                description: description.trim(),
-                screenshotUrl,
-                telemetry: collectTelemetry(),
-                status: 'open', // open | in-progress | resolved
-                createdAt: serverTimestamp(),
-            });
-            showAlert('Thank you!', 'Your feedback has been submitted.', () => navigation.goBack());
-        } catch (e) {
-            console.error('Feedback submit failed', e);
-            const safeMessage =
-                e instanceof ValidationError
-                    ? e.message
-                    : 'Something went wrong. Please try again.';
-            showAlert('Submission failed', safeMessage);
-        } finally {
-            setSubmitting(false);
+          await deleteObject(storageRef(storage, uploadedPath));
+        } catch (cleanupError) {
+          console.error('Failed to clean up orphaned screenshot', cleanupError);
         }
+      }
+
+      const safeMessage = e instanceof ValidationError
+        ? e.message
+        : 'Something went wrong. Please try again.';
+      showAlert('Submission failed', safeMessage);
+    } finally {
+      setSubmitting(false);
+    }
     };
 
     return (
