@@ -3,10 +3,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { addDoc, collection, updateDoc, doc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Animated,
+    Easing,
     Image,
     Platform,
     ScrollView,
@@ -24,6 +26,14 @@ import * as CalendarService from '../lib/CalendarService';
 import { db, storage } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 
+let MapView;
+let Marker;
+if (Platform.OS !== 'web') {
+    const maps = require('react-native-maps');
+    MapView = maps.default;
+    Marker = maps.Marker;
+}
+
 const DEFAULT_BANNERS = [
     'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1000&q=80',
     'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=1000&q=80',
@@ -36,7 +46,7 @@ const BRANCHES = ['All', 'CSE', 'ETC', 'EE', 'ME', 'Civil'];
 const YEARS = [1, 2, 3, 4];
 
 export default function CreateEvent({ navigation, route }) {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
 
@@ -46,7 +56,7 @@ export default function CreateEvent({ navigation, route }) {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('');
-    const [location, setLocation] = useState('');
+    const [location, setLocation] = useState('28.6139, 77.2090');
 
     // Target
     const [targetBranches, setTargetBranches] = useState(['All']);
@@ -71,6 +81,19 @@ export default function CreateEvent({ navigation, route }) {
     // Custom Form
     const [useCustomForm, setUseCustomForm] = useState(false);
     const [customFormSchema, setCustomFormSchema] = useState([]);
+
+    // Map & Venue
+    const [venueCoords, setVenueCoords] = useState({
+        latitude: 28.6139,
+        longitude: 77.2090,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+    });
+    const [pinCoords, setPinCoords] = useState({
+        latitude: 28.6139,
+        longitude: 77.2090,
+    });
+    const pinAnimation = useRef(new Animated.Value(-50)).current;
 
     // Google Auth
     const { request, response, promptAsync, getAccessToken } = CalendarService.useCalendarAuth();
@@ -142,6 +165,53 @@ export default function CreateEvent({ navigation, route }) {
         else setTargetYears([...targetYears, y]);
     };
 
+    const bouncePin = () => {
+        pinAnimation.setValue(-50);
+        Animated.spring(pinAnimation, {
+            toValue: 0,
+            friction: 4, // Lower friction = more bouncy
+            tension: 50, // Higher tension = faster drop
+            useNativeDriver: true, // Crucial for smooth 60fps animations
+        }).start();
+    };
+
+    const handleRegionChangeComplete = region => {
+        setVenueCoords(region);
+        setPinCoords({ latitude: region.latitude, longitude: region.longitude });
+        setLocation(`${region.latitude.toFixed(5)}, ${region.longitude.toFixed(5)}`);
+
+        bouncePin();
+    };
+
+    const handlePinDragEnd = event => {
+        const coordinate = event.nativeEvent.coordinate;
+        const nextRegion = {
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude,
+            latitudeDelta: venueCoords.latitudeDelta,
+            longitudeDelta: venueCoords.longitudeDelta,
+        };
+
+        setPinCoords({ latitude: coordinate.latitude, longitude: coordinate.longitude });
+        setVenueCoords(nextRegion);
+        setLocation(`${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}`);
+        bouncePin();
+    };
+
+    const webMapSrc = useMemo(() => {
+        const latitude = venueCoords?.latitude ?? 28.6139;
+        const longitude = venueCoords?.longitude ?? 77.2090;
+        const padding = 0.01;
+        const bbox = [
+            longitude - padding,
+            latitude - padding,
+            longitude + padding,
+            latitude + padding,
+        ].join('%2C');
+
+        return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude}%2C${longitude}`;
+    }, [venueCoords]);
+
     const { event } = route.params || {};
     const isEditMode = !!event;
 
@@ -169,6 +239,10 @@ export default function CreateEvent({ navigation, route }) {
     }, [isEditMode]);
 
     const handleCreate = async () => {
+        if (authLoading || !user) {
+            Alert.alert('Signing in', 'Please wait until your account finishes loading.');
+            return;
+        }
         if (!title.trim() || !description.trim() || !category) {
             Alert.alert('Missing Info', 'Please fill Title, Description and Category.');
             return;
@@ -186,11 +260,20 @@ export default function CreateEvent({ navigation, route }) {
         try {
             let bannerUrl = imageUri;
             if (imageUri && imageUri !== event?.bannerUrl && !imageUri.startsWith('http')) {
-                // Only upload if changed and local file
-                try {
-                    bannerUrl = await uploadImage(imageUri);
-                } catch {
+                // Web uploads can fail because of Firebase Storage CORS.
+                if (Platform.OS === 'web') {
+                    Alert.alert(
+                        'Image upload (Web)',
+                        'Uploading local images from the web is disabled in this build due to CORS. A default banner will be used. Use the mobile app to upload a custom banner.'
+                    );
                     bannerUrl = DEFAULT_BANNERS[0];
+                } else {
+                    try {
+                        bannerUrl = await uploadImage(imageUri);
+                    } catch (err) {
+                        console.warn('Image upload failed, using default banner', err);
+                        bannerUrl = DEFAULT_BANNERS[0];
+                    }
                 }
             } else if (!bannerUrl) {
                 bannerUrl = DEFAULT_BANNERS[Math.floor(Math.random() * DEFAULT_BANNERS.length)];
@@ -249,9 +332,10 @@ export default function CreateEvent({ navigation, route }) {
     // Helper to render platform-specific date input
     const renderDateInput = (label, date, setDate, showPicker, setShowPicker, isStart) => {
         if (Platform.OS === 'web') {
-            const iso = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-                .toISOString()
-                .slice(0, 16);
+                const safeDate = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
+                const iso = new Date(safeDate.getTime() - safeDate.getTimezoneOffset() * 60000)
+                    .toISOString()
+                    .slice(0, 16);
 
             return (
                 <View style={[styles.webDateContainer, { flex: 1, minWidth: 0 }]}>
@@ -494,19 +578,106 @@ export default function CreateEvent({ navigation, route }) {
                         </View>
                     ) : (
                         <View style={{ marginTop: 15 }}>
-                            <PremiumInput
-                                label="Venue Location"
-                                placeholder="e.g. Auditorium / Room 302"
-                                value={location}
-                                onChangeText={setLocation}
-                                icon={
-                                    <Ionicons
-                                        name="location-outline"
-                                        size={20}
-                                        color={theme.colors.primary}
-                                    />
-                                }
-                            />
+                            <Text style={styles.label}>Venue Location</Text>
+                            <View style={styles.mapContainer}>
+                                {Platform.OS === 'web' ? (
+                                        <View style={{ flex: 1 }}>
+                                            <iframe
+                                                title="Venue location map"
+                                                src={webMapSrc}
+                                                style={styles.mapFrame}
+                                            />
+
+                                            <View style={{ padding: 8 }}>
+                                                <Text style={styles.mapHintText}>
+                                                    On web, dragging the native map is not supported. You can
+                                                    edit the coordinates below or press "Use my location" to
+                                                    autofill.
+                                                </Text>
+
+                                                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                                                    <TextInput
+                                                        value={location}
+                                                        onChangeText={setLocation}
+                                                        placeholder="lat, lng"
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: 10,
+                                                            borderRadius: 10,
+                                                            backgroundColor: theme.colors.surface,
+                                                            color: theme.colors.text,
+                                                            borderWidth: 1,
+                                                            borderColor: theme.colors.border,
+                                                        }}
+                                                    />
+
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            if (typeof navigator !== 'undefined' && navigator.geolocation) {
+                                                                navigator.geolocation.getCurrentPosition(
+                                                                    p => {
+                                                                        const { latitude, longitude } = p.coords;
+                                                                        setVenueCoords(prev => ({
+                                                                            ...prev,
+                                                                            latitude,
+                                                                            longitude,
+                                                                        }));
+                                                                        setPinCoords({ latitude, longitude });
+                                                                        setLocation(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+                                                                    },
+                                                                    e => {
+                                                                        Alert.alert('Location Error', e.message || 'Failed to get location');
+                                                                    },
+                                                                );
+                                                            } else {
+                                                                Alert.alert('Not available', 'Geolocation is not available in this browser.');
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            backgroundColor: theme.colors.primary,
+                                                            padding: 10,
+                                                            borderRadius: 10,
+                                                            justifyContent: 'center',
+                                                        }}
+                                                    >
+                                                        <Text style={{ color: '#fff', fontWeight: '700' }}>Use my location</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        </View>
+                                ) : (
+                                    <MapView
+                                        style={styles.map}
+                                        initialRegion={venueCoords || {
+                                            latitude: 28.6139,
+                                            longitude: 77.2090,
+                                            latitudeDelta: 0.05,
+                                            longitudeDelta: 0.05,
+                                        }}
+                                        onRegionChangeComplete={handleRegionChangeComplete}
+                                    >
+                                        <Marker
+                                            coordinate={pinCoords}
+                                            draggable
+                                            onDragEnd={handlePinDragEnd}
+                                        >
+                                            <Animated.View
+                                                style={{
+                                                    transform: [{ translateY: pinAnimation }],
+                                                    alignItems: 'center',
+                                                }}
+                                            >
+                                                <View style={styles.customPin} />
+                                                <View style={styles.pinShadow} />
+                                            </Animated.View>
+                                        </Marker>
+                                    </MapView>
+                                )}
+                            </View>
+                            <Text style={styles.mapLocationText}>
+                                Selected location: {venueCoords?.latitude ? venueCoords.latitude.toFixed(5) : 'N/A'},{' '}
+                                {venueCoords?.longitude ? venueCoords.longitude.toFixed(5) : 'N/A'}
+                            </Text>
                         </View>
                     )}
                 </View>
@@ -709,9 +880,9 @@ export default function CreateEvent({ navigation, route }) {
                 </View>
 
                 <TouchableOpacity
-                    style={[styles.createBtn, { opacity: loading ? 0.7 : 1 }]}
+                    style={[styles.createBtn, { opacity: loading || authLoading || !user ? 0.7 : 1 }]}
                     onPress={handleCreate}
-                    disabled={loading}
+                    disabled={loading || authLoading || !user}
                 >
                     {loading ? (
                         <ActivityIndicator color="#fff" />
@@ -882,4 +1053,51 @@ const getStyles = theme =>
             borderStyle: 'dashed',
         },
         formBuilderText: { color: theme.colors.primary, fontWeight: 'bold' },
+
+        // Map Styles
+        mapContainer: {
+            height: 300,
+            width: '100%',
+            borderRadius: 10,
+            overflow: 'hidden',
+            position: 'relative',
+            marginVertical: 15,
+        },
+        mapFrame: {
+            width: '100%',
+            height: '100%',
+            border: '0',
+        },
+        mapLocationText: {
+            marginTop: 8,
+            fontSize: 12,
+            color: theme.colors.textSecondary,
+            fontWeight: '600',
+        },
+        map: {
+            ...StyleSheet.absoluteFillObject,
+        },
+        customPin: {
+            width: 30,
+            height: 30,
+            backgroundColor: '#FF3B30',
+            borderTopLeftRadius: 15,
+            borderTopRightRadius: 15,
+            borderBottomLeftRadius: 15,
+            transform: [{ rotate: '45deg' }],
+        },
+        pinShadow: {
+            width: 10,
+            height: 4,
+            backgroundColor: 'rgba(0,0,0,0.3)',
+            borderRadius: 5,
+            marginTop: 4,
+        },
+        mapHintText: {
+            fontSize: 12,
+            color: theme.colors.textSecondary,
+            textAlign: 'center',
+            marginTop: 8,
+            fontStyle: 'italic',
+        },
     });
