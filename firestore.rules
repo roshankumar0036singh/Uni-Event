@@ -1,28 +1,41 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
     match /users/{userId} {
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow read: if request.auth != null && request.auth.uid == userId;
-      // Only admin custom claim can write roles
-      allow update: if request.auth.token.admin == true;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
-    match /clubs/{clubId} {
-      allow read: if true;
-      allow create: if request.auth != null && request.auth.token.admin == true; // admin should create clubs
-      allow update, delete: if request.auth != null && request.auth.token.admin == true;
-    }
+    
     match /events/{eventId} {
       allow read: if true;
-      allow create: if request.auth != null && (request.auth.token.admin == true || request.auth.token.club == true);
-      allow update, delete: if request.auth != null && (request.auth.token.admin == true || request.auth.uid == resource.data.ownerId);
+      allow create: if request.auth != null && 
+        (request.auth.token.role == 'organizer' || request.auth.token.role == 'admin');
+      allow update: if request.auth != null && 
+        (resource.data.organizerId == request.auth.uid || 
+         request.auth.token.role == 'admin');
+      allow delete: if request.auth != null && 
+        (resource.data.organizerId == request.auth.uid || 
+         request.auth.token.role == 'admin');
+      
+      match /waitlist/{waitlistId} {
+        allow read: if request.auth != null && 
+          (request.auth.uid == resource.data.userId || 
+           get(/databases/$(database)/documents/events/$(eventId)).data.organizerId == request.auth.uid ||
+           request.auth.token.role == 'admin');
+        allow create: if request.auth != null && 
+          request.auth.uid == request.resource.data.userId;
+        allow delete: if request.auth != null && 
+          (request.auth.uid == resource.data.userId ||
+           get(/databases/$(database)/documents/events/$(eventId)).data.organizerId == request.auth.uid ||
+           request.auth.token.role == 'admin');
+      }
     }
-    match /reminders/{rid} {
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
-    }
-    match /admin/{doc} {
-      allow read, write: if request.auth != null && request.auth.token.admin == true;
+    
+    match /registrations/{registrationId} {
+      allow read: if request.auth != null;
+      allow create, delete: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
     }
   }
 }

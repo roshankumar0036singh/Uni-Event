@@ -14,6 +14,7 @@ import {
     updateDoc,
     where,
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -36,7 +37,7 @@ import * as Sharing from 'expo-sharing';
 import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { submitFeedback } from '../lib/feedbackService';
-import { db } from '../lib/firebaseConfig';
+import { db, functions } from '../lib/firebaseConfig';
 import { cancelScheduledNotification, scheduleEventReminder } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
@@ -61,6 +62,11 @@ export default function EventDetail({ route, navigation }) {
     const [showAppealModal, setShowAppealModal] = useState(false);
 
     const [sendingAppeal, setSendingAppeal] = useState(false);
+
+    // Waitlist states
+    const [isOnWaitlist, setIsOnWaitlist] = useState(false);
+    const [waitlistPosition, setWaitlistPosition] = useState(null);
+    const [isWaitlistLoading, setIsWaitlistLoading] = useState(false);
 
     // ... existing useEffects ...
 
@@ -192,6 +198,91 @@ export default function EventDetail({ route, navigation }) {
             unsubParticipants();
         };
     }, [eventId, user]);
+
+    // Check waitlist status when component loads or user changes
+    useEffect(() => {
+        checkWaitlistStatus();
+    }, [eventId, user]);
+
+    // Check if user is on waitlist
+    const checkWaitlistStatus = async () => {
+        if (!user || !eventId) return;
+        
+        try {
+            const waitlistQuery = await getDocs(
+                query(
+                    collection(db, 'events', eventId, 'waitlist'),
+                    where('userId', '==', user.uid),
+                    where('status', '==', 'waiting')
+                )
+            );
+            
+            if (!waitlistQuery.empty) {
+                const waitlistData = waitlistQuery.docs[0].data();
+                setIsOnWaitlist(true);
+                setWaitlistPosition(waitlistData.position);
+            } else {
+                setIsOnWaitlist(false);
+                setWaitlistPosition(null);
+            }
+        } catch (error) {
+            console.error('Error checking waitlist:', error);
+        }
+    };
+
+    // Join waitlist
+    const handleJoinWaitlist = async () => {
+        if (!user) {
+            Alert.alert('Sign In', 'Please sign in to join waitlist.');
+            return;
+        }
+        
+        setIsWaitlistLoading(true);
+        try {
+            const joinWaitlistFunction = httpsCallable(functions, 'joinWaitlist');
+            const result = await joinWaitlistFunction({ eventId });
+            
+            if (result.data.success) {
+                setIsOnWaitlist(true);
+                setWaitlistPosition(result.data.position);
+                Alert.alert('Joined Waitlist', result.data.message);
+                await checkWaitlistStatus();
+            }
+        } catch (error) {
+            console.error('Join waitlist error:', error);
+            Alert.alert('Error', error.message || 'Failed to join waitlist');
+        } finally {
+            setIsWaitlistLoading(false);
+        }
+    };
+
+    // Leave waitlist
+    const handleLeaveWaitlist = async () => {
+        Alert.alert(
+            'Leave Waitlist',
+            'Are you sure you want to leave the waitlist?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Leave',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const leaveWaitlistFunction = httpsCallable(functions, 'leaveWaitlist');
+                            await leaveWaitlistFunction({ eventId });
+                            setIsOnWaitlist(false);
+                            setWaitlistPosition(null);
+                            Alert.alert('Success', 'Removed from waitlist');
+                            await checkWaitlistStatus();
+                        } catch (error) {
+                            console.error('Leave waitlist error:', error);
+                            Alert.alert('Error', error.message || 'Failed to leave waitlist');
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     // Derived State
     const isOwner = user && event?.ownerId === user.uid;
@@ -1351,51 +1442,72 @@ export default function EventDetail({ route, navigation }) {
                         <Text style={styles.fabValue}>{participantCount} People</Text>
                     </View>
 
-                    <TouchableOpacity
-                        style={[
-                            styles.primaryBtn,
-                            rsvpStatus === 'going' && styles.secondaryBtn,
-                            new Date(event.endAt) < new Date() &&
-                                !(rsvpStatus === 'going' && event.certificatesSent) && {
-                                    backgroundColor: theme.colors.textSecondary,
-                                    borderColor: theme.colors.textSecondary,
-                                },
-                        ]}
-                        onPress={
-                            new Date(event.endAt) < new Date()
-                                ? rsvpStatus === 'going' && event.certificatesSent
-                                    ? handleDownloadCertificate
-                                    : null
-                                : toggleRsvp
-                        }
-                        disabled={
-                            new Date(event.endAt) < new Date() &&
-                            !(rsvpStatus === 'going' && event.certificatesSent)
-                        }
-                    >
-                        <Text
+                    {!rsvpStatus && event && participantCount >= event.capacity && !isOnWaitlist ? (
+                        <TouchableOpacity
+                            style={[styles.waitlistButton]}
+                            onPress={handleJoinWaitlist}
+                            disabled={isWaitlistLoading}
+                        >
+                            <Text style={styles.buttonText}>
+                                {isWaitlistLoading ? 'Joining...' : 'Join Waitlist'}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : isOnWaitlist ? (
+                        <TouchableOpacity
+                            style={[styles.leaveWaitlistButton]}
+                            onPress={handleLeaveWaitlist}
+                        >
+                            <Text style={styles.leaveWaitlistText}>
+                                Waitlist #{waitlistPosition}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity
                             style={[
-                                styles.primaryBtnText,
-                                rsvpStatus === 'going' && styles.secondaryBtnText,
+                                styles.primaryBtn,
+                                rsvpStatus === 'going' && styles.secondaryBtn,
                                 new Date(event.endAt) < new Date() &&
                                     !(rsvpStatus === 'going' && event.certificatesSent) && {
-                                        color: '#fff',
+                                        backgroundColor: theme.colors.textSecondary,
+                                        borderColor: theme.colors.textSecondary,
                                     },
                             ]}
+                            onPress={
+                                new Date(event.endAt) < new Date()
+                                    ? rsvpStatus === 'going' && event.certificatesSent
+                                        ? handleDownloadCertificate
+                                        : null
+                                    : toggleRsvp
+                            }
+                            disabled={
+                                new Date(event.endAt) < new Date() &&
+                                !(rsvpStatus === 'going' && event.certificatesSent)
+                            }
                         >
-                            {new Date(event.endAt) < new Date()
-                                ? rsvpStatus === 'going'
-                                    ? event.certificatesSent
-                                        ? 'Download Certificate'
-                                        : 'Event Ended'
-                                    : 'Closed'
-                                : rsvpStatus === 'going'
-                                  ? 'Registered ✓'
-                                  : event.isPaid
-                                    ? `Book Ticket (₹${event.price})`
-                                    : 'RSVP Now'}
-                        </Text>
-                    </TouchableOpacity>
+                            <Text
+                                style={[
+                                    styles.primaryBtnText,
+                                    rsvpStatus === 'going' && styles.secondaryBtnText,
+                                    new Date(event.endAt) < new Date() &&
+                                        !(rsvpStatus === 'going' && event.certificatesSent) && {
+                                            color: '#fff',
+                                        },
+                                ]}
+                            >
+                                {new Date(event.endAt) < new Date()
+                                    ? rsvpStatus === 'going'
+                                        ? event.certificatesSent
+                                            ? 'Download Certificate'
+                                            : 'Event Ended'
+                                        : 'Closed'
+                                    : rsvpStatus === 'going'
+                                      ? 'Registered ✓'
+                                      : event.isPaid
+                                        ? `Book Ticket (₹${event.price})`
+                                        : 'RSVP Now'}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             )}
 
@@ -1725,6 +1837,33 @@ const getStyles = theme =>
             fontSize: 16,
             fontWeight: '700',
             flex: 1,
+        },
+
+        // Waitlist Styles
+        waitlistButton: {
+            backgroundColor: '#f59e0b',
+            paddingVertical: 14,
+            paddingHorizontal: 32,
+            borderRadius: 12,
+            ...theme.shadows.default,
+        },
+        leaveWaitlistButton: {
+            backgroundColor: '#fef3c7',
+            paddingVertical: 14,
+            paddingHorizontal: 32,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: '#f59e0b',
+        },
+        leaveWaitlistText: {
+            color: '#92400e',
+            fontWeight: 'bold',
+            fontSize: 14,
+        },
+        buttonText: {
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: 16,
         },
 
         // FAB
