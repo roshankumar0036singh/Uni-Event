@@ -36,6 +36,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.calculateShowUpRatio = void 0;
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
 // Export functions here
@@ -45,4 +46,7 @@ __exportStar(require("./onEventCreate"), exports);
 __exportStar(require("./reminders"), exports);
 __exportStar(require("./reputation"), exports);
 __exportStar(require("./setRole"), exports);
+// RSVP Predictions
+var predictions_1 = require("./predictions");
+Object.defineProperty(exports, "calculateShowUpRatio", { enumerable: true, get: function () { return predictions_1.calculateShowUpRatio; } });
 //# sourceMappingURL=index.js.map
