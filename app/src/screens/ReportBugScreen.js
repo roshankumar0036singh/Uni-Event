@@ -23,6 +23,13 @@ const showAlert = (title, message, onOk) => {
   }
 };
 
+class ValidationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
 const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -107,12 +114,12 @@ export default function ReportBugScreen({ navigation }) {
 
     if (blob.size > MAX_SCREENSHOT_BYTES) {
       const sizeMB = (blob.size / (1024 * 1024)).toFixed(1);
-      throw new Error(
+      throw new ValidationError(
         `Screenshot is too large (${sizeMB} MB). Maximum allowed size is 5 MB.`
       );
     }
     if (blob.type && !ALLOWED_MIME_TYPES.includes(blob.type.toLowerCase())) {
-      throw new Error(
+      throw new ValidationError(
         'Unsupported file type. Please choose a JPG, PNG, WEBP, or HEIC image.'
       );
     }
@@ -150,7 +157,10 @@ export default function ReportBugScreen({ navigation }) {
 
     } catch (e) {
       console.error('Feedback submit failed', e);
-      showAlert('Submission failed', e.message || 'Please try again.');
+      const safeMessage = e instanceof ValidationError
+        ? e.message
+        : 'Something went wrong. Please try again.';
+      showAlert('Submission failed', safeMessage);
     } finally {
       setSubmitting(false);
     }
