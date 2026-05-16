@@ -26,6 +26,14 @@ export default function EventCard({
     const [flyerLoaded, setFlyerLoaded] = useState(false);
 
     useEffect(() => {
+        setBannerLoaded(false);
+    }, [event?.bannerUrl]);
+
+    useEffect(() => {
+        setFlyerLoaded(false);
+    }, [event?.detailImageUrl, event?.bannerUrl]);
+
+    useEffect(() => {
         if (event?.ownerId) {
             getDoc(doc(db, 'users', event.ownerId)).then(snap => {
                 if (snap.exists()) {
@@ -79,7 +87,7 @@ export default function EventCard({
                     source={{ uri: event.bannerUrl || 'https://via.placeholder.com/800x400' }}
                     style={[styles.bannerImage, isRecommended && { height: 140 }]}
                     resizeMode="cover"
-                    onLoad={() => setBannerLoaded(true)}
+                    onLoadEnd={() => setBannerLoaded(true)}
                 />
                 <LinearGradient
                     colors={['transparent', 'rgba(0,0,0,0.4)']}
@@ -134,7 +142,7 @@ export default function EventCard({
                         source={{ uri: flyerUrl }}
                         style={styles.flyerImage}
                         resizeMode="cover"
-                        onLoad={() => setFlyerLoaded(true)}
+                        onLoadEnd={() => setFlyerLoaded(true)}
                     />
                 </View>
 

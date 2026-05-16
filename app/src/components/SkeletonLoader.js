@@ -167,8 +167,8 @@ const styles = StyleSheet.create({
         gap: 15,
     },
     carouselCard: {
-        width: SCREEN_WIDTH * 0.6,
-        height: (SCREEN_WIDTH * 0.6) / 1.8,
+        width: SCREEN_WIDTH - 60,
+        height: (SCREEN_WIDTH - 60) / 1.8,
         borderRadius: 12,
     },
 });

@@ -13,10 +13,11 @@ import { FeaturedCarouselSkeleton } from './SkeletonLoader';
 
 const width = Dimensions.get('window').width;
 
-export default function FeaturedCarousel({ data = [], onEventPress }) {
+export default function FeaturedCarousel({ data = [], onEventPress, isLoading = false }) {
     const { theme } = useTheme();
 
-    if (data.length === 0) return <FeaturedCarouselSkeleton />;
+    if (isLoading) return <FeaturedCarouselSkeleton />;
+    if (data.length === 0) return null;
 
     return (
         <View style={styles.container}>
