@@ -214,6 +214,7 @@ export default function AttendanceDashboard({ route, navigation }) {
         if (!checkIns || checkIns.length === 0 || !eventData?.startAt) return null;
 
         const startAt = new Date(eventData.startAt).getTime();
+        if (isNaN(startAt)) return null;
         const buckets = {
             '>30m Early': 0,
             '15-30m Early': 0,
