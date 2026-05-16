@@ -1,0 +1,194 @@
+import React, { useState } from 'react';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ScrollView, Image, Alert, ActivityIndicator, Platform,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as Device from 'expo-device';
+import * as Application from 'expo-application';
+import Constants from 'expo-constants';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { db, storage } from '../lib/firebaseConfig';
+import { useAuth } from '../lib/AuthContext';
+import { useTheme } from '../lib/ThemeContext';
+import ScreenWrapper from '../components/ScreenWrapper';
+
+const showAlert = (title, message, onOk) => {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n\n${message}`);
+    if (onOk) onOk();
+  } else {
+    Alert.alert(title, message, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
+  }
+};
+
+const CATEGORIES = ['Bug', 'Feature Request', 'UI/UX', 'Other'];
+
+export default function ReportBugScreen({ navigation }) {
+  const { user, role } = useAuth();
+  const { theme } = useTheme();
+
+  const [category, setCategory] = useState('Bug');
+  const [description, setDescription] = useState('');
+  const [screenshotUri, setScreenshotUri] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const pickScreenshot = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      showAlert('Permission needed', 'Please allow photo library access to attach a screenshot.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,   // lets user crop/annotate basic
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setScreenshotUri(result.assets[0].uri);
+    }
+  };
+
+  const collectTelemetry = () => ({
+    appVersion: Application.nativeApplicationVersion || Constants.expoConfig?.version || 'unknown',
+    buildVersion: Application.nativeBuildVersion || 'unknown',
+    os: Platform.OS,
+    osVersion: Device.osVersion || 'unknown',
+    deviceModel: Device.modelName || 'unknown',
+    deviceBrand: Device.brand || 'unknown',
+    isPhysicalDevice: Device.isDevice ?? null,
+  });
+
+  const uploadScreenshot = async (uid) => {
+    if (!screenshotUri) return null;
+    const response = await fetch(screenshotUri);
+    const blob = await response.blob();
+    const path = `feedback/${uid}/${Date.now()}.jpg`;
+    const sRef = storageRef(storage, path);
+    await uploadBytes(sRef, blob, { contentType: 'image/jpeg' });
+    return await getDownloadURL(sRef);
+  };
+
+  const handleSubmit = async () => {
+    if (!description.trim()) {
+      showAlert('Description required', 'Please describe the issue.');
+      return;
+    }
+    if (!user) {
+      showAlert('Not signed in', 'You must be signed in to submit feedback.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const screenshotUrl = await uploadScreenshot(user.uid);
+      await addDoc(collection(db, 'feedback'), {
+        userId: user.uid,
+        userEmail: user.email || null,
+        userRole: role || 'student',
+        category,
+        description: description.trim(),
+        screenshotUrl,
+        telemetry: collectTelemetry(),
+        status: 'open',           // open | in-progress | resolved
+        createdAt: serverTimestamp(),
+      });
+      showAlert('Thank you!', 'Your feedback has been submitted.', () => navigation.goBack());
+
+    } catch (e) {
+      console.error('Feedback submit failed', e);
+      showAlert('Submission failed', e.message || 'Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <ScreenWrapper>
+      <ScrollView contentContainerStyle={{ padding: theme.spacing.m }}>
+        <Text style={[theme.typography.h2, { color: theme.colors.text, marginBottom: theme.spacing.m }]}>
+          Report a Bug
+        </Text>
+
+        <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginBottom: 6 }]}>
+          Category
+        </Text>
+        <View style={styles.chipRow}>
+          {CATEGORIES.map((c) => (
+            <TouchableOpacity
+              key={c}
+              onPress={() => setCategory(c)}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: category === c ? theme.colors.primary : theme.colors.surface,
+                  borderColor: theme.colors.primary,
+                },
+              ]}
+            >
+              <Text style={{ color: category === c ? '#000' : theme.colors.text, fontWeight: '600' }}>
+                {c}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginTop: theme.spacing.m, marginBottom: 6 }]}>
+          Describe the issue
+        </Text>
+        <TextInput
+          style={[
+            styles.input,
+            { backgroundColor: theme.colors.surface, color: theme.colors.text, borderColor: theme.colors.border || '#444' },
+          ]}
+          placeholder="What happened? Steps to reproduce..."
+          placeholderTextColor={theme.colors.textSecondary}
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          numberOfLines={6}
+        />
+
+        <TouchableOpacity
+          onPress={pickScreenshot}
+          style={[styles.attachBtn, { borderColor: theme.colors.primary }]}
+        >
+          <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>
+            {screenshotUri ? 'Change Screenshot' : '📎 Attach Screenshot'}
+          </Text>
+        </TouchableOpacity>
+
+        {screenshotUri && (
+          <Image source={{ uri: screenshotUri }} style={styles.preview} resizeMode="contain" />
+        )}
+
+        <TouchableOpacity
+          disabled={submitting}
+          onPress={handleSubmit}
+          style={[
+            styles.submitBtn,
+            { backgroundColor: theme.colors.primary, opacity: submitting ? 0.6 : 1 },
+          ]}
+        >
+          {submitting
+            ? <ActivityIndicator color="#000" />
+            : <Text style={theme.typography.button}>Submit Feedback</Text>}
+        </TouchableOpacity>
+      </ScrollView>
+    </ScreenWrapper>
+  );
+}
+
+const styles = StyleSheet.create({
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1 },
+  input: {
+    borderWidth: 1, borderRadius: 8, padding: 12, minHeight: 120, textAlignVertical: 'top',
+  },
+  attachBtn: {
+    marginTop: 16, paddingVertical: 12, borderRadius: 8,
+    borderWidth: 1, borderStyle: 'dashed', alignItems: 'center',
+  },
+  preview: { width: '100%', height: 220, marginTop: 12, borderRadius: 8 },
+  submitBtn: { marginTop: 24, paddingVertical: 14, borderRadius: 8, alignItems: 'center' },
+});

@@ -33,6 +33,7 @@ import MyRegisteredEventsScreen from './src/screens/MyRegisteredEventsScreen';
 import SavedEventsScreen from './src/screens/SavedEventsScreen';
 import FormBuilderScreen from './src/screens/FormBuilderScreen';
 import EventRegistrationFormScreen from './src/screens/EventRegistrationFormScreen';
+import ReportBugScreen from './src/screens/ReportBugScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -230,6 +231,7 @@ function Navigation() {
             <Stack.Screen name="SavedEvents" component={SavedEventsScreen} options={{ title: 'Saved Events' }} />
             <Stack.Screen name="FormBuilder" component={FormBuilderScreen} options={{ headerShown: false }} />
             <Stack.Screen name="EventRegistrationForm" component={EventRegistrationFormScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="ReportBug" component={ReportBugScreen} options={{ title: 'Report a Bug' }} />
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
