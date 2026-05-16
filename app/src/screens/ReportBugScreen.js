@@ -23,6 +23,40 @@ const showAlert = (title, message, onOk) => {
   }
 };
 
+const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+];
+
+const validateScreenshotAsset = (asset) => {
+  if (!asset?.uri) {
+    return { ok: false, message: 'No image was selected.' };
+  }
+
+  const mime = asset.mimeType?.toLowerCase();
+  if (mime && !ALLOWED_MIME_TYPES.includes(mime)) {
+    return {
+      ok: false,
+      message: 'Unsupported file type. Please choose a JPG, PNG, WEBP, or HEIC image.',
+    };
+  }
+
+  if (typeof asset.fileSize === 'number' && asset.fileSize > MAX_SCREENSHOT_BYTES) {
+    const sizeMB = (asset.fileSize / (1024 * 1024)).toFixed(1);
+    return {
+      ok: false,
+      message: `Screenshot is too large (${sizeMB} MB). Maximum allowed size is 5 MB.`,
+    };
+  }
+
+  return { ok: true };
+};
+
 const CATEGORIES = ['Bug', 'Feature Request', 'UI/UX', 'Other'];
 
 export default function ReportBugScreen({ navigation }) {
@@ -46,7 +80,13 @@ export default function ReportBugScreen({ navigation }) {
       quality: 0.7,
     });
     if (!result.canceled && result.assets?.[0]?.uri) {
-      setScreenshotUri(result.assets[0].uri);
+      const asset = result.assets[0];
+      const check = validateScreenshotAsset(asset);
+      if (!check.ok) {
+        showAlert('Invalid screenshot', check.message);
+        return;
+      }
+      setScreenshotUri(asset.uri);
     }
   };
 
@@ -64,6 +104,19 @@ export default function ReportBugScreen({ navigation }) {
     if (!screenshotUri) return null;
     const response = await fetch(screenshotUri);
     const blob = await response.blob();
+
+    if (blob.size > MAX_SCREENSHOT_BYTES) {
+      const sizeMB = (blob.size / (1024 * 1024)).toFixed(1);
+      throw new Error(
+        `Screenshot is too large (${sizeMB} MB). Maximum allowed size is 5 MB.`
+      );
+    }
+    if (blob.type && !ALLOWED_MIME_TYPES.includes(blob.type.toLowerCase())) {
+      throw new Error(
+        'Unsupported file type. Please choose a JPG, PNG, WEBP, or HEIC image.'
+      );
+    }
+
     const path = `feedback/${uid}/${Date.now()}.jpg`;
     const sRef = storageRef(storage, path);
     await uploadBytes(sRef, blob, { contentType: 'image/jpeg' });
