@@ -44,6 +44,7 @@ export default [
             'node_modules/**',
             'web-build/**',
             '.expo/**',
+            'coverage/**',
         ],
     },
 

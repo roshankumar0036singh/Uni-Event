@@ -1,112 +1,74 @@
-import { exportParticipantsToExcel }
-  from "../ExportService.web";
+import { exportParticipantsToExcel } from '../ExportService.web';
 
-import * as XLSX from "xlsx";
+import * as XLSX from 'xlsx';
 
-jest.mock("xlsx", () => ({
-  utils: {
-    json_to_sheet: jest.fn(),
-    book_new: jest.fn(),
-    book_append_sheet: jest.fn(),
-  },
+jest.mock('xlsx', () => ({
+    utils: {
+        json_to_sheet: jest.fn(),
+        book_new: jest.fn(),
+        book_append_sheet: jest.fn(),
+    },
 
-  writeFile: jest.fn(),
+    writeFile: jest.fn(),
 }));
 
-describe("ExportService.web", () => {
+describe('ExportService.web', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
 
-  beforeEach(() => {
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
 
-    jest
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
-  });
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
 
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
+    test('exports participants successfully', async () => {
+        XLSX.utils.json_to_sheet.mockReturnValue('worksheet');
 
-  test("exports participants successfully", async () => {
+        XLSX.utils.book_new.mockReturnValue('workbook');
 
-    XLSX.utils.json_to_sheet.mockReturnValue(
-      "worksheet"
-    );
+        const participants = [
+            {
+                name: 'Arpita',
+                email: 'arpita@test.com',
+                branch: 'CS',
+                year: '3',
+                joinedAt: Date.now(),
+                userId: 'user1',
+            },
+        ];
 
-    XLSX.utils.book_new.mockReturnValue(
-      "workbook"
-    );
+        await exportParticipantsToExcel(participants, 'Tech Fest 2026');
 
-    const participants = [
-      {
-        name: "Arpita",
-        email: "arpita@test.com",
-        branch: "CS",
-        year: "3",
-        joinedAt: Date.now(),
-        userId: "user1",
-      },
-    ];
+        expect(XLSX.utils.json_to_sheet).toHaveBeenCalled();
 
-    await exportParticipantsToExcel(
-      participants,
-      "Tech Fest 2026"
-    );
+        expect(XLSX.utils.book_append_sheet).toHaveBeenCalled();
 
-    expect(
-      XLSX.utils.json_to_sheet
-    ).toHaveBeenCalled();
+        expect(XLSX.writeFile).toHaveBeenCalled();
+    });
 
-    expect(
-      XLSX.utils.book_append_sheet
-    ).toHaveBeenCalled();
+    test('handles missing participant fields', async () => {
+        XLSX.utils.json_to_sheet.mockReturnValue('worksheet');
 
-    expect(
-      XLSX.writeFile
-    ).toHaveBeenCalled();
-  });
+        XLSX.utils.book_new.mockReturnValue('workbook');
 
-  test("handles missing participant fields", async () => {
+        const participants = [{}];
 
-    XLSX.utils.json_to_sheet.mockReturnValue(
-      "worksheet"
-    );
+        await exportParticipantsToExcel(participants, 'Event');
 
-    XLSX.utils.book_new.mockReturnValue(
-      "workbook"
-    );
+        expect(XLSX.writeFile).toHaveBeenCalled();
+    });
 
-    const participants = [
-      {},
-    ];
+    test('throws error when export fails', async () => {
+        XLSX.utils.json_to_sheet.mockImplementationOnce(() => {
+            throw new Error('XLSX failure');
+        });
 
-    await exportParticipantsToExcel(
-      participants,
-      "Event"
-    );
+        await expect(exportParticipantsToExcel([], 'Test Event')).rejects.toThrow(
+            'Failed to generate Excel file.',
+        );
 
-    expect(
-      XLSX.writeFile
-    ).toHaveBeenCalled();
-  });
-
-  test("throws error when export fails", async () => {
-
-    XLSX.utils.json_to_sheet.mockImplementationOnce(
-      () => {
-        throw new Error("XLSX failure");
-      }
-    );
-
-    await expect(
-      exportParticipantsToExcel(
-        [],
-        "Test Event"
-      )
-    ).rejects.toThrow(
-      "Failed to generate Excel file."
-    );
-
-    expect(console.error).toHaveBeenCalled();
-  });
-
+        expect(console.error).toHaveBeenCalled();
+    });
 });

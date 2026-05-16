@@ -1,176 +1,127 @@
 import {
-  sendEmail,
-  sendBulkAnnouncement,
-  sendBulkFeedbackRequest,
-  sendBulkCertificates,
-} from "../EmailService";
+    sendEmail,
+    sendBulkAnnouncement,
+    sendBulkFeedbackRequest,
+    sendBulkCertificates,
+} from '../EmailService';
 
 global.fetch = jest.fn();
 
 const mockUser = {
-  name: "Test User",
-  email: "test@example.com",
+    name: 'Test User',
+    email: 'test@example.com',
 };
 
-const mockParticipants = [
-  mockUser,
-];
+const mockParticipants = [mockUser];
 
-describe("EmailService", () => {
+describe('EmailService', () => {
+    beforeEach(() => {
+        fetch.mockClear();
 
-  beforeEach(() => {
+        jest.spyOn(console, 'log').mockImplementation(() => {});
 
-    fetch.mockClear();
-
-    jest
-      .spyOn(console, "log")
-      .mockImplementation(() => {});
-
-    jest
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  test("sendEmail returns true on success", async () => {
-
-    fetch.mockResolvedValueOnce({
-      ok: true,
+        jest.spyOn(console, 'error').mockImplementation(() => {});
     });
 
-    const result = await sendEmail(
-      mockUser.name,
-      mockUser.email,
-      "Hello",
-      "Test message"
-    );
-
-    expect(result).toBe(true);
-
-    expect(fetch).toHaveBeenCalled();
-  });
-
-  test("sendEmail returns false on API failure", async () => {
-
-    fetch.mockResolvedValueOnce({
-      ok: false,
-      text: jest.fn().mockResolvedValue("API Error"),
+    afterEach(() => {
+        jest.restoreAllMocks();
     });
 
-    const result = await sendEmail(
-      mockUser.name,
-      mockUser.email,
-      "Hello",
-      "Test message"
-    );
+    test('sendEmail returns true on success', async () => {
+        fetch.mockResolvedValueOnce({
+            ok: true,
+        });
 
-    expect(result).toBe(false);
+        const result = await sendEmail(mockUser.name, mockUser.email, 'Hello', 'Test message');
 
-    expect(console.error).toHaveBeenCalled();
-  });
+        expect(result).toBe(true);
 
-  test("sendEmail returns false on network error", async () => {
-
-    fetch.mockRejectedValueOnce(
-      new Error("Network failure")
-    );
-
-    const result = await sendEmail(
-      mockUser.name,
-      mockUser.email,
-      "Hello",
-      "Test message"
-    );
-
-    expect(result).toBe(false);
-
-    expect(console.error).toHaveBeenCalled();
-  });
-
-  test("sendBulkAnnouncement sends emails", async () => {
-
-    fetch.mockResolvedValue({
-      ok: true,
+        expect(fetch).toHaveBeenCalled();
     });
 
-    const participants = [
-      mockUser,
-      {
-        name: "Another User",
-        email: "another@example.com",
-      },
-    ];
+    test('sendEmail returns false on API failure', async () => {
+        fetch.mockResolvedValueOnce({
+            ok: false,
+            text: jest.fn().mockResolvedValue('API Error'),
+        });
 
-    const result =
-      await sendBulkAnnouncement(
-        participants,
-        "Announcement",
-        "Message"
-      );
+        const result = await sendEmail(mockUser.name, mockUser.email, 'Hello', 'Test message');
 
-    expect(result).toBe(2);
+        expect(result).toBe(false);
 
-    expect(fetch).toHaveBeenCalledTimes(2);
-  });
-
-  test("sendBulkFeedbackRequest sends feedback emails", async () => {
-
-    fetch.mockResolvedValue({
-      ok: true,
+        expect(console.error).toHaveBeenCalled();
     });
 
-    const result =
-      await sendBulkFeedbackRequest(
-        mockParticipants,
-        "Tech Fest",
-        "event123"
-      );
+    test('sendEmail returns false on network error', async () => {
+        fetch.mockRejectedValueOnce(new Error('Network failure'));
 
-    expect(result).toBe(1);
-  });
+        const result = await sendEmail(mockUser.name, mockUser.email, 'Hello', 'Test message');
 
-  test("sendBulkCertificates sends certificates", async () => {
+        expect(result).toBe(false);
 
-    fetch.mockResolvedValue({
-      ok: true,
+        expect(console.error).toHaveBeenCalled();
     });
 
-    const result =
-      await sendBulkCertificates(
-        mockParticipants,
-        "Hackathon",
-        new Date().toLocaleDateString(),
-        "https://example.com"
-      );
+    test('sendBulkAnnouncement sends emails', async () => {
+        fetch.mockResolvedValue({
+            ok: true,
+        });
 
-    expect(result).toBe(1);
-  });
+        const participants = [
+            mockUser,
+            {
+                name: 'Another User',
+                email: 'another@example.com',
+            },
+        ];
 
-  test("skips participants without email", async () => {
+        const result = await sendBulkAnnouncement(participants, 'Announcement', 'Message');
 
-    fetch.mockResolvedValue({
-      ok: true,
+        expect(result).toBe(2);
+
+        expect(fetch).toHaveBeenCalledTimes(2);
     });
 
-    const participants = [
-      {
-        name: "No Email User",
-      },
-    ];
+    test('sendBulkFeedbackRequest sends feedback emails', async () => {
+        fetch.mockResolvedValue({
+            ok: true,
+        });
 
-    const result =
-      await sendBulkAnnouncement(
-        participants,
-        "Announcement",
-        "Message"
-      );
+        const result = await sendBulkFeedbackRequest(mockParticipants, 'Tech Fest', 'event123');
 
-    expect(result).toBe(0);
+        expect(result).toBe(1);
+    });
 
-    expect(fetch).not.toHaveBeenCalled();
-  });
+    test('sendBulkCertificates sends certificates', async () => {
+        fetch.mockResolvedValue({
+            ok: true,
+        });
 
+        const result = await sendBulkCertificates(
+            mockParticipants,
+            'Hackathon',
+            new Date().toLocaleDateString(),
+            'https://example.com',
+        );
+
+        expect(result).toBe(1);
+    });
+
+    test('skips participants without email', async () => {
+        fetch.mockResolvedValue({
+            ok: true,
+        });
+
+        const participants = [
+            {
+                name: 'No Email User',
+            },
+        ];
+
+        const result = await sendBulkAnnouncement(participants, 'Announcement', 'Message');
+
+        expect(result).toBe(0);
+
+        expect(fetch).not.toHaveBeenCalled();
+    });
 });
