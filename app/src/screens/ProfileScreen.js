@@ -21,6 +21,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import TopContributors from '../components/TopContributors';
 
 // Helper for menu items
 const MenuItem = ({ icon, label, onPress, theme, styles, showChevron = true, rightElement }) => (
@@ -688,6 +689,7 @@ export default function ProfileScreen({ navigation }) {
                         <View style={{ height: 50 }} />
                     </View>
                 )}
+                <TopContributors />
             </ScrollView>
 
             <Modal visible={showRequestModal} transparent animationType="slide">

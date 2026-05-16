@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.calculateReputation = void 0;
+exports.refreshTopContributorsLeaderboard = exports.calculateReputation = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 /**
@@ -50,13 +50,16 @@ exports.calculateReputation = functions.https.onCall(async (data, context) => {
     // }
     // For demo purposes, we allow anyone to trigger (or check auth if strict)
     const db = admin.firestore();
-    const clubsSnapshot = await db.collection("clubs").get();
+    const clubsSnapshot = await db.collection('clubs').get();
     const updates = [];
     for (const clubDoc of clubsSnapshot.docs) {
         // const clubId = clubDoc.id; // Unused
         let points = 0;
         // Fetch events for this club
-        const eventsSnapshot = await db.collection("events").where("ownerId", "==", clubDoc.data().ownerUserId).get(); // Assuming ownerId links event to club owner. Better: store clubId on event.
+        const eventsSnapshot = await db
+            .collection('events')
+            .where('ownerId', '==', clubDoc.data().ownerUserId)
+            .get(); // Assuming ownerId links event to club owner. Better: store clubId on event.
         // Correction: Strategy says clubs/{clubId} has ownerUserId. Events have ownerId.
         // Ideally event should have `clubId` field. For MVP we assume ownerId on event matches club owner.
         let totalAttendance = 0;
@@ -74,12 +77,42 @@ exports.calculateReputation = functions.https.onCall(async (data, context) => {
         // Optional: Feedback logic stub
         // points += 5 (if avg feedback > 4.0)
         updates.push(clubDoc.ref.update({
-            "reputation.points": points,
-            "reputation.attendanceCount": totalAttendance,
-            "updatedAt": admin.firestore.FieldValue.serverTimestamp()
+            'reputation.points': points,
+            'reputation.attendanceCount': totalAttendance,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         }));
     }
     await Promise.all(updates);
     return { success: true, message: `Updated ${updates.length} clubs` };
+});
+/**
+ * Refreshes the campus-wide top contributors leaderboard every 24 hours.
+ * Stores a precomputed top 10 list to avoid expensive client-side queries.
+ */
+exports.refreshTopContributorsLeaderboard = functions.pubsub
+    .schedule('every 24 hours')
+    .onRun(async () => {
+    const db = admin.firestore();
+    const clubsSnapshot = await db
+        .collection('clubs')
+        .orderBy('reputation.points', 'desc')
+        .limit(10)
+        .get();
+    const contributors = clubsSnapshot.docs.map((clubDoc, index) => {
+        const clubData = clubDoc.data();
+        const reputation = clubData.reputation || {};
+        return {
+            id: clubDoc.id,
+            rank: index + 1,
+            name: clubData.name || clubData.clubName || clubData.title || 'Unknown Contributor',
+            department: clubData.department || clubData.departmentName || 'General',
+            reputationPoints: reputation.points || 0,
+        };
+    });
+    await db.collection('leaderboards').doc('topContributors').set({
+        contributors,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return null;
 });
 //# sourceMappingURL=reputation.js.map
