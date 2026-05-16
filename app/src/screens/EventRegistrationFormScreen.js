@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useTheme } from '../lib/ThemeContext';
 import PremiumInput from '../components/PremiumInput';
-import { addDoc, collection, setDoc, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
+import { addDoc, collection, setDoc, doc, updateDoc, increment, getDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebaseConfig';
 import { useAuth } from '../lib/AuthContext';
 import { scheduleEventReminder } from '../lib/notificationService';
@@ -100,10 +100,20 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 joinedAt: new Date().toISOString(),
             });
 
-            // E. Award Points
-            await updateDoc(doc(db, 'users', user.uid), {
+            // E. Award Points & Early Bird Badge
+            const userUpdate = {
                 points: increment(10),
-            });
+            };
+
+            if (event.createdAt) {
+                const createdTime = new Date(event.createdAt).getTime();
+                const currentTime = Date.now();
+                if (currentTime - createdTime <= 60 * 60 * 1000) {
+                    userUpdate.badges = arrayUnion('early_bird');
+                }
+            }
+
+            await updateDoc(doc(db, 'users', user.uid), userUpdate);
 
             // F. Schedule Reminder
             await scheduleEventReminder(event);

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
 import { useState } from 'react';
 import {
     ActivityIndicator,
@@ -152,6 +152,20 @@ export default function PaymentScreen({ route, navigation }) {
                         status: 'paid',
                     });
                 }
+
+                // 5. Award Points & Early Bird Badge
+                const userUpdate = {
+                    points: increment(10),
+                };
+
+                if (event.createdAt) {
+                    const createdTime = new Date(event.createdAt).getTime();
+                    const currentTime = Date.now();
+                    if (currentTime - createdTime <= 60 * 60 * 1000) {
+                        userUpdate.badges = arrayUnion('early_bird');
+                    }
+                }
+                await updateDoc(doc(db, 'users', user.uid), userUpdate);
 
                 setLoading(false);
 
