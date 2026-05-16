@@ -134,9 +134,7 @@ export default function EventCard({
                     ]}
                 >
                     {!flyerLoaded && (
-                        <ShimmerItem
-                            style={[styles.flyerImage, StyleSheet.absoluteFill]}
-                        />
+                        <ShimmerItem style={[styles.flyerImage, StyleSheet.absoluteFill]} />
                     )}
                     <Image
                         source={{ uri: flyerUrl }}
