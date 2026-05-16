@@ -1442,7 +1442,7 @@ export default function EventDetail({ route, navigation }) {
                         <Text style={styles.fabValue}>{participantCount} People</Text>
                     </View>
 
-                    {!rsvpStatus && event && participantCount >= event.capacity && !isOnWaitlist ? (
+                    {!rsvpStatus && event && event.capacity && participantCount >= event.capacity && !isOnWaitlist ? (
                         <TouchableOpacity
                             style={[styles.waitlistButton]}
                             onPress={handleJoinWaitlist}
