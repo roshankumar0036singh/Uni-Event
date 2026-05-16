@@ -7,6 +7,7 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
+import { ShimmerItem } from './SkeletonLoader';
 
 export default function EventCard({
     event,
@@ -21,6 +22,8 @@ export default function EventCard({
     const navigation = useNavigation();
     const { theme } = useTheme();
     const [hostName, setHostName] = useState(event?.organization || 'Club Name');
+    const [bannerLoaded, setBannerLoaded] = useState(false);
+    const [flyerLoaded, setFlyerLoaded] = useState(false);
 
     useEffect(() => {
         if (event?.ownerId) {
@@ -63,10 +66,20 @@ export default function EventCard({
         >
             {/* 1. MAIN BANNER IMAGE (Top Layer) */}
             <View style={[styles.bannerContainer, isRecommended && { height: 140 }]}>
+                {!bannerLoaded && (
+                    <ShimmerItem
+                        style={[
+                            styles.bannerImage,
+                            isRecommended && { height: 140 },
+                            StyleSheet.absoluteFill,
+                        ]}
+                    />
+                )}
                 <Image
                     source={{ uri: event.bannerUrl || 'https://via.placeholder.com/800x400' }}
-                    style={[styles.bannerImage, isRecommended && { height: 140 }]} // Compact height for recommended
+                    style={[styles.bannerImage, isRecommended && { height: 140 }]}
                     resizeMode="cover"
+                    onLoad={() => setBannerLoaded(true)}
                 />
                 <LinearGradient
                     colors={['transparent', 'rgba(0,0,0,0.4)']}
@@ -112,10 +125,16 @@ export default function EventCard({
                         { borderColor: theme.colors.surface, ...theme.shadows.default },
                     ]}
                 >
+                    {!flyerLoaded && (
+                        <ShimmerItem
+                            style={[styles.flyerImage, StyleSheet.absoluteFill]}
+                        />
+                    )}
                     <Image
                         source={{ uri: flyerUrl }}
                         style={styles.flyerImage}
                         resizeMode="cover"
+                        onLoad={() => setFlyerLoaded(true)}
                     />
                 </View>
 

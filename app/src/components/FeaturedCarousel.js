@@ -9,13 +9,14 @@ import {
     View,
 } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import { FeaturedCarouselSkeleton } from './SkeletonLoader';
 
 const width = Dimensions.get('window').width;
 
 export default function FeaturedCarousel({ data = [], onEventPress }) {
     const { theme } = useTheme();
 
-    if (data.length === 0) return null;
+    if (data.length === 0) return <FeaturedCarouselSkeleton />;
 
     return (
         <View style={styles.container}>
