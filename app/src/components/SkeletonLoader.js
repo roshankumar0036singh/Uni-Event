@@ -22,29 +22,14 @@ export function ShimmerItem({ style }) {
         return () => animation.stop();
     }, [translateX]);
 
-    const baseColor = isDarkMode
-        ? 'rgba(255,255,255,0.04)'
-        : 'rgba(0,0,0,0.06)';
-    const shimmerColor = isDarkMode
-        ? 'rgba(255,255,255,0.12)'
-        : 'rgba(255,255,255,0.7)';
+    const baseColor = isDarkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)';
+    const shimmerColor = isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.7)';
 
     return (
-        <View
-            style={[style, { backgroundColor: baseColor, overflow: 'hidden' }]}
-        >
-            <Animated.View
-                style={[
-                    StyleSheet.absoluteFill,
-                    { transform: [{ translateX }] },
-                ]}
-            >
+        <View style={[style, { backgroundColor: baseColor, overflow: 'hidden' }]}>
+            <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateX }] }]}>
                 <LinearGradient
-                    colors={[
-                        'transparent',
-                        shimmerColor,
-                        'transparent',
-                    ]}
+                    colors={['transparent', shimmerColor, 'transparent']}
                     start={{ x: 0, y: 0.5 }}
                     end={{ x: 1, y: 0.5 }}
                     style={StyleSheet.absoluteFill}
