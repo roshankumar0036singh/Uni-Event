@@ -735,7 +735,20 @@ export default function EventDetail({ route, navigation }) {
                 if (await Sharing.isAvailableAsync()) {
                     await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
                 } else {
-                    Alert.alert('Success', 'Certificate generated!');
+                    Alert.alert(
+                        "Success",
+                        "Certificate generated successfully!",
+                        [
+                           {
+                              text: "Add to LinkedIn",
+                              onPress: handleLinkedInShare
+                            },
+                            {
+                             text: "OK",
+                             style: "cancel"
+                            }
+                        ]
+                    );
                 }
             }
         } catch (e) {
@@ -745,6 +758,28 @@ export default function EventDetail({ route, navigation }) {
             setSendingCertificates(false); // Reset loading state
         }
     };
+    const handleLinkedInShare = async () => {
+    try {
+        const linkedinUrl = `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME`;
+
+        const certificateName = encodeURIComponent(event.title);
+        const organizationName = encodeURIComponent("UniEvent");
+        const issueYear = new Date(event.startAt).getFullYear();
+        const issueMonth = new Date(event.startAt).getMonth() + 1;
+
+        const finalUrl =
+            `${linkedinUrl}` +
+            `&name=${certificateName}` +
+            `&organizationName=${organizationName}` +
+            `&issueYear=${issueYear}` +
+            `&issueMonth=${issueMonth}`;
+
+        await Linking.openURL(finalUrl);
+    } catch (error) {
+        console.log(error);
+        Alert.alert("Error", "Failed to open LinkedIn");
+    }
+};
 
     const handleSendCertificates = async () => {
         console.log('Send Certificates Button Clicked');
