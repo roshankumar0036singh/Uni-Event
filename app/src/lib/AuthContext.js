@@ -10,6 +10,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Platform } from 'react-native';
 import { auth, db } from './firebaseConfig';
+import PropTypes from 'prop-types';
 
 const AuthContext = createContext({});
 
@@ -255,4 +256,8 @@ export const AuthProvider = ({ children }) => {
             {children}
         </AuthContext.Provider>
     );
+};
+
+AuthProvider.propTypes = {
+    children: PropTypes.any,
 };

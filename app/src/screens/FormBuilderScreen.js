@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useTheme } from '../lib/ThemeContext';
 import PremiumInput from '../components/PremiumInput';
+import PropTypes from 'prop-types';
 
 export default function FormBuilderScreen({ navigation, route }) {
     const { onSave, initialSchema = [] } = route.params || {};
@@ -482,3 +483,8 @@ const getStyles = theme =>
         },
         addBtnText: { color: '#000', fontWeight: '800', fontSize: 18 },
     });
+
+FormBuilderScreen.propTypes = {
+    navigation: PropTypes.object,
+    route: PropTypes.object,
+};

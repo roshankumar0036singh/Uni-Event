@@ -22,6 +22,7 @@ import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
+import PropTypes from 'prop-types';
 
 const showAlert = (title, message, onOk) => {
     if (Platform.OS === 'web') {
@@ -349,3 +350,7 @@ const styles = StyleSheet.create({
     preview: { width: '100%', height: 220, marginTop: 12, borderRadius: 8 },
     submitBtn: { marginTop: 24, paddingVertical: 14, borderRadius: 8, alignItems: 'center' },
 });
+
+ReportBugScreen.propTypes = {
+    navigation: PropTypes.object,
+};

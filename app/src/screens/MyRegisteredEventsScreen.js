@@ -6,6 +6,7 @@ import EventCard from '../components/EventCard';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function MyRegisteredEventsScreen({ navigation }) {
     const { user } = useAuth();
@@ -118,3 +119,7 @@ const styles = StyleSheet.create({
     emptyState: { alignItems: 'center', marginTop: 100 },
     emptyText: { marginTop: 10, fontSize: 16 },
 });
+
+MyRegisteredEventsScreen.propTypes = {
+    navigation: PropTypes.object,
+};

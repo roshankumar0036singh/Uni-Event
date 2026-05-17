@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
+import PropTypes from 'prop-types';
 
 export default function WebQRScanner({ onScan, style }) {
     const onScanRef = useRef(onScan);
@@ -68,3 +69,8 @@ const styles = StyleSheet.create({
         minHeight: 300,
     },
 });
+
+WebQRScanner.propTypes = {
+    onScan: PropTypes.any,
+    style: PropTypes.any,
+};

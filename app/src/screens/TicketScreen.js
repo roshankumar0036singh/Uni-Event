@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function TicketScreen({ route, navigation }) {
     const { ticketId, ticketData } = route.params;
@@ -251,3 +252,8 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
 });
+
+TicketScreen.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};

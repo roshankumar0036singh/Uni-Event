@@ -26,6 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function EventChatScreen({ route, navigation }) {
     const { eventId, eventTitle } = route.params;
@@ -367,3 +368,8 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
     },
 });
+
+EventChatScreen.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};

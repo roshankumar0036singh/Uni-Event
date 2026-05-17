@@ -22,6 +22,7 @@ import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { db, storage } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 const DEFAULT_BANNERS = [
     'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1000&q=80',
@@ -885,3 +886,8 @@ const getStyles = theme =>
         },
         formBuilderText: { color: theme.colors.primary, fontWeight: 'bold' },
     });
+
+CreateEvent.propTypes = {
+    navigation: PropTypes.object,
+    route: PropTypes.object,
+};

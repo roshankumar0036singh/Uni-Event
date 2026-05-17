@@ -27,6 +27,7 @@ import EventCard from '../components/EventCard';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function ClubProfileScreen({ route, navigation }) {
     const { clubId, clubName } = route.params || {};
@@ -508,3 +509,8 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
 });
+
+ClubProfileScreen.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};

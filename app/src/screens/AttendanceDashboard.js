@@ -29,6 +29,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkAnnouncement, sendBulkFeedbackRequest } from '../lib/EmailService';
+import PropTypes from 'prop-types';
 
 export default function AttendanceDashboard({ route, navigation }) {
     const { eventId, eventTitle } = route.params;
@@ -351,132 +352,6 @@ export default function AttendanceDashboard({ route, navigation }) {
         } finally {
             setExporting(false);
         }
-    };
-
-    const StatCard = ({ icon, label, value, color, subtitle, gradient }) => (
-        <View style={styles.statCard}>
-            <LinearGradient
-                colors={gradient || [color + '20', color + '10']}
-                style={styles.statGradient}
-            >
-                <View style={[styles.statIconBox, { backgroundColor: color + '30' }]}>
-                    <Ionicons name={icon} size={22} color={color} />
-                </View>
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
-                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
-                    {label}
-                </Text>
-                {subtitle && (
-                    <Text style={[styles.statSubtitle, { color: theme.colors.textSecondary }]}>
-                        {subtitle}
-                    </Text>
-                )}
-            </LinearGradient>
-        </View>
-    );
-
-    const CheckInItem = ({ item }) => {
-        const timeAgo = getTimeAgo(item.checkedInAt?.toMillis());
-
-        return (
-            <View style={[styles.checkInItem, { backgroundColor: theme.colors.surface }]}>
-                <View
-                    style={[styles.checkInAvatar, { backgroundColor: theme.colors.primary + '20' }]}
-                >
-                    <Text style={[styles.avatarText, { color: theme.colors.primary }]}>
-                        {item.userName?.[0]?.toUpperCase() || '?'}
-                    </Text>
-                </View>
-                <View style={styles.checkInInfo}>
-                    <Text style={[styles.checkInName, { color: theme.colors.text }]}>
-                        {item.userName}
-                    </Text>
-                    <View style={styles.checkInMeta}>
-                        <Ionicons
-                            name="school-outline"
-                            size={12}
-                            color={theme.colors.textSecondary}
-                        />
-                        <Text
-                            style={[styles.checkInDetails, { color: theme.colors.textSecondary }]}
-                        >
-                            {item.userBranch} • Year {item.userYear}
-                        </Text>
-                    </View>
-                </View>
-                <View style={styles.checkInTime}>
-                    <View style={styles.checkmarkBadge}>
-                        <Ionicons name="checkmark-circle" size={16} color={theme.colors.primary} />
-                    </View>
-                    <Text style={[styles.timeText, { color: theme.colors.textSecondary }]}>
-                        {timeAgo}
-                    </Text>
-                </View>
-            </View>
-        );
-    };
-
-    const getTimeAgo = timestamp => {
-        if (!timestamp) return 'Just now';
-        const now = Date.now();
-        const diff = now - timestamp;
-        const minutes = Math.floor(diff / 60000);
-        if (minutes < 1) return 'Just now';
-        if (minutes === 1) return '1 min ago';
-        if (minutes < 60) return `${minutes} mins ago`;
-        const hours = Math.floor(minutes / 60);
-        if (hours === 1) return '1 hour ago';
-        if (hours < 24) return `${hours} hours ago`;
-        return new Date(timestamp).toLocaleDateString();
-    };
-
-    const AnalyticsSection = ({ title, data, icon }) => {
-        const total = Object.values(data).reduce((sum, val) => sum + val, 0);
-        const sortedData = Object.entries(data).sort((a, b) => b[1] - a[1]);
-
-        return (
-            <View style={[styles.analyticsCard, { backgroundColor: theme.colors.surface }]}>
-                <View style={styles.analyticsHeader}>
-                    <View style={styles.analyticsHeaderLeft}>
-                        <Ionicons name={icon} size={18} color={theme.colors.primary} />
-                        <Text style={[styles.analyticsTitle, { color: theme.colors.text }]}>
-                            {title}
-                        </Text>
-                    </View>
-                    <Text style={[styles.analyticsTotal, { color: theme.colors.textSecondary }]}>
-                        {total} total
-                    </Text>
-                </View>
-                {sortedData.map(([key, value]) => {
-                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                    return (
-                        <View key={key} style={styles.analyticsItem}>
-                            <View style={styles.analyticsItemHeader}>
-                                <Text style={[styles.analyticsLabel, { color: theme.colors.text }]}>
-                                    {key}
-                                </Text>
-                                <Text
-                                    style={[
-                                        styles.analyticsValue,
-                                        { color: theme.colors.textSecondary },
-                                    ]}
-                                >
-                                    {value} ({percentage}%)
-                                </Text>
-                            </View>
-                            <View style={styles.analyticsBarBg}>
-                                <LinearGradient
-                                    colors={[theme.colors.primary, theme.colors.primary + '80']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={[styles.analyticsBarFill, { width: `${percentage}%` }]}
-                                />
-                            </View>
-                        </View>
-                    );
-                })}
-            </View>
-        );
     };
 
     if (loading) {
@@ -879,6 +754,129 @@ export default function AttendanceDashboard({ route, navigation }) {
     );
 }
 
+const StatCard = ({ icon, label, value, color, subtitle, gradient }) => {
+    const { theme } = useTheme();
+    return (
+        <View style={styles.statCard}>
+            <LinearGradient
+                colors={gradient || [color + '20', color + '10']}
+                style={styles.statGradient}
+            >
+                <View style={[styles.statIconBox, { backgroundColor: color + '30' }]}>
+                    <Ionicons name={icon} size={22} color={color} />
+                </View>
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
+                    {label}
+                </Text>
+                {subtitle && (
+                    <Text style={[styles.statSubtitle, { color: theme.colors.textSecondary }]}>
+                        {subtitle}
+                    </Text>
+                )}
+            </LinearGradient>
+        </View>
+    );
+};
+
+const CheckInItem = ({ item }) => {
+    const { theme } = useTheme();
+    const timeAgo = getTimeAgo(item.checkedInAt?.toMillis());
+
+    return (
+        <View style={[styles.checkInItem, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.checkInAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+                <Text style={[styles.avatarText, { color: theme.colors.primary }]}>
+                    {item.userName?.[0]?.toUpperCase() || '?'}
+                </Text>
+            </View>
+            <View style={styles.checkInInfo}>
+                <Text style={[styles.checkInName, { color: theme.colors.text }]}>
+                    {item.userName}
+                </Text>
+                <View style={styles.checkInMeta}>
+                    <Ionicons name="school-outline" size={12} color={theme.colors.textSecondary} />
+                    <Text style={[styles.checkInDetails, { color: theme.colors.textSecondary }]}>
+                        {item.userBranch} • Year {item.userYear}
+                    </Text>
+                </View>
+            </View>
+            <View style={styles.checkInTime}>
+                <View style={styles.checkmarkBadge}>
+                    <Ionicons name="checkmark-circle" size={16} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.timeText, { color: theme.colors.textSecondary }]}>
+                    {timeAgo}
+                </Text>
+            </View>
+        </View>
+    );
+};
+
+const getTimeAgo = timestamp => {
+    if (!timestamp) return 'Just now';
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return 'Just now';
+    if (minutes === 1) return '1 min ago';
+    if (minutes < 60) return `${minutes} mins ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours === 1) return '1 hour ago';
+    if (hours < 24) return `${hours} hours ago`;
+    return new Date(timestamp).toLocaleDateString();
+};
+
+const AnalyticsSection = ({ title, data, icon }) => {
+    const { theme } = useTheme();
+    const total = Object.values(data).reduce((sum, val) => sum + val, 0);
+    const sortedData = Object.entries(data).sort((a, b) => b[1] - a[1]);
+
+    return (
+        <View style={[styles.analyticsCard, { backgroundColor: theme.colors.surface }]}>
+            <View style={styles.analyticsHeader}>
+                <View style={styles.analyticsHeaderLeft}>
+                    <Ionicons name={icon} size={18} color={theme.colors.primary} />
+                    <Text style={[styles.analyticsTitle, { color: theme.colors.text }]}>
+                        {title}
+                    </Text>
+                </View>
+                <Text style={[styles.analyticsTotal, { color: theme.colors.textSecondary }]}>
+                    {total} total
+                </Text>
+            </View>
+            {sortedData.map(([key, value]) => {
+                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                return (
+                    <View key={key} style={styles.analyticsItem}>
+                        <View style={styles.analyticsItemHeader}>
+                            <Text style={[styles.analyticsLabel, { color: theme.colors.text }]}>
+                                {key}
+                            </Text>
+                            <Text
+                                style={[
+                                    styles.analyticsValue,
+                                    { color: theme.colors.textSecondary },
+                                ]}
+                            >
+                                {value} ({percentage}%)
+                            </Text>
+                        </View>
+                        <View style={styles.analyticsBarBg}>
+                            <LinearGradient
+                                colors={[theme.colors.primary, theme.colors.primary + '80']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={[styles.analyticsBarFill, { width: `${percentage}%` }]}
+                            />
+                        </View>
+                    </View>
+                );
+            })}
+        </View>
+    );
+};
+
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: {
@@ -1069,3 +1067,30 @@ const styles = StyleSheet.create({
     },
     modalButtonText: { fontSize: 15, fontWeight: '700' },
 });
+
+AttendanceDashboard.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};
+StatCard.propTypes = {
+    icon: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired,
+    value: PropTypes.number.isRequired,
+    color: PropTypes.string.isRequired,
+    subtitle: PropTypes.string,
+    gradient: PropTypes.arrayOf(PropTypes.string),
+};
+CheckInItem.propTypes = {
+    item: PropTypes.shape({
+        id: PropTypes.string.isRequired,
+        userName: PropTypes.string,
+        userBranch: PropTypes.string,
+        userYear: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        checkedInAt: PropTypes.object,
+    }).isRequired,
+};
+AnalyticsSection.propTypes = {
+    title: PropTypes.string.isRequired,
+    data: PropTypes.object.isRequired,
+    icon: PropTypes.string.isRequired,
+};

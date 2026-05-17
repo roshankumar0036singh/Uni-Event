@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Rating } from 'react-native-ratings';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function FeedbackModal({ visible, onClose, feedbackRequest, onSubmit }) {
     const { theme } = useTheme();
@@ -418,3 +419,10 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
 });
+
+FeedbackModal.propTypes = {
+    visible: PropTypes.any,
+    onClose: PropTypes.any,
+    feedbackRequest: PropTypes.any,
+    onSubmit: PropTypes.any,
+};

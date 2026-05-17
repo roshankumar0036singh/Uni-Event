@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import { Animated, Dimensions, Easing, Modal, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 const { width } = Dimensions.get('window');
 
@@ -332,3 +333,9 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
 });
+
+PaymentSuccessAnimation.propTypes = {
+    visible: PropTypes.any,
+    onComplete: PropTypes.any,
+    amount: PropTypes.any,
+};

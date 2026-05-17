@@ -40,6 +40,7 @@ import { cancelScheduledNotification, scheduleEventReminder } from '../lib/notif
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
 import { getEarlyBirdInfo } from '../lib/earlyBird';
+import PropTypes from 'prop-types';
 
 export default function EventDetail({ route, navigation }) {
     const { eventId, action } = route.params;
@@ -2295,3 +2296,8 @@ const getStyles = theme =>
             fontWeight: '800',
         },
     });
+
+EventDetail.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};

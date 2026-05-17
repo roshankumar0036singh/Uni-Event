@@ -7,6 +7,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function SavedEventsScreen({ navigation }) {
     const { user } = useAuth();
@@ -171,3 +172,7 @@ const getStyles = theme =>
             lineHeight: 20,
         },
     });
+
+SavedEventsScreen.propTypes = {
+    navigation: PropTypes.object,
+};

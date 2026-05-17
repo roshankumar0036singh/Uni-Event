@@ -28,6 +28,7 @@ import { scheduleEventReminder } from '../lib/notificationService';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { getEarlyBirdInfo } from '../lib/earlyBird';
+import PropTypes from 'prop-types';
 
 export default function EventRegistrationFormScreen({ navigation, route }) {
     const { event } = route.params;
@@ -309,3 +310,8 @@ const getStyles = theme =>
         },
         submitBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
     });
+
+EventRegistrationFormScreen.propTypes = {
+    navigation: PropTypes.object,
+    route: PropTypes.object,
+};

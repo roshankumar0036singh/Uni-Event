@@ -16,6 +16,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
 import { db } from '../lib/firebaseConfig';
+import PropTypes from 'prop-types';
 
 export default function MyEventsScreen({ navigation }) {
     const { user } = useAuth();
@@ -258,3 +259,7 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
     },
 });
+
+MyEventsScreen.propTypes = {
+    navigation: PropTypes.object,
+};

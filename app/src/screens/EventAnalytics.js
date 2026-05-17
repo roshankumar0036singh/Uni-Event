@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-nativ
 import ScreenWrapper from '../components/ScreenWrapper';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function EventAnalytics({ route, navigation }) {
     const { eventId } = route.params;
@@ -154,3 +155,8 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
 });
+
+EventAnalytics.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};

@@ -15,6 +15,7 @@ import WrappedConfetti from '../components/WrappedConfetti';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 const MONTH_NAMES = [
     'January',
@@ -510,3 +511,7 @@ const getStyles = theme =>
             fontWeight: '500',
         },
     });
+
+WrappedScreen.propTypes = {
+    navigation: PropTypes.object,
+};

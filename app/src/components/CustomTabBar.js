@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function CustomTabBar({ state, descriptors, navigation }) {
     const { theme, isDarkMode } = useTheme();
@@ -115,3 +116,9 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
 });
+
+CustomTabBar.propTypes = {
+    state: PropTypes.any,
+    descriptors: PropTypes.any,
+    navigation: PropTypes.object,
+};

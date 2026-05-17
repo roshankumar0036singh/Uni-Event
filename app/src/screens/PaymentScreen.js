@@ -28,6 +28,7 @@ import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 
 import { getEarlyBirdInfo } from '../lib/earlyBird';
+import PropTypes from 'prop-types';
 
 export default function PaymentScreen({ route, navigation }) {
     const { event, price, formResponses } = route.params;
@@ -193,38 +194,6 @@ export default function PaymentScreen({ route, navigation }) {
         }, 2000);
     };
 
-    const PaymentMethod = ({ id, label, icon }) => (
-        <TouchableOpacity
-            style={[
-                styles.methodCard,
-                {
-                    backgroundColor: theme.colors.surface,
-                    borderColor: selectedMethod === id ? theme.colors.primary : theme.colors.border,
-                    borderWidth: selectedMethod === id ? 2 : 1,
-                },
-            ]}
-            onPress={() => {
-                setSelectedMethod(id);
-                setShowUtrInput(false);
-            }}
-        >
-            <Ionicons
-                name={icon}
-                size={24}
-                color={selectedMethod === id ? theme.colors.primary : theme.colors.textSecondary}
-            />
-            <Text style={[styles.methodLabel, { color: theme.colors.text }]}>{label}</Text>
-            {selectedMethod === id && (
-                <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={theme.colors.primary}
-                    style={{ marginLeft: 'auto' }}
-                />
-            )}
-        </TouchableOpacity>
-    );
-
     return (
         <>
             <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -272,7 +241,14 @@ export default function PaymentScreen({ route, navigation }) {
                     <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
                         Payment Method
                     </Text>
-                    <PaymentMethod id="upi" label="UPI / GPay / PhonePe" icon="qr-code-outline" />
+                    <PaymentMethod
+                        id="upi"
+                        label="UPI / GPay / PhonePe"
+                        icon="qr-code-outline"
+                        selectedMethod={selectedMethod}
+                        setSelectedMethod={setSelectedMethod}
+                        setShowUtrInput={setShowUtrInput}
+                    />
                     {selectedMethod === 'upi' && showUtrInput && (
                         <View
                             style={{
@@ -319,8 +295,22 @@ export default function PaymentScreen({ route, navigation }) {
                             </TouchableOpacity>
                         </View>
                     )}
-                    <PaymentMethod id="card" label="Credit / Debit Card" icon="card-outline" />
-                    <PaymentMethod id="netbanking" label="Net Banking" icon="globe-outline" />
+                    <PaymentMethod
+                        id="card"
+                        label="Credit / Debit Card"
+                        icon="card-outline"
+                        selectedMethod={selectedMethod}
+                        setSelectedMethod={setSelectedMethod}
+                        setShowUtrInput={setShowUtrInput}
+                    />
+                    <PaymentMethod
+                        id="netbanking"
+                        label="Net Banking"
+                        icon="globe-outline"
+                        selectedMethod={selectedMethod}
+                        setSelectedMethod={setSelectedMethod}
+                        setShowUtrInput={setShowUtrInput}
+                    />
                 </ScrollView>
 
                 {/* Footer */}
@@ -359,6 +349,41 @@ export default function PaymentScreen({ route, navigation }) {
         </>
     );
 }
+
+const PaymentMethod = ({ id, label, icon, selectedMethod, setSelectedMethod, setShowUtrInput }) => {
+    const { theme } = useTheme();
+    return (
+        <TouchableOpacity
+            style={[
+                styles.methodCard,
+                {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: selectedMethod === id ? theme.colors.primary : theme.colors.border,
+                    borderWidth: selectedMethod === id ? 2 : 1,
+                },
+            ]}
+            onPress={() => {
+                setSelectedMethod(id);
+                setShowUtrInput(false);
+            }}
+        >
+            <Ionicons
+                name={icon}
+                size={24}
+                color={selectedMethod === id ? theme.colors.primary : theme.colors.textSecondary}
+            />
+            <Text style={[styles.methodLabel, { color: theme.colors.text }]}>{label}</Text>
+            {selectedMethod === id && (
+                <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={theme.colors.primary}
+                    style={{ marginLeft: 'auto' }}
+                />
+            )}
+        </TouchableOpacity>
+    );
+};
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
@@ -403,3 +428,16 @@ const styles = StyleSheet.create({
     },
     payButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
 });
+
+PaymentScreen.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};
+PaymentMethod.propTypes = {
+    id: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired,
+    icon: PropTypes.string.isRequired,
+    selectedMethod: PropTypes.string,
+    setSelectedMethod: PropTypes.func.isRequired,
+    setShowUtrInput: PropTypes.func.isRequired,
+};

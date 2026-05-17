@@ -15,6 +15,7 @@ import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { theme as staticTheme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function ParticipatingEventsScreen({ navigation }) {
     const { user } = useAuth();
@@ -113,3 +114,7 @@ const styles = StyleSheet.create({
     },
     empty: { textAlign: 'center', marginTop: 50 },
 });
+
+ParticipatingEventsScreen.propTypes = {
+    navigation: PropTypes.object,
+};

@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function WalletScreen({ navigation }) {
     const { user } = useAuth();
@@ -400,3 +401,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
 });
+
+WalletScreen.propTypes = {
+    navigation: PropTypes.object,
+};

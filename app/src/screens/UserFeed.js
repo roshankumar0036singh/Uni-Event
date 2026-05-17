@@ -20,6 +20,7 @@ import { useAuth } from '../lib/AuthContext';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 const FILTERS = ['Upcoming', 'Past', 'Cultural', 'Sports', 'Tech', 'Workshop', 'Seminar'];
 
@@ -492,3 +493,8 @@ const styles = StyleSheet.create({
     emptyContainer: { alignItems: 'center', marginTop: 50, padding: 20 },
     emptyText: { marginTop: 10, fontSize: 16 },
 });
+
+UserFeed.propTypes = {
+    navigation: PropTypes.object,
+    headerContent: PropTypes.object,
+};

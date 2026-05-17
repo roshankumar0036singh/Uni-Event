@@ -22,6 +22,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 // Helper for menu items
 const MenuItem = ({ icon, label, onPress, theme, styles, showChevron = true, rightElement }) => (
@@ -1189,3 +1190,23 @@ const getStyles = theme =>
             marginLeft: 8,
         },
     });
+
+MenuItem.propTypes = {
+    icon: PropTypes.any,
+    label: PropTypes.any,
+    onPress: PropTypes.any,
+    theme: PropTypes.object,
+    styles: PropTypes.object,
+    showChevron: PropTypes.any,
+    rightElement: PropTypes.object,
+};
+StatCard.propTypes = {
+    label: PropTypes.any,
+    value: PropTypes.number,
+    icon: PropTypes.any,
+    theme: PropTypes.object,
+    styles: PropTypes.object,
+};
+ProfileScreen.propTypes = {
+    navigation: PropTypes.object,
+};

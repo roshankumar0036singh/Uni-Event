@@ -11,6 +11,7 @@ import {
     View,
 } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 const { width } = Dimensions.get('window');
 
@@ -422,3 +423,8 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
 });
+
+WrappedConfetti.propTypes = {
+    visible: PropTypes.any,
+    onComplete: PropTypes.any,
+};
