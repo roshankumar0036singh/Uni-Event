@@ -6,6 +6,7 @@ import {
     Alert,
     FlatList,
     Platform,
+    RefreshControl,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -23,6 +24,7 @@ export default function MyEventsScreen({ navigation }) {
     const { theme } = useTheme();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         if (!user) return;
@@ -40,10 +42,12 @@ export default function MyEventsScreen({ navigation }) {
                 list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                 setEvents(list);
                 setLoading(false);
+                setRefreshing(false);
             },
             err => {
                 console.error(err);
                 setLoading(false);
+                setRefreshing(false);
             },
         );
 
@@ -75,6 +79,10 @@ export default function MyEventsScreen({ navigation }) {
                 },
             ]);
         }
+    };
+
+    const onRefresh = () => {
+        setRefreshing(true);
     };
 
     const renderItem = ({ item }) => (
@@ -161,6 +169,14 @@ export default function MyEventsScreen({ navigation }) {
                 data={events}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.list}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[theme.colors.primary]}
+                        tintColor={theme.colors.primary}
+                    />
+                }
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons

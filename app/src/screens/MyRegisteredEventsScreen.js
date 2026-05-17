@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, documentId, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
@@ -13,6 +13,7 @@ export default function MyRegisteredEventsScreen({ navigation }) {
     const { theme } = useTheme();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -29,6 +30,7 @@ export default function MyRegisteredEventsScreen({ navigation }) {
             if (eventIds.length === 0) {
                 setEvents([]);
                 setLoading(false);
+                setRefreshing(false);
                 return;
             }
 
@@ -64,6 +66,7 @@ export default function MyRegisteredEventsScreen({ navigation }) {
                 console.error('Error fetching registered events:', error);
             } finally {
                 setLoading(false);
+                setRefreshing(false);
             }
         });
 
@@ -78,6 +81,10 @@ export default function MyRegisteredEventsScreen({ navigation }) {
         );
     }
 
+    const onRefresh = () => {
+        setRefreshing(true);
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <View style={styles.header}>
@@ -91,6 +98,14 @@ export default function MyRegisteredEventsScreen({ navigation }) {
                 data={events}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.list}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[theme.colors.primary]}
+                        tintColor={theme.colors.primary}
+                    />
+                }
                 renderItem={({ item }) => <EventCard event={item} />}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
