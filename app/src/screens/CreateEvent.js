@@ -85,7 +85,7 @@ export default function CreateEvent({ navigation, route }) {
             response?.params?.access_token;
         if (!token) {
             Alert.alert('Error', 'Unable to get Google access token');
-            return;
+            return null;
         }
         const result = await CalendarService.createMeetEvent(token, {
             title: title || 'New Event',
@@ -100,9 +100,11 @@ export default function CreateEvent({ navigation, route }) {
             return result.meetLink;
         } else {
             Alert.alert('Error', 'Meet link not returned from Google API');
+            return null;
         }
     } catch (error) {
         Alert.alert('Error', error.message || 'Failed to generate Meet link');
+        return null;
     }
 };
 
@@ -202,6 +204,11 @@ export default function CreateEvent({ navigation, route }) {
         if (eventMode === 'online' && !meetLink) {
             generatedMeetLink = await handleGenerateMeetLink();   
         }
+        if (eventMode === 'online' && !generatedMeetLink) {
+            Alert.alert('Error', 'Meet link generation failed');
+            setLoading(false);
+            return;
+}
 
             const eventData = {
                 title,
