@@ -1,16 +1,6 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /feedback/{userId}/{file=**} {
-      allow write: if request.auth != null
-                   && request.auth.uid == userId
-                   && request.resource.size < 5 * 1024 * 1024
-                   && request.resource.contentType.matches('image/(jpeg|png|webp)');
-
-      allow read: if request.auth != null
-                  && (request.auth.uid == userId
-                      || request.auth.token.admin == true);
-    }
     match /users/{uid}/avatar{
       allow read: if true;
       allow write: if request.auth != null

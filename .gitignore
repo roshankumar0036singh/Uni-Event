@@ -29,8 +29,5 @@ emulator-data/
 .firebase/
 .firebaserc
 
-# Local emulator artifacts
-cloud-functions/firebase-debug.log
-cloud-functions/firebase-*-debug.log
-cloud-functions/firebase-export-*/
-cloud-functions/emulator-data/
+# Compiled output
+lib/

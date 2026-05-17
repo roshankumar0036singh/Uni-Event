@@ -452,30 +452,7 @@ Centralized control panel with two main sections:
 - Icon + label
 - Smooth animations
 
-### 5. **Feedback & Bug Reporting**
-
-#### Report a Bug Screen
-- **Accessible From**: Profile → Support → Report a Bug
-- **Category Selection**: Bug, Feature Request, UI/UX, Other
-- **Description Field**: Required multi-line text input
-- **Screenshot Attachment**: Optional, picked from photo library with crop support
-- **Auto-Collected Telemetry**:
-  - App version and build version (`expo-application`)
-  - OS, OS version, device model, brand (`expo-device`)
-  - Platform identifier (iOS / Android / Web)
-- **User Context**: UID, email, and role attached automatically
-
-#### Backend
-- **Firestore `feedback` collection**: One document per submitted report with `status` field (open / in-progress / resolved)
-- **Storage `feedback/{uid}/` path**: Screenshots uploaded with 5 MB cap and image MIME-type guard
-- **Security Rules**:
-  - Authenticated users can create their own reports
-  - Owners and admins can read
-  - Only admins can update status or delete
-
----
-
-### 6. **Activity Tracking**
+### 5. **Activity Tracking**
 
 #### My Calendar
 - All registered events
@@ -592,8 +569,7 @@ Centralized control panel with two main sections:
 ## Feature Summary by Role
 
 ### Admin (All Features)
-✅ Club approval/rejection
-✅ Read all user feedback (admin-only)  
+✅ Club approval/rejection  
 ✅ Event appeal management  
 ✅ Sample data seeding  
 ✅ Daily digest broadcasting  
@@ -627,7 +603,6 @@ Centralized control panel with two main sections:
 ✅ Wallet & payment history  
 ✅ Profile management  
 ✅ Club following  
-✅ Report bugs & submit feedback
 
 ---
 
@@ -655,5 +630,5 @@ Centralized control panel with two main sections:
 
 ---
 
- *Last Updated: May 2026*
+*Last Updated: January 2026*  
 *Version: 1.0.0*

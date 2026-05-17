@@ -33,8 +33,6 @@ import MyRegisteredEventsScreen from './src/screens/MyRegisteredEventsScreen';
 import SavedEventsScreen from './src/screens/SavedEventsScreen';
 import FormBuilderScreen from './src/screens/FormBuilderScreen';
 import EventRegistrationFormScreen from './src/screens/EventRegistrationFormScreen';
-import WrappedScreen from './src/screens/WrappedScreen';
-import ReportBugScreen from './src/screens/ReportBugScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -47,6 +45,7 @@ function HomeScreen({ navigation }) {
 
     useEffect(() => {
         const updateNavBar = async () => {
+            // Set Android Navigation Bar Color
             await NavigationBar.setBackgroundColorAsync(theme.colors.surface);
             await NavigationBar.setButtonStyleAsync(isDarkMode ? 'light' : 'dark');
         };
@@ -110,6 +109,7 @@ function HomeScreen({ navigation }) {
 }
 
 import EventAnalytics from './src/screens/EventAnalytics';
+
 import CustomTabBar from './src/components/CustomTabBar';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 
@@ -123,7 +123,7 @@ function TabNavigator() {
             screenOptions={{
                 headerShown: false,
                 tabBarStyle: {
-                    position: 'absolute',
+                    position: 'absolute', // Required for BlurView transparency to see content behind
                     backgroundColor: 'transparent',
                     elevation: 0,
                     borderTopWidth: 0,
@@ -132,6 +132,7 @@ function TabNavigator() {
         >
             <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
 
+            {/* Admin Tab: Control Panel (Admin Only) */}
             {role === 'admin' && (
                 <Tab.Screen
                     name="Admin"
@@ -140,6 +141,7 @@ function TabNavigator() {
                 />
             )}
 
+            {/* My Events Tab: For Admin & Club */}
             {(role === 'admin' || role === 'club') && (
                 <Tab.Screen
                     name="MyEvents"
@@ -154,6 +156,7 @@ function TabNavigator() {
                 options={{ title: 'Reminders' }}
             />
 
+            {/* Leaderboard for everyone or students */}
             <Tab.Screen
                 name="Leaderboard"
                 component={LeaderboardScreen}
@@ -240,6 +243,7 @@ function Navigation() {
                             component={ParticipatingEventsScreen}
                             options={{ title: "Events I'm Going To" }}
                         />
+                        {/* MyEvents is now a Tab, but can still be navigated to if needed, though usually via tab */}
                         <Stack.Screen
                             name="EventAnalytics"
                             component={EventAnalytics}
@@ -255,6 +259,8 @@ function Navigation() {
                             component={QRScannerScreen}
                             options={{ title: 'Scan QR', headerShown: false }}
                         />
+
+                        {/* Migrated Screens */}
                         <Stack.Screen
                             name="Appearance"
                             component={AppearanceScreen}
@@ -305,16 +311,6 @@ function Navigation() {
                             component={EventRegistrationFormScreen}
                             options={{ headerShown: false }}
                         />
-                        <Stack.Screen
-                            name="Wrapped"
-                            component={WrappedScreen}
-                            options={{ headerShown: false }}
-                        />
-                        <Stack.Screen
-                            name="ReportBug"
-                            component={ReportBugScreen}
-                            options={{ title: 'Report a Bug' }}
-                        />
                     </>
                 ) : (
                     <Stack.Screen
@@ -333,6 +329,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { useRef } from 'react';
 import { db } from './src/lib/firebaseConfig';
 import { registerForPushNotificationsAsync } from './src/lib/notificationService';
+
 import PWAInstallPrompt from './src/components/PWAInstallPrompt';
 
 export default function App() {
@@ -356,23 +353,28 @@ function AppContent() {
     useEffect(() => {
         registerForPushNotificationsAsync().then(token => {
             if (user && token) {
+                // Save token to user profile
                 updateDoc(doc(db, 'users', user.uid), {
                     pushToken: token,
                 }).catch(err => console.log('Failed to save push token', err));
+
+                // Global Automation Check - DISABLED (Manual feedback sending only)
+                // checkAndTriggerAutomations(user.uid);
             }
         });
-        // Global Automation Check - DISABLED (Manual feedback sending only)
-        // checkAndTriggerAutomations(user.uid);
 
+        // Listeners for foreground notifications
         notificationListener.current = Notifications.addNotificationReceivedListener(
             notification => {
                 console.log('Notification Received:', notification);
             },
         );
 
+        // Listeners for user interacting with notification
         responseListener.current = Notifications.addNotificationResponseReceivedListener(
             response => {
                 console.log('Notification Tapped:', response);
+                // Could navigate to event detail here
             },
         );
 

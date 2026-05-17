@@ -7,8 +7,6 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
-import { getEarlyBirdInfo } from '../lib/earlyBird';
-import { ShimmerItem } from './SkeletonLoader';
 
 export default function EventCard({
     event,
@@ -23,16 +21,6 @@ export default function EventCard({
     const navigation = useNavigation();
     const { theme } = useTheme();
     const [hostName, setHostName] = useState(event?.organization || 'Club Name');
-    const [bannerLoaded, setBannerLoaded] = useState(false);
-    const [flyerLoaded, setFlyerLoaded] = useState(false);
-
-    useEffect(() => {
-        setBannerLoaded(false);
-    }, [event?.bannerUrl]);
-
-    useEffect(() => {
-        setFlyerLoaded(false);
-    }, [event?.detailImageUrl, event?.bannerUrl]);
 
     useEffect(() => {
         if (event?.ownerId) {
@@ -61,11 +49,7 @@ export default function EventCard({
 
     // Fallback for second image if not present in data
     const flyerUrl =
-        event.detailImageUrl ||
-        event.bannerUrl ||
-        'https://dummyimage.com/400x400/cccccc/000000.png&text=No+Image';
-
-    const { isEligible: isEarlyBird, currentPrice } = getEarlyBirdInfo(event);
+        event.detailImageUrl || event.bannerUrl || 'https://via.placeholder.com/400x400';
 
     return (
         <TouchableOpacity
@@ -79,24 +63,10 @@ export default function EventCard({
         >
             {/* 1. MAIN BANNER IMAGE (Top Layer) */}
             <View style={[styles.bannerContainer, isRecommended && { height: 140 }]}>
-                {!bannerLoaded && (
-                    <ShimmerItem
-                        style={[
-                            styles.bannerImage,
-                            isRecommended && { height: 140 },
-                            StyleSheet.absoluteFill,
-                        ]}
-                    />
-                )}
                 <Image
-                    source={{
-                        uri:
-                            event.bannerUrl ||
-                            'https://dummyimage.com/800x400/cccccc/000000.png&text=No+Image',
-                    }}
+                    source={{ uri: event.bannerUrl || 'https://via.placeholder.com/800x400' }}
                     style={[styles.bannerImage, isRecommended && { height: 140 }]} // Compact height for recommended
                     resizeMode="cover"
-                    onLoadEnd={() => setBannerLoaded(true)}
                 />
                 <LinearGradient
                     colors={['transparent', 'rgba(0,0,0,0.4)']}
@@ -142,14 +112,10 @@ export default function EventCard({
                         { borderColor: theme.colors.surface, ...theme.shadows.default },
                     ]}
                 >
-                    {!flyerLoaded && (
-                        <ShimmerItem style={[styles.flyerImage, StyleSheet.absoluteFill]} />
-                    )}
                     <Image
                         source={{ uri: flyerUrl }}
                         style={styles.flyerImage}
                         resizeMode="cover"
-                        onLoadEnd={() => setFlyerLoaded(true)}
                     />
                 </View>
 
@@ -223,44 +189,12 @@ export default function EventCard({
                                 </Text>
                             </View>
                         )}
-
-                        {/* Early Bird Badge */}
-                        {isEarlyBird && !isRegistered && (
-                            <View
-                                style={{
-                                    backgroundColor: '#EAB30820',
-                                    paddingHorizontal: 8,
-                                    paddingVertical: 3,
-                                    borderRadius: 20,
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    alignSelf: 'flex-start',
-                                    marginTop: 4,
-                                    borderWidth: 1,
-                                    borderColor: '#EAB308',
-                                }}
-                            >
-                                <Text style={{ fontSize: 10, lineHeight: 14 }}>🐦</Text>
-                                <Text
-                                    style={{
-                                        fontSize: 10,
-                                        fontWeight: '700',
-                                        color: '#EAB308',
-                                        letterSpacing: 0.5,
-                                        lineHeight: 14,
-                                    }}
-                                >
-                                    EARLY BIRD
-                                </Text>
-                            </View>
-                        )}
                     </View>
 
                     {/* Price Badge */}
                     <View style={[styles.priceBadge, { backgroundColor: theme.colors.secondary }]}>
                         <Text style={styles.priceText}>
-                            {event.isPaid ? `₹${currentPrice}` : 'FREE'}
+                            {event.isPaid ? `₹${event.price}` : 'FREE'}
                         </Text>
                     </View>
                 </View>
@@ -302,23 +236,23 @@ export default function EventCard({
 
 const styles = StyleSheet.create({
     card: {
-        borderRadius: 14,
-        marginBottom: 16,
+        borderRadius: 16, // Softer
+        marginBottom: 24,
         overflow: 'visible',
-        marginHorizontal: 0,
+        marginHorizontal: 0, // Full width - removed reference to potential parent padding if any
         width: '100%',
     },
     bannerContainer: {
-        height: 140,
+        height: 180, // Default height
         width: '100%',
         overflow: 'hidden',
         position: 'relative',
-        borderRadius: 14,
+        borderRadius: 16,
     },
     bannerImage: {
         width: '100%',
         height: '100%',
-        borderRadius: 14,
+        borderRadius: 16,
     },
     categoryBadge: {
         position: 'absolute',
@@ -353,16 +287,16 @@ const styles = StyleSheet.create({
         fontSize: 10,
     },
     contentContainer: {
-        paddingHorizontal: 12,
-        paddingBottom: 14,
+        paddingHorizontal: 16,
+        paddingBottom: 20,
         paddingTop: 0,
     },
     flyerContainer: {
-        width: 78,
-        height: 78,
-        borderRadius: 14,
-        borderWidth: 3,
-        marginTop: -38,
+        width: 100,
+        height: 100,
+        borderRadius: 20, // Sleeker curve
+        borderWidth: 4,
+        marginTop: -50,
         overflow: 'hidden',
     },
     flyerImage: {
@@ -370,21 +304,21 @@ const styles = StyleSheet.create({
         height: '100%',
     },
     headerInfo: {
-        marginTop: -34,
-        marginLeft: 88,
-        height: 60,
-        marginBottom: 2,
-        justifyContent: 'center',
+        marginTop: -45,
+        marginLeft: 110,
+        height: 75, // Fixed height for alignment
+        marginBottom: 4,
+        justifyContent: 'center', // Center vertically
     },
     title: {
-        fontSize: 17,
+        fontSize: 22,
         fontWeight: '900',
-        lineHeight: 21,
+        lineHeight: 26,
         marginBottom: 2,
         textTransform: 'uppercase',
     },
     host: {
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: '700',
         opacity: 0.8,
     },
@@ -392,20 +326,20 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: 10,
-        marginBottom: 10,
+        marginTop: 16,
+        marginBottom: 16,
     },
     infoBlock: {
-        gap: 4,
+        gap: 6,
         flex: 1,
     },
     infoItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        gap: 8,
     },
     infoText: {
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: '600',
     },
     // New Ribbon Style for Price
@@ -425,18 +359,18 @@ const styles = StyleSheet.create({
     registerBtn: {
         flexDirection: 'row',
         gap: 6,
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        borderRadius: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 16, // Modern Rounded
         alignItems: 'center',
         justifyContent: 'center',
-        width: '100%',
+        width: '100%', // Full Width
     },
     registerText: {
         color: '#fff',
         fontWeight: '800',
-        fontSize: 13,
-        letterSpacing: 0.8,
+        fontSize: 14,
+        letterSpacing: 1,
         textTransform: 'uppercase',
     },
 });
