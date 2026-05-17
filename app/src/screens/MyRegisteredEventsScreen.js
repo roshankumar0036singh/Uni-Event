@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, doc, documentId, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
@@ -12,6 +12,7 @@ export default function MyRegisteredEventsScreen({ navigation }) {
     const { theme } = useTheme();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -19,7 +20,6 @@ export default function MyRegisteredEventsScreen({ navigation }) {
             return;
         }
 
-        // 1. Get List of Event IDs from "participating" subcollection
         const participationsRef = collection(db, 'users', user.uid, 'participating');
 
         const unsubscribe = onSnapshot(participationsRef, async (snapshot) => {
@@ -28,17 +28,11 @@ export default function MyRegisteredEventsScreen({ navigation }) {
             if (eventIds.length === 0) {
                 setEvents([]);
                 setLoading(false);
+                setRefreshing(false);
                 return;
             }
 
-            // 2. Fetch Event Details for these IDs
-            // Firestore "in" query limited to 10 items. If > 10, need multiple queries or client-side filter
-            // For simplicity, we'll do client side or basic chunks. 
-            // Better approach: Store minimal event data in 'participating' to avoid 2nd query?
-            // Current approach: Query 'events' where documentId IN [ids]
-
             try {
-                // Chunking for >10 items
                 const chunks = [];
                 for (let i = 0; i < eventIds.length; i += 10) {
                     chunks.push(eventIds.slice(i, i + 10));
@@ -52,7 +46,6 @@ export default function MyRegisteredEventsScreen({ navigation }) {
                     allEvents = [...allEvents, ...chunkEvents];
                 }
 
-                // Sort by date (optional)
                 allEvents.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
 
                 setEvents(allEvents);
@@ -60,6 +53,7 @@ export default function MyRegisteredEventsScreen({ navigation }) {
                 console.error("Error fetching registered events:", error);
             } finally {
                 setLoading(false);
+                setRefreshing(false);
             }
         });
 
@@ -74,6 +68,10 @@ export default function MyRegisteredEventsScreen({ navigation }) {
         );
     }
 
+    const onRefresh = () => {
+        setRefreshing(true);
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <View style={styles.header}>
@@ -85,6 +83,14 @@ export default function MyRegisteredEventsScreen({ navigation }) {
                 data={events}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.list}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[theme.colors.primary]}
+                        tintColor={theme.colors.primary}
+                    />
+                }
                 renderItem={({ item }) => (
                     <EventCard
                         event={item}

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { collection, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Platform, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Platform, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import FeedbackModal from '../components/FeedbackModal';
 import { EventListSkeleton } from '../components/SkeletonLoader';
@@ -21,6 +21,7 @@ export default function UserFeed({ navigation, headerContent }) {
     const [activeFilter, setActiveFilter] = useState('Upcoming');
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -69,7 +70,6 @@ export default function UserFeed({ navigation, headerContent }) {
             return;
         }
 
-        // Fetching events. ideally separate query.
         const q = query(collection(db, 'events'));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -81,7 +81,8 @@ export default function UserFeed({ navigation, headerContent }) {
             });
             setEvents(list);
             setLoading(false);
-        }, (error) => { console.log("Error fetching events: ", error); setLoading(false); });
+            setRefreshing(false);
+        }, (error) => { console.log("Error fetching events: ", error); setLoading(false); setRefreshing(false); });
 
         return () => unsubscribe();
     }, [role, user]);
@@ -206,6 +207,10 @@ export default function UserFeed({ navigation, headerContent }) {
 
     const displayList = getFilteredEvents();
 
+    const onRefresh = () => {
+        setRefreshing(true);
+    };
+
     const StickyHeader = () => (
         <View style={{ backgroundColor: theme.colors.background, paddingBottom: 10 }}>
             {/* Search Bar - Floating Pill */}
@@ -316,6 +321,14 @@ export default function UserFeed({ navigation, headerContent }) {
                     renderSectionHeader={StickyHeader}
                     ListHeaderComponent={renderHeader}
                     stickySectionHeadersEnabled={true}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={[theme.colors.primary]}
+                            tintColor={theme.colors.primary}
+                        />
+                    }
                     onScroll={Animated.event(
                         [{ nativeEvent: { contentOffset: { y: scrollY } } }],
                         { useNativeDriver: true }
