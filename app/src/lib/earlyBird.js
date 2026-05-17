@@ -17,7 +17,7 @@ const getTimestampMs = value => {
 const EARLY_BIRD_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 // Returns Early Bird eligibility info for an event.
-export const getEarlyBirdInfo = (event) => {
+export const getEarlyBirdInfo = event => {
     // Path A: Event has an explicit early bird deadline set by organiser
     if (event?.hasEarlyBird && event?.earlyBirdDeadline) {
         const deadlineMs = getTimestampMs(event.earlyBirdDeadline);
@@ -27,7 +27,8 @@ export const getEarlyBirdInfo = (event) => {
 
         return {
             isEligible,
-            currentPrice: isEligible && event.earlyBirdPrice != null ? event.earlyBirdPrice : event.price,
+            currentPrice:
+                isEligible && event.earlyBirdPrice != null ? event.earlyBirdPrice : event.price,
             deadline: event.earlyBirdDeadline,
             isExplicit: true,
         };

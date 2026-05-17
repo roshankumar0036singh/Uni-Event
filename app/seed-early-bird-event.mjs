@@ -6,50 +6,45 @@
  *   node seed-early-bird-event.mjs
  */
 
-import { initializeApp }                          from 'firebase/app';
-import {
-    addDoc,
-    collection,
-    connectFirestoreEmulator,
-    getFirestore,
-} from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { addDoc, collection, connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 
 // ── Match your emulator / demo project ───────────────────────────────────────
 const firebaseConfig = {
-    apiKey:    'dummy_api_key_for_emulator',
+    apiKey: 'dummy_api_key_for_emulator',
     authDomain: 'demo-no-project.firebaseapp.com',
     projectId: 'demo-no-project',
 };
 
 const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+const db = getFirestore(app);
 connectFirestoreEmulator(db, 'localhost', 8080);
 
 // ── Event payload ─────────────────────────────────────────────────────────────
-const now      = new Date();
-const startAt  = new Date(now.getTime() + 7  * 24 * 60 * 60 * 1000); // +7 days
-const endAt    = new Date(startAt.getTime()  + 2  * 60 * 60 * 1000); // +2 h
+const now = new Date();
+const startAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // +7 days
+const endAt = new Date(startAt.getTime() + 2 * 60 * 60 * 1000); // +2 h
 
 const event = {
-    title:           '🐦 Early Bird Badge Test Event',
-    description:     'Seed event — RSVP within 60 min of creation to earn the Early Bird badge!',
-    category:        'Workshop',
-    location:        'Test Hall, CS Block',
-    organizerName:   'Dev Tester',
-    organization:    'UniEvent',
-    ownerId:         'seed-organizer-uid',
+    title: '🐦 Early Bird Badge Test Event',
+    description: 'Seed event — RSVP within 60 min of creation to earn the Early Bird badge!',
+    category: 'Workshop',
+    location: 'Test Hall, CS Block',
+    organizerName: 'Dev Tester',
+    organization: 'UniEvent',
+    ownerId: 'seed-organizer-uid',
 
     // ✅ createdAt = RIGHT NOW — badge window is open for 60 minutes
     createdAt: now.toISOString(),
 
-    startAt:  startAt.toISOString(),
-    endAt:    endAt.toISOString(),
+    startAt: startAt.toISOString(),
+    endAt: endAt.toISOString(),
 
-    isPaid:         false,
-    status:         'approved',
-    hasCustomForm:  false,
+    isPaid: false,
+    status: 'approved',
+    hasCustomForm: false,
     maxParticipants: 100,
-    views:           0,
+    views: 0,
 };
 
 try {

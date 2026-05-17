@@ -13,14 +13,22 @@ import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useTheme } from '../lib/ThemeContext';
 import PremiumInput from '../components/PremiumInput';
-import { addDoc, collection, setDoc, doc, updateDoc, increment, getDoc, arrayUnion } from 'firebase/firestore';
+import {
+    addDoc,
+    collection,
+    setDoc,
+    doc,
+    updateDoc,
+    increment,
+    getDoc,
+    arrayUnion,
+} from 'firebase/firestore';
 import { db } from '../lib/firebaseConfig';
 import { useAuth } from '../lib/AuthContext';
 import { scheduleEventReminder } from '../lib/notificationService';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { getEarlyBirdInfo } from '../lib/earlyBird';
-
 
 export default function EventRegistrationFormScreen({ navigation, route }) {
     const { event } = route.params;

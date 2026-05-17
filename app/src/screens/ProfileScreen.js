@@ -320,86 +320,124 @@ export default function ProfileScreen({ navigation }) {
                 )}
 
                 {/* Badges Section */}
-                {!isEditing && badges.length > 0 && (() => {
-                    const earlyBirdCount = badges.filter(b => b.startsWith('early_bird')).length;
-                    const otherBadges = badges.filter(b => !b.startsWith('early_bird'));
+                {!isEditing &&
+                    badges.length > 0 &&
+                    (() => {
+                        const earlyBirdCount = badges.filter(b =>
+                            b.startsWith('early_bird'),
+                        ).length;
+                        const otherBadges = badges.filter(b => !b.startsWith('early_bird'));
 
-                    return (
-                        <View style={styles.badgesContainer}>
-                            <Text style={styles.groupTitle}>🏅 My Badges</Text>
+                        return (
+                            <View style={styles.badgesContainer}>
+                                <Text style={styles.groupTitle}>🏅 My Badges</Text>
 
-                            {/* Early Bird badge card — gold & black theme */}
-                            {earlyBirdCount > 0 && (
-                                <View style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    backgroundColor: '#1a1400',
-                                    borderColor: '#F59E0B',
-                                    borderWidth: 1.5,
-                                    borderRadius: 14,
-                                    paddingVertical: 10,
-                                    paddingHorizontal: 14,
-                                    marginBottom: 10,
-                                    gap: 12,
-                                }}>
-                                    {/* Gold circle with black bird icon */}
-                                    <View style={{
-                                        width: 42,
-                                        height: 42,
-                                        borderRadius: 21,
-                                        backgroundColor: '#F59E0B',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}>
-                                        <Ionicons name="leaf" size={20} color="#000" />
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={{ fontWeight: '800', fontSize: 14, color: '#F59E0B', letterSpacing: 0.3 }}>
-                                            Early Bird
-                                        </Text>
-                                        <Text style={{ color: '#D97706', fontSize: 11, marginTop: 1 }}>
-                                            Registered early for {earlyBirdCount} event{earlyBirdCount > 1 ? 's' : ''}
-                                        </Text>
-                                    </View>
-                                    {/* Black pill with gold text */}
-                                    <View style={{
-                                        backgroundColor: '#000',
-                                        borderRadius: 20,
-                                        borderWidth: 1,
-                                        borderColor: '#F59E0B',
-                                        paddingVertical: 4,
-                                        paddingHorizontal: 10,
-                                    }}>
-                                        <Text style={{ color: '#F59E0B', fontWeight: '800', fontSize: 13 }}>×{earlyBirdCount}</Text>
-                                    </View>
-                                </View>
-                            )}
-
-                            {/* Other badges as chips */}
-                            {otherBadges.length > 0 && (
-                                <View style={styles.badgesRow}>
-                                    {otherBadges.map((badge, index) => (
+                                {/* Early Bird badge card — gold & black theme */}
+                                {earlyBirdCount > 0 && (
+                                    <View
+                                        style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            backgroundColor: '#1a1400',
+                                            borderColor: '#F59E0B',
+                                            borderWidth: 1.5,
+                                            borderRadius: 14,
+                                            paddingVertical: 10,
+                                            paddingHorizontal: 14,
+                                            marginBottom: 10,
+                                            gap: 12,
+                                        }}
+                                    >
+                                        {/* Gold circle with black bird icon */}
                                         <View
-                                            key={index}
-                                            style={[
-                                                styles.badgeChip,
-                                                {
-                                                    backgroundColor: theme.colors.primary + '20',
-                                                    borderColor: theme.colors.primary,
-                                                },
-                                            ]}
+                                            style={{
+                                                width: 42,
+                                                height: 42,
+                                                borderRadius: 21,
+                                                backgroundColor: '#F59E0B',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}
                                         >
-                                            <Text style={{ fontSize: 16 }}>🏅</Text>
-                                            <Text style={[styles.badgeText, { color: theme.colors.primary }]}>
-                                                {badge.replace(/_/g, ' ').toUpperCase()}
+                                            <Ionicons name="leaf" size={20} color="#000" />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text
+                                                style={{
+                                                    fontWeight: '800',
+                                                    fontSize: 14,
+                                                    color: '#F59E0B',
+                                                    letterSpacing: 0.3,
+                                                }}
+                                            >
+                                                Early Bird
+                                            </Text>
+                                            <Text
+                                                style={{
+                                                    color: '#D97706',
+                                                    fontSize: 11,
+                                                    marginTop: 1,
+                                                }}
+                                            >
+                                                Registered early for {earlyBirdCount} event
+                                                {earlyBirdCount > 1 ? 's' : ''}
                                             </Text>
                                         </View>
-                                    ))}
-                                </View>
-                            )}
-                        </View>
-                    );
-                })()}
+                                        {/* Black pill with gold text */}
+                                        <View
+                                            style={{
+                                                backgroundColor: '#000',
+                                                borderRadius: 20,
+                                                borderWidth: 1,
+                                                borderColor: '#F59E0B',
+                                                paddingVertical: 4,
+                                                paddingHorizontal: 10,
+                                            }}
+                                        >
+                                            <Text
+                                                style={{
+                                                    color: '#F59E0B',
+                                                    fontWeight: '800',
+                                                    fontSize: 13,
+                                                }}
+                                            >
+                                                ×{earlyBirdCount}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                )}
+
+                                {/* Other badges as chips */}
+                                {otherBadges.length > 0 && (
+                                    <View style={styles.badgesRow}>
+                                        {otherBadges.map((badge, index) => (
+                                            <View
+                                                key={index}
+                                                style={[
+                                                    styles.badgeChip,
+                                                    {
+                                                        backgroundColor:
+                                                            theme.colors.primary + '20',
+                                                        borderColor: theme.colors.primary,
+                                                    },
+                                                ]}
+                                            >
+                                                <Text style={{ fontSize: 16 }}>🏅</Text>
+                                                <Text
+                                                    style={[
+                                                        styles.badgeText,
+                                                        { color: theme.colors.primary },
+                                                    ]}
+                                                >
+                                                    {badge.replace(/_/g, ' ').toUpperCase()}
+                                                </Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                        );
+                    })()}
 
                 {/* Edit Form */}
                 {isEditing ? (
@@ -759,24 +797,24 @@ export default function ProfileScreen({ navigation }) {
                                     </Text>
                                 </View>
                             </View>
-                </View>
+                        </View>
 
-                {/* Support Section */}
-                <View style={styles.menuGroup}>
-                    <Text style={styles.groupTitle}>Support</Text>
-                    <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-                        <MenuItem
-                            icon="bug-outline"
-                            label="Report a Bug"
-                            onPress={() => navigation.navigate('ReportBug')}
-                            theme={theme}
-                            styles={styles}
-                        />
-                    </View>
-                </View>
+                        {/* Support Section */}
+                        <View style={styles.menuGroup}>
+                            <Text style={styles.groupTitle}>Support</Text>
+                            <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+                                <MenuItem
+                                    icon="bug-outline"
+                                    label="Report a Bug"
+                                    onPress={() => navigation.navigate('ReportBug')}
+                                    theme={theme}
+                                    styles={styles}
+                                />
+                            </View>
+                        </View>
 
-                {/* Logout Button */}
-                <TouchableOpacity style={styles.logoutBtn} onPress={signOut}>
+                        {/* Logout Button */}
+                        <TouchableOpacity style={styles.logoutBtn} onPress={signOut}>
                             <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
                             <Text style={styles.logoutText}>Sign Out</Text>
                         </TouchableOpacity>

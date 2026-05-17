@@ -61,7 +61,9 @@ export default function EventCard({
 
     // Fallback for second image if not present in data
     const flyerUrl =
-        event.detailImageUrl || event.bannerUrl || 'https://dummyimage.com/400x400/cccccc/000000.png&text=No+Image';
+        event.detailImageUrl ||
+        event.bannerUrl ||
+        'https://dummyimage.com/400x400/cccccc/000000.png&text=No+Image';
 
     const { isEligible: isEarlyBird, currentPrice } = getEarlyBirdInfo(event);
 
@@ -87,7 +89,11 @@ export default function EventCard({
                     />
                 )}
                 <Image
-                    source={{ uri: event.bannerUrl || 'https://dummyimage.com/800x400/cccccc/000000.png&text=No+Image' }}
+                    source={{
+                        uri:
+                            event.bannerUrl ||
+                            'https://dummyimage.com/800x400/cccccc/000000.png&text=No+Image',
+                    }}
                     style={[styles.bannerImage, isRecommended && { height: 140 }]} // Compact height for recommended
                     resizeMode="cover"
                     onLoadEnd={() => setBannerLoaded(true)}
@@ -236,7 +242,15 @@ export default function EventCard({
                                 }}
                             >
                                 <Text style={{ fontSize: 10, lineHeight: 14 }}>🐦</Text>
-                                <Text style={{ fontSize: 10, fontWeight: '700', color: '#EAB308', letterSpacing: 0.5, lineHeight: 14 }}>
+                                <Text
+                                    style={{
+                                        fontSize: 10,
+                                        fontWeight: '700',
+                                        color: '#EAB308',
+                                        letterSpacing: 0.5,
+                                        lineHeight: 14,
+                                    }}
+                                >
                                     EARLY BIRD
                                 </Text>
                             </View>

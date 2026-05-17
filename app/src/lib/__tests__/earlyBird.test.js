@@ -16,7 +16,7 @@ describe('earlyBird utility', () => {
                 hasEarlyBird: true,
                 earlyBirdDeadline: '2026-05-17T12:30:00.000Z',
                 earlyBirdPrice: 50,
-                price: 100
+                price: 100,
             };
             const result = getEarlyBirdInfo(event);
             expect(result.isEligible).toBe(true);
@@ -29,7 +29,7 @@ describe('earlyBird utility', () => {
                 hasEarlyBird: true,
                 earlyBirdDeadline: '2026-05-17T11:30:00.000Z',
                 earlyBirdPrice: 50,
-                price: 100
+                price: 100,
             };
             const result = getEarlyBirdInfo(event);
             expect(result.isEligible).toBe(false);
@@ -40,7 +40,7 @@ describe('earlyBird utility', () => {
         it('Path B: Fallback (first 1 hour), eligible', () => {
             const event = {
                 createdAt: '2026-05-17T11:30:00.000Z',
-                price: 100
+                price: 100,
             };
             const result = getEarlyBirdInfo(event);
             expect(result.isEligible).toBe(true);
@@ -51,7 +51,7 @@ describe('earlyBird utility', () => {
         it('Path B: Fallback, not eligible (past 1 hour)', () => {
             const event = {
                 createdAt: '2026-05-17T10:30:00.000Z',
-                price: 100
+                price: 100,
             };
             const result = getEarlyBirdInfo(event);
             expect(result.isEligible).toBe(false);
@@ -63,11 +63,11 @@ describe('earlyBird utility', () => {
             const result = getEarlyBirdInfo(event);
             expect(result.isEligible).toBe(false);
         });
-        
+
         it('Path B: Future createdAt (elapsed < 0)', () => {
             const event = {
                 createdAt: '2026-05-17T13:00:00.000Z',
-                price: 100
+                price: 100,
             };
             const result = getEarlyBirdInfo(event);
             expect(result.isEligible).toBe(false);
@@ -87,7 +87,7 @@ describe('earlyBird utility', () => {
             expect(isEarlyBirdEligible(null)).toBe(false);
         });
     });
-    
+
     describe('getTimestampMs coverage', () => {
         it('handles Firestore Timestamp with toMillis', () => {
             const event = {
@@ -109,13 +109,13 @@ describe('earlyBird utility', () => {
             };
             expect(getEarlyBirdInfo(event).isEligible).toBe(true);
         });
-        
+
         it('handles invalid string', () => {
             expect(isEarlyBirdEligible('invalid-date')).toBe(false);
         });
-        
+
         it('returns null for unsupported object type', () => {
-             const event = {
+            const event = {
                 createdAt: { unknownProp: 'foo' },
             };
             expect(getEarlyBirdInfo(event).isEligible).toBe(false);
