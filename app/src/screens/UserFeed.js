@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
     Animated,
     Platform,
+    RefreshControl,
     ScrollView,
     Share,
     StyleSheet,
@@ -31,6 +32,7 @@ export default function UserFeed({ navigation, headerContent }) {
     const [activeFilter, setActiveFilter] = useState('Upcoming');
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -97,10 +99,12 @@ export default function UserFeed({ navigation, headerContent }) {
                 });
                 setEvents(list);
                 setLoading(false);
+                setRefreshing(false);
             },
             error => {
                 console.log('Error fetching events: ', error);
                 setLoading(false);
+                setRefreshing(false);
             },
         );
 
@@ -239,6 +243,10 @@ export default function UserFeed({ navigation, headerContent }) {
     };
 
     const displayList = getFilteredEvents();
+
+    const onRefresh = () => {
+        setRefreshing(true);
+    };
 
     const StickyHeader = () => (
         <View style={{ backgroundColor: theme.colors.background, paddingBottom: 10 }}>
@@ -395,6 +403,14 @@ export default function UserFeed({ navigation, headerContent }) {
                     renderSectionHeader={StickyHeader}
                     ListHeaderComponent={renderHeader}
                     stickySectionHeadersEnabled={true}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={[theme.colors.primary]}
+                            tintColor={theme.colors.primary}
+                        />
+                    }
                     onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
                         useNativeDriver: true,
                     })}
