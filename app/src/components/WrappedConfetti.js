@@ -1,15 +1,32 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
-import { Animated, Dimensions, Easing, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+    Animated,
+    Dimensions,
+    Easing,
+    Modal,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
 const CONFETTI_COLORS = [
-    '#FFB74D', '#FF6B6B', '#7B61FF',
-    '#00C9A7', '#FFD600', '#2979FF',
-    '#FF4081', '#00E5FF', '#FF9800',
-    '#4CAF50', '#E91E63', '#9C27B0',
+    '#FFB74D',
+    '#FF6B6B',
+    '#7B61FF',
+    '#00C9A7',
+    '#FFD600',
+    '#2979FF',
+    '#FF4081',
+    '#00E5FF',
+    '#FF9800',
+    '#4CAF50',
+    '#E91E63',
+    '#9C27B0',
 ];
 
 export default function WrappedConfetti({ visible, onComplete }) {
@@ -34,7 +51,7 @@ export default function WrappedConfetti({ visible, onComplete }) {
             opacity: new Animated.Value(0),
             scale: new Animated.Value(0),
             rotate: new Animated.Value(0),
-        }))
+        })),
     ).current;
 
     useEffect(() => {
@@ -201,12 +218,14 @@ export default function WrappedConfetti({ visible, onComplete }) {
                             styles.ripple,
                             {
                                 backgroundColor: theme.colors.primary,
-                                transform: [{
-                                    scale: ripple.interpolate({
-                                        inputRange: [0, 1],
-                                        outputRange: [0.8, 3],
-                                    }),
-                                }],
+                                transform: [
+                                    {
+                                        scale: ripple.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: [0.8, 3],
+                                        }),
+                                    },
+                                ],
                                 opacity: ripple.interpolate({
                                     inputRange: [0, 1],
                                     outputRange: [0.15, 0],
