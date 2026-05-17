@@ -181,17 +181,19 @@ export default function EventDetail({ route, navigation }) {
             },
         );
 
-        getDoc(doc(db, `events/${eventId}/feedback`, user.uid)).then(snap => {
-            if (snap.exists()) setHasGivenFeedback(true);
-        });
-
+       if (user) {
+         getDoc(doc(db, `events/${eventId}/feedback`, user.uid)).then(snap => {
+                if (snap.exists()) setHasGivenFeedback(true);
+            });
+        }
         // Check if reminder exists
-        getDocs(
-            query(
-                collection(db, 'reminders'),
-                where('userId', '==', user.uid),
-                where('eventId', '==', eventId),
-            ),
+       if (user) {
+            getDocs(
+                query(
+                    collection(db, 'reminders'),
+                    where('userId', '==', user.uid),
+                    where('eventId', '==', eventId),
+        ),
         ).then(snap => {
             if (!snap.empty) {
                 setReminderId(snap.docs[0].id);
@@ -443,7 +445,7 @@ export default function EventDetail({ route, navigation }) {
             let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
             snapshot.forEach(doc => {
                 const d = doc.data();
-                const line = `\"${d.userName || 'Anonymous'}\",${d.eventRating || '-'}\",${d.clubRating || '-'}\",\"${(d.feedback || '').replace(/\"/g, '""')}\",${d.createdAt}\n`;
+                const line = `\"${d.userName || 'Anonymous'}\",\"${d.eventRating || '-'}\",\"${d.clubRating || '-'}\",\"${(d.feedback || '').replace(/\"/g, '""')}\",${d.createdAt}\n`;
                 csv += line;
             });
 
@@ -767,7 +769,20 @@ export default function EventDetail({ route, navigation }) {
                 if (await Sharing.isAvailableAsync()) {
                     await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
                 } else {
-                    Alert.alert('Success', 'Certificate generated!');
+                    Alert.alert(
+                        "Success",
+                        "Certificate generated successfully!",
+                        [
+                           {
+                              text: "Add to LinkedIn",
+                              onPress: handleLinkedInShare
+                            },
+                            {
+                             text: "OK",
+                             style: "cancel"
+                            }
+                        ]
+                    );
                 }
             }
         } catch (e) {
@@ -777,6 +792,28 @@ export default function EventDetail({ route, navigation }) {
             setSendingCertificates(false); // Reset loading state
         }
     };
+    const handleLinkedInShare = async () => {
+    try {
+        const linkedinUrl = `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME`;
+
+        const certificateName = encodeURIComponent(event.title);
+        const organizationName = encodeURIComponent("UniEvent");
+        const issueYear = new Date(event.startAt).getFullYear();
+        const issueMonth = new Date(event.startAt).getMonth() + 1;
+
+        const finalUrl =
+            `${linkedinUrl}` +
+            `&name=${certificateName}` +
+            `&organizationName=${organizationName}` +
+            `&issueYear=${issueYear}` +
+            `&issueMonth=${issueMonth}`;
+
+        await Linking.openURL(finalUrl);
+    } catch (error) {
+        console.log(error);
+        Alert.alert("Error", "Failed to open LinkedIn");
+    }
+};
 
     const handleSendCertificates = async () => {
         console.log('Send Certificates Button Clicked');
