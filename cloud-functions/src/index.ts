@@ -9,4 +9,5 @@ export * from './onEventCreate';
 export * from './reminders';
 export * from './reputation';
 export * from './setRole';
+export * from './streaks';
 
