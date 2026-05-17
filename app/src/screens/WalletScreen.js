@@ -4,7 +4,6 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Dimensions,
     FlatList,
     StyleSheet,
     Text,
@@ -14,8 +13,6 @@ import {
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
-
-const { width } = Dimensions.get('window');
 
 export default function WalletScreen({ navigation }) {
     const { user } = useAuth();

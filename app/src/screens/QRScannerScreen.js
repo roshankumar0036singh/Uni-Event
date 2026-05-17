@@ -53,7 +53,7 @@ export default function QRScannerScreen({ navigation, route }) {
                     });
                     return;
                 }
-            } catch (e) {
+            } catch (_e) {
                 // If JSON parsing fails, treat as plain userId string (fallback)
                 scannedUserId = data;
             }

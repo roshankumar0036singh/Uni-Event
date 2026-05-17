@@ -3,7 +3,6 @@ import { collection, getDocs } from 'firebase/firestore';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import {
     Animated,
-    Dimensions,
     ScrollView,
     Share,
     StyleSheet,
@@ -16,8 +15,6 @@ import WrappedConfetti from '../components/WrappedConfetti';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
-
-const { width } = Dimensions.get('window');
 
 const MONTH_NAMES = [
     'January',

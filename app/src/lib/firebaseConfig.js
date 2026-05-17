@@ -1,5 +1,6 @@
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp } from 'firebase/app';
+// eslint-disable-next-line import/named
 import {
     browserLocalPersistence,
     getReactNativePersistence,

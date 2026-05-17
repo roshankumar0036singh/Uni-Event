@@ -1,45 +1,51 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import * as NavigationBar from 'expo-navigation-bar';
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { doc, updateDoc } from 'firebase/firestore';
+import CustomTabBar from './src/components/CustomTabBar';
 import NotificationBell from './src/components/NotificationBell';
+import PWAInstallPrompt from './src/components/PWAInstallPrompt';
 import ScreenWrapper from './src/components/ScreenWrapper';
 import { AuthProvider, useAuth } from './src/lib/AuthContext';
 import { ThemeProvider, useTheme } from './src/lib/ThemeContext';
-import { checkAndTriggerAutomations } from './src/lib/AutomationService';
+import { db } from './src/lib/firebaseConfig';
+import { registerForPushNotificationsAsync } from './src/lib/notificationService';
 import AdminDashboard from './src/screens/AdminDashboard';
+import AppearanceScreen from './src/screens/AppearanceScreen';
 import AttendanceDashboard from './src/screens/AttendanceDashboard';
 import AuthScreen from './src/screens/AuthScreen';
+import ClubProfileScreen from './src/screens/ClubProfileScreen';
 import CreateEvent from './src/screens/CreateEvent';
+import EventAnalytics from './src/screens/EventAnalytics';
+import EventChatScreen from './src/screens/EventChatScreen';
 import EventDetail from './src/screens/EventDetail';
+import EventRegistrationFormScreen from './src/screens/EventRegistrationFormScreen';
+import FormBuilderScreen from './src/screens/FormBuilderScreen';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import MyEventsScreen from './src/screens/MyEventsScreen';
+import MyRegisteredEventsScreen from './src/screens/MyRegisteredEventsScreen';
 import ParticipatingEventsScreen from './src/screens/ParticipatingEventsScreen';
+import PaymentScreen from './src/screens/PaymentScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import QRScannerScreen from './src/screens/QRScannerScreen';
 import RemindersScreen from './src/screens/RemindersScreen';
-import UserFeed from './src/screens/UserFeed';
-import AppearanceScreen from './src/screens/AppearanceScreen';
-import ClubProfileScreen from './src/screens/ClubProfileScreen';
-import EventChatScreen from './src/screens/EventChatScreen';
-import PaymentScreen from './src/screens/PaymentScreen';
-import TicketScreen from './src/screens/TicketScreen';
-import WalletScreen from './src/screens/WalletScreen';
-import MyRegisteredEventsScreen from './src/screens/MyRegisteredEventsScreen';
-import SavedEventsScreen from './src/screens/SavedEventsScreen';
-import FormBuilderScreen from './src/screens/FormBuilderScreen';
-import EventRegistrationFormScreen from './src/screens/EventRegistrationFormScreen';
-import WrappedScreen from './src/screens/WrappedScreen';
 import ReportBugScreen from './src/screens/ReportBugScreen';
+import SavedEventsScreen from './src/screens/SavedEventsScreen';
+import TicketScreen from './src/screens/TicketScreen';
+import UserFeed from './src/screens/UserFeed';
+import WalletScreen from './src/screens/WalletScreen';
+import WrappedScreen from './src/screens/WrappedScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
-
-import * as NavigationBar from 'expo-navigation-bar';
 
 function HomeScreen({ navigation }) {
     const { user, role } = useAuth();
@@ -109,13 +115,8 @@ function HomeScreen({ navigation }) {
     );
 }
 
-import EventAnalytics from './src/screens/EventAnalytics';
-import CustomTabBar from './src/components/CustomTabBar';
-import LeaderboardScreen from './src/screens/LeaderboardScreen';
-
 function TabNavigator() {
     const { role } = useAuth();
-    const { theme } = useTheme();
 
     return (
         <Tab.Navigator
@@ -327,13 +328,6 @@ function Navigation() {
         </NavigationContainer>
     );
 }
-
-import * as Notifications from 'expo-notifications';
-import { doc, updateDoc } from 'firebase/firestore';
-import { useRef } from 'react';
-import { db } from './src/lib/firebaseConfig';
-import { registerForPushNotificationsAsync } from './src/lib/notificationService';
-import PWAInstallPrompt from './src/components/PWAInstallPrompt';
 
 export default function App() {
     return (

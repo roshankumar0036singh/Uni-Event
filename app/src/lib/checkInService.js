@@ -176,7 +176,7 @@ export const parseQRCode = qrData => {
             year: data.year,
             branch: data.branch,
         };
-    } catch (error) {
+    } catch (_error) {
         return {
             valid: false,
             error: 'Unable to parse QR code',

@@ -1,14 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-    collection,
-    deleteDoc,
-    doc,
-    getDocs,
-    query,
-    where,
-    getDoc,
-    onSnapshot,
-} from 'firebase/firestore';
+import { collection, deleteDoc, doc, query, where, getDoc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,

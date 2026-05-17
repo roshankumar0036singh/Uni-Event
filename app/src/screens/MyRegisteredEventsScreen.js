@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { collection, doc, documentId, getDocs, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, documentId, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
@@ -99,7 +99,7 @@ export default function MyRegisteredEventsScreen({ navigation }) {
                             color={theme.colors.textSecondary}
                         />
                         <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                            You haven't registered for any events yet.
+                            You haven&apos;t registered for any events yet.
                         </Text>
                     </View>
                 }

@@ -199,8 +199,6 @@ export default function UserFeed({ navigation, headerContent }) {
 
         // 2. Tab/Category Filtering
         // Common Date Threshold
-        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
         // 2. Tab/Category Filtering
 
         if (activeFilter === 'Upcoming') {

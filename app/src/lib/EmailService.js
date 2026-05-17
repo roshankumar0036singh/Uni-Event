@@ -1,5 +1,3 @@
-import { Alert } from 'react-native';
-
 // EmailJS Configuration
 // EmailJS Configuration
 const EMAILJS_SERVICE_ID = process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID;

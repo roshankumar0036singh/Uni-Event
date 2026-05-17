@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const CONFETTI_COLORS = [
     '#FFB74D',

@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Dimensions, Easing, Modal, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 export default function PaymentSuccessAnimation({ visible, onComplete, amount }) {
     const { theme } = useTheme();

@@ -19,7 +19,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Dimensions,
     ImageBackground,
     Linking,
     Platform,
@@ -41,16 +40,11 @@ import { db } from '../lib/firebaseConfig';
 import { cancelScheduledNotification, scheduleEventReminder } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
-
-const { width } = Dimensions.get('window');
-
-const UniEventLogo = require('../../assets/UniEvent.png');
-
 import { getEarlyBirdInfo } from '../lib/earlyBird';
 
 export default function EventDetail({ route, navigation }) {
     const { eventId, action } = route.params;
-    const { user, role } = useAuth();
+    const { user } = useAuth();
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
 
@@ -88,7 +82,7 @@ export default function EventDetail({ route, navigation }) {
             });
             setShowAppealModal(false);
             Alert.alert('Submitted', 'Appeal sent to admin for review.');
-        } catch (e) {
+        } catch (_e) {
             Alert.alert('Error', 'Failed to submit appeal');
         } finally {
             setSendingAppeal(false);
@@ -213,7 +207,6 @@ export default function EventDetail({ route, navigation }) {
 
     // Derived State
     const isOwner = user && event?.ownerId === user.uid;
-    const isAdmin = role === 'admin';
     const isSuspended = event?.status === 'suspended';
 
     const toggleBookmark = async () => {
@@ -415,7 +408,7 @@ export default function EventDetail({ route, navigation }) {
         }
     };
 
-    const { request, response, promptAsync } = CalendarService.useCalendarAuth();
+    const { response, promptAsync } = CalendarService.useCalendarAuth();
 
     useEffect(() => {
         if (response?.type === 'success') {
@@ -428,30 +421,6 @@ export default function EventDetail({ route, navigation }) {
 
     const openLink = url => {
         if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link'));
-    };
-
-    const handleExportReviews = async () => {
-        try {
-            const feedbackRef = collection(db, `events/${eventId}/feedback`);
-            const snapshot = await getDocs(feedbackRef);
-
-            if (snapshot.empty) {
-                Alert.alert('No Reviews', 'This event has no feedback yet.');
-                return;
-            }
-
-            let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
-            snapshot.forEach(doc => {
-                const d = doc.data();
-                const line = `\"${d.userName || 'Anonymous'}\",${d.eventRating || '-'}\",${d.clubRating || '-'}\",\"${(d.feedback || '').replace(/\"/g, '""')}\",${d.createdAt}\n`;
-                csv += line;
-            });
-
-            await Share.share({ message: csv, title: `Reviews - ${event.title}` });
-        } catch (error) {
-            console.error('Export Error: ', error);
-            Alert.alert('Error', 'Failed to export reviews.');
-        }
     };
 
     const sendCertificates = async () => {

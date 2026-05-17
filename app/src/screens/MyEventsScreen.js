@@ -53,7 +53,7 @@ export default function MyEventsScreen({ navigation }) {
         if (Platform.OS === 'web') {
             try {
                 await deleteDoc(doc(db, 'events', eventId));
-            } catch (e) {
+            } catch (_e) {
                 alert('Error: Could not delete event');
             }
         } else {
@@ -65,7 +65,7 @@ export default function MyEventsScreen({ navigation }) {
                     onPress: async () => {
                         try {
                             await deleteDoc(doc(db, 'events', eventId));
-                        } catch (e) {
+                        } catch (_e) {
                             Alert.alert('Error', 'Could not delete event');
                         }
                     },
@@ -166,7 +166,7 @@ export default function MyEventsScreen({ navigation }) {
                             color={theme.colors.textSecondary}
                         />
                         <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                            You haven't created any events yet.
+                            You haven&apos;t created any events yet.
                         </Text>
                         <TouchableOpacity
                             style={[

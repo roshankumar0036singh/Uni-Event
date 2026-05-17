@@ -1,23 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-    addDoc,
-    collection,
-    deleteDoc,
-    deleteField,
-    doc,
-    getDocs,
-    query,
-    updateDoc,
-    where,
-} from 'firebase/firestore';
+import { collection, deleteField, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
     Alert,
     FlatList,
-    Image,
     Modal,
-    RefreshControl,
     StyleSheet,
     Text,
     TextInput,
@@ -25,19 +12,16 @@ import {
     View,
 } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
-import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 
 export default function MobileAdmin() {
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
-    const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('events');
     const [events, setEvents] = useState([]);
     const [requests, setRequests] = useState([]);
     const [appeals, setAppeals] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     // Suspension Modal State
@@ -50,7 +34,6 @@ export default function MobileAdmin() {
     }, [activeTab]);
 
     const fetchData = async () => {
-        setLoading(true);
         try {
             if (activeTab === 'events') {
                 const q = query(collection(db, 'events'), where('status', '==', 'active'));
@@ -83,7 +66,6 @@ export default function MobileAdmin() {
             console.error(error);
             Alert.alert('Error', 'Could not fetch data');
         } finally {
-            setLoading(false);
             setRefreshing(false);
         }
     };
@@ -108,7 +90,7 @@ export default function MobileAdmin() {
             Alert.alert('Suspended', 'Event suspended successfully.');
             setSuspendModalVisible(false);
             fetchData();
-        } catch (error) {
+        } catch (_error) {
             Alert.alert('Error', 'Failed to suspend event');
         }
     };
@@ -122,7 +104,7 @@ export default function MobileAdmin() {
             });
             Alert.alert('Restored', 'Event is active again.');
             fetchData();
-        } catch (e) {
+        } catch (_e) {
             Alert.alert('Error', 'Failed to restore event');
         }
     };
@@ -134,7 +116,7 @@ export default function MobileAdmin() {
             });
             Alert.alert('Rejected', 'Appeal rejected.');
             fetchData();
-        } catch (e) {
+        } catch (_e) {
             Alert.alert('Error', 'Failed to update');
         }
     };
@@ -239,7 +221,7 @@ export default function MobileAdmin() {
             <View style={styles.appealBox}>
                 <Text style={styles.appealLabel}>Appeal Message:</Text>
                 <Text style={styles.appealText}>
-                    "{item.appealMessage || 'No message provided'}"
+                    &quot;{item.appealMessage || 'No message provided'}&quot;
                 </Text>
             </View>
             <View style={styles.actionRow}>

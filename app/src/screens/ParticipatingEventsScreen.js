@@ -86,7 +86,7 @@ export default function ParticipatingEventsScreen({ navigation }) {
                 contentContainerStyle={{ padding: staticTheme.spacing.m }}
                 ListEmptyComponent={
                     <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>
-                        You haven't joined any events yet.
+                        You haven&apos;t joined any events yet.
                     </Text>
                 }
                 renderItem={({ item }) => (

@@ -15,7 +15,6 @@ import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Dimensions,
     ScrollView,
     Share,
     StyleSheet,
@@ -27,16 +26,12 @@ import {
     TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkAnnouncement, sendBulkFeedbackRequest } from '../lib/EmailService';
 
-const { width } = Dimensions.get('window');
-
 export default function AttendanceDashboard({ route, navigation }) {
     const { eventId, eventTitle } = route.params;
-    const { user } = useAuth();
     const { theme } = useTheme();
 
     const [checkIns, setCheckIns] = useState([]);

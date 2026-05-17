@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    TextInput,
     Alert,
     Modal,
-    FlatList,
     Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -129,7 +127,9 @@ export default function FormBuilderScreen({ navigation, route }) {
                             color={theme.colors.textSecondary}
                         />
                         <Text style={styles.emptyText}>No fields added yet.</Text>
-                        <Text style={styles.emptySubText}>Tap "+" to add a custom field.</Text>
+                        <Text style={styles.emptySubText}>
+                            Tap &quot;+&quot; to add a custom field.
+                        </Text>
                     </View>
                 ) : (
                     fields.map((field, index) => (

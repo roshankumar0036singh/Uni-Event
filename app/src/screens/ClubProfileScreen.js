@@ -12,9 +12,7 @@ import {
 } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
     Alert,
-    Dimensions,
     Image,
     Linking,
     Platform,
@@ -28,10 +26,7 @@ import { EventListSkeleton } from '../components/SkeletonLoader';
 import EventCard from '../components/EventCard';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
-import { calculateAverageRating } from '../lib/feedbackService';
 import { useTheme } from '../lib/ThemeContext';
-
-const { width } = Dimensions.get('window');
 
 export default function ClubProfileScreen({ route, navigation }) {
     const { clubId, clubName } = route.params || {};

@@ -7,7 +7,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SHIMMER_DURATION = 1200;
 
 export function ShimmerItem({ style }) {
-    const { theme, isDarkMode } = useTheme();
+    const { isDarkMode } = useTheme();
     const translateX = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
 
     useEffect(() => {

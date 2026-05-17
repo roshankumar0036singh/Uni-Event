@@ -1,9 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
 export default function WebQRScanner({ onScan, style }) {
-    const scannerRef = useRef(null);
-
     useEffect(() => {
         if (Platform.OS !== 'web') return;
 
