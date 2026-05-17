@@ -89,3 +89,7 @@ serviceAccountKey.json
 
 # OS
 Thumbs.db
+
+# Firebase emulator exports (DO NOT COMMIT)
+firebase-export-*/
+emulator-data/

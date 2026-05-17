@@ -14,7 +14,8 @@ import {
     updateDoc,
     where,
 } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import { httpsCallable } from 'firebase/functions';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -36,7 +37,7 @@ import * as Sharing from 'expo-sharing';
 import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { submitFeedback } from '../lib/feedbackService';
-import { db } from '../lib/firebaseConfig';
+import { db, functions } from '../lib/firebaseConfig';
 import { cancelScheduledNotification, scheduleEventReminder } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
@@ -62,7 +63,14 @@ export default function EventDetail({ route, navigation }) {
 
     const [sendingAppeal, setSendingAppeal] = useState(false);
 
-    // ... existing useEffects ...
+    // Waitlist states
+    const [isOnWaitlist, setIsOnWaitlist] = useState(false);
+    const [waitlistPosition, setWaitlistPosition] = useState(null);
+    const [isWaitlistLoading, setIsWaitlistLoading] = useState(false);
+
+    const [hostName, setHostName] = useState('Organizer');
+    const [reminderId, setReminderId] = useState(null);
+    const [isBookmarked, setIsBookmarked] = useState(false);
 
     const handleSubmitAppeal = async ({ subject, message }) => {
         setSendingAppeal(true);
@@ -80,14 +88,10 @@ export default function EventDetail({ route, navigation }) {
             setSendingAppeal(false);
         }
     };
-    const [hostName, setHostName] = useState('Organizer');
-    const [reminderId, setReminderId] = useState(null); // Firestore Doc ID if set
-    const [isBookmarked, setIsBookmarked] = useState(false);
 
     // Auto-open feedback modal if accessed via feedback link
     useEffect(() => {
         if (action === 'feedback' && event && !loading) {
-            // Check if event has ended and user is registered
             const eventEnded = new Date() > new Date(event.endAt);
             if (eventEnded && rsvpStatus === 'going' && !hasGivenFeedback) {
                 setShowFeedbackModal(true);
@@ -113,12 +117,10 @@ export default function EventDetail({ route, navigation }) {
             if (!user || !eventId) return;
 
             try {
-                // Check if user has already viewed this event
                 const viewRef = doc(db, `events/${eventId}/views`, user.uid);
                 const viewSnap = await getDoc(viewRef);
 
                 if (!viewSnap.exists()) {
-                    // First time viewing: Record it and increment counter
                     await setDoc(viewRef, {
                         viewedAt: new Date().toISOString(),
                         userId: user.uid,
@@ -135,11 +137,11 @@ export default function EventDetail({ route, navigation }) {
         };
 
         recordView();
-    }, [eventId, user]); // Run when user loads
+    }, [eventId, user]);
 
     // Cleanup logic merged into the main effect or kept simple
     useEffect(() => {
-        navigation.setOptions({ headerShown: false }); // Hide default header
+        navigation.setOptions({ headerShown: false });
 
         const unsubEvent = onSnapshot(doc(db, 'events', eventId), doc => {
             if (doc.exists()) {
@@ -167,7 +169,6 @@ export default function EventDetail({ route, navigation }) {
             if (snap.exists()) setHasGivenFeedback(true);
         });
 
-        // Check if reminder exists
         getDocs(
             query(
                 collection(db, 'reminders'),
@@ -180,7 +181,6 @@ export default function EventDetail({ route, navigation }) {
             }
         });
 
-        // Check if event is bookmarked
         if (user) {
             getDoc(doc(db, 'users', user.uid, 'savedEvents', eventId)).then(snap => {
                 setIsBookmarked(snap.exists());
@@ -193,295 +193,391 @@ export default function EventDetail({ route, navigation }) {
         };
     }, [eventId, user]);
 
-    // Derived State
-    const isOwner = user && event?.ownerId === user.uid;
-    const isAdmin = role === 'admin';
-    const isSuspended = event?.status === 'suspended';
-
-    const toggleBookmark = async () => {
-        if (!user) {
-            Alert.alert('Error', 'Please login to save events.');
-            return;
-        }
+    // Check if user is on waitlist - wrapped in useCallback
+    const checkWaitlistStatus = useCallback(async () => {
+        if (!user || !eventId) return;
 
         try {
-            console.log('Toggling bookmark for event:', eventId, 'Current state:', isBookmarked);
-            const bookmarkRef = doc(db, 'users', user.uid, 'savedEvents', eventId);
-
-            if (isBookmarked) {
-                console.log('Removing bookmark...');
-                await deleteDoc(bookmarkRef);
-                setIsBookmarked(false);
-                Alert.alert('Removed', 'Event removed from saved events.');
-            } else {
-                console.log('Adding bookmark...');
-                await setDoc(bookmarkRef, {
-                    eventId: eventId,
-                    savedAt: new Date().toISOString(),
-                });
-                setIsBookmarked(true);
-                Alert.alert('Saved', 'Event saved for later!');
-            }
-            console.log('Bookmark toggled successfully. New state:', !isBookmarked);
-        } catch (e) {
-            console.error('Bookmark error:', e);
-            Alert.alert('Error', `Failed to save event: ${e.message}`);
-        }
-    };
-
-    const shareEvent = async () => {
-        try {
-            const eventUrl = `https://unievent-ez2w.onrender.com/event/${eventId}`; // Replace with your actual domain
-            const shareMessage = `🎉 Check out this event: ${event.title}\n\n📅 ${new Date(event.startAt).toLocaleDateString()} at ${new Date(event.startAt).toLocaleTimeString()}\n📍 ${event.location || 'Online'}\n\n${eventUrl}`;
-
-            // For web, use Web Share API if available
-            if (Platform.OS === 'web' && navigator.share) {
-                await navigator.share({
-                    title: event.title,
-                    text: shareMessage,
-                    url: eventUrl,
-                });
-            } else if (Platform.OS === 'web') {
-                // Fallback for web browsers without Share API
-                Alert.alert('Share Event', 'Choose a platform:', [
-                    {
-                        text: 'WhatsApp',
-                        onPress: () => {
-                            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
-                            window.open(whatsappUrl, '_blank');
-                        },
-                    },
-                    {
-                        text: 'Twitter',
-                        onPress: () => {
-                            const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}`;
-                            window.open(twitterUrl, '_blank');
-                        },
-                    },
-                    {
-                        text: 'Copy Link',
-                        onPress: () => {
-                            navigator.clipboard.writeText(eventUrl);
-                            Alert.alert('Copied!', 'Event link copied to clipboard');
-                        },
-                    },
-                    { text: 'Cancel', style: 'cancel' },
-                ]);
-            } else {
-                // For mobile (React Native Share)
-                const { Share } = require('react-native');
-                await Share.share({
-                    message: shareMessage,
-                    url: eventUrl,
-                    title: event.title,
-                });
-            }
-        } catch (error) {
-            console.error('Error sharing:', error);
-        }
-    };
-
-    const toggleReminder = async () => {
-        if (!user) return Alert.alert('Error', 'Please login to set reminders.');
-
-        try {
-            if (reminderId) {
-                // Remove Reminder
-                const reminderDoc = await getDoc(doc(db, 'reminders', reminderId));
-                if (reminderDoc.exists()) {
-                    await cancelScheduledNotification(reminderDoc.data().notificationId);
-                }
-                await deleteDoc(doc(db, 'reminders', reminderId));
-                setReminderId(null);
-                Alert.alert('Reminder Removed');
-            } else {
-                // Set Reminder
-                const notifId = await scheduleEventReminder(event);
-                if (notifId) {
-                    const docRef = await addDoc(collection(db, 'reminders'), {
-                        userId: user.uid,
-                        eventId: event.id,
-                        eventTitle: event.title,
-                        remindAt: new Date(new Date(event.startAt).getTime() - 10 * 60000), // 10 mins before
-                        notificationId: notifId,
-                        createdAt: new Date().toISOString(),
-                    });
-                    setReminderId(docRef.id);
-                    Alert.alert('Reminder Added'); // Simple match to request
-                } else {
-                    Alert.alert('Notice', 'Event is too close or passed.');
-                }
-            }
-        } catch (e) {
-            console.error(e);
-            Alert.alert('Error', 'Action failed.');
-        }
-    };
-
-    const toggleRsvp = async () => {
-        if (!user) {
-            Alert.alert('Sign In', 'Please sign in to register.');
-            return;
-        }
-
-        // 1. Custom Form Logic (if not already going and custom form exists)
-        if (event.hasCustomForm && event.customFormSchema?.length > 0 && rsvpStatus !== 'going') {
-            navigation.navigate('EventRegistrationForm', { event });
-            return;
-        }
-
-        // 2. Paid Event Logic
-        if (event.isPaid && rsvpStatus !== 'going') {
-            if (event.registrationLink) {
-                Alert.alert('External Registration', 'This event requires external registration.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Go to Link', onPress: () => openLink(event.registrationLink) },
-                ]);
-                return;
-            }
-            // Navigate to Payment
-            navigation.navigate('Payment', { event, price: event.price || 0 });
-            return;
-        }
-
-        // 3. Normal RSVP
-        performRsvp();
-    };
-
-    const performRsvp = async () => {
-        const ref = doc(db, 'events', eventId, 'participants', user.uid);
-        const userRef = doc(db, 'users', user.uid, 'participating', eventId);
-        const userProfileRef = doc(db, 'users', user.uid);
-
-        try {
-            if (rsvpStatus === 'going') {
-                await deleteDoc(ref);
-                await deleteDoc(userRef);
-                await updateDoc(userProfileRef, { points: increment(-10) });
-                Alert.alert('Withdrawn', 'You are no longer registered. (-10 Points)');
-            } else {
-                const userDoc = await getDoc(userProfileRef);
-                const userData = userDoc.exists() ? userDoc.data() : {};
-
-                await setDoc(ref, {
-                    userId: user.uid,
-                    email: user.email,
-                    name: user.displayName || 'Anonymous',
-                    branch: userData.branch || 'Unknown',
-                    year: userData.year || 'Unknown',
-                    joinedAt: new Date().toISOString(),
-                });
-                await setDoc(userRef, { eventId: eventId, joinedAt: new Date().toISOString() });
-                await updateDoc(userProfileRef, { points: increment(10) });
-
-                await scheduleEventReminder(event);
-                Alert.alert('Success', 'Registered! (+10 Points)');
-            }
-        } catch (e) {
-            console.error('RSVP Error: ', e);
-            Alert.alert('Error', 'Failed to update RSVP');
-        }
-    };
-
-    const { request, response, promptAsync } = CalendarService.useCalendarAuth();
-
-    useEffect(() => {
-        if (response?.type === 'success') {
-            const { access_token } = response.params;
-            CalendarService.addToCalendar(access_token, event)
-                .then(() => Alert.alert('Success', 'Added to Google Calendar!'))
-                .catch(() => Alert.alert('Error', 'Failed to add to calendar.'));
-        }
-    }, [response]);
-
-    const openLink = url => {
-        if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link'));
-    };
-
-    const handleExportReviews = async () => {
-        try {
-            const feedbackRef = collection(db, `events/${eventId}/feedback`);
-            const snapshot = await getDocs(feedbackRef);
-
-            if (snapshot.empty) {
-                Alert.alert('No Reviews', 'This event has no feedback yet.');
-                return;
-            }
-
-            let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
-            snapshot.forEach(doc => {
-                const d = doc.data();
-                const line = `\"${d.userName || 'Anonymous'}\",${d.eventRating || '-'}\",${d.clubRating || '-'}\",\"${(d.feedback || '').replace(/\"/g, '""')}\",${d.createdAt}\n`;
-                csv += line;
-            });
-
-            await Share.share({ message: csv, title: `Reviews - ${event.title}` });
-        } catch (error) {
-            console.error('Export Error: ', error);
-            Alert.alert('Error', 'Failed to export reviews.');
-        }
-    };
-
-    const sendCertificates = async () => {
-        setSendingCertificates(true);
-        try {
-            // Fetch Participants
-            console.log(`Fetching participants for event: ${event.id}`);
-            const participantsRef = collection(db, `events/${event.id}/participants`);
-            const snapshot = await getDocs(participantsRef);
-            console.log(`Snapshot size: ${snapshot.size}`);
-
-            const participants = snapshot.docs
-                .map(doc => {
-                    const data = doc.data();
-                    console.log(`Participant: ${data.name}, Email: ${data.email}`);
-                    return {
-                        name: data.name,
-                        email: data.email,
-                    };
-                })
-                .filter(p => p.email && p.email !== '-');
-
-            console.log(`Valid participants count: ${participants.length}`);
-
-            if (participants.length === 0) {
-                Alert.alert('Error', 'No participants found with valid emails.');
-                setSendingCertificates(false);
-                return;
-            }
-
-            // Send certificates via EmailJS (Frontend)
-            console.log('Calling sendBulkCertificates...');
-            const eventLink = `https://unievent-ez2w.onrender.com/event/${event.id}`;
-            const count = await sendBulkCertificates(
-                participants,
-                event.title,
-                new Date(event.startAt).toLocaleDateString(),
-                eventLink,
+            const waitlistQuery = await getDocs(
+                query(
+                    collection(db, 'events', eventId, 'waitlist'),
+                    where('userId', '==', user.uid),
+                    where('status', '==', 'waiting')
+                )
             );
-            console.log(`Sent count: ${count}`);
 
-            // Update event status
-            await updateDoc(doc(db, 'events', event.id), {
-                certificatesSent: true,
-                certificatesSentAt: new Date().toISOString(),
-            });
+            if (!waitlistQuery.empty) {
+                // Get all waiting users to calculate position
+                const allWaiting = await getDocs(
+                    query(
+                        collection(db, 'events', eventId, 'waitlist'),
+                        where('status', '==', 'waiting'),
+                        orderBy('joinedAt', 'asc')
+                    )
+                );
+                const waitingUsers = allWaiting.docs;
+                const userIndex = waitingUsers.findIndex(doc => doc.id === waitlistQuery.docs[0].id);
+                const position = userIndex + 1;
 
-            Alert.alert('Success', `Certificates sent to ${count} participants.`);
-        } catch (e) {
-            console.error('Certificate Send Error:', e);
-            Alert.alert('Error', 'Failed to send certificates via EmailJS');
+                setIsOnWaitlist(true);
+                setWaitlistPosition(position);
+
+            } else {
+                setIsOnWaitlist(false);
+                setWaitlistPosition(null);
+            }
+        } catch (error) {
+            console.error('Error checking waitlist:', error);
+        }
+    }, [user, eventId]);
+
+    // Check waitlist status when component loads or user changes
+    useEffect(() => {
+        checkWaitlistStatus();
+    }, [checkWaitlistStatus]);
+
+    // Join waitlist
+    const handleJoinWaitlist = async () => {
+        if (!user) {
+            Alert.alert('Sign In', 'Please sign in to join waitlist.');
+            return;
+        }
+
+        setIsWaitlistLoading(true);
+        try {
+            const joinWaitlistFunction = httpsCallable(functions, 'joinWaitlist');
+            const result = await joinWaitlistFunction({ eventId });
+
+            if (result.data.success) {
+                setIsOnWaitlist(true);
+                setWaitlistPosition(result.data.position);
+                Alert.alert('Joined Waitlist', result.data.message);
+            } else {
+                Alert.alert('Unable to Join', result.data.message || 'Could not join waitlist');
+            }
+        } catch (error) {
+            console.error('Join waitlist error:', error);
+            Alert.alert('Error', error.message || 'Failed to join waitlist');
         } finally {
-            setSendingCertificates(false);
+            setIsWaitlistLoading(false);
         }
     };
 
-    const handleDownloadCertificate = async () => {
-        try {
-            setSendingCertificates(true);
+    const handleLeaveWaitlist = async () => {
+        if (!user) {
+            Alert.alert('Sign In', 'Please sign in to manage waitlist.');
+            return;
+        }
+        Alert.alert(
+            'Leave Waitlist',
+            'Are you sure you want to leave the waitlist?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Leave',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setIsWaitlistLoading(true);
+                        try {
+                            const leaveWaitlistFunction = httpsCallable(functions, 'leaveWaitlist');
+const result = await leaveWaitlistFunction({ eventId });
+if (result.data.success) {
+    setIsOnWaitlist(false);
+    setWaitlistPosition(null);
+    Alert.alert('Success', 'Removed from waitlist');
+} else {
+    Alert.alert('Error', result.data.message || 'Failed to leave waitlist');
+}
+                        } catch (error) {
+                            console.error('Leave waitlist error:', error);
+                            Alert.alert('Error', error.message || 'Failed to leave waitlist');
+                        } finally {
+                            setIsWaitlistLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    
+};
 
-            // Modern Professional Certificate Design
-            const html = `
+// Derived State
+const isOwner = user && event?.ownerId === user.uid;
+const isAdmin = role === 'admin';
+const isSuspended = event?.status === 'suspended';
+const isEventEnded = event?.endAt ? new Date() > new Date(event.endAt) : false;
+
+const toggleBookmark = async () => {
+    if (!user) {
+        Alert.alert('Error', 'Please login to save events.');
+        return;
+    }
+
+    try {
+        console.log('Toggling bookmark for event:', eventId, 'Current state:', isBookmarked);
+        const bookmarkRef = doc(db, 'users', user.uid, 'savedEvents', eventId);
+
+        if (isBookmarked) {
+            console.log('Removing bookmark...');
+            await deleteDoc(bookmarkRef);
+            setIsBookmarked(false);
+            Alert.alert('Removed', 'Event removed from saved events.');
+        } else {
+            console.log('Adding bookmark...');
+            await setDoc(bookmarkRef, {
+                eventId: eventId,
+                savedAt: new Date().toISOString(),
+            });
+            setIsBookmarked(true);
+            Alert.alert('Saved', 'Event saved for later!');
+        }
+        console.log('Bookmark toggled successfully. New state:', !isBookmarked);
+    } catch (e) {
+        console.error('Bookmark error:', e);
+        Alert.alert('Error', `Failed to save event: ${e.message}`);
+    }
+};
+
+const shareEvent = async () => {
+    try {
+        const eventUrl = `https://unievent-ez2w.onrender.com/event/${eventId}`;
+        const shareMessage = `🎉 Check out this event: ${event.title}\n\n📅 ${new Date(event.startAt).toLocaleDateString()} at ${new Date(event.startAt).toLocaleTimeString()}\n📍 ${event.location || 'Online'}\n\n${eventUrl}`;
+
+        if (Platform.OS === 'web' && navigator.share) {
+            await navigator.share({
+                title: event.title,
+                text: shareMessage,
+                url: eventUrl,
+            });
+        } else if (Platform.OS === 'web') {
+            Alert.alert('Share Event', 'Choose a platform:', [
+                {
+                    text: 'WhatsApp',
+                    onPress: () => {
+                        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
+                        window.open(whatsappUrl, '_blank');
+                    },
+                },
+                {
+                    text: 'Twitter',
+                    onPress: () => {
+                        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}`;
+                        window.open(twitterUrl, '_blank');
+                    },
+                },
+                {
+                    text: 'Copy Link',
+                    onPress: () => {
+                        navigator.clipboard.writeText(eventUrl);
+                        Alert.alert('Copied!', 'Event link copied to clipboard');
+                    },
+                },
+                { text: 'Cancel', style: 'cancel' },
+            ]);
+        } else {
+            const { Share } = require('react-native');
+            await Share.share({
+                message: shareMessage,
+                url: eventUrl,
+                title: event.title,
+            });
+        }
+    } catch (error) {
+        console.error('Error sharing:', error);
+    }
+};
+
+const toggleReminder = async () => {
+    if (!user) return Alert.alert('Error', 'Please login to set reminders.');
+
+    try {
+        if (reminderId) {
+            const reminderDoc = await getDoc(doc(db, 'reminders', reminderId));
+            if (reminderDoc.exists()) {
+                await cancelScheduledNotification(reminderDoc.data().notificationId);
+            }
+            await deleteDoc(doc(db, 'reminders', reminderId));
+            setReminderId(null);
+            Alert.alert('Reminder Removed');
+        } else {
+            const notifId = await scheduleEventReminder(event);
+            if (notifId) {
+                const docRef = await addDoc(collection(db, 'reminders'), {
+                    userId: user.uid,
+                    eventId: event.id,
+                    eventTitle: event.title,
+                    remindAt: new Date(new Date(event.startAt).getTime() - 10 * 60000),
+                    notificationId: notifId,
+                    createdAt: new Date().toISOString(),
+                });
+                setReminderId(docRef.id);
+                Alert.alert('Reminder Added');
+            } else {
+                Alert.alert('Notice', 'Event is too close or passed.');
+            }
+        }
+    } catch (e) {
+        console.error(e);
+        Alert.alert('Error', 'Action failed.');
+    }
+};
+
+const toggleRsvp = async () => {
+    if (!user) {
+        Alert.alert('Sign In', 'Please sign in to register.');
+        return;
+    }
+
+    if (event.hasCustomForm && event.customFormSchema?.length > 0 && rsvpStatus !== 'going') {
+        navigation.navigate('EventRegistrationForm', { event });
+        return;
+    }
+
+    if (event.isPaid && rsvpStatus !== 'going') {
+        if (event.registrationLink) {
+            Alert.alert('External Registration', 'This event requires external registration.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Go to Link', onPress: () => openLink(event.registrationLink) },
+            ]);
+            return;
+        }
+        navigation.navigate('Payment', { event, price: event.price || 0 });
+        return;
+    }
+
+    performRsvp();
+};
+
+const performRsvp = async () => {
+    const ref = doc(db, 'events', eventId, 'participants', user.uid);
+    const userRef = doc(db, 'users', user.uid, 'participating', eventId);
+    const userProfileRef = doc(db, 'users', user.uid);
+
+    try {
+        if (rsvpStatus === 'going') {
+            await deleteDoc(ref);
+            await deleteDoc(userRef);
+            await updateDoc(userProfileRef, { points: increment(-10) });
+            Alert.alert('Withdrawn', 'You are no longer registered. (-10 Points)');
+        } else {
+            const userDoc = await getDoc(userProfileRef);
+            const userData = userDoc.exists() ? userDoc.data() : {};
+
+            await setDoc(ref, {
+                userId: user.uid,
+                email: user.email,
+                name: user.displayName || 'Anonymous',
+                branch: userData.branch || 'Unknown',
+                year: userData.year || 'Unknown',
+                joinedAt: new Date().toISOString(),
+            });
+            await setDoc(userRef, { eventId: eventId, joinedAt: new Date().toISOString() });
+            await updateDoc(userProfileRef, { points: increment(10) });
+
+            await scheduleEventReminder(event);
+            Alert.alert('Success', 'Registered! (+10 Points)');
+        }
+    } catch (e) {
+        console.error('RSVP Error: ', e);
+        Alert.alert('Error', 'Failed to update RSVP');
+    }
+};
+
+const { request, response, promptAsync } = CalendarService.useCalendarAuth();
+
+useEffect(() => {
+    if (response?.type === 'success') {
+        const { access_token } = response.params;
+        CalendarService.addToCalendar(access_token, event)
+            .then(() => Alert.alert('Success', 'Added to Google Calendar!'))
+            .catch(() => Alert.alert('Error', 'Failed to add to calendar.'));
+    }
+}, [response]);
+
+const openLink = url => {
+    if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link'));
+};
+
+const handleExportReviews = async () => {
+    try {
+        const feedbackRef = collection(db, `events/${eventId}/feedback`);
+        const snapshot = await getDocs(feedbackRef);
+
+        if (snapshot.empty) {
+            Alert.alert('No Reviews', 'This event has no feedback yet.');
+            return;
+        }
+
+        let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
+        snapshot.forEach(doc => {
+            const d = doc.data();
+            const line = `"${(d.userName || 'Anonymous').replace(/"/g, '""')}","${d.eventRating || '-'}","${d.clubRating || '-'}","${(d.feedback || '').replace(/"/g, '""')}","${d.createdAt || ''}"\n`;
+            csv += line;
+        });
+
+        await Share.share({ message: csv, title: `Reviews - ${event.title}` });
+    } catch (error) {
+        console.error('Export Error: ', error);
+        Alert.alert('Error', 'Failed to export reviews.');
+    }
+};
+
+const sendCertificates = async () => {
+    setSendingCertificates(true);
+    try {
+        console.log(`Fetching participants for event: ${event.id}`);
+        const participantsRef = collection(db, `events/${event.id}/participants`);
+        const snapshot = await getDocs(participantsRef);
+        console.log(`Snapshot size: ${snapshot.size}`);
+
+        const participants = snapshot.docs
+            .map(doc => {
+                const data = doc.data();
+                console.log(`Participant: ${data.name}, Email: ${data.email}`);
+                return {
+                    name: data.name,
+                    email: data.email,
+                };
+            })
+            .filter(p => p.email && p.email !== '-');
+
+        console.log(`Valid participants count: ${participants.length}`);
+
+        if (participants.length === 0) {
+            Alert.alert('Error', 'No participants found with valid emails.');
+            setSendingCertificates(false);
+            return;
+        }
+
+        console.log('Calling sendBulkCertificates...');
+        const eventLink = `https://unievent-ez2w.onrender.com/event/${event.id}`;
+        const count = await sendBulkCertificates(
+            participants,
+            event.title,
+            new Date(event.startAt).toLocaleDateString(),
+            eventLink,
+        );
+        console.log(`Sent count: ${count}`);
+
+        await updateDoc(doc(db, 'events', event.id), {
+            certificatesSent: true,
+            certificatesSentAt: new Date().toISOString(),
+        });
+
+        Alert.alert('Success', `Certificates sent to ${count} participants.`);
+    } catch (e) {
+        console.error('Certificate Send Error:', e);
+        Alert.alert('Error', 'Failed to send certificates via EmailJS');
+    } finally {
+        setSendingCertificates(false);
+    }
+};
+
+const handleDownloadCertificate = async () => {
+    try {
+        setSendingCertificates(true);
+
+        const html = `
             <!DOCTYPE html>
             <html>
             <head>
@@ -520,7 +616,6 @@ export default function EventDetail({ route, navigation }) {
                         position: relative;
                     }
 
-                    /* Corner Ornaments (CSS Shapes) */
                     .corner {
                         position: absolute; width: 40px; height: 40px;
                         border-color: #FF6B35; border-style: solid;
@@ -530,7 +625,6 @@ export default function EventDetail({ route, navigation }) {
                     .bl { bottom: 10px; left: 10px; border-width: 0 0 3px 3px; }
                     .br { bottom: 10px; right: 10px; border-width: 0 3px 3px 0; }
 
-                    /* Text Logo */
                     .brand-name {
                         font-family: 'Great Vibes', cursive;
                         font-size: 50px;
@@ -538,7 +632,6 @@ export default function EventDetail({ route, navigation }) {
                         margin-bottom: 30px;
                     }
                     
-                    /* Title */
                     h1 { 
                         font-family: 'Cinzel', serif; 
                         font-size: 42px; 
@@ -563,7 +656,6 @@ export default function EventDetail({ route, navigation }) {
                         margin-bottom: 10px;
                     }
                     
-                    /* Participant Name */
                     h2.name { 
                         font-family: 'Playfair Display', serif;
                         font-style: italic;
@@ -591,7 +683,6 @@ export default function EventDetail({ route, navigation }) {
                         font-weight: 600;
                     }
                     
-                    /* Event Title */
                     h3.event { 
                         font-family: 'Cinzel', serif;
                         color: #e65100; 
@@ -666,13 +757,11 @@ export default function EventDetail({ route, navigation }) {
 
                             <div class="watermark">UniEvent</div>
                             
-                            <!-- Header -->
                             <div style="text-align: center; width: 100%; z-index: 1;">
                                 <div class="brand-name">UniEvent</div>
                                 <h1>Certificate of Participation</h1>
                             </div>
                             
-                            <!-- Body -->
                             <div style="text-align: center; width: 100%; z-index: 1; flex: 1; display: flex; flex-direction: column; justify-content: center;">
                                 <p class="certify">This is to certify that</p>
                                 
@@ -685,7 +774,6 @@ export default function EventDetail({ route, navigation }) {
                                 <h3 class="event">${event.title}</h3>
                             </div>
                             
-                            <!-- Footer -->
                             <div class="footer" style="z-index: 1;">
                                 <div class="sign-box">
                                     <div class="sign-name">UniEvent Team</div>
@@ -693,7 +781,6 @@ export default function EventDetail({ route, navigation }) {
                                 </div>
                                 
                                 <div style="opacity: 0.9;">
-                                    <!-- Badge Icon -->
                                     <svg width="60" height="60" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#FFB74D" stroke="#E65100" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                         <path d="M12 17.77V2" stroke="#E65100" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.5"/>
@@ -714,652 +801,657 @@ export default function EventDetail({ route, navigation }) {
             </html>
             `;
 
-            if (Platform.OS === 'web') {
-                // Open separate window for reliable printing on mobile web
-                const printWindow = window.open('', '_blank');
-                if (printWindow) {
-                    printWindow.document.write(html);
-                    printWindow.document.close();
+        if (Platform.OS === 'web') {
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                printWindow.document.write(html);
+                printWindow.document.close();
 
-                    // Allow styles and fonts to load
-                    setTimeout(() => {
-                        printWindow.focus();
-                        printWindow.print();
-                    }, 500);
-                } else {
-                    Alert.alert('Blocked', 'Please allow pop-ups to download the certificate.');
-                }
+                setTimeout(() => {
+                    printWindow.focus();
+                    printWindow.print();
+                }, 500);
             } else {
-                const { uri } = await Print.printToFileAsync({ html });
-
-                if (await Sharing.isAvailableAsync()) {
-                    await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-                } else {
-                    Alert.alert('Success', 'Certificate generated!');
-                }
+                Alert.alert('Blocked', 'Please allow pop-ups to download the certificate.');
             }
-        } catch (e) {
-            console.error('Certificate Error:', e);
-            Alert.alert('Error', 'Failed to generate certificate: ' + e.message);
-        } finally {
-            setSendingCertificates(false); // Reset loading state
+        } else {
+            const { uri } = await Print.printToFileAsync({ html });
+
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+            } else {
+                Alert.alert('Success', 'Certificate generated!');
+            }
         }
-    };
+    } catch (e) {
+        console.error('Certificate Error:', e);
+        Alert.alert('Error', 'Failed to generate certificate: ' + e.message);
+    } finally {
+        setSendingCertificates(false);
+    }
+};
 
-    const handleSendCertificates = async () => {
-        console.log('Send Certificates Button Clicked');
-        sendCertificates();
-    };
+const handleSendCertificates = async () => {
+    console.log('Send Certificates Button Clicked');
+    sendCertificates();
+};
 
-    const handleFeedbackSubmit = async data => {
-        try {
-            await submitFeedback({
-                eventId: event.id,
-                clubId: event.ownerId,
-                userId: user.uid,
-                attended: true,
-                eventRating: data.eventRating,
-                clubRating: data.clubRating,
-                feedback: data.feedback,
-            });
+const handleFeedbackSubmit = async data => {
+    try {
+        await submitFeedback({
+            eventId: event.id,
+            clubId: event.ownerId,
+            userId: user.uid,
+            attended: true,
+            eventRating: data.eventRating,
+            clubRating: data.clubRating,
+            feedback: data.feedback,
+        });
 
-            setHasGivenFeedback(true);
-            Alert.alert('Thank You', 'Feedback submitted!');
-        } catch (error) {
-            console.error(error);
-            Alert.alert('Error', 'Failed to submit feedback');
-        }
-    };
+        setHasGivenFeedback(true);
+        Alert.alert('Thank You', 'Feedback submitted!');
+    } catch (error) {
+        console.error(error);
+        Alert.alert('Error', 'Failed to submit feedback');
+    }
+};
 
-    if (loading || !event)
-        return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
-            </View>
-        );
-
+if (loading || !event)
     return (
-        <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-            <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
-                {/* Immersive Header Image */}
-                <ImageBackground
-                    source={{ uri: event.bannerUrl || 'https://via.placeholder.com/800x600' }}
-                    style={styles.headerImage}
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+    );
+
+return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+            <ImageBackground
+                source={{ uri: event.bannerUrl || 'https://via.placeholder.com/800x600' }}
+                style={styles.headerImage}
+            >
+                <LinearGradient
+                    colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.8)']}
+                    style={styles.headerGradient}
                 >
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.8)']}
-                        style={styles.headerGradient}
-                    >
-                        <View style={styles.headerSafe}>
-                            <TouchableOpacity
-                                style={styles.backButton}
-                                onPress={() => navigation.goBack()}
-                            >
-                                <Ionicons name="arrow-back" size={24} color="#fff" />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.bookmarkButton}
-                                onPress={toggleBookmark}
-                            >
-                                <Ionicons
-                                    name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                                    size={24}
-                                    color="#fff"
-                                />
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Live Badge - only show when event is currently happening */}
-                        {new Date() >= new Date(event.startAt) &&
-                            new Date() <= new Date(event.endAt) && (
-                                <View style={styles.liveBadge}>
-                                    <Ionicons name="radio-button-on" size={14} color="#fff" />
-                                    <Text style={styles.liveText}>LIVE</Text>
-                                </View>
-                            )}
-                    </LinearGradient>
-                </ImageBackground>
-
-                {/* Content Sheet */}
-                <View style={styles.contentSheet}>
-                    {/* SUSPENSION BANNER */}
-                    {event?.status === 'suspended' && (
-                        <View
-                            style={{
-                                backgroundColor: '#FF444420',
-                                padding: 16,
-                                borderRadius: 12,
-                                marginBottom: 20,
-                                borderWidth: 1,
-                                borderColor: '#FF4444',
-                            }}
+                    <View style={styles.headerSafe}>
+                        <TouchableOpacity
+                            style={styles.backButton}
+                            onPress={() => navigation.goBack()}
                         >
-                            <View
-                                style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 10,
-                                    marginBottom: 8,
-                                }}
-                            >
-                                <Ionicons name="warning" size={24} color="#FF4444" />
-                                <Text
-                                    style={{ fontSize: 18, fontWeight: 'bold', color: '#FF4444' }}
-                                >
-                                    Event Suspended
-                                </Text>
-                            </View>
-                            <Text style={{ color: theme.colors.text }}>
-                                This event has been suspended by the admin for violating guidelines.
-                                {event.appealStatus === 'pending'
-                                    ? '\n\n⚠️ Your appeal is under review.'
-                                    : ''}
-                            </Text>
-
-                            {/* OWNER APPEAL BUTTON */}
-                            {user?.uid === event?.ownerId && event?.appealStatus !== 'pending' && (
-                                <TouchableOpacity
-                                    style={{
-                                        backgroundColor: '#FF4444',
-                                        padding: 12,
-                                        borderRadius: 8,
-                                        marginTop: 12,
-                                        alignItems: 'center',
-                                    }}
-                                    onPress={() => setShowAppealModal(true)}
-                                >
-                                    <Text style={{ color: 'white', fontWeight: 'bold' }}>
-                                        Appeal Suspension
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    )}
-
-                    {/* Header Section */}
-                    <View style={styles.headerSection}>
-                        <View style={styles.badgeRow}>
-                            <View
-                                style={[
-                                    styles.categoryBadge,
-                                    { backgroundColor: theme.colors.primary + '20' },
-                                ]}
-                            >
-                                <Text
-                                    style={[styles.categoryText, { color: theme.colors.primary }]}
-                                >
-                                    {event.category}
-                                </Text>
-                            </View>
-                            {event.isPaid ? (
-                                <View style={[styles.priceBadge, { backgroundColor: '#F59E0B' }]}>
-                                    <Ionicons name="cash" size={14} color="#fff" />
-                                    <Text style={styles.priceText}>₹{event.price}</Text>
-                                </View>
-                            ) : (
-                                <View style={[styles.priceBadge, { backgroundColor: '#F59E0B' }]}>
-                                    <Ionicons name="gift" size={14} color="#fff" />
-                                    <Text style={styles.priceText}>Free</Text>
-                                </View>
-                            )}
-                        </View>
-
-                        <Text style={[styles.eventTitle, { color: theme.colors.text }]}>
-                            {event.title}
-                        </Text>
+                            <Ionicons name="arrow-back" size={24} color="#fff" />
+                        </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={styles.hostButton}
-                            onPress={() =>
-                                navigation.navigate('ClubProfile', {
-                                    clubId: event.ownerId,
-                                    clubName: hostName,
-                                })
-                            }
+                            style={styles.bookmarkButton}
+                            onPress={toggleBookmark}
                         >
-                            <View
-                                style={[
-                                    styles.hostAvatar,
-                                    { backgroundColor: theme.colors.primary + '20' },
-                                ]}
-                            >
-                                <Text
-                                    style={[styles.hostAvatarText, { color: theme.colors.primary }]}
-                                >
-                                    {hostName?.[0]?.toUpperCase()}
-                                </Text>
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text
-                                    style={[
-                                        styles.hostLabel,
-                                        { color: theme.colors.textSecondary },
-                                    ]}
-                                >
-                                    Hosted by
-                                </Text>
-                                <Text style={[styles.hostName, { color: theme.colors.text }]}>
-                                    {hostName}
-                                </Text>
-                            </View>
                             <Ionicons
-                                name="chevron-forward"
-                                size={20}
-                                color={theme.colors.textSecondary}
+                                name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                                size={24}
+                                color="#fff"
                             />
                         </TouchableOpacity>
                     </View>
 
-                    {/* Quick Actions Row */}
+                    {new Date() >= new Date(event.startAt) &&
+                        new Date() <= new Date(event.endAt) && (
+                            <View style={styles.liveBadge}>
+                                <Ionicons name="radio-button-on" size={14} color="#fff" />
+                                <Text style={styles.liveText}>LIVE</Text>
+                            </View>
+                        )}
+                </LinearGradient>
+            </ImageBackground>
+
+            <View style={styles.contentSheet}>
+                {event?.status === 'suspended' && (
                     <View
-                        style={[styles.quickActionsCard, { backgroundColor: theme.colors.surface }]}
+                        style={{
+                            backgroundColor: '#FF444420',
+                            padding: 16,
+                            borderRadius: 12,
+                            marginBottom: 20,
+                            borderWidth: 1,
+                            borderColor: '#FF4444',
+                        }}
                     >
-                        <TouchableOpacity style={styles.quickAction} onPress={toggleReminder}>
-                            <View
-                                style={[
-                                    styles.quickActionIcon,
-                                    {
-                                        backgroundColor: reminderId
-                                            ? theme.colors.primary
-                                            : theme.colors.primary + '20',
-                                    },
-                                ]}
-                            >
-                                <Ionicons
-                                    name={reminderId ? 'notifications' : 'notifications-outline'}
-                                    size={20}
-                                    color={reminderId ? '#fff' : theme.colors.primary}
-                                />
-                            </View>
-                            <Text style={[styles.quickActionLabel, { color: theme.colors.text }]}>
-                                Remind
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.quickAction} onPress={() => promptAsync()}>
-                            <View
-                                style={[
-                                    styles.quickActionIcon,
-                                    { backgroundColor: theme.colors.primary + '20' },
-                                ]}
-                            >
-                                <Ionicons
-                                    name="calendar-outline"
-                                    size={20}
-                                    color={theme.colors.primary}
-                                />
-                            </View>
-                            <Text style={[styles.quickActionLabel, { color: theme.colors.text }]}>
-                                Calendar
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.quickAction} onPress={shareEvent}>
-                            <View
-                                style={[
-                                    styles.quickActionIcon,
-                                    { backgroundColor: theme.colors.primary + '20' },
-                                ]}
-                            >
-                                <Ionicons
-                                    name="share-social-outline"
-                                    size={20}
-                                    color={theme.colors.primary}
-                                />
-                            </View>
-                            <Text style={[styles.quickActionLabel, { color: theme.colors.text }]}>
-                                Share
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.quickAction}
-                            onPress={() =>
-                                navigation.navigate('EventChat', {
-                                    eventId: event.id,
-                                    title: event.title,
-                                })
-                            }
-                        >
-                            <View
-                                style={[
-                                    styles.quickActionIcon,
-                                    { backgroundColor: theme.colors.primary + '20' },
-                                ]}
-                            >
-                                <Ionicons
-                                    name="chatbubbles-outline"
-                                    size={20}
-                                    color={theme.colors.primary}
-                                />
-                            </View>
-                            <Text style={[styles.quickActionLabel, { color: theme.colors.text }]}>
-                                Chat
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Event Details Card */}
-                    <View style={[styles.detailsCard, { backgroundColor: theme.colors.surface }]}>
-                        <View style={styles.detailRow}>
-                            <View
-                                style={[
-                                    styles.detailIconContainer,
-                                    { backgroundColor: theme.colors.primary + '15' },
-                                ]}
-                            >
-                                <Ionicons name="calendar" size={22} color={theme.colors.primary} />
-                            </View>
-                            <View style={styles.detailContent}>
-                                <Text
-                                    style={[
-                                        styles.detailLabel,
-                                        { color: theme.colors.textSecondary },
-                                    ]}
-                                >
-                                    Date & Time
-                                </Text>
-                                <Text style={[styles.detailValue, { color: theme.colors.text }]}>
-                                    {new Date(event.startAt).toLocaleDateString('en-US', {
-                                        weekday: 'short',
-                                        month: 'short',
-                                        day: 'numeric',
-                                        year: 'numeric',
-                                    })}
-                                </Text>
-                                <Text
-                                    style={[
-                                        styles.detailSubValue,
-                                        { color: theme.colors.textSecondary },
-                                    ]}
-                                >
-                                    {new Date(event.startAt).toLocaleTimeString([], {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })}
-                                </Text>
-                            </View>
-                        </View>
-
                         <View
-                            style={[styles.detailDivider, { backgroundColor: theme.colors.border }]}
-                        />
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 10,
+                                marginBottom: 8,
+                            }}
+                        >
+                            <Ionicons name="warning" size={24} color="#FF4444" />
+                            <Text
+                                style={{ fontSize: 18, fontWeight: 'bold', color: '#FF4444' }}
+                            >
+                                Event Suspended
+                            </Text>
+                        </View>
+                        <Text style={{ color: theme.colors.text }}>
+                            This event has been suspended by the admin for violating guidelines.
+                            {event.appealStatus === 'pending'
+                                ? '\n\n⚠️ Your appeal is under review.'
+                                : ''}
+                        </Text>
 
-                        <View style={styles.detailRow}>
-                            <View
+                        {user?.uid === event?.ownerId && event?.appealStatus !== 'pending' && (
+                            <TouchableOpacity
+                                style={{
+                                    backgroundColor: '#FF4444',
+                                    padding: 12,
+                                    borderRadius: 8,
+                                    marginTop: 12,
+                                    alignItems: 'center',
+                                }}
+                                onPress={() => setShowAppealModal(true)}
+                            >
+                                <Text style={{ color: 'white', fontWeight: 'bold' }}>
+                                    Appeal Suspension
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
+
+                <View style={styles.headerSection}>
+                    <View style={styles.badgeRow}>
+                        <View
+                            style={[
+                                styles.categoryBadge,
+                                { backgroundColor: theme.colors.primary + '20' },
+                            ]}
+                        >
+                            <Text
+                                style={[styles.categoryText, { color: theme.colors.primary }]}
+                            >
+                                {event.category}
+                            </Text>
+                        </View>
+                        {event.isPaid ? (
+                            <View style={[styles.priceBadge, { backgroundColor: '#F59E0B' }]}>
+                                <Ionicons name="cash" size={14} color="#fff" />
+                                <Text style={styles.priceText}>₹{event.price}</Text>
+                            </View>
+                        ) : (
+                            <View style={[styles.priceBadge, { backgroundColor: '#F59E0B' }]}>
+                                <Ionicons name="gift" size={14} color="#fff" />
+                                <Text style={styles.priceText}>Free</Text>
+                            </View>
+                        )}
+                    </View>
+
+                    <Text style={[styles.eventTitle, { color: theme.colors.text }]}>
+                        {event.title}
+                    </Text>
+
+                    <TouchableOpacity
+                        style={styles.hostButton}
+                        onPress={() =>
+                            navigation.navigate('ClubProfile', {
+                                clubId: event.ownerId,
+                                clubName: hostName,
+                            })
+                        }
+                    >
+                        <View
+                            style={[
+                                styles.hostAvatar,
+                                { backgroundColor: theme.colors.primary + '20' },
+                            ]}
+                        >
+                            <Text
+                                style={[styles.hostAvatarText, { color: theme.colors.primary }]}
+                            >
+                                {hostName?.[0]?.toUpperCase()}
+                            </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text
                                 style={[
-                                    styles.detailIconContainer,
-                                    { backgroundColor: theme.colors.primary + '15' },
+                                    styles.hostLabel,
+                                    { color: theme.colors.textSecondary },
                                 ]}
                             >
-                                <Ionicons name="location" size={22} color={theme.colors.primary} />
-                            </View>
-                            <View style={styles.detailContent}>
-                                <Text
-                                    style={[
-                                        styles.detailLabel,
-                                        { color: theme.colors.textSecondary },
-                                    ]}
-                                >
-                                    Location
-                                </Text>
-                                <Text style={[styles.detailValue, { color: theme.colors.text }]}>
-                                    {event.eventMode === 'online' ? 'Online' : event.location}
-                                </Text>
-                            </View>
+                                Hosted by
+                            </Text>
+                            <Text style={[styles.hostName, { color: theme.colors.text }]}>
+                                {hostName}
+                            </Text>
                         </View>
-                    </View>
+                        <Ionicons
+                            name="chevron-forward"
+                            size={20}
+                            color={theme.colors.textSecondary}
+                        />
+                    </TouchableOpacity>
+                </View>
 
-                    {/* About Section */}
-                    <View style={styles.aboutSection}>
-                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                            About Event
-                        </Text>
-                        <Text style={[styles.description, { color: theme.colors.textSecondary }]}>
-                            {event.description}
-                        </Text>
-                    </View>
-
-                    {/* Meeting Link - Only for Attendees/Owner */}
-                    {(rsvpStatus === 'going' || isOwner) && event.meetLink && (
-                        <TouchableOpacity
-                            style={[styles.outlinedButton, { borderColor: theme.colors.primary }]}
-                            onPress={() => Linking.openURL(event.meetLink)}
+                <View
+                    style={[styles.quickActionsCard, { backgroundColor: theme.colors.surface }]}
+                >
+                    <TouchableOpacity style={styles.quickAction} onPress={toggleReminder}>
+                        <View
+                            style={[
+                                styles.quickActionIcon,
+                                {
+                                    backgroundColor: reminderId
+                                        ? theme.colors.primary
+                                        : theme.colors.primary + '20',
+                                },
+                            ]}
                         >
-                            <Ionicons name="videocam" size={22} color={theme.colors.primary} />
-                            <Text
-                                style={[styles.outlinedButtonText, { color: theme.colors.primary }]}
-                            >
-                                Join Virtual Meeting
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {/* Organizer Tools */}
-                    {isOwner && (
-                        <View style={styles.organizerSection}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                                Organizer Tools
-                            </Text>
-
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.compactButton,
-                                        { borderColor: theme.colors.primary },
-                                    ]}
-                                    onPress={() =>
-                                        navigation.navigate('CreateEvent', { event: event })
-                                    }
-                                >
-                                    <Ionicons
-                                        name="create-outline"
-                                        size={20}
-                                        color={theme.colors.primary}
-                                    />
-                                    <Text
-                                        style={[
-                                            styles.compactButtonText,
-                                            { color: theme.colors.primary },
-                                        ]}
-                                    >
-                                        Edit
-                                    </Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[
-                                        styles.compactButton,
-                                        { borderColor: theme.colors.primary },
-                                    ]}
-                                    onPress={() =>
-                                        navigation.navigate('QRScanner', {
-                                            eventId: event.id,
-                                            eventTitle: event.title,
-                                        })
-                                    }
-                                >
-                                    <Ionicons
-                                        name="qr-code"
-                                        size={20}
-                                        color={theme.colors.primary}
-                                    />
-                                    <Text
-                                        style={[
-                                            styles.compactButtonText,
-                                            { color: theme.colors.primary },
-                                        ]}
-                                    >
-                                        Check-In
-                                    </Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[
-                                        styles.compactButton,
-                                        { borderColor: theme.colors.primary },
-                                    ]}
-                                    onPress={() =>
-                                        navigation.navigate('AttendanceDashboard', {
-                                            eventId: event.id,
-                                            eventTitle: event.title,
-                                        })
-                                    }
-                                >
-                                    <Ionicons
-                                        name="bar-chart"
-                                        size={20}
-                                        color={theme.colors.primary}
-                                    />
-                                    <Text
-                                        style={[
-                                            styles.compactButtonText,
-                                            { color: theme.colors.primary },
-                                        ]}
-                                    >
-                                        Analytics
-                                    </Text>
-                                </TouchableOpacity>
-
-                                {new Date(event.endAt || event.startAt) < new Date() && (
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.compactButton,
-                                            {
-                                                borderColor: event.certificatesSent
-                                                    ? theme.colors.success
-                                                    : theme.colors.primary,
-                                                width: '100%',
-                                                marginTop: 4,
-                                            },
-                                            event.certificatesSent && {
-                                                backgroundColor: theme.colors.success + '10',
-                                                borderColor: theme.colors.success,
-                                            },
-                                        ]}
-                                        onPress={
-                                            event.certificatesSent
-                                                ? () =>
-                                                      Alert.alert(
-                                                          'Sent',
-                                                          'Certificates have already been sent.',
-                                                      )
-                                                : handleSendCertificates
-                                        }
-                                        disabled={sendingCertificates}
-                                    >
-                                        {sendingCertificates ? (
-                                            <ActivityIndicator
-                                                size="small"
-                                                color={
-                                                    event.certificatesSent
-                                                        ? theme.colors.success
-                                                        : theme.colors.primary
-                                                }
-                                            />
-                                        ) : (
-                                            <Ionicons
-                                                name={
-                                                    event.certificatesSent
-                                                        ? 'checkmark-done-circle'
-                                                        : 'mail-outline'
-                                                }
-                                                size={20}
-                                                color={
-                                                    event.certificatesSent
-                                                        ? theme.colors.success
-                                                        : theme.colors.primary
-                                                }
-                                            />
-                                        )}
-                                        <Text
-                                            style={[
-                                                styles.compactButtonText,
-                                                {
-                                                    color: event.certificatesSent
-                                                        ? theme.colors.success
-                                                        : theme.colors.primary,
-                                                },
-                                            ]}
-                                        >
-                                            {sendingCertificates
-                                                ? 'Sending...'
-                                                : event.certificatesSent
-                                                  ? 'Certificates Sent'
-                                                  : 'Send Certificates'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                )}
-                            </View>
+                            <Ionicons
+                                name={reminderId ? 'notifications' : 'notifications-outline'}
+                                size={20}
+                                color={reminderId ? '#fff' : theme.colors.primary}
+                            />
                         </View>
-                    )}
+                        <Text style={[styles.quickActionLabel, { color: theme.colors.text }]}>
+                            Remind
+                        </Text>
+                    </TouchableOpacity>
 
-                    {/* Feedback Button (Post Event) */}
-                    {rsvpStatus === 'going' &&
-                        !isOwner &&
-                        new Date(event.endAt) < new Date() &&
-                        !isSuspended && (
+                    <TouchableOpacity style={styles.quickAction} onPress={() => promptAsync()}>
+                        <View
+                            style={[
+                                styles.quickActionIcon,
+                                { backgroundColor: theme.colors.primary + '20' },
+                            ]}
+                        >
+                            <Ionicons
+                                name="calendar-outline"
+                                size={20}
+                                color={theme.colors.primary}
+                            />
+                        </View>
+                        <Text style={[styles.quickActionLabel, { color: theme.colors.text }]}>
+                            Calendar
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.quickAction} onPress={shareEvent}>
+                        <View
+                            style={[
+                                styles.quickActionIcon,
+                                { backgroundColor: theme.colors.primary + '20' },
+                            ]}
+                        >
+                            <Ionicons
+                                name="share-social-outline"
+                                size={20}
+                                color={theme.colors.primary}
+                            />
+                        </View>
+                        <Text style={[styles.quickActionLabel, { color: theme.colors.text }]}>
+                            Share
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.quickAction}
+                        onPress={() =>
+                            navigation.navigate('EventChat', {
+                                eventId: event.id,
+                                title: event.title,
+                            })
+                        }
+                    >
+                        <View
+                            style={[
+                                styles.quickActionIcon,
+                                { backgroundColor: theme.colors.primary + '20' },
+                            ]}
+                        >
+                            <Ionicons
+                                name="chatbubbles-outline"
+                                size={20}
+                                color={theme.colors.primary}
+                            />
+                        </View>
+                        <Text style={[styles.quickActionLabel, { color: theme.colors.text }]}>
+                            Chat
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={[styles.detailsCard, { backgroundColor: theme.colors.surface }]}>
+                    <View style={styles.detailRow}>
+                        <View
+                            style={[
+                                styles.detailIconContainer,
+                                { backgroundColor: theme.colors.primary + '15' },
+                            ]}
+                        >
+                            <Ionicons name="calendar" size={22} color={theme.colors.primary} />
+                        </View>
+                        <View style={styles.detailContent}>
+                            <Text
+                                style={[
+                                    styles.detailLabel,
+                                    { color: theme.colors.textSecondary },
+                                ]}
+                            >
+                                Date & Time
+                            </Text>
+                            <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                                {new Date(event.startAt).toLocaleDateString('en-US', {
+                                    weekday: 'short',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                })}
+                            </Text>
+                            <Text
+                                style={[
+                                    styles.detailSubValue,
+                                    { color: theme.colors.textSecondary },
+                                ]}
+                            >
+                                {new Date(event.startAt).toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                })}
+                            </Text>
+                        </View>
+                    </View>
+
+                    <View
+                        style={[styles.detailDivider, { backgroundColor: theme.colors.border }]}
+                    />
+
+                    <View style={styles.detailRow}>
+                        <View
+                            style={[
+                                styles.detailIconContainer,
+                                { backgroundColor: theme.colors.primary + '15' },
+                            ]}
+                        >
+                            <Ionicons name="location" size={22} color={theme.colors.primary} />
+                        </View>
+                        <View style={styles.detailContent}>
+                            <Text
+                                style={[
+                                    styles.detailLabel,
+                                    { color: theme.colors.textSecondary },
+                                ]}
+                            >
+                                Location
+                            </Text>
+                            <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                                {event.eventMode === 'online' ? 'Online' : event.location}
+                            </Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={styles.aboutSection}>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                        About Event
+                    </Text>
+                    <Text style={[styles.description, { color: theme.colors.textSecondary }]}>
+                        {event.description}
+                    </Text>
+                </View>
+
+                {(rsvpStatus === 'going' || isOwner) && event.meetLink && (
+                    <TouchableOpacity
+                        style={[styles.outlinedButton, { borderColor: theme.colors.primary }]}
+                        onPress={() => Linking.openURL(event.meetLink)}
+                    >
+                        <Ionicons name="videocam" size={22} color={theme.colors.primary} />
+                        <Text
+                            style={[styles.outlinedButtonText, { color: theme.colors.primary }]}
+                        >
+                            Join Virtual Meeting
+                        </Text>
+                    </TouchableOpacity>
+                )}
+
+                {isOwner && (
+                    <View style={styles.organizerSection}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                            Organizer Tools
+                        </Text>
+
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
                             <TouchableOpacity
                                 style={[
-                                    styles.feedbackCard,
-                                    {
-                                        backgroundColor: hasGivenFeedback
-                                            ? theme.colors.surface
-                                            : theme.colors.primary,
-                                        borderWidth: hasGivenFeedback ? 1 : 0,
-                                        borderColor: theme.colors.border,
-                                    },
+                                    styles.compactButton,
+                                    { borderColor: theme.colors.primary },
                                 ]}
                                 onPress={() =>
-                                    hasGivenFeedback
-                                        ? Alert.alert('Done', 'Feedback already sent.')
-                                        : setShowFeedbackModal(true)
+                                    navigation.navigate('CreateEvent', { event: event })
                                 }
                             >
                                 <Ionicons
-                                    name={hasGivenFeedback ? 'checkmark-circle' : 'star'}
-                                    size={24}
-                                    color={hasGivenFeedback ? theme.colors.primary : '#fff'}
+                                    name="create-outline"
+                                    size={20}
+                                    color={theme.colors.primary}
                                 />
                                 <Text
                                     style={[
-                                        styles.feedbackText,
-                                        {
-                                            color: hasGivenFeedback ? theme.colors.text : '#fff',
-                                        },
+                                        styles.compactButtonText,
+                                        { color: theme.colors.primary },
                                     ]}
                                 >
-                                    {hasGivenFeedback ? 'Feedback Submitted' : 'Rate This Event'}
+                                    Edit
                                 </Text>
-                                {!hasGivenFeedback && (
-                                    <Ionicons name="arrow-forward" size={20} color="#fff" />
-                                )}
                             </TouchableOpacity>
-                        )}
 
-                    {/* Spacer for FAB */}
-                    <View style={{ height: 100 }} />
-                </View>
-            </ScrollView>
+                            <TouchableOpacity
+                                style={[
+                                    styles.compactButton,
+                                    { borderColor: theme.colors.primary },
+                                ]}
+                                onPress={() =>
+                                    navigation.navigate('QRScanner', {
+                                        eventId: event.id,
+                                        eventTitle: event.title,
+                                    })
+                                }
+                            >
+                                <Ionicons
+                                    name="qr-code"
+                                    size={20}
+                                    color={theme.colors.primary}
+                                />
+                                <Text
+                                    style={[
+                                        styles.compactButtonText,
+                                        { color: theme.colors.primary },
+                                    ]}
+                                >
+                                    Check-In
+                                </Text>
+                            </TouchableOpacity>
 
-            {/* Floating Action Bar (Bottom) */}
-            {!isSuspended && (
-                <View style={[styles.fabContainer, { backgroundColor: theme.colors.surface }]}>
-                    <View style={styles.fabSubInfo}>
-                        <Text style={styles.fabLabel}>Attending</Text>
-                        <Text style={styles.fabValue}>{participantCount} People</Text>
+                            <TouchableOpacity
+                                style={[
+                                    styles.compactButton,
+                                    { borderColor: theme.colors.primary },
+                                ]}
+                                onPress={() =>
+                                    navigation.navigate('AttendanceDashboard', {
+                                        eventId: event.id,
+                                        eventTitle: event.title,
+                                    })
+                                }
+                            >
+                                <Ionicons
+                                    name="bar-chart"
+                                    size={20}
+                                    color={theme.colors.primary}
+                                />
+                                <Text
+                                    style={[
+                                        styles.compactButtonText,
+                                        { color: theme.colors.primary },
+                                    ]}
+                                >
+                                    Analytics
+                                </Text>
+                            </TouchableOpacity>
+
+                            {new Date(event.endAt || event.startAt) < new Date() && (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.compactButton,
+                                        {
+                                            borderColor: event.certificatesSent
+                                                ? theme.colors.success
+                                                : theme.colors.primary,
+                                            width: '100%',
+                                            marginTop: 4,
+                                        },
+                                        event.certificatesSent && {
+                                            backgroundColor: theme.colors.success + '10',
+                                            borderColor: theme.colors.success,
+                                        },
+                                    ]}
+                                    onPress={
+                                        event.certificatesSent
+                                            ? () =>
+                                                Alert.alert(
+                                                    'Sent',
+                                                    'Certificates have already been sent.',
+                                                )
+                                            : handleSendCertificates
+                                    }
+                                    disabled={sendingCertificates}
+                                >
+                                    {sendingCertificates ? (
+                                        <ActivityIndicator
+                                            size="small"
+                                            color={
+                                                event.certificatesSent
+                                                    ? theme.colors.success
+                                                    : theme.colors.primary
+                                            }
+                                        />
+                                    ) : (
+                                        <Ionicons
+                                            name={
+                                                event.certificatesSent
+                                                    ? 'checkmark-done-circle'
+                                                    : 'mail-outline'
+                                            }
+                                            size={20}
+                                            color={
+                                                event.certificatesSent
+                                                    ? theme.colors.success
+                                                    : theme.colors.primary
+                                            }
+                                        />
+                                    )}
+                                    <Text
+                                        style={[
+                                            styles.compactButtonText,
+                                            {
+                                                color: event.certificatesSent
+                                                    ? theme.colors.success
+                                                    : theme.colors.primary,
+                                            },
+                                        ]}
+                                    >
+                                        {sendingCertificates
+                                            ? 'Sending...'
+                                            : event.certificatesSent
+                                                ? 'Certificates Sent'
+                                                : 'Send Certificates'}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
+                )}
 
+                {rsvpStatus === 'going' &&
+                    !isOwner &&
+                    new Date(event.endAt) < new Date() &&
+                    !isSuspended && (
+                        <TouchableOpacity
+                            style={[
+                                styles.feedbackCard,
+                                {
+                                    backgroundColor: hasGivenFeedback
+                                        ? theme.colors.surface
+                                        : theme.colors.primary,
+                                    borderWidth: hasGivenFeedback ? 1 : 0,
+                                    borderColor: theme.colors.border,
+                                },
+                            ]}
+                            onPress={() =>
+                                hasGivenFeedback
+                                    ? Alert.alert('Done', 'Feedback already sent.')
+                                    : setShowFeedbackModal(true)
+                            }
+                        >
+                            <Ionicons
+                                name={hasGivenFeedback ? 'checkmark-circle' : 'star'}
+                                size={24}
+                                color={hasGivenFeedback ? theme.colors.primary : '#fff'}
+                            />
+                            <Text
+                                style={[
+                                    styles.feedbackText,
+                                    {
+                                        color: hasGivenFeedback ? theme.colors.text : '#fff',
+                                    },
+                                ]}
+                            >
+                                {hasGivenFeedback ? 'Feedback Submitted' : 'Rate This Event'}
+                            </Text>
+                            {!hasGivenFeedback && (
+                                <Ionicons name="arrow-forward" size={20} color="#fff" />
+                            )}
+                        </TouchableOpacity>
+                    )}
+
+                <View style={{ height: 100 }} />
+            </View>
+        </ScrollView>
+
+        {!isSuspended && (
+            <View style={[styles.fabContainer, { backgroundColor: theme.colors.surface }]}>
+                <View style={styles.fabSubInfo}>
+                    <Text style={styles.fabLabel}>Attending</Text>
+                    <Text style={styles.fabValue}>{participantCount} People</Text>
+                </View>
+
+                {!rsvpStatus && event && event.capacity && participantCount >= event.capacity && !isOnWaitlist && !isEventEnded ? (
+                    <TouchableOpacity
+                        style={[styles.waitlistButton]}
+                        onPress={handleJoinWaitlist}
+                        disabled={isWaitlistLoading}
+                    >
+                        <Text style={styles.buttonText}>
+                            {isWaitlistLoading ? 'Joining...' : 'Join Waitlist'}
+                        </Text>
+                    </TouchableOpacity>
+                ) : isOnWaitlist && !isEventEnded ? (
+                    <TouchableOpacity
+                        style={[styles.leaveWaitlistButton]}
+                        onPress={handleLeaveWaitlist}
+                        disabled={isWaitlistLoading}
+                    >
+                        <Text style={styles.leaveWaitlistText}>
+                            {isWaitlistLoading ? 'Leaving...' : `Waitlist #${waitlistPosition}`}
+                        </Text>
+                    </TouchableOpacity>
+                ) : (
                     <TouchableOpacity
                         style={[
                             styles.primaryBtn,
                             rsvpStatus === 'going' && styles.secondaryBtn,
                             new Date(event.endAt) < new Date() &&
-                                !(rsvpStatus === 'going' && event.certificatesSent) && {
-                                    backgroundColor: theme.colors.textSecondary,
-                                    borderColor: theme.colors.textSecondary,
-                                },
+                            !(rsvpStatus === 'going' && event.certificatesSent) && {
+                                backgroundColor: theme.colors.textSecondary,
+                                borderColor: theme.colors.textSecondary,
+                            },
                         ]}
                         onPress={
                             new Date(event.endAt) < new Date()
@@ -1378,9 +1470,9 @@ export default function EventDetail({ route, navigation }) {
                                 styles.primaryBtnText,
                                 rsvpStatus === 'going' && styles.secondaryBtnText,
                                 new Date(event.endAt) < new Date() &&
-                                    !(rsvpStatus === 'going' && event.certificatesSent) && {
-                                        color: '#fff',
-                                    },
+                                !(rsvpStatus === 'going' && event.certificatesSent) && {
+                                    color: '#fff',
+                                },
                             ]}
                         >
                             {new Date(event.endAt) < new Date()
@@ -1390,38 +1482,38 @@ export default function EventDetail({ route, navigation }) {
                                         : 'Event Ended'
                                     : 'Closed'
                                 : rsvpStatus === 'going'
-                                  ? 'Registered ✓'
-                                  : event.isPaid
-                                    ? `Book Ticket (₹${event.price})`
-                                    : 'RSVP Now'}
+                                    ? 'Registered ✓'
+                                    : event.isPaid
+                                        ? `Book Ticket (₹${event.price})`
+                                        : 'RSVP Now'}
                         </Text>
                     </TouchableOpacity>
-                </View>
-            )}
+                )}
+            </View>
+        )}
 
-            <FeedbackModal
-                visible={showFeedbackModal}
-                onClose={() => setShowFeedbackModal(false)}
-                feedbackRequest={{
-                    eventTitle: event.title,
-                    clubName: event.organizerName || 'Organizer',
-                }}
-                onSubmit={handleFeedbackSubmit}
-            />
+        <FeedbackModal
+            visible={showFeedbackModal}
+            onClose={() => setShowFeedbackModal(false)}
+            feedbackRequest={{
+                eventTitle: event.title,
+                clubName: event.organizerName || 'Organizer',
+            }}
+            onSubmit={handleFeedbackSubmit}
+        />
 
-            <AppealModal
-                visible={showAppealModal}
-                onClose={() => setShowAppealModal(false)}
-                onSubmit={handleSubmitAppeal}
-                isSubmitting={sendingAppeal}
-            />
-        </View>
-    );
-}
+        <AppealModal
+            visible={showAppealModal}
+            onClose={() => setShowAppealModal(false)}
+            onSubmit={handleSubmitAppeal}
+            isSubmitting={sendingAppeal}
+        />
+    </View>
+);
+
 
 const getStyles = theme =>
     StyleSheet.create({
-        // Header
         headerImage: { height: 350, width: '100%' },
         headerGradient: { flex: 1, paddingTop: 40, paddingHorizontal: 20 },
         headerSafe: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -1467,7 +1559,6 @@ const getStyles = theme =>
             paddingTop: 32,
         },
 
-        // Header Section
         headerSection: {
             marginBottom: 20,
         },
@@ -1529,7 +1620,6 @@ const getStyles = theme =>
             fontWeight: '600',
         },
 
-        // Quick Actions
         quickActionsCard: {
             flexDirection: 'row',
             justifyContent: 'space-around',
@@ -1554,7 +1644,6 @@ const getStyles = theme =>
             fontWeight: '500',
         },
 
-        // Details Card
         detailsCard: {
             borderRadius: 20,
             padding: 20,
@@ -1594,7 +1683,6 @@ const getStyles = theme =>
             marginVertical: 16,
         },
 
-        // About Section
         aboutSection: {
             marginBottom: 20,
         },
@@ -1608,7 +1696,6 @@ const getStyles = theme =>
             lineHeight: 24,
         },
 
-        // Outlined Button (for Virtual Meeting, Check-In, Analytics)
         outlinedButton: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -1627,7 +1714,6 @@ const getStyles = theme =>
             fontWeight: '700',
         },
 
-        // Meet Link Card
         meetLinkCard: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -1657,7 +1743,6 @@ const getStyles = theme =>
             fontSize: 11,
         },
 
-        // Organizer Section
         organizerSection: {
             marginBottom: 20,
         },
@@ -1692,7 +1777,6 @@ const getStyles = theme =>
             opacity: 0.7,
         },
 
-        // Compact Buttons for Organizer Tools
         compactButton: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -1702,15 +1786,14 @@ const getStyles = theme =>
             paddingHorizontal: 16,
             borderWidth: 1,
             borderRadius: 12,
-            flexGrow: 1, // Allow buttons to grow to fill space
-            minWidth: '45%', // Ensure 2 per row roughly
+            flexGrow: 1,
+            minWidth: '45%',
         },
         compactButtonText: {
             fontSize: 14,
             fontWeight: '600',
         },
 
-        // Feedback Card
         feedbackCard: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -1727,7 +1810,32 @@ const getStyles = theme =>
             flex: 1,
         },
 
-        // FAB
+        waitlistButton: {
+            backgroundColor: '#f59e0b',
+            paddingVertical: 14,
+            paddingHorizontal: 32,
+            borderRadius: 12,
+            ...theme.shadows.default,
+        },
+        leaveWaitlistButton: {
+            backgroundColor: '#fef3c7',
+            paddingVertical: 14,
+            paddingHorizontal: 32,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: '#f59e0b',
+        },
+        leaveWaitlistText: {
+            color: '#92400e',
+            fontWeight: 'bold',
+            fontSize: 14,
+        },
+        buttonText: {
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: 16,
+        },
+
         fabContainer: {
             position: 'absolute',
             bottom: 0,
@@ -1760,3 +1868,4 @@ const getStyles = theme =>
         primaryBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
         secondaryBtnText: { color: theme.colors.primary },
     });
+
