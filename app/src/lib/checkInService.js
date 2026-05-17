@@ -1,4 +1,12 @@
-import { doc, getDoc, setDoc, serverTimestamp, updateDoc, increment } from 'firebase/firestore';
+import {
+    doc,
+    getDoc,
+    setDoc,
+    serverTimestamp,
+    updateDoc,
+    increment,
+} from 'firebase/firestore';
+
 import { db } from './firebaseConfig';
 
 /**
@@ -6,7 +14,6 @@ import { db } from './firebaseConfig';
  */
 export const validateTicket = async (ticketId, eventId) => {
     try {
-        // Fetch ticket from Firestore
         const ticketRef = doc(db, 'tickets', ticketId);
         const ticketSnap = await getDoc(ticketRef);
 
@@ -20,7 +27,6 @@ export const validateTicket = async (ticketId, eventId) => {
 
         const ticketData = ticketSnap.data();
 
-        // Verify ticket belongs to this event
         if (ticketData.eventId !== eventId) {
             return {
                 valid: false,
@@ -29,7 +35,6 @@ export const validateTicket = async (ticketId, eventId) => {
             };
         }
 
-        // Check if ticket is paid
         if (ticketData.status !== 'paid') {
             return {
                 valid: false,
@@ -38,18 +43,18 @@ export const validateTicket = async (ticketId, eventId) => {
             };
         }
 
-        // Check if already checked in
         if (ticketData.checkInStatus === 'checked-in') {
             return {
                 valid: false,
                 error: 'Already checked in',
-                message: `This attendee was already checked in at ${new Date(ticketData.checkedInAt?.toMillis()).toLocaleTimeString()}.`,
+                message: `This attendee was already checked in at ${new Date(
+                    ticketData.checkedInAt?.toMillis()
+                ).toLocaleTimeString()}.`,
                 alreadyCheckedIn: true,
                 ticketData,
             };
         }
 
-        // Ticket is valid
         return {
             valid: true,
             ticketData: {
@@ -59,10 +64,49 @@ export const validateTicket = async (ticketId, eventId) => {
         };
     } catch (error) {
         console.error('Ticket validation error:', error);
+
         return {
             valid: false,
             error: 'Validation failed',
-            message: 'Unable to validate ticket. Please check your connection.',
+            message:
+                'Unable to validate ticket. Please check your connection.',
+        };
+    }
+};
+
+/**
+ * Safe location helper
+ */
+const getLocation = async () => {
+    try {
+        return await new Promise(resolve => {
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    resolve({
+                        latitude:
+                            position.coords.latitude,
+
+                        longitude:
+                            position.coords.longitude,
+                    });
+                },
+                () => {
+                    resolve({
+                        latitude: null,
+                        longitude: null,
+                    });
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0,
+                }
+            );
+        });
+    } catch (err) {
+        return {
+            latitude: null,
+            longitude: null,
         };
     }
 };
@@ -70,28 +114,77 @@ export const validateTicket = async (ticketId, eventId) => {
 /**
  * Check in an attendee
  */
-export const checkInAttendee = async (ticketData, eventId, organizerId, organizerName) => {
+export const checkInAttendee = async (
+    ticketData,
+    eventId,
+    organizerId,
+    organizerName
+) => {
     try {
         const ticketId = ticketData.id;
         const userId = ticketData.userId;
 
-        // Create check-in record
-        const checkInRef = doc(db, 'events', eventId, 'checkIns', userId);
+        // Get user location
+        const location = await getLocation();
+
+        // Simple universal device ID
+        const deviceId =
+            `${userId}_${Date.now()}`;
+
+        // QR fingerprint
+        const qrId =
+            `${ticketId}_${eventId}`;
+
+        // Check-in document
+        const checkInRef = doc(
+            db,
+            'events',
+            eventId,
+            'checkIns',
+            userId
+        );
+
         await setDoc(checkInRef, {
             userId,
-            userName: ticketData.userName || 'Guest',
-            userEmail: ticketData.userEmail || '',
-            userYear: ticketData.userYear || 'N/A',
-            userBranch: ticketData.userBranch || 'N/A',
+            eventId,
+
+            userName:
+                ticketData.userName || 'Guest',
+
+            userEmail:
+                ticketData.userEmail || '',
+
+            userYear:
+                ticketData.userYear || 'N/A',
+
+            userBranch:
+                ticketData.userBranch || 'N/A',
+
             ticketId,
-            checkedInAt: serverTimestamp(),
+
+            checkedInAt:
+                new Date().toISOString(),
+
             checkedInBy: organizerId,
+
             checkedInByName: organizerName,
+
             status: 'checked-in',
+
+            // Fraud detection metadata
+            latitude: location.latitude,
+            longitude: location.longitude,
+            deviceId,
+            qrId,
         });
 
-        // Update ticket status
-        const ticketRef = doc(db, 'tickets', ticketId);
+        // Update ticket
+        const ticketRef = doc(
+            db,
+            'tickets',
+            ticketId
+        );
+
         await updateDoc(ticketRef, {
             checkInStatus: 'checked-in',
             checkedInAt: serverTimestamp(),
@@ -99,32 +192,44 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
         });
 
         // Update event stats
-        const eventRef = doc(db, 'events', eventId);
+        const eventRef = doc(
+            db,
+            'events',
+            eventId
+        );
+
         await updateDoc(eventRef, {
-            'stats.totalCheckedIn': increment(1),
-            'stats.lastCheckInAt': serverTimestamp(),
+            'stats.totalCheckedIn':
+                increment(1),
+
+            'stats.lastCheckInAt':
+                serverTimestamp(),
         });
 
         return {
             success: true,
-            message: `${ticketData.userName} checked in successfully!`,
+            message:
+                `${ticketData.userName} checked in successfully!`,
         };
     } catch (error) {
         console.error('Check-in error:', error);
+
         return {
             success: false,
             error: 'Check-in failed',
-            message: 'Unable to complete check-in. Please try again.',
+            message:
+                'Unable to complete check-in. Please try again.',
         };
     }
 };
 
 /**
- * Get attendance statistics for an event
+ * Get attendance statistics
  */
 export const getAttendanceStats = async eventId => {
     try {
         const eventRef = doc(db, 'events', eventId);
+
         const eventSnap = await getDoc(eventRef);
 
         if (!eventSnap.exists()) {
@@ -132,22 +237,44 @@ export const getAttendanceStats = async eventId => {
         }
 
         const eventData = eventSnap.data();
+
         const stats = eventData.stats || {};
 
-        const totalRegistrations = stats.totalRegistrations || 0;
-        const totalCheckedIn = stats.totalCheckedIn || 0;
+        const totalRegistrations =
+            stats.totalRegistrations || 0;
+
+        const totalCheckedIn =
+            stats.totalCheckedIn || 0;
+
         const checkInRate =
-            totalRegistrations > 0 ? ((totalCheckedIn / totalRegistrations) * 100).toFixed(1) : 0;
+            totalRegistrations > 0
+                ? (
+                      (totalCheckedIn /
+                          totalRegistrations) *
+                      100
+                  ).toFixed(1)
+                : 0;
 
         return {
             totalRegistrations,
             totalCheckedIn,
-            checkInRate: parseFloat(checkInRate),
-            lastCheckInAt: stats.lastCheckInAt,
-            pending: totalRegistrations - totalCheckedIn,
+
+            checkInRate:
+                parseFloat(checkInRate),
+
+            lastCheckInAt:
+                stats.lastCheckInAt,
+
+            pending:
+                totalRegistrations -
+                totalCheckedIn,
         };
     } catch (error) {
-        console.error('Error fetching stats:', error);
+        console.error(
+            'Error fetching stats:',
+            error
+        );
+
         return null;
     }
 };
@@ -159,10 +286,14 @@ export const parseQRCode = qrData => {
     try {
         const data = JSON.parse(qrData);
 
-        if (!data.ticketId || !data.eventId) {
+        if (
+            !data.ticketId ||
+            !data.eventId
+        ) {
             return {
                 valid: false,
-                error: 'Invalid QR code format',
+                error:
+                    'Invalid QR code format',
             };
         }
 
@@ -171,15 +302,18 @@ export const parseQRCode = qrData => {
             ticketId: data.ticketId,
             eventId: data.eventId,
             userId: data.userId,
-            attendeeName: data.attendeeName,
-            attendeeEmail: data.attendeeEmail,
+            attendeeName:
+                data.attendeeName,
+            attendeeEmail:
+                data.attendeeEmail,
             year: data.year,
             branch: data.branch,
         };
     } catch (error) {
         return {
             valid: false,
-            error: 'Unable to parse QR code',
+            error:
+                'Unable to parse QR code',
         };
     }
 };
