@@ -42,7 +42,7 @@ export default function EventCard({
                 }
             });
         }
-    }, [event?.ownerId]);
+    }, [event?.ownerId, event?.organization]);
 
     if (!event) return null;
 

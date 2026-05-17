@@ -188,7 +188,17 @@ export default function WrappedConfetti({ visible, onComplete }) {
             timeoutIdsRef.current.forEach(id => clearTimeout(id));
             timeoutIdsRef.current = [];
         };
-    }, [visible]);
+    }, [
+        visible,
+        cardSlide,
+        checkmarkScale,
+        fadeAnim,
+        particles,
+        ripple1,
+        ripple2,
+        ripple3,
+        scaleAnim,
+    ]);
 
     const handleDismiss = () => {
         Animated.timing(fadeAnim, {

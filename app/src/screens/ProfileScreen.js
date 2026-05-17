@@ -70,18 +70,8 @@ export default function ProfileScreen({ navigation }) {
     const [requestMessage, setRequestMessage] = useState('');
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        if (user?.uid) fetchUserData();
-    }, [user]);
-
-    // Re-fetch on every focus so newly earned badges appear immediately.
-    useFocusEffect(
-        useCallback(() => {
-            if (user?.uid) fetchUserData();
-        }, [user]),
-    );
-
-    const fetchUserData = async () => {
+    const fetchUserData = useCallback(async () => {
+        if (!user?.uid) return;
         try {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             if (userDoc.exists()) {
@@ -117,7 +107,18 @@ export default function ProfileScreen({ navigation }) {
         } catch (e) {
             console.error(e);
         }
-    };
+    }, [user?.uid, role]);
+
+    useEffect(() => {
+        fetchUserData();
+    }, [fetchUserData]);
+
+    // Re-fetch on every focus so newly earned badges appear immediately.
+    useFocusEffect(
+        useCallback(() => {
+            fetchUserData();
+        }, [fetchUserData]),
+    );
 
     const handleSave = async () => {
         if (!name) return Alert.alert('Error', 'Name cannot be empty');

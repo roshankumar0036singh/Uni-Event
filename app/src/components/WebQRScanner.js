@@ -1,7 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
 export default function WebQRScanner({ onScan, style }) {
+    const onScanRef = useRef(onScan);
+    useEffect(() => {
+        onScanRef.current = onScan;
+    }, [onScan]);
+
     useEffect(() => {
         if (Platform.OS !== 'web') return;
 
@@ -20,7 +25,7 @@ export default function WebQRScanner({ onScan, style }) {
                         // qrbox: { width: 250, height: 250 } // Commented out to prevent default library overlay brackets
                     },
                     (decodedText, decodedResult) => {
-                        onScan(decodedText);
+                        if (onScanRef.current) onScanRef.current(decodedText);
                         // Optional: Stop scanning after first success if needed, or keep scanning
                         // html5QrCode.stop();
                     },

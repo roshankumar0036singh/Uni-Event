@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, deleteField, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
     Alert,
     FlatList,
@@ -29,11 +29,7 @@ export default function MobileAdmin() {
     const [suspendReason, setSuspendReason] = useState('');
     const [targetEventId, setTargetEventId] = useState(null);
 
-    useEffect(() => {
-        fetchData();
-    }, [activeTab]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             if (activeTab === 'events') {
                 const q = query(collection(db, 'events'), where('status', '==', 'active'));
@@ -47,7 +43,6 @@ export default function MobileAdmin() {
                         list.push({ id: doc.id, ...data });
                     }
                 });
-                setEvents(list);
                 setEvents(list);
             } else if (activeTab === 'requests') {
                 const q = query(collection(db, 'clubs'), where('approvalStatus', '==', 'pending'));
@@ -68,7 +63,11 @@ export default function MobileAdmin() {
         } finally {
             setRefreshing(false);
         }
-    };
+    }, [activeTab]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const openSuspendModal = eventId => {
         setTargetEventId(eventId);

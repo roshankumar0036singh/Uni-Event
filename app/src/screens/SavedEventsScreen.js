@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, doc, getDoc, getDocs, query } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -17,11 +17,7 @@ export default function SavedEventsScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    useEffect(() => {
-        if (user) fetchSavedEvents();
-    }, [user]);
-
-    const fetchSavedEvents = async () => {
+    const fetchSavedEvents = useCallback(async () => {
         if (!user) return;
         setLoading(true);
         try {
@@ -62,7 +58,11 @@ export default function SavedEventsScreen({ navigation }) {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [user]);
+
+    useEffect(() => {
+        fetchSavedEvents();
+    }, [fetchSavedEvents]);
 
     const handleRefresh = () => {
         setRefreshing(true);

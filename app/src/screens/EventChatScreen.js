@@ -48,6 +48,7 @@ export default function EventChatScreen({ route, navigation }) {
     useEffect(() => {
         // Check organizer status
         const checkOwner = async () => {
+            if (!user?.uid) return;
             const eventDoc = await getDoc(doc(db, 'events', eventId));
             if (eventDoc.exists() && eventDoc.data().ownerId === user.uid) {
                 setIsOrganizer(true);
@@ -71,7 +72,7 @@ export default function EventChatScreen({ route, navigation }) {
         });
 
         return () => unsubscribe();
-    }, [eventId]);
+    }, [eventId, user?.uid]);
 
     const handleSend = async () => {
         if (!inputText.trim()) return;

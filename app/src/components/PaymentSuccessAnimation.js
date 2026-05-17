@@ -18,6 +18,11 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
     const ripple2 = useRef(new Animated.Value(0)).current;
     const ripple3 = useRef(new Animated.Value(0)).current;
 
+    const onCompleteRef = useRef(onComplete);
+    useEffect(() => {
+        onCompleteRef.current = onComplete;
+    }, [onComplete]);
+
     useEffect(() => {
         if (visible) {
             // Reset
@@ -89,11 +94,11 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
                     duration: 300,
                     useNativeDriver: true,
                 }).start(() => {
-                    if (onComplete) onComplete();
+                    if (onCompleteRef.current) onCompleteRef.current();
                 });
             }, 3500); // Slightly longer to appreciate the "Receipt"
         }
-    }, [visible]);
+    }, [visible, checkmarkScale, fadeAnim, receiptSlide, ripple1, ripple2, ripple3, scaleAnim]);
 
     if (!visible) return null;
 

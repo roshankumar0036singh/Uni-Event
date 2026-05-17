@@ -93,7 +93,7 @@ export default function ClubProfileScreen({ route, navigation }) {
 
         fetchClub();
         return () => unsubscribeClub && unsubscribeClub();
-    }, [clubId]);
+    }, [clubId, clubName, navigation]);
 
     // Fetch Events by this Club
     useEffect(() => {

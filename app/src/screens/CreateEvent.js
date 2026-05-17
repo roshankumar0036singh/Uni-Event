@@ -3,7 +3,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { addDoc, collection, updateDoc, doc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -83,28 +83,31 @@ export default function CreateEvent({ navigation, route }) {
                 })
                 .catch(e => Alert.alert('Error', e.message));
         }
-    }, [response]);
+    }, [response, getAccessToken, handleGenerateMeet, navigation]);
 
-    const handleGenerateMeet = async token => {
-        setLoading(true);
-        try {
-            const result = await CalendarService.createMeetEvent(token, {
-                title: title || 'New Club Event',
-                description: description || 'Created via Event App',
-                startAt: startDate.toISOString(),
-                endAt: endDate.toISOString(),
-            });
-            if (result.meetLink) {
-                setMeetLink(result.meetLink);
-                setLocation('Google Meet');
-                Alert.alert('Success', 'Google Meet Link Generated!');
+    const handleGenerateMeet = useCallback(
+        async token => {
+            setLoading(true);
+            try {
+                const result = await CalendarService.createMeetEvent(token, {
+                    title: title || 'New Club Event',
+                    description: description || 'Created via Event App',
+                    startAt: startDate.toISOString(),
+                    endAt: endDate.toISOString(),
+                });
+                if (result.meetLink) {
+                    setMeetLink(result.meetLink);
+                    setLocation('Google Meet');
+                    Alert.alert('Success', 'Google Meet Link Generated!');
+                }
+            } catch (e) {
+                Alert.alert('Error', e.message);
+            } finally {
+                setLoading(false);
             }
-        } catch (e) {
-            Alert.alert('Error', e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+        },
+        [title, description, startDate, endDate],
+    );
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
@@ -165,7 +168,7 @@ export default function CreateEvent({ navigation, route }) {
             setCustomFormSchema(event.customFormSchema || []);
             navigation.setOptions({ title: 'Edit Event' });
         }
-    }, [isEditMode]);
+    }, [isEditMode, event, navigation]);
 
     const handleCreate = async () => {
         if (!title.trim() || !description.trim() || !category) {

@@ -128,7 +128,7 @@ export default function AuthScreen() {
                 })
                 .finally(() => setLoading(false));
         }
-    }, [response]);
+    }, [response, saveGoogleAccountCredentials, signIn, signUp]);
 
     const handleAuth = async () => {
         if (!email || !password) {

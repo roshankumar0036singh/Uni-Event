@@ -202,7 +202,7 @@ export default function EventDetail({ route, navigation }) {
             unsubEvent();
             unsubParticipants();
         };
-    }, [eventId, user]);
+    }, [eventId, user, navigation]);
 
     // Derived State
     const isOwner = user && event?.ownerId === user.uid;
@@ -416,7 +416,7 @@ export default function EventDetail({ route, navigation }) {
                 .then(() => Alert.alert('Success', 'Added to Google Calendar!'))
                 .catch(() => Alert.alert('Error', 'Failed to add to calendar.'));
         }
-    }, [response]);
+    }, [response, event]);
 
     const openLink = url => {
         if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link'));
