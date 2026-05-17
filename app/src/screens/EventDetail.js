@@ -834,9 +834,10 @@ export default function EventDetail({ route, navigation }) {
     const renderTicketCard = (ticket, idx) => {
         let deadline = null;
         if (ticket.availableTill) {
-            deadline = ticket.availableTill instanceof Date
-                ? ticket.availableTill
-                : new Date(ticket.availableTill);
+            deadline =
+                ticket.availableTill instanceof Date
+                    ? ticket.availableTill
+                    : new Date(ticket.availableTill);
         }
         const isExpired = deadline && new Date() > deadline;
         const isEarlyBirdTicket =
@@ -1003,7 +1004,7 @@ export default function EventDetail({ route, navigation }) {
 
                             {benefitsOpen && (
                                 <View style={{ marginTop: 8, gap: 6 }}>
-                                    {ticket.benefits.map((b) => (
+                                    {ticket.benefits.map(b => (
                                         <View
                                             key={b}
                                             style={{

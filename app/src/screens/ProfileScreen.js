@@ -426,7 +426,7 @@ export default function ProfileScreen({ navigation }) {
                                 {/* Other badges as chips */}
                                 {otherBadges.length > 0 && (
                                     <View style={styles.badgesRow}>
-                                        {otherBadges.map((badge) => (
+                                        {otherBadges.map(badge => (
                                             <View
                                                 key={badge}
                                                 style={[
