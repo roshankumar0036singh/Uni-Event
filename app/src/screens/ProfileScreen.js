@@ -654,10 +654,18 @@ export default function ProfileScreen({ navigation }) {
                                     styles={styles}
                                 />
                                 <View style={styles.divider} />
-                                <MenuItem
+                               <MenuItem
                                     icon="bookmark-outline"
                                     label="Saved Events"
                                     onPress={() => navigation.navigate('SavedEvents')}
+                                    theme={theme}
+                                    styles={styles}
+                                />
+                                <View style={styles.divider} />
+                                <MenuItem
+                                    icon="sparkles-outline"
+                                    label="My Wrapped"
+                                    onPress={() => navigation.navigate('Wrapped')}
                                     theme={theme}
                                     styles={styles}
                                 />
