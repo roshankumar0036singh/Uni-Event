@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function UniEventLogo({ size = 16, showText = true, style }) {
     const { theme } = useTheme();
@@ -25,3 +26,9 @@ const styles = StyleSheet.create({
         letterSpacing: -0.5,
     },
 });
+
+UniEventLogo.propTypes = {
+    size: PropTypes.any,
+    showText: PropTypes.any,
+    style: PropTypes.any,
+};

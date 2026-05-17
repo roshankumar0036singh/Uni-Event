@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { collection, doc, documentId, getDocs, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, documentId, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function MyRegisteredEventsScreen({ navigation }) {
     const { user } = useAuth();
@@ -99,7 +100,7 @@ export default function MyRegisteredEventsScreen({ navigation }) {
                             color={theme.colors.textSecondary}
                         />
                         <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                            You haven't registered for any events yet.
+                            You haven&apos;t registered for any events yet.
                         </Text>
                     </View>
                 }
@@ -118,3 +119,7 @@ const styles = StyleSheet.create({
     emptyState: { alignItems: 'center', marginTop: 100 },
     emptyText: { marginTop: 10, fontSize: 16 },
 });
+
+MyRegisteredEventsScreen.propTypes = {
+    navigation: PropTypes.object,
+};
