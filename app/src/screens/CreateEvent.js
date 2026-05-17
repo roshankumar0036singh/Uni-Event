@@ -107,6 +107,47 @@ export default function CreateEvent({ navigation, route }) {
         }
     };
 
+    const handleGenerateMeetLink = async () => {
+    try {
+        const authResult = await promptAsync();
+
+        console.log('AUTH RESULT:', authResult);
+
+        const token =
+            authResult?.authentication?.accessToken ||
+            authResult?.params?.access_token ||
+            response?.authentication?.accessToken ||
+            response?.params?.access_token;
+
+        console.log('TOKEN:', token);
+
+        if (!token) {
+            Alert.alert('Error', 'Unable to get Google access token');
+            return;
+        }
+
+        const result = await CalendarService.createMeetEvent(token, {
+            title: title || 'New Event',
+            description: description || 'Virtual Event',
+            startAt: startDate.toISOString(),
+            endAt: endDate.toISOString(),
+        });
+
+        console.log('MEET RESULT:', result);
+
+        if (result?.meetLink) {
+            setMeetLink(result.meetLink);
+            setLocation('Google Meet');
+            Alert.alert('Success', 'Google Meet link generated!');
+        } else {
+            Alert.alert('Error', 'Meet link not returned from Google API');
+        }
+    } catch (error) {
+        console.error('MEET ERROR:', error);
+        Alert.alert('Error', error.message || 'Failed to generate Meet link');
+    }
+};
+
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -196,13 +237,59 @@ export default function CreateEvent({ navigation, route }) {
                 bannerUrl = DEFAULT_BANNERS[Math.floor(Math.random() * DEFAULT_BANNERS.length)];
             }
 
+            
+        
+        let generatedMeetLink = meetLink;
+
+        if (eventMode === 'online' && !meetLink) {
+            try {
+                const authResult = await promptAsync();
+
+const token =
+    authResult?.authentication?.accessToken ||
+    authResult?.params?.access_token;
+
+if (!token) {
+    Alert.alert(
+        'Google Authentication Required',
+        'Unable to get Google access token.'
+    );
+    setLoading(false);
+    return;
+}
+
+        if (!token) {
+            Alert.alert(
+                'Google Authentication Required',
+                'Please sign in with Google to generate a Meet link.'
+            );
+            setLoading(false);
+            return;
+        }
+
+        const result = await CalendarService.createMeetEvent(token, {
+            title: title || 'New Club Event',
+            description: description || 'Created via Event App',
+            startAt: startDate.toISOString(),
+            endAt: endDate.toISOString(),
+        });
+
+        generatedMeetLink = result.meetLink;
+    } catch (e) {
+        console.error(e);
+        Alert.alert('Error', 'Failed to auto-generate Google Meet link.');
+        setLoading(false);
+        return;
+    }
+}
+
             const eventData = {
                 title,
                 description,
                 location,
                 category,
                 eventMode,
-                meetLink: eventMode === 'online' ? meetLink : null,
+                meetLink: eventMode === 'online' ? generatedMeetLink : null,
                 startAt: startDate.toISOString(),
                 endAt: endDate.toISOString(),
                 isPaid,
@@ -485,11 +572,11 @@ export default function CreateEvent({ navigation, route }) {
                             />
                             <TouchableOpacity
                                 style={styles.gmeetBtn}
-                                onPress={() => promptAsync()}
+                                onPress={handleGenerateMeetLink}
                                 disabled={!request}
-                            >
-                                <Ionicons name="logo-google" size={20} color="#fff" />
-                                <Text style={styles.gmeetBtnText}>Auto-Generate Meet Link</Text>
+                            >                      
+                            <Ionicons name="logo-google" size={20} color="#fff" />
+                            <Text style={styles.gmeetBtnText}>Auto-Generate Meet Link</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
