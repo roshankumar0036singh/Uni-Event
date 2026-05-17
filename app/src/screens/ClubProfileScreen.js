@@ -294,7 +294,7 @@ export default function ClubProfileScreen({ route, navigation }) {
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
                                 <Text style={[styles.statNum, { color: theme.colors.text }]}>
-                                    {totalRatings ? `${successRate}%` : '—'}%
+                                    {totalRatings ? `${successRate}%` : '—%'}
                                 </Text>
                                 <Text
                                     style={[
