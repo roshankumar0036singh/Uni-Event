@@ -90,6 +90,7 @@ export default function MobileAdmin() {
             setSuspendModalVisible(false);
             fetchData();
         } catch (_error) {
+            console.error('Suspension failed:', _error);
             Alert.alert('Error', 'Failed to suspend event');
         }
     };
@@ -104,6 +105,7 @@ export default function MobileAdmin() {
             Alert.alert('Restored', 'Event is active again.');
             fetchData();
         } catch (_e) {
+            console.error('Accept appeal failed:', _e);
             Alert.alert('Error', 'Failed to restore event');
         }
     };
@@ -116,6 +118,7 @@ export default function MobileAdmin() {
             Alert.alert('Rejected', 'Appeal rejected.');
             fetchData();
         } catch (_e) {
+            console.error('Reject appeal failed:', _e);
             Alert.alert('Error', 'Failed to update');
         }
     };
@@ -240,6 +243,20 @@ export default function MobileAdmin() {
         </View>
     );
 
+    let listData;
+    let listRenderItem;
+
+    if (activeTab === 'events') {
+        listData = events;
+        listRenderItem = renderEventItem;
+    } else if (activeTab === 'requests') {
+        listData = requests;
+        listRenderItem = renderRequestItem;
+    } else {
+        listData = appeals;
+        listRenderItem = renderAppealItem;
+    }
+
     return (
         <ScreenWrapper>
             <View style={styles.header}>
@@ -279,19 +296,11 @@ export default function MobileAdmin() {
             </View>
 
             <FlatList
-                data={
-                    activeTab === 'events' ? events : activeTab === 'requests' ? requests : appeals
-                }
+                data={listData}
                 keyExtractor={item => item.id}
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                renderItem={
-                    activeTab === 'events'
-                        ? renderEventItem
-                        : activeTab === 'requests'
-                          ? renderRequestItem
-                          : renderAppealItem
-                }
+                renderItem={listRenderItem}
                 contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>

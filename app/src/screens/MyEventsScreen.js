@@ -55,6 +55,7 @@ export default function MyEventsScreen({ navigation }) {
             try {
                 await deleteDoc(doc(db, 'events', eventId));
             } catch (_e) {
+                console.error('Delete event failed (Web):', _e);
                 alert('Error: Could not delete event');
             }
         } else {
@@ -67,6 +68,7 @@ export default function MyEventsScreen({ navigation }) {
                         try {
                             await deleteDoc(doc(db, 'events', eventId));
                         } catch (_e) {
+                            console.error('Delete event failed (Native):', _e);
                             Alert.alert('Error', 'Could not delete event');
                         }
                     },

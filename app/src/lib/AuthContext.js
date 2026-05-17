@@ -7,8 +7,8 @@ import {
     signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { Platform } from 'react-native';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { Platform, Alert } from 'react-native';
 import { auth, db } from './firebaseConfig';
 import PropTypes from 'prop-types';
 
@@ -94,8 +94,10 @@ export const AuthProvider = ({ children }) => {
         return unsubscribe;
     }, [loadSavedAccounts]);
 
-    const saveAccountCredentials = useCallback(
-        async user => {
+    // Unified DRY saving logic that safely stores password on Mobile (SecureStore)
+    // and omits it on Web (AsyncStorage) to mitigate plaintext password leaks
+    const saveAccount = useCallback(
+        async (user, provider, password = null) => {
             try {
                 // Get existing accounts
                 let currentAccounts = [];
@@ -109,7 +111,9 @@ export const AuthProvider = ({ children }) => {
                     displayName: user.displayName || 'User',
                     photoURL: user.photoURL,
                     uid: user.uid,
-                    provider: 'password',
+                    provider: provider,
+                    // Save password only on native systems (with secure hardware storage)
+                    password: Platform.OS !== 'web' ? password : null,
                     lastSignedInAt: new Date().toISOString(),
                 };
 
@@ -122,39 +126,7 @@ export const AuthProvider = ({ children }) => {
                 await setItemAsync('saved_accounts', JSON.stringify(currentAccounts));
                 setSavedAccounts(currentAccounts);
             } catch (e) {
-                console.log('Failed to save account', e);
-            }
-        },
-        [getItemAsync],
-    );
-
-    const saveGoogleAccountCredentials = useCallback(
-        async user => {
-            try {
-                let currentAccounts = [];
-                const json = await getItemAsync('saved_accounts');
-                if (json) currentAccounts = JSON.parse(json);
-
-                const existingIndex = currentAccounts.findIndex(a => a.email === user.email);
-                const newAccount = {
-                    email: user.email,
-                    displayName: user.displayName || 'User',
-                    photoURL: user.photoURL,
-                    uid: user.uid,
-                    provider: 'google',
-                    lastSignedInAt: new Date().toISOString(),
-                };
-
-                if (existingIndex >= 0) {
-                    currentAccounts[existingIndex] = newAccount;
-                } else {
-                    currentAccounts.push(newAccount);
-                }
-
-                await setItemAsync('saved_accounts', JSON.stringify(currentAccounts));
-                setSavedAccounts(currentAccounts);
-            } catch (e) {
-                console.log('Failed to save google account', e);
+                console.log(`Failed to save account credentials for ${provider}`, e);
             }
         },
         [getItemAsync],
@@ -186,7 +158,10 @@ export const AuthProvider = ({ children }) => {
                 // Don't need to manually set user, onAuthStateChanged in useEffect will handle it
             } catch (e) {
                 console.error('Switch failed', e);
-                // If fail, ensure we stop loading so user isn't stuck
+                Alert.alert(
+                    'Authentication Failed',
+                    'Could not switch accounts automatically. Please enter your credentials manually.',
+                );
             } finally {
                 setLoading(false);
             }
@@ -208,10 +183,10 @@ export const AuthProvider = ({ children }) => {
     const signIn = useCallback(
         async (email, password) => {
             const result = await signInWithEmailAndPassword(auth, email, password);
-            await saveAccountCredentials(result.user); // Auto-save
+            await saveAccount(result.user, 'password', password); // Auto-save with password
             return result;
         },
-        [saveAccountCredentials],
+        [saveAccount],
     );
 
     const signUp = useCallback(
@@ -227,35 +202,46 @@ export const AuthProvider = ({ children }) => {
                 ...additionalData,
             });
 
-            await saveAccountCredentials(user); // Auto-save
+            await saveAccount(user, 'password', password); // Auto-save with password
             return result;
         },
-        [saveAccountCredentials],
+        [saveAccount],
     );
 
     const signOut = useCallback(() => {
         return firebaseSignOut(auth);
     }, []);
 
-    return (
-        <AuthContext.Provider
-            value={{
-                user,
-                userData,
-                role,
-                loading,
-                signIn,
-                signUp,
-                signOut,
-                savedAccounts,
-                switchAccount,
-                removeSavedAccount,
-                saveGoogleAccountCredentials,
-            }}
-        >
-            {children}
-        </AuthContext.Provider>
+    const value = useMemo(
+        () => ({
+            user,
+            userData,
+            role,
+            loading,
+            signIn,
+            signUp,
+            signOut,
+            savedAccounts,
+            switchAccount,
+            removeSavedAccount,
+            saveGoogleAccountCredentials: u => saveAccount(u, 'google'),
+        }),
+        [
+            user,
+            userData,
+            role,
+            loading,
+            signIn,
+            signUp,
+            signOut,
+            savedAccounts,
+            switchAccount,
+            removeSavedAccount,
+            saveAccount,
+        ],
     );
+
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 AuthProvider.propTypes = {

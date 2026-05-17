@@ -66,7 +66,7 @@ export default [
             'prettier/prettier': 'error',
             'react-hooks/rules-of-hooks': 'error',
             'react-hooks/exhaustive-deps': 'warn',
-            // TODO: Currently prop validation is disabled to prevent hundreds of warnings.
+            // Historically, prop validation was disabled to prevent warnings.
             // Change setting to 'warn' to incrementally restore runtime prop-type checks,
             // or if migrating to TypeScript, enable only for JS/JSX files via overrides so TSX uses TS typing.
             'react/prop-types': 'error',

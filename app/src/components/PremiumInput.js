@@ -20,6 +20,13 @@ export default function PremiumInput({
     const [isFocused, setIsFocused] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
+    let borderColor = 'transparent';
+    if (error) {
+        borderColor = theme.colors.error;
+    } else if (isFocused) {
+        borderColor = theme.colors.primary;
+    }
+
     return (
         <View style={[styles.container, style]}>
             {label && (
@@ -31,11 +38,7 @@ export default function PremiumInput({
                     styles.inputWrapper,
                     {
                         backgroundColor: theme.colors.surface,
-                        borderColor: error
-                            ? theme.colors.error
-                            : isFocused
-                              ? theme.colors.primary
-                              : 'transparent',
+                        borderColor: borderColor,
                         borderWidth: isFocused || error ? 1.5 : 0,
                     },
                 ]}

@@ -239,7 +239,7 @@ export default function EventChatScreen({ route, navigation }) {
                             styles.sendBtn,
                             {
                                 backgroundColor: theme.colors.primary,
-                                opacity: !inputText.trim() ? 0.5 : 1,
+                                opacity: inputText.trim() ? 1 : 0.5,
                             },
                         ]}
                         onPress={handleSend}
