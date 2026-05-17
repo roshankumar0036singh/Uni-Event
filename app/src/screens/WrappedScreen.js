@@ -20,15 +20,25 @@ import { useTheme } from '../lib/ThemeContext';
 const { width } = Dimensions.get('window');
 
 const MONTH_NAMES = [
-    'January','February','March','April','May','June',
-    'July','August','September','October','November','December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
 ];
 
 // Auto academic year — always current
 const now = new Date();
 const startYear = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
 const academicYearLabel = `${startYear} — ${startYear + 1}`;
-const academicStart = new Date(startYear, 7, 1);             // Aug 1
+const academicStart = new Date(startYear, 7, 1); // Aug 1
 const academicEndExclusive = new Date(startYear + 1, 7, 1); // Aug 1 next year (exclusive)
 
 export default function WrappedScreen({ navigation }) {
@@ -53,7 +63,7 @@ export default function WrappedScreen({ navigation }) {
         fetchWrappedStats(user.uid);
     }, [user?.uid]);
 
-    const fetchWrappedStats = async (uid) => {
+    const fetchWrappedStats = async uid => {
         try {
             const participatingRef = collection(db, 'users', uid, 'participating');
             const snapshot = await getDocs(participatingRef);
@@ -83,11 +93,10 @@ export default function WrappedScreen({ navigation }) {
                 }
             });
             const activeMonthIndex = Object.keys(monthCount).sort(
-                (a, b) => monthCount[b] - monthCount[a]
+                (a, b) => monthCount[b] - monthCount[a],
             )[0];
-            const activeMonth = activeMonthIndex !== undefined
-                ? MONTH_NAMES[parseInt(activeMonthIndex)]
-                : 'N/A';
+            const activeMonth =
+                activeMonthIndex !== undefined ? MONTH_NAMES[parseInt(activeMonthIndex)] : 'N/A';
 
             // Favorite category
             const catCount = {};
@@ -96,9 +105,8 @@ export default function WrappedScreen({ navigation }) {
                     catCount[e.category] = (catCount[e.category] || 0) + 1;
                 }
             });
-            const favCategory = Object.keys(catCount).sort(
-                (a, b) => catCount[b] - catCount[a]
-            )[0] || 'N/A';
+            const favCategory =
+                Object.keys(catCount).sort((a, b) => catCount[b] - catCount[a])[0] || 'N/A';
 
             setStats({
                 totalEvents: total,
@@ -156,11 +164,17 @@ export default function WrappedScreen({ navigation }) {
         },
     ];
 
-    const animateTransition = (callback) => {
-        Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
-            callback();
-            Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start();
-        });
+    const animateTransition = callback => {
+        Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(
+            () => {
+                callback();
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 150,
+                    useNativeDriver: true,
+                }).start();
+            },
+        );
     };
 
     const goNext = () => {
@@ -235,10 +249,15 @@ export default function WrappedScreen({ navigation }) {
                 <View style={styles.dots}>
                     {slides.map((_, i) => (
                         <TouchableOpacity key={i} onPress={() => setCurrent(i)}>
-                            <View style={[
-                                styles.dot,
-                                i === current && { backgroundColor: theme.colors.primary, width: 24 }
-                            ]} />
+                            <View
+                                style={[
+                                    styles.dot,
+                                    i === current && {
+                                        backgroundColor: theme.colors.primary,
+                                        width: 24,
+                                    },
+                                ]}
+                            />
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -255,10 +274,19 @@ export default function WrappedScreen({ navigation }) {
                             size={20}
                             color={current === 0 ? theme.colors.textSecondary : theme.colors.text}
                         />
-                        <Text style={[
-                            styles.navBtnText,
-                            { color: current === 0 ? theme.colors.textSecondary : theme.colors.text }
-                        ]}>Back</Text>
+                        <Text
+                            style={[
+                                styles.navBtnText,
+                                {
+                                    color:
+                                        current === 0
+                                            ? theme.colors.textSecondary
+                                            : theme.colors.text,
+                                },
+                            ]}
+                        >
+                            Back
+                        </Text>
                     </TouchableOpacity>
 
                     {isLast ? (
@@ -283,7 +311,9 @@ export default function WrappedScreen({ navigation }) {
                     </View>
                     <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}>
                         <Ionicons name="star-outline" size={18} color={theme.colors.primary} />
-                        <Text style={styles.summaryValue} numberOfLines={1}>{stats.favoriteCategory}</Text>
+                        <Text style={styles.summaryValue} numberOfLines={1}>
+                            {stats.favoriteCategory}
+                        </Text>
                         <Text style={styles.summaryLabel}>Top Category</Text>
                     </View>
                     <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}>
@@ -295,193 +325,191 @@ export default function WrappedScreen({ navigation }) {
             </ScrollView>
 
             {/* Confetti intro animation */}
-            <WrappedConfetti
-                visible={showIntro}
-                onComplete={() => setShowIntro(false)}
-            />
+            <WrappedConfetti visible={showIntro} onComplete={() => setShowIntro(false)} />
         </ScreenWrapper>
     );
 }
 
-const getStyles = theme => StyleSheet.create({
-    scrollContent: {
-        paddingBottom: 100,
-        paddingHorizontal: theme.spacing.m,
-    },
-    loadingContainer: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    loadingText: {
-        fontSize: 18,
-        color: theme.colors.primary,
-        fontWeight: '600',
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: theme.spacing.m,
-    },
-    backBtn: {
-        padding: 8,
-        borderRadius: 12,
-        backgroundColor: theme.colors.surface,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: theme.colors.text,
-    },
-    shareBtn: {
-        padding: 8,
-        borderRadius: 12,
-        backgroundColor: theme.colors.surface,
-    },
-    yearLabel: {
-        textAlign: 'center',
-        fontSize: 13,
-        color: theme.colors.textSecondary,
-        marginBottom: theme.spacing.m,
-        fontWeight: '600',
-        letterSpacing: 1,
-    },
-    card: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 24,
-        padding: theme.spacing.l,
-        alignItems: 'center',
-        minHeight: 280,
-        justifyContent: 'center',
-        overflow: 'hidden',
-        ...theme.shadows.default,
-    },
-    accentBar: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 4,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-    },
-    iconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: theme.spacing.m,
-    },
-    slideTitle: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: theme.colors.textSecondary,
-        textAlign: 'center',
-        marginBottom: 8,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    slideValue: {
-        fontSize: 48,
-        fontWeight: '800',
-        textAlign: 'center',
-        marginBottom: 8,
-    },
-    slideSubtitle: {
-        fontSize: 15,
-        color: theme.colors.textSecondary,
-        textAlign: 'center',
-    },
-    dots: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 6,
-        marginVertical: theme.spacing.m,
-    },
-    dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: theme.colors.border,
-    },
-    navRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: theme.spacing.l,
-        gap: 12,
-    },
-    navBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        padding: 12,
-        borderRadius: 14,
-        backgroundColor: theme.colors.surface,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    navBtnDisabled: {
-        opacity: 0.4,
-    },
-    navBtnText: {
-        fontSize: 15,
-        fontWeight: '600',
-    },
-    nextBtn: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        padding: 14,
-        borderRadius: 14,
-        backgroundColor: theme.colors.primary,
-    },
-    nextBtnText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '700',
-    },
-    shareFullBtn: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        padding: 14,
-        borderRadius: 14,
-        backgroundColor: theme.colors.success,
-    },
-    shareFullBtnText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '700',
-    },
-    summaryRow: {
-        flexDirection: 'row',
-        gap: 10,
-        marginTop: 4,
-    },
-    summaryCard: {
-        flex: 1,
-        alignItems: 'center',
-        padding: 12,
-        borderRadius: 16,
-        gap: 4,
-        ...theme.shadows.small,
-    },
-    summaryValue: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: theme.colors.text,
-        textAlign: 'center',
-    },
-    summaryLabel: {
-        fontSize: 11,
-        color: theme.colors.textSecondary,
-        fontWeight: '500',
-    },
-});
+const getStyles = theme =>
+    StyleSheet.create({
+        scrollContent: {
+            paddingBottom: 100,
+            paddingHorizontal: theme.spacing.m,
+        },
+        loadingContainer: {
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        loadingText: {
+            fontSize: 18,
+            color: theme.colors.primary,
+            fontWeight: '600',
+        },
+        header: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingVertical: theme.spacing.m,
+        },
+        backBtn: {
+            padding: 8,
+            borderRadius: 12,
+            backgroundColor: theme.colors.surface,
+        },
+        headerTitle: {
+            fontSize: 18,
+            fontWeight: '700',
+            color: theme.colors.text,
+        },
+        shareBtn: {
+            padding: 8,
+            borderRadius: 12,
+            backgroundColor: theme.colors.surface,
+        },
+        yearLabel: {
+            textAlign: 'center',
+            fontSize: 13,
+            color: theme.colors.textSecondary,
+            marginBottom: theme.spacing.m,
+            fontWeight: '600',
+            letterSpacing: 1,
+        },
+        card: {
+            backgroundColor: theme.colors.surface,
+            borderRadius: 24,
+            padding: theme.spacing.l,
+            alignItems: 'center',
+            minHeight: 280,
+            justifyContent: 'center',
+            overflow: 'hidden',
+            ...theme.shadows.default,
+        },
+        accentBar: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 4,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+        },
+        iconCircle: {
+            width: 80,
+            height: 80,
+            borderRadius: 40,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: theme.spacing.m,
+        },
+        slideTitle: {
+            fontSize: 14,
+            fontWeight: '600',
+            color: theme.colors.textSecondary,
+            textAlign: 'center',
+            marginBottom: 8,
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+        },
+        slideValue: {
+            fontSize: 48,
+            fontWeight: '800',
+            textAlign: 'center',
+            marginBottom: 8,
+        },
+        slideSubtitle: {
+            fontSize: 15,
+            color: theme.colors.textSecondary,
+            textAlign: 'center',
+        },
+        dots: {
+            flexDirection: 'row',
+            justifyContent: 'center',
+            gap: 6,
+            marginVertical: theme.spacing.m,
+        },
+        dot: {
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: theme.colors.border,
+        },
+        navRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: theme.spacing.l,
+            gap: 12,
+        },
+        navBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            padding: 12,
+            borderRadius: 14,
+            backgroundColor: theme.colors.surface,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+        },
+        navBtnDisabled: {
+            opacity: 0.4,
+        },
+        navBtnText: {
+            fontSize: 15,
+            fontWeight: '600',
+        },
+        nextBtn: {
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            padding: 14,
+            borderRadius: 14,
+            backgroundColor: theme.colors.primary,
+        },
+        nextBtnText: {
+            color: '#fff',
+            fontSize: 16,
+            fontWeight: '700',
+        },
+        shareFullBtn: {
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            padding: 14,
+            borderRadius: 14,
+            backgroundColor: theme.colors.success,
+        },
+        shareFullBtnText: {
+            color: '#fff',
+            fontSize: 16,
+            fontWeight: '700',
+        },
+        summaryRow: {
+            flexDirection: 'row',
+            gap: 10,
+            marginTop: 4,
+        },
+        summaryCard: {
+            flex: 1,
+            alignItems: 'center',
+            padding: 12,
+            borderRadius: 16,
+            gap: 4,
+            ...theme.shadows.small,
+        },
+        summaryValue: {
+            fontSize: 13,
+            fontWeight: '700',
+            color: theme.colors.text,
+            textAlign: 'center',
+        },
+        summaryLabel: {
+            fontSize: 11,
+            color: theme.colors.textSecondary,
+            fontWeight: '500',
+        },
+    });

@@ -654,7 +654,7 @@ export default function ProfileScreen({ navigation }) {
                                     styles={styles}
                                 />
                                 <View style={styles.divider} />
-                               <MenuItem
+                                <MenuItem
                                     icon="bookmark-outline"
                                     label="Saved Events"
                                     onPress={() => navigation.navigate('SavedEvents')}
