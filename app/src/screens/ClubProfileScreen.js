@@ -134,6 +134,14 @@ export default function ClubProfileScreen({ route, navigation }) {
         return { avgRating: 0, totalRatings: 0 };
     }, [club]);
 
+    const attendanceRate = club?.metrics?.attendanceRate || 0;
+
+    const ratingScore = avgRating > 0 ? (Number(avgRating) / 5) * 100 : 0;
+
+    const successScore = Math.round(
+        attendanceRate * 0.4 + ratingScore * 0.6 ,
+    );
+
     const toggleFollow = async () => {
         if (!user) return;
         if (!clubId) {
@@ -281,6 +289,20 @@ export default function ClubProfileScreen({ route, navigation }) {
                                     ]}
                                 >
                                     {totalRatings ? `${totalRatings} ratings` : 'No ratings'}
+                                </Text>
+                            </View>
+                            <View style={styles.divider} />
+                            <View style={styles.statItem}>
+                                <Text style={[styles.statNum, { color: theme.colors.text }]}>
+                                    {totalRatings ? `${successRate}%` : '—%'}
+                                </Text>
+                                <Text
+                                    style={[
+                                        styles.statLabel,
+                                        { color: theme.colors.textSecondary },
+                                    ]}
+                                >
+                                    Success Score
                                 </Text>
                             </View>
                         </View>
