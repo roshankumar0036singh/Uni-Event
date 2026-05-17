@@ -328,44 +328,49 @@ export default function ProfileScreen({ navigation }) {
                         <View style={styles.badgesContainer}>
                             <Text style={styles.groupTitle}>🏅 My Badges</Text>
 
-                            {/* Early Bird badge card */}
+                            {/* Early Bird badge card — gold & black theme */}
                             {earlyBirdCount > 0 && (
                                 <View style={{
                                     flexDirection: 'row',
                                     alignItems: 'center',
-                                    backgroundColor: isDarkMode ? '#78350f30' : '#FEF9C3',
-                                    borderColor: '#EAB308',
+                                    backgroundColor: '#1a1400',
+                                    borderColor: '#F59E0B',
                                     borderWidth: 1.5,
-                                    borderRadius: 16,
-                                    padding: 16,
-                                    marginBottom: 12,
-                                    gap: 14,
+                                    borderRadius: 14,
+                                    paddingVertical: 10,
+                                    paddingHorizontal: 14,
+                                    marginBottom: 10,
+                                    gap: 12,
                                 }}>
+                                    {/* Gold circle with black bird icon */}
                                     <View style={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: 28,
-                                        backgroundColor: '#EAB30825',
+                                        width: 42,
+                                        height: 42,
+                                        borderRadius: 21,
+                                        backgroundColor: '#F59E0B',
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                     }}>
-                                        <Text style={{ fontSize: 28 }}>🐦</Text>
+                                        <Ionicons name="leaf" size={20} color="#000" />
                                     </View>
                                     <View style={{ flex: 1 }}>
-                                        <Text style={{ fontWeight: '800', fontSize: 16, color: isDarkMode ? '#fef08a' : '#92400E' }}>
+                                        <Text style={{ fontWeight: '800', fontSize: 14, color: '#F59E0B', letterSpacing: 0.3 }}>
                                             Early Bird
                                         </Text>
-                                        <Text style={{ color: isDarkMode ? '#fde68a' : '#a16207', fontSize: 13, marginTop: 2 }}>
+                                        <Text style={{ color: '#D97706', fontSize: 11, marginTop: 1 }}>
                                             Registered early for {earlyBirdCount} event{earlyBirdCount > 1 ? 's' : ''}
                                         </Text>
                                     </View>
+                                    {/* Black pill with gold text */}
                                     <View style={{
-                                        backgroundColor: '#EAB308',
+                                        backgroundColor: '#000',
                                         borderRadius: 20,
-                                        paddingVertical: 6,
-                                        paddingHorizontal: 14,
+                                        borderWidth: 1,
+                                        borderColor: '#F59E0B',
+                                        paddingVertical: 4,
+                                        paddingHorizontal: 10,
                                     }}>
-                                        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 18 }}>×{earlyBirdCount}</Text>
+                                        <Text style={{ color: '#F59E0B', fontWeight: '800', fontSize: 13 }}>×{earlyBirdCount}</Text>
                                     </View>
                                 </View>
                             )}

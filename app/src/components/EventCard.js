@@ -7,6 +7,7 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
+import { getEarlyBirdInfo } from '../lib/earlyBird';
 
 export default function EventCard({
     event,
@@ -49,7 +50,9 @@ export default function EventCard({
 
     // Fallback for second image if not present in data
     const flyerUrl =
-        event.detailImageUrl || event.bannerUrl || 'https://via.placeholder.com/400x400';
+        event.detailImageUrl || event.bannerUrl || 'https://dummyimage.com/400x400/cccccc/000000.png&text=No+Image';
+
+    const { isEligible: isEarlyBird, currentPrice } = getEarlyBirdInfo(event);
 
     return (
         <TouchableOpacity
@@ -64,7 +67,7 @@ export default function EventCard({
             {/* 1. MAIN BANNER IMAGE (Top Layer) */}
             <View style={[styles.bannerContainer, isRecommended && { height: 140 }]}>
                 <Image
-                    source={{ uri: event.bannerUrl || 'https://via.placeholder.com/800x400' }}
+                    source={{ uri: event.bannerUrl || 'https://dummyimage.com/800x400/cccccc/000000.png&text=No+Image' }}
                     style={[styles.bannerImage, isRecommended && { height: 140 }]} // Compact height for recommended
                     resizeMode="cover"
                 />
@@ -189,12 +192,36 @@ export default function EventCard({
                                 </Text>
                             </View>
                         )}
+
+                        {/* Early Bird Badge */}
+                        {isEarlyBird && !isRegistered && (
+                            <View
+                                style={{
+                                    backgroundColor: '#EAB30820',
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 3,
+                                    borderRadius: 20,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    alignSelf: 'flex-start',
+                                    marginTop: 4,
+                                    borderWidth: 1,
+                                    borderColor: '#EAB308',
+                                }}
+                            >
+                                <Text style={{ fontSize: 10, lineHeight: 14 }}>🐦</Text>
+                                <Text style={{ fontSize: 10, fontWeight: '700', color: '#EAB308', letterSpacing: 0.5, lineHeight: 14 }}>
+                                    EARLY BIRD
+                                </Text>
+                            </View>
+                        )}
                     </View>
 
                     {/* Price Badge */}
                     <View style={[styles.priceBadge, { backgroundColor: theme.colors.secondary }]}>
                         <Text style={styles.priceText}>
-                            {event.isPaid ? `₹${event.price}` : 'FREE'}
+                            {event.isPaid ? `₹${currentPrice}` : 'FREE'}
                         </Text>
                     </View>
                 </View>
@@ -236,23 +263,23 @@ export default function EventCard({
 
 const styles = StyleSheet.create({
     card: {
-        borderRadius: 16, // Softer
-        marginBottom: 24,
+        borderRadius: 14,
+        marginBottom: 16,
         overflow: 'visible',
-        marginHorizontal: 0, // Full width - removed reference to potential parent padding if any
+        marginHorizontal: 0,
         width: '100%',
     },
     bannerContainer: {
-        height: 180, // Default height
+        height: 140,
         width: '100%',
         overflow: 'hidden',
         position: 'relative',
-        borderRadius: 16,
+        borderRadius: 14,
     },
     bannerImage: {
         width: '100%',
         height: '100%',
-        borderRadius: 16,
+        borderRadius: 14,
     },
     categoryBadge: {
         position: 'absolute',
@@ -287,16 +314,16 @@ const styles = StyleSheet.create({
         fontSize: 10,
     },
     contentContainer: {
-        paddingHorizontal: 16,
-        paddingBottom: 20,
+        paddingHorizontal: 12,
+        paddingBottom: 14,
         paddingTop: 0,
     },
     flyerContainer: {
-        width: 100,
-        height: 100,
-        borderRadius: 20, // Sleeker curve
-        borderWidth: 4,
-        marginTop: -50,
+        width: 78,
+        height: 78,
+        borderRadius: 14,
+        borderWidth: 3,
+        marginTop: -38,
         overflow: 'hidden',
     },
     flyerImage: {
@@ -304,21 +331,21 @@ const styles = StyleSheet.create({
         height: '100%',
     },
     headerInfo: {
-        marginTop: -45,
-        marginLeft: 110,
-        height: 75, // Fixed height for alignment
-        marginBottom: 4,
-        justifyContent: 'center', // Center vertically
+        marginTop: -34,
+        marginLeft: 88,
+        height: 60,
+        marginBottom: 2,
+        justifyContent: 'center',
     },
     title: {
-        fontSize: 22,
+        fontSize: 17,
         fontWeight: '900',
-        lineHeight: 26,
+        lineHeight: 21,
         marginBottom: 2,
         textTransform: 'uppercase',
     },
     host: {
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: '700',
         opacity: 0.8,
     },
@@ -326,20 +353,20 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: 16,
-        marginBottom: 16,
+        marginTop: 10,
+        marginBottom: 10,
     },
     infoBlock: {
-        gap: 6,
+        gap: 4,
         flex: 1,
     },
     infoItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 6,
     },
     infoText: {
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: '600',
     },
     // New Ribbon Style for Price
@@ -359,18 +386,18 @@ const styles = StyleSheet.create({
     registerBtn: {
         flexDirection: 'row',
         gap: 6,
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-        borderRadius: 16, // Modern Rounded
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
-        width: '100%', // Full Width
+        width: '100%',
     },
     registerText: {
         color: '#fff',
         fontWeight: '800',
-        fontSize: 14,
-        letterSpacing: 1,
+        fontSize: 13,
+        letterSpacing: 0.8,
         textTransform: 'uppercase',
     },
 });

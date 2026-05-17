@@ -890,8 +890,8 @@ export default function EventDetail({ route, navigation }) {
                                     {ticket.name}
                                 </Text>
                                 {isEarlyBirdTicket && (
-                                    <View style={{ backgroundColor: '#EAB30825', paddingVertical: 3, paddingHorizontal: 9, borderRadius: 20, borderWidth: 1, borderColor: '#EAB308' }}>
-                                        <Text style={{ color: '#EAB308', fontWeight: '700', fontSize: 10 }}>{'\uD83D\uDC26'} EARLY BIRD</Text>
+                                    <View style={{ backgroundColor: '#EAB30820', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20, borderWidth: 1, borderColor: '#EAB308' }}>
+                                        <Text style={{ color: '#EAB308', fontWeight: '700', fontSize: 10, lineHeight: 14 }}>{'\uD83D\uDC26'} EARLY BIRD</Text>
                                     </View>
                                 )}
                             </View>
@@ -1134,7 +1134,7 @@ export default function EventDetail({ route, navigation }) {
                             )}
                             {/* Early Bird indicator */}
                             {getEarlyBirdInfo(event).isEligible && rsvpStatus !== 'going' && (
-                                <View style={[styles.priceBadge, { backgroundColor: '#22C55E' }]}>
+                                <View style={[styles.priceBadge, { backgroundColor: '#EAB308' }]}>
                                     <Text style={styles.priceText}>🐦 Early Bird</Text>
                                 </View>
                             )}
