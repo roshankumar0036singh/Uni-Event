@@ -200,6 +200,11 @@ npm start
 # Press 'w' for web, 'a' for Android, 'i' for iOS
 ```
 
+**Run Firestore security rule tests**:
+```bash
+npm run test:rules
+```
+
 ---
 
 <h2 align="center" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1E3A8A; font-weight: 700; margin-top: 2rem;">
