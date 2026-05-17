@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useContext, useEffect, useState } from 'react';
-import { Platform, useColorScheme } from 'react-native';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Animated, Platform, useColorScheme } from 'react-native';
 import { darkTheme, lightTheme } from './theme';
 
 const ThemeContext = createContext();
@@ -11,12 +11,23 @@ export const ThemeProvider = ({ children }) => {
     const [theme, setTheme] = useState(systemScheme === 'dark' ? darkTheme : lightTheme);
     const [loading, setLoading] = useState(true);
 
+    // Built-in Animated value (0 = light, 1 = dark)
+    const themeAnim = useRef(new Animated.Value(isDarkMode ? 1 : 0)).current;
+
     useEffect(() => {
         loadThemePreference();
     }, []);
 
     useEffect(() => {
         setTheme(isDarkMode ? darkTheme : lightTheme);
+
+        // Smooth 400ms transition
+        Animated.timing(themeAnim, {
+            toValue: isDarkMode ? 1 : 0,
+            duration: 400,
+            useNativeDriver: false, // required for color interpolation
+        }).start();
+
         if (Platform.OS === 'web') {
             const meta = document.querySelector('meta[name="theme-color"]');
             if (meta) {
@@ -29,7 +40,9 @@ export const ThemeProvider = ({ children }) => {
         try {
             const stored = await AsyncStorage.getItem('themePreference');
             if (stored) {
-                setIsDarkMode(stored === 'dark');
+                const dark = stored === 'dark';
+                setIsDarkMode(dark);
+                themeAnim.setValue(dark ? 1 : 0);
             }
         } catch (e) {
             console.log('Failed to load theme preference', e);
@@ -51,7 +64,7 @@ export const ThemeProvider = ({ children }) => {
     if (loading) return null;
 
     return (
-        <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme }}>
+        <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme, themeAnim }}>
             {children}
         </ThemeContext.Provider>
     );
