@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # ── App: Lint + Test ─────────────────────────────────────────────
+  lint-and-test:
+    name: Lint & Test (app)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./app
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Auto-format with Prettier
+        run: npx prettier --write .
+
+      - name: Create PR for formatted files
+        if: github.event_name == 'push'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "style: auto-format with prettier"
+          branch: auto-format/prettier
+          title: "style: auto-format with prettier"
+          body: |
+            Automated Prettier formatting applied.
+            This PR was created automatically by the CI workflow.
+          delete-branch: true
+          labels: formatting, automated
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Jest tests
+        run: npm test -- --ci --passWithNoTests

@@ -1,7 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    FlatList,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import EventCard from '../components/EventCard';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
@@ -21,9 +28,9 @@ export default function ParticipatingEventsScreen({ navigation }) {
         // 1. Listen to 'participating' subcollection
         const q = collection(db, 'users', user.uid, 'participating');
 
-        const unsubscribe = onSnapshot(q, async (snapshot) => {
+        const unsubscribe = onSnapshot(q, async snapshot => {
             const eventIds = snapshot.docs.map(d => d.id);
-            
+
             if (eventIds.length === 0) {
                 setEvents([]);
                 setLoading(false);
@@ -31,14 +38,14 @@ export default function ParticipatingEventsScreen({ navigation }) {
             }
 
             // 2. Fetch details for these events
-            // Firestore 'in' query supports max 10/30 items. 
-            // Better to fetch individually or use a smart query if list is small. 
+            // Firestore 'in' query supports max 10/30 items.
+            // Better to fetch individually or use a smart query if list is small.
             // For MVP, we fetch individually (parallelized).
-            
+
             try {
                 const eventPromises = eventIds.map(id => getDoc(doc(db, 'events', id)));
                 const eventDocs = await Promise.all(eventPromises);
-                
+
                 const list = eventDocs
                     .filter(d => d.exists())
                     .map(d => ({ id: d.id, ...d.data() }));
@@ -48,7 +55,7 @@ export default function ParticipatingEventsScreen({ navigation }) {
 
                 setEvents(list);
             } catch (e) {
-                console.error("Error fetching participating events", e);
+                console.error('Error fetching participating events', e);
             } finally {
                 setLoading(false);
             }
@@ -57,43 +64,52 @@ export default function ParticipatingEventsScreen({ navigation }) {
         return () => unsubscribe();
     }, [user]);
 
-    if (loading) return <View style={[styles.center, {backgroundColor: theme.colors.background}]}><ActivityIndicator color={theme.colors.primary} /></View>;
+    if (loading)
+        return (
+            <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+                <ActivityIndicator color={theme.colors.primary} />
+            </View>
+        );
 
     return (
         <ScreenWrapper>
-             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={{padding: 5}}>
-                     <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 5 }}>
+                    <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
                 </TouchableOpacity>
                 <Text style={[theme.typography.h2, { color: theme.colors.text }]}>Going</Text>
-             </View>
+            </View>
 
-             <FlatList
+            <FlatList
                 data={events}
                 keyExtractor={item => item.id}
                 contentContainerStyle={{ padding: staticTheme.spacing.m }}
-                ListEmptyComponent={<Text style={[styles.empty, { color: theme.colors.textSecondary }]}>You haven't joined any events yet.</Text>}
+                ListEmptyComponent={
+                    <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>
+                        You haven't joined any events yet.
+                    </Text>
+                }
                 renderItem={({ item }) => (
-                    <EventCard 
-                        event={item} 
+                    <EventCard
+                        event={item}
                         isRegistered={true} // By definition
                         onLike={() => {}}
                         onShare={() => {}}
                     />
                 )}
-             />
+            />
         </ScreenWrapper>
     );
 }
 
 const styles = StyleSheet.create({
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        paddingHorizontal: staticTheme.spacing.s, 
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: staticTheme.spacing.s,
         marginBottom: staticTheme.spacing.m,
-        gap: 10
+        gap: 10,
     },
     empty: { textAlign: 'center', marginTop: 50 },
 });

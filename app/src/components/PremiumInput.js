@@ -13,7 +13,7 @@ export default function PremiumInput({
     error,
     keyboardType = 'default',
     autoCapitalize = 'none',
-    style
+    style,
 }) {
     const { theme } = useTheme();
     const [isFocused, setIsFocused] = useState(false);
@@ -21,23 +21,31 @@ export default function PremiumInput({
 
     return (
         <View style={[styles.container, style]}>
-            {label && <Text style={[styles.label, { color: theme.colors.textSecondary }]}>{label}</Text>}
+            {label && (
+                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>{label}</Text>
+            )}
 
-            <View style={[
-                styles.inputWrapper,
-                {
-                    backgroundColor: theme.colors.surface,
-                    borderColor: error ? theme.colors.error : (isFocused ? theme.colors.primary : 'transparent'),
-                    borderWidth: isFocused || error ? 1.5 : 0
-                }
-            ]}>
+            <View
+                style={[
+                    styles.inputWrapper,
+                    {
+                        backgroundColor: theme.colors.surface,
+                        borderColor: error
+                            ? theme.colors.error
+                            : isFocused
+                              ? theme.colors.primary
+                              : 'transparent',
+                        borderWidth: isFocused || error ? 1.5 : 0,
+                    },
+                ]}
+            >
                 {icon && <View style={styles.iconContainer}>{icon}</View>}
 
                 <TextInput
                     style={[
                         styles.input,
                         { color: theme.colors.text },
-                        Platform.select({ web: { outlineStyle: 'none' } }) // REMOVE WEB OUTLINE
+                        Platform.select({ web: { outlineStyle: 'none' } }), // REMOVE WEB OUTLINE
                     ]}
                     value={value}
                     onChangeText={onChangeText}
@@ -56,7 +64,7 @@ export default function PremiumInput({
                         style={styles.eyeIcon}
                     >
                         <Ionicons
-                            name={isPasswordVisible ? "eye-off" : "eye"}
+                            name={isPasswordVisible ? 'eye-off' : 'eye'}
                             size={20}
                             color={theme.colors.textSecondary}
                         />
@@ -64,7 +72,9 @@ export default function PremiumInput({
                 )}
             </View>
 
-            {error && <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>}
+            {error && (
+                <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+            )}
         </View>
     );
 }

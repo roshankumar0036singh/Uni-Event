@@ -1,7 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, deleteDoc, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import EventCard from '../components/EventCard';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
@@ -17,69 +26,77 @@ export default function MyEventsScreen({ navigation }) {
     useEffect(() => {
         if (!user) return;
 
-        const q = query(
-            collection(db, 'events'),
-            where('ownerId', '==', user.uid)
-        );
+        const q = query(collection(db, 'events'), where('ownerId', '==', user.uid));
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const list = [];
-            snapshot.forEach(doc => {
-                list.push({ id: doc.id, ...doc.data() });
-            });
-            // Sort client-side by date
-            list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            setEvents(list);
-            setLoading(false);
-        }, (err) => {
-            console.error(err);
-            setLoading(false);
-        });
+        const unsubscribe = onSnapshot(
+            q,
+            snapshot => {
+                const list = [];
+                snapshot.forEach(doc => {
+                    list.push({ id: doc.id, ...doc.data() });
+                });
+                // Sort client-side by date
+                list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                setEvents(list);
+                setLoading(false);
+            },
+            err => {
+                console.error(err);
+                setLoading(false);
+            },
+        );
 
         return () => unsubscribe();
     }, [user]);
 
-    const handleDelete = async (eventId) => {
+    const handleDelete = async eventId => {
         if (Platform.OS === 'web') {
             try {
                 await deleteDoc(doc(db, 'events', eventId));
             } catch (e) {
-                alert("Error: Could not delete event");
+                alert('Error: Could not delete event');
             }
         } else {
-            Alert.alert(
-                "Delete Event",
-                "Are you sure? This cannot be undone.",
-                [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                        text: "Delete",
-                        style: "destructive",
-                        onPress: async () => {
-                            try {
-                                await deleteDoc(doc(db, 'events', eventId));
-                            } catch (e) {
-                                Alert.alert("Error", "Could not delete event");
-                            }
+            Alert.alert('Delete Event', 'Are you sure? This cannot be undone.', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await deleteDoc(doc(db, 'events', eventId));
+                        } catch (e) {
+                            Alert.alert('Error', 'Could not delete event');
                         }
-                    }
-                ]
-            );
+                    },
+                },
+            ]);
         }
     };
 
     const renderItem = ({ item }) => (
         <View style={styles.cardContainer}>
-            <EventCard
-                event={item}
-                showRegisterButton={false}
-                style={{ marginBottom: 0 }}
-            />
+            <EventCard event={item} showRegisterButton={false} style={{ marginBottom: 0 }} />
 
-            <View style={[styles.actionBar, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <View
+                style={[
+                    styles.actionBar,
+                    { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+                ]}
+            >
                 {/* Status */}
                 <View style={styles.statusContainer}>
-                    <View style={[styles.dot, { backgroundColor: item.status === 'suspended' ? theme.colors.error : theme.colors.success }]} />
+                    <View
+                        style={[
+                            styles.dot,
+                            {
+                                backgroundColor:
+                                    item.status === 'suspended'
+                                        ? theme.colors.error
+                                        : theme.colors.success,
+                            },
+                        ]}
+                    />
                     <Text style={[styles.statusText, { color: theme.colors.text }]}>
                         {item.status === 'suspended' ? 'SUSPENDED' : 'Active'}
                     </Text>
@@ -89,7 +106,12 @@ export default function MyEventsScreen({ navigation }) {
                 <View style={styles.actions}>
                     <TouchableOpacity
                         style={[styles.actionBtn, { backgroundColor: theme.colors.primary + '15' }]}
-                        onPress={() => navigation.navigate('AttendanceDashboard', { eventId: item.id, eventTitle: item.title })}
+                        onPress={() =>
+                            navigation.navigate('AttendanceDashboard', {
+                                eventId: item.id,
+                                eventTitle: item.title,
+                            })
+                        }
                     >
                         <Ionicons name="bar-chart" size={18} color={theme.colors.primary} />
                     </TouchableOpacity>
@@ -105,13 +127,14 @@ export default function MyEventsScreen({ navigation }) {
         </View>
     );
 
-    if (loading) return (
-        <ScreenWrapper>
-            <View style={styles.center}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
-            </View>
-        </ScreenWrapper>
-    );
+    if (loading)
+        return (
+            <ScreenWrapper>
+                <View style={styles.center}>
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                </View>
+            </ScreenWrapper>
+        );
 
     return (
         <ScreenWrapper>
@@ -137,12 +160,19 @@ export default function MyEventsScreen({ navigation }) {
                 contentContainerStyle={styles.list}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="calendar-outline" size={64} color={theme.colors.textSecondary} />
+                        <Ionicons
+                            name="calendar-outline"
+                            size={64}
+                            color={theme.colors.textSecondary}
+                        />
                         <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
                             You haven't created any events yet.
                         </Text>
                         <TouchableOpacity
-                            style={[styles.createBtnSmall, { backgroundColor: theme.colors.primary }]}
+                            style={[
+                                styles.createBtnSmall,
+                                { backgroundColor: theme.colors.primary },
+                            ]}
                             onPress={() => navigation.navigate('CreateEvent')}
                         >
                             <Text style={styles.createBtnText}>Create Layout</Text>
@@ -154,7 +184,10 @@ export default function MyEventsScreen({ navigation }) {
 
             {/* Floating Action Button */}
             <TouchableOpacity
-                style={[styles.fab, { backgroundColor: theme.colors.primary, shadowColor: theme.colors.primary }]}
+                style={[
+                    styles.fab,
+                    { backgroundColor: theme.colors.primary, shadowColor: theme.colors.primary },
+                ]}
                 onPress={() => navigation.navigate('CreateEvent')}
             >
                 <Ionicons name="add" size={32} color="#fff" />
@@ -223,7 +256,5 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 5,
-    }
+    },
 });
-
-

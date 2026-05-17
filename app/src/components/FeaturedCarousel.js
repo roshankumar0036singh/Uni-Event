@@ -1,12 +1,22 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Dimensions, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+    Dimensions,
+    ImageBackground,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import { FeaturedCarouselSkeleton } from './SkeletonLoader';
 
 const width = Dimensions.get('window').width;
 
-export default function FeaturedCarousel({ data = [], onEventPress }) {
+export default function FeaturedCarousel({ data = [], onEventPress, isLoading = false }) {
     const { theme } = useTheme();
 
+    if (isLoading) return <FeaturedCarouselSkeleton />;
     if (data.length === 0) return null;
 
     return (
@@ -37,7 +47,9 @@ export default function FeaturedCarousel({ data = [], onEventPress }) {
                                 style={styles.gradient}
                             >
                                 <View style={styles.textContainer}>
-                                    <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+                                    <Text style={styles.cardTitle} numberOfLines={1}>
+                                        {item.title}
+                                    </Text>
                                     <Text style={styles.cardSubtitle} numberOfLines={1}>
                                         {new Date(item.startAt).toDateString()} • {item.location}
                                     </Text>

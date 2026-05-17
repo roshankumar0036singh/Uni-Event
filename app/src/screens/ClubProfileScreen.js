@@ -1,8 +1,29 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, deleteDoc, doc, getDoc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import {
+    collection,
+    deleteDoc,
+    doc,
+    getDoc,
+    onSnapshot,
+    query,
+    setDoc,
+    where,
+} from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Image,
+    Linking,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { EventListSkeleton } from '../components/SkeletonLoader';
 import EventCard from '../components/EventCard';
 import { useAuth } from '../lib/AuthContext';
@@ -34,14 +55,14 @@ export default function ClubProfileScreen({ route, navigation }) {
                     if (clubName) {
                         // Ideally we query by name, but for now we fallback to mock if strictly testing
                     } else {
-                        Alert.alert("Error", "Club ID missing");
+                        Alert.alert('Error', 'Club ID missing');
                         navigation.goBack();
                         return;
                     }
                 }
 
                 if (id) {
-                    unsubscribeClub = onSnapshot(doc(db, 'users', id), (doc) => {
+                    unsubscribeClub = onSnapshot(doc(db, 'users', id), doc => {
                         if (doc.exists()) {
                             setClub({ id: doc.id, ...doc.data() });
                             setFollowersCount(doc.data().followersCount || 0);
@@ -53,7 +74,7 @@ export default function ClubProfileScreen({ route, navigation }) {
                                 role: 'club',
                                 bio: 'Empowering students through technology and innovation. Join us to build the future.',
                                 photoURL: 'https://via.placeholder.com/150',
-                                bannerUrl: 'https://via.placeholder.com/800x400'
+                                bannerUrl: 'https://via.placeholder.com/800x400',
                             });
                         }
                         setLoading(false);
@@ -83,7 +104,7 @@ export default function ClubProfileScreen({ route, navigation }) {
     useEffect(() => {
         if (!clubId) return;
         const q = query(collection(db, 'events'), where('ownerId', '==', clubId));
-        const unsub = onSnapshot(q, (snapshot) => {
+        const unsub = onSnapshot(q, snapshot => {
             setEvents(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         });
         return () => unsub();
@@ -116,7 +137,7 @@ export default function ClubProfileScreen({ route, navigation }) {
     const toggleFollow = async () => {
         if (!user) return;
         if (!clubId) {
-            Alert.alert("Demo", "Cannot follow a test club without ID.");
+            Alert.alert('Demo', 'Cannot follow a test club without ID.');
             return;
         }
 
@@ -126,7 +147,7 @@ export default function ClubProfileScreen({ route, navigation }) {
 
         // Optimistic update
         setIsFollowing(!isFollowing);
-        setFollowersCount(prev => isFollowing ? Math.max(0, prev - 1) : prev + 1);
+        setFollowersCount(prev => (isFollowing ? Math.max(0, prev - 1) : prev + 1));
 
         try {
             if (isFollowing) {
@@ -134,45 +155,57 @@ export default function ClubProfileScreen({ route, navigation }) {
                 await deleteDoc(myFollowingRef);
                 await deleteDoc(clubFollowerRef);
                 // Decrement follower count in club document
-                await setDoc(clubRef, {
-                    followersCount: Math.max(0, followersCount - 1)
-                }, { merge: true });
+                await setDoc(
+                    clubRef,
+                    {
+                        followersCount: Math.max(0, followersCount - 1),
+                    },
+                    { merge: true },
+                );
             } else {
                 // Follow
                 await setDoc(myFollowingRef, {
                     clubName: club.displayName,
-                    followedAt: new Date().toISOString()
+                    followedAt: new Date().toISOString(),
                 });
                 await setDoc(clubFollowerRef, {
                     userName: user.displayName,
-                    followedAt: new Date().toISOString()
+                    followedAt: new Date().toISOString(),
                 });
                 // Increment follower count in club document
-                await setDoc(clubRef, {
-                    followersCount: followersCount + 1
-                }, { merge: true });
+                await setDoc(
+                    clubRef,
+                    {
+                        followersCount: followersCount + 1,
+                    },
+                    { merge: true },
+                );
             }
         } catch (e) {
             console.error(e);
             // Revert on error
             setIsFollowing(!isFollowing);
-            setFollowersCount(prev => isFollowing ? prev + 1 : Math.max(0, prev - 1));
+            setFollowersCount(prev => (isFollowing ? prev + 1 : Math.max(0, prev - 1)));
         }
     };
 
-    const openLink = (url) => {
-        if (url) Linking.openURL(url).catch(() => { });
+    const openLink = url => {
+        if (url) Linking.openURL(url).catch(() => {});
     };
 
-    if (loading) return (
-        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <EventListSkeleton />
-        </View>
-    );
+    if (loading)
+        return (
+            <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+                <EventListSkeleton />
+            </View>
+        );
 
     return (
         <View style={{ flex: 1 }}>
-            <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                style={[styles.container, { backgroundColor: theme.colors.background }]}
+                showsVerticalScrollIndicator={false}
+            >
                 {/* Header / Banner */}
                 <View style={styles.headerContainer}>
                     <Image
@@ -186,33 +219,67 @@ export default function ClubProfileScreen({ route, navigation }) {
 
                     <View style={styles.profileMeta}>
                         <Image
-                            source={{ uri: club?.photoURL || `https://ui-avatars.com/api/?name=${club?.displayName}&background=random` }}
+                            source={{
+                                uri:
+                                    club?.photoURL ||
+                                    `https://ui-avatars.com/api/?name=${club?.displayName}&background=random`,
+                            }}
                             style={[styles.avatar, { borderColor: theme.colors.background }]}
                         />
-                        <Text style={[styles.name, { color: theme.colors.text }]}>{club?.displayName}</Text>
+                        <Text style={[styles.name, { color: theme.colors.text }]}>
+                            {club?.displayName}
+                        </Text>
                         <Text style={[styles.role, { color: theme.colors.textSecondary }]}>
-                            {club?.headline || (club?.role === 'club' ? 'Official Student Chapter' : 'Event Organizer')}
+                            {club?.headline ||
+                                (club?.role === 'club'
+                                    ? 'Official Student Chapter'
+                                    : 'Event Organizer')}
                         </Text>
 
                         <View style={styles.statsRow}>
                             <View style={styles.statItem}>
-                                <Text style={[styles.statNum, { color: theme.colors.text }]}>{events.length}</Text>
-                                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Events</Text>
+                                <Text style={[styles.statNum, { color: theme.colors.text }]}>
+                                    {events.length}
+                                </Text>
+                                <Text
+                                    style={[
+                                        styles.statLabel,
+                                        { color: theme.colors.textSecondary },
+                                    ]}
+                                >
+                                    Events
+                                </Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
-                                <Text style={[styles.statNum, { color: theme.colors.text }]}>{followersCount}</Text>
-                                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Followers</Text>
+                                <Text style={[styles.statNum, { color: theme.colors.text }]}>
+                                    {followersCount}
+                                </Text>
+                                <Text
+                                    style={[
+                                        styles.statLabel,
+                                        { color: theme.colors.textSecondary },
+                                    ]}
+                                >
+                                    Followers
+                                </Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.statItem}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                <View
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                                >
                                     <Text style={[styles.statNum, { color: theme.colors.text }]}>
                                         {avgRating > 0 ? avgRating : '—'}
                                     </Text>
                                     <Ionicons name="star" size={16} color="#FFD700" />
                                 </View>
-                                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
+                                <Text
+                                    style={[
+                                        styles.statLabel,
+                                        { color: theme.colors.textSecondary },
+                                    ]}
+                                >
                                     {totalRatings ? `${totalRatings} ratings` : 'No ratings'}
                                 </Text>
                             </View>
@@ -222,13 +289,21 @@ export default function ClubProfileScreen({ route, navigation }) {
                             style={[
                                 styles.followBtn,
                                 {
-                                    backgroundColor: isFollowing ? theme.colors.surface : theme.colors.primary,
-                                    borderColor: theme.colors.primary, borderWidth: 1
-                                }
+                                    backgroundColor: isFollowing
+                                        ? theme.colors.surface
+                                        : theme.colors.primary,
+                                    borderColor: theme.colors.primary,
+                                    borderWidth: 1,
+                                },
                             ]}
                             onPress={toggleFollow}
                         >
-                            <Text style={[styles.followText, { color: isFollowing ? theme.colors.primary : '#fff' }]}>
+                            <Text
+                                style={[
+                                    styles.followText,
+                                    { color: isFollowing ? theme.colors.primary : '#fff' },
+                                ]}
+                            >
                                 {isFollowing ? 'Following' : 'Follow'}
                             </Text>
                         </TouchableOpacity>
@@ -238,12 +313,22 @@ export default function ClubProfileScreen({ route, navigation }) {
                 {/* Social Links Rail */}
                 <View style={styles.socialRow}>
                     {club?.instagram ? (
-                        <TouchableOpacity onPress={() => openLink(club.instagram)} style={[styles.socialIcon, { backgroundColor: theme.colors.surface }]}>
-                            <Ionicons name="logo-instagram" size={24} color={theme.colors.primary} />
+                        <TouchableOpacity
+                            onPress={() => openLink(club.instagram)}
+                            style={[styles.socialIcon, { backgroundColor: theme.colors.surface }]}
+                        >
+                            <Ionicons
+                                name="logo-instagram"
+                                size={24}
+                                color={theme.colors.primary}
+                            />
                         </TouchableOpacity>
                     ) : null}
                     {club?.linkedin ? (
-                        <TouchableOpacity onPress={() => openLink(club.linkedin)} style={[styles.socialIcon, { backgroundColor: theme.colors.surface }]}>
+                        <TouchableOpacity
+                            onPress={() => openLink(club.linkedin)}
+                            style={[styles.socialIcon, { backgroundColor: theme.colors.surface }]}
+                        >
                             <Ionicons name="logo-linkedin" size={24} color={theme.colors.primary} />
                         </TouchableOpacity>
                     ) : null}
@@ -251,13 +336,47 @@ export default function ClubProfileScreen({ route, navigation }) {
 
                 {/* Tabs */}
                 <View style={[styles.tabContainer, { borderBottomColor: theme.colors.border }]}>
-                    <TouchableOpacity onPress={() => setActiveTab('events')}
-                        style={[styles.tab, activeTab === 'events' && { borderBottomWidth: 2, borderBottomColor: theme.colors.primary }]}>
-                        <Text style={[styles.tabText, activeTab === 'events' ? { color: theme.colors.primary } : { color: theme.colors.textSecondary }]}>Events</Text>
+                    <TouchableOpacity
+                        onPress={() => setActiveTab('events')}
+                        style={[
+                            styles.tab,
+                            activeTab === 'events' && {
+                                borderBottomWidth: 2,
+                                borderBottomColor: theme.colors.primary,
+                            },
+                        ]}
+                    >
+                        <Text
+                            style={[
+                                styles.tabText,
+                                activeTab === 'events'
+                                    ? { color: theme.colors.primary }
+                                    : { color: theme.colors.textSecondary },
+                            ]}
+                        >
+                            Events
+                        </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setActiveTab('about')}
-                        style={[styles.tab, activeTab === 'about' && { borderBottomWidth: 2, borderBottomColor: theme.colors.primary }]}>
-                        <Text style={[styles.tabText, activeTab === 'about' ? { color: theme.colors.primary } : { color: theme.colors.textSecondary }]}>About</Text>
+                    <TouchableOpacity
+                        onPress={() => setActiveTab('about')}
+                        style={[
+                            styles.tab,
+                            activeTab === 'about' && {
+                                borderBottomWidth: 2,
+                                borderBottomColor: theme.colors.primary,
+                            },
+                        ]}
+                    >
+                        <Text
+                            style={[
+                                styles.tabText,
+                                activeTab === 'about'
+                                    ? { color: theme.colors.primary }
+                                    : { color: theme.colors.textSecondary },
+                            ]}
+                        >
+                            About
+                        </Text>
                     </TouchableOpacity>
                 </View>
 
@@ -267,30 +386,48 @@ export default function ClubProfileScreen({ route, navigation }) {
                         <View>
                             {events.length === 0 ? (
                                 <View style={styles.empty}>
-                                    <Ionicons name="calendar-outline" size={64} color={theme.colors.textSecondary} />
-                                    <Text style={{ color: theme.colors.textSecondary, marginTop: 10 }}>No events yet.</Text>
+                                    <Ionicons
+                                        name="calendar-outline"
+                                        size={64}
+                                        color={theme.colors.textSecondary}
+                                    />
+                                    <Text
+                                        style={{ color: theme.colors.textSecondary, marginTop: 10 }}
+                                    >
+                                        No events yet.
+                                    </Text>
                                 </View>
                             ) : (
-                                events.map(event => (
-                                    <EventCard
-                                        key={event.id}
-                                        event={event}
-                                    />
-                                ))
+                                events.map(event => <EventCard key={event.id} event={event} />)
                             )}
                         </View>
                     ) : (
                         <View style={styles.aboutContainer}>
-                            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Bio</Text>
-                            <Text style={[styles.bioText, { color: theme.colors.textSecondary }]}>{club?.bio || 'No bio available.'}</Text>
+                            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>
+                                Bio
+                            </Text>
+                            <Text style={[styles.bioText, { color: theme.colors.textSecondary }]}>
+                                {club?.bio || 'No bio available.'}
+                            </Text>
 
-                            <Text style={[styles.inputLabel, { color: theme.colors.text, marginTop: 20 }]}>Contact</Text>
+                            <Text
+                                style={[
+                                    styles.inputLabel,
+                                    { color: theme.colors.text, marginTop: 20 },
+                                ]}
+                            >
+                                Contact
+                            </Text>
                             <View style={styles.contactRow}>
-                                <Ionicons name="mail-outline" size={20} color={theme.colors.textSecondary} />
-                                <Text style={{ color: theme.colors.textSecondary }}>{club?.email || 'No email available'}</Text>
+                                <Ionicons
+                                    name="mail-outline"
+                                    size={20}
+                                    color={theme.colors.textSecondary}
+                                />
+                                <Text style={{ color: theme.colors.textSecondary }}>
+                                    {club?.email || 'No email available'}
+                                </Text>
                             </View>
-
-
                         </View>
                     )}
                 </View>
@@ -331,16 +468,29 @@ const styles = StyleSheet.create({
         elevation: 2,
         ...Platform.select({
             ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2 },
-            android: { elevation: 3 }
-        })
+            android: { elevation: 3 },
+        }),
     },
     followText: { fontWeight: 'bold', fontSize: 16 },
-    socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 15, marginBottom: 20, marginTop: 10 },
-    socialIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', elevation: 1 },
+    socialRow: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 15,
+        marginBottom: 20,
+        marginTop: 10,
+    },
+    socialIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 1,
+    },
 
     tabContainer: { flexDirection: 'row', borderBottomWidth: 1, paddingHorizontal: 20 },
     tab: { paddingVertical: 15, marginRight: 20 },
-    // Active tab border color handled inline or via dynamic style if needed. 
+    // Active tab border color handled inline or via dynamic style if needed.
     // We will handle it in the render loop style prop for simplicity with theme.
     tabText: { fontSize: 16, fontWeight: '600' },
 
@@ -361,5 +511,5 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 10,
-    }
+    },
 });

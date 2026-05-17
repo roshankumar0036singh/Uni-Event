@@ -23,5 +23,5 @@ const styles = StyleSheet.create({
     text: {
         fontWeight: '800',
         letterSpacing: -0.5,
-    }
+    },
 });

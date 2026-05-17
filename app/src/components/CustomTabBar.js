@@ -20,8 +20,8 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
                             options.tabBarLabel !== undefined
                                 ? options.tabBarLabel
                                 : options.title !== undefined
-                                    ? options.title
-                                    : route.name;
+                                  ? options.title
+                                  : route.name;
 
                         const isFocused = state.index === index;
 
@@ -39,11 +39,16 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
 
                         let iconName;
                         if (route.name === 'Home') iconName = isFocused ? 'home' : 'home-outline';
-                        else if (route.name === 'Profile') iconName = isFocused ? 'person' : 'person-outline';
-                        else if (route.name === 'Admin') iconName = isFocused ? 'settings' : 'settings-outline';
-                        else if (route.name === 'Reminders') iconName = isFocused ? 'alarm' : 'alarm-outline';
-                        else if (route.name === 'MyEvents' || route.name === 'MyEventsTab') iconName = isFocused ? 'calendar' : 'calendar-outline';
-                        else if (route.name === 'Leaderboard') iconName = isFocused ? 'trophy' : 'trophy-outline';
+                        else if (route.name === 'Profile')
+                            iconName = isFocused ? 'person' : 'person-outline';
+                        else if (route.name === 'Admin')
+                            iconName = isFocused ? 'settings' : 'settings-outline';
+                        else if (route.name === 'Reminders')
+                            iconName = isFocused ? 'alarm' : 'alarm-outline';
+                        else if (route.name === 'MyEvents' || route.name === 'MyEventsTab')
+                            iconName = isFocused ? 'calendar' : 'calendar-outline';
+                        else if (route.name === 'Leaderboard')
+                            iconName = isFocused ? 'trophy' : 'trophy-outline';
                         else iconName = 'ellipse-outline'; // fallback
 
                         const color = isFocused ? theme.colors.primary : theme.colors.textSecondary;
@@ -60,7 +65,12 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
                             >
                                 <Ionicons name={iconName} size={24} color={color} />
                                 {isFocused && (
-                                    <View style={[styles.activeDot, { backgroundColor: theme.colors.primary }]} />
+                                    <View
+                                        style={[
+                                            styles.activeDot,
+                                            { backgroundColor: theme.colors.primary },
+                                        ]}
+                                    />
                                 )}
                             </TouchableOpacity>
                         );
@@ -87,8 +97,8 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         ...Platform.select({
             ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.2 },
-            android: { elevation: 5 }
-        })
+            android: { elevation: 5 },
+        }),
     },
     content: {
         flexDirection: 'row',
@@ -109,5 +119,5 @@ const styles = StyleSheet.create({
         height: 4,
         borderRadius: 2,
         marginTop: 4,
-    }
+    },
 });

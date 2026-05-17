@@ -22,6 +22,12 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/roshankumar0036singh/Uni-Event/actions/workflows/ci.yml">
+    <img src="https://github.com/roshankumar0036singh/Uni-Event/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
+  </a>
+</p>
+
+<p align="center">
   <!-- Tech Stack Badges -->
   <img src="https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase" />
   <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React Native" />
@@ -211,6 +217,37 @@ npm start
 ## Contributing
 
 We welcome contributions from the community. Whether you're fixing bugs, adding features, improving documentation, or reporting issues, your input is valuable.
+
+### Fork & Upstream Setup
+
+```bash
+# Fork the repository on GitHub first
+
+# Clone your fork
+git clone https://github.com/YOUR_USERNAME/Uni-Event.git
+
+cd Uni-Event
+
+# Add upstream remote
+git remote add upstream https://github.com/roshankumar0036singh/Uni-Event.git
+
+# Verify remotes
+git remote -v
+```
+### Syncing Your Fork
+```bash
+# Fetch latest changes from upstream
+git fetch upstream
+
+# Switch to main branch
+git checkout main
+
+# Merge upstream changes
+git merge upstream/main
+
+# Push the updated main branch to your fork on GitHub
+git push origin main
+```
 
 ### Development Workflow
 

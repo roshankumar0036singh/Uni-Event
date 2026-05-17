@@ -45,18 +45,19 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
             }).start();
 
             // 3. Ripples (Staggered)
-            const rippleAnim = (anim, delay) => Animated.loop(
-                Animated.sequence([
-                    Animated.delay(delay),
-                    Animated.timing(anim, {
-                        toValue: 1,
-                        duration: 1500,
-                        easing: Easing.out(Easing.ease),
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }) // Reset immediately
-                ])
-            );
+            const rippleAnim = (anim, delay) =>
+                Animated.loop(
+                    Animated.sequence([
+                        Animated.delay(delay),
+                        Animated.timing(anim, {
+                            toValue: 1,
+                            duration: 1500,
+                            easing: Easing.out(Easing.ease),
+                            useNativeDriver: true,
+                        }),
+                        Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }), // Reset immediately
+                    ]),
+                );
 
             // Start ripples
             rippleAnim(ripple1, 0).start();
@@ -77,7 +78,7 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
                         friction: 8,
                         tension: 40,
                         useNativeDriver: true,
-                    })
+                    }),
                 ]).start();
             }, 300);
 
@@ -98,16 +99,31 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
 
     return (
         <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
-            <Animated.View style={[styles.container, { opacity: fadeAnim, backgroundColor: theme.colors.background }]}>
+            <Animated.View
+                style={[
+                    styles.container,
+                    { opacity: fadeAnim, backgroundColor: theme.colors.background },
+                ]}
+            >
                 {/* Ripples */}
                 <Animated.View
                     style={[
                         styles.ripple,
                         {
                             backgroundColor: theme.colors.primary,
-                            transform: [{ scale: ripple1.interpolate({ inputRange: [0, 1], outputRange: [0.8, 3] }) }],
-                            opacity: ripple1.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0] })
-                        }
+                            transform: [
+                                {
+                                    scale: ripple1.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [0.8, 3],
+                                    }),
+                                },
+                            ],
+                            opacity: ripple1.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0.15, 0],
+                            }),
+                        },
                     ]}
                 />
                 <Animated.View
@@ -115,9 +131,19 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
                         styles.ripple,
                         {
                             backgroundColor: theme.colors.primary,
-                            transform: [{ scale: ripple2.interpolate({ inputRange: [0, 1], outputRange: [0.8, 3] }) }],
-                            opacity: ripple2.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0] })
-                        }
+                            transform: [
+                                {
+                                    scale: ripple2.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [0.8, 3],
+                                    }),
+                                },
+                            ],
+                            opacity: ripple2.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0.15, 0],
+                            }),
+                        },
                     ]}
                 />
                 <Animated.View
@@ -125,14 +151,32 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
                         styles.ripple,
                         {
                             backgroundColor: theme.colors.primary,
-                            transform: [{ scale: ripple3.interpolate({ inputRange: [0, 1], outputRange: [0.8, 3] }) }],
-                            opacity: ripple3.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0] })
-                        }
+                            transform: [
+                                {
+                                    scale: ripple3.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [0.8, 3],
+                                    }),
+                                },
+                            ],
+                            opacity: ripple3.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0.15, 0],
+                            }),
+                        },
                     ]}
                 />
 
                 {/* Main Circle */}
-                <Animated.View style={[styles.circleWrapper, { transform: [{ scale: scaleAnim }], backgroundColor: theme.colors.surface }]}>
+                <Animated.View
+                    style={[
+                        styles.circleWrapper,
+                        {
+                            transform: [{ scale: scaleAnim }],
+                            backgroundColor: theme.colors.surface,
+                        },
+                    ]}
+                >
                     <LinearGradient
                         colors={[theme.colors.primary, theme.colors.secondary]}
                         start={{ x: 0, y: 0 }}
@@ -140,7 +184,12 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
                         style={styles.circle}
                     >
                         <Animated.View style={{ transform: [{ scale: checkmarkScale }] }}>
-                            <Ionicons name="checkmark" size={60} color="#fff" style={{ fontWeight: 'bold' }} />
+                            <Ionicons
+                                name="checkmark"
+                                size={60}
+                                color="#fff"
+                                style={{ fontWeight: 'bold' }}
+                            />
                         </Animated.View>
                     </LinearGradient>
                 </Animated.View>
@@ -152,27 +201,42 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
                         {
                             backgroundColor: theme.colors.surface,
                             opacity: checkmarkScale,
-                            transform: [{ translateY: receiptSlide }]
-                        }
+                            transform: [{ translateY: receiptSlide }],
+                        },
                     ]}
                 >
-                    <Text style={[styles.title, { color: theme.colors.text }]}>Payment Successful</Text>
+                    <Text style={[styles.title, { color: theme.colors.text }]}>
+                        Payment Successful
+                    </Text>
                     <Text style={[styles.amount, { color: theme.colors.primary }]}>₹{amount}</Text>
 
                     <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
 
                     <View style={styles.row}>
-                        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Transaction ID</Text>
-                        <Text style={[styles.value, { color: theme.colors.text }]}>TXN-{Math.floor(Math.random() * 1000000)}</Text>
+                        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
+                            Transaction ID
+                        </Text>
+                        <Text style={[styles.value, { color: theme.colors.text }]}>
+                            TXN-{Math.floor(Math.random() * 1000000)}
+                        </Text>
                     </View>
                     <View style={styles.row}>
-                        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Date</Text>
-                        <Text style={[styles.value, { color: theme.colors.text }]}>{new Date().toLocaleDateString()}</Text>
+                        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
+                            Date
+                        </Text>
+                        <Text style={[styles.value, { color: theme.colors.text }]}>
+                            {new Date().toLocaleDateString()}
+                        </Text>
                     </View>
                 </Animated.View>
 
                 {/* Branding Footer */}
-                <Animated.Text style={[styles.footer, { color: theme.colors.textSecondary, opacity: checkmarkScale }]}>
+                <Animated.Text
+                    style={[
+                        styles.footer,
+                        { color: theme.colors.textSecondary, opacity: checkmarkScale },
+                    ]}
+                >
                     Secured by UniEvent
                 </Animated.Text>
             </Animated.View>
@@ -261,5 +325,5 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         letterSpacing: 1,
         textTransform: 'uppercase',
-    }
+    },
 });

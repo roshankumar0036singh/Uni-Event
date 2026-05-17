@@ -1,7 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    Linking,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import PaymentSuccessAnimation from '../components/PaymentSuccessAnimation';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
@@ -20,30 +31,41 @@ export default function PaymentScreen({ route, navigation }) {
 
     const handlePay = async () => {
         if (!selectedMethod) {
-            Alert.alert("Select Payment", "Please choose a payment method.");
+            Alert.alert('Select Payment', 'Please choose a payment method.');
             return;
         }
 
         if (selectedMethod === 'upi') {
             if (!event.upiId) {
-                Alert.alert("Error", "Event Organizer has not provided a UPI ID. Please contact them.");
+                Alert.alert(
+                    'Error',
+                    'Event Organizer has not provided a UPI ID. Please contact them.',
+                );
                 return;
             }
             const upiUrl = `upi://pay?pa=${event.upiId}&pn=${encodeURIComponent(event.organization || 'Event Organizer')}&tn=Event_${event.id}&am=${price}&cu=INR`;
 
-            Linking.canOpenURL(upiUrl).then(supported => {
-                if (supported) {
-                    Linking.openURL(upiUrl);
+            Linking.canOpenURL(upiUrl)
+                .then(supported => {
+                    if (supported) {
+                        Linking.openURL(upiUrl);
+                        setShowUtrInput(true);
+                        Alert.alert(
+                            'Payment Initiated',
+                            'Please complete payment in your UPI app and enter the Transaction ID/UTR below to verify.',
+                        );
+                    } else {
+                        Alert.alert(
+                            'Error',
+                            'No UPI App found. Please pay manually to ' + event.upiId,
+                        );
+                        setShowUtrInput(true);
+                    }
+                })
+                .catch(err => {
+                    Alert.alert('Error', 'Could not open UPI app.');
                     setShowUtrInput(true);
-                    Alert.alert("Payment Initiated", "Please complete payment in your UPI app and enter the Transaction ID/UTR below to verify.");
-                } else {
-                    Alert.alert("Error", "No UPI App found. Please pay manually to " + event.upiId);
-                    setShowUtrInput(true);
-                }
-            }).catch(err => {
-                Alert.alert("Error", "Could not open UPI app.");
-                setShowUtrInput(true);
-            });
+                });
             return;
         }
 
@@ -53,13 +75,13 @@ export default function PaymentScreen({ route, navigation }) {
 
     const verifyAndBook = () => {
         if (!utr || utr.length < 10) {
-            Alert.alert("Invalid UTR", "Please enter a valid 12-digit UPI Transaction ID.");
+            Alert.alert('Invalid UTR', 'Please enter a valid 12-digit UPI Transaction ID.');
             return;
         }
         processTicketBooking(utr);
     };
 
-    const processTicketBooking = (transactionId) => {
+    const processTicketBooking = transactionId => {
         setLoading(true);
 
         // Simulate Validation Delay
@@ -69,7 +91,6 @@ export default function PaymentScreen({ route, navigation }) {
                 const orderId = transactionId || 'ORD-' + Date.now();
 
                 // ... (rest of logic same) -> will inject confirm in separate chunks or rewrite processTicketBooking
-
 
                 // 2. Fetch user data for year and branch
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -90,7 +111,7 @@ export default function PaymentScreen({ route, navigation }) {
                     status: 'paid', // 'paid', 'cancelled'
                     orderId: orderId,
                     paymentMethod: selectedMethod,
-                    purchasedAt: new Date().toISOString()
+                    purchasedAt: new Date().toISOString(),
                 };
 
                 // 3. Save to Firestore
@@ -103,7 +124,7 @@ export default function PaymentScreen({ route, navigation }) {
                     joinedAt: new Date().toISOString(),
                     role: 'attendee',
                     ticketId: ticketRef.id,
-                    status: 'paid'
+                    status: 'paid',
                 });
 
                 // Add to Event's Participants list
@@ -113,7 +134,7 @@ export default function PaymentScreen({ route, navigation }) {
                     email: user.email,
                     joinedAt: new Date().toISOString(),
                     ticketId: ticketRef.id,
-                    status: 'paid'
+                    status: 'paid',
                 });
 
                 // 4. Save Custom Form Responses (if any)
@@ -128,7 +149,7 @@ export default function PaymentScreen({ route, navigation }) {
                         schemaAtSubmission: event.customFormSchema || [],
                         ticketId: ticketRef.id,
                         timestamp: new Date().toISOString(),
-                        status: 'paid'
+                        status: 'paid',
                     });
                 }
 
@@ -141,11 +162,10 @@ export default function PaymentScreen({ route, navigation }) {
                 setTimeout(() => {
                     navigation.replace('TicketScreen', { ticketId: ticketRef.id, ticketData });
                 }, 2500);
-
             } catch (error) {
-                console.error("Payment Error:", error);
+                console.error('Payment Error:', error);
                 setLoading(false);
-                Alert.alert("Payment Failed", "Something went wrong. Please try again.");
+                Alert.alert('Payment Failed', 'Something went wrong. Please try again.');
             }
         }, 2000);
     };
@@ -157,14 +177,28 @@ export default function PaymentScreen({ route, navigation }) {
                 {
                     backgroundColor: theme.colors.surface,
                     borderColor: selectedMethod === id ? theme.colors.primary : theme.colors.border,
-                    borderWidth: selectedMethod === id ? 2 : 1
-                }
+                    borderWidth: selectedMethod === id ? 2 : 1,
+                },
             ]}
-            onPress={() => { setSelectedMethod(id); setShowUtrInput(false); }}
+            onPress={() => {
+                setSelectedMethod(id);
+                setShowUtrInput(false);
+            }}
         >
-            <Ionicons name={icon} size={24} color={selectedMethod === id ? theme.colors.primary : theme.colors.textSecondary} />
+            <Ionicons
+                name={icon}
+                size={24}
+                color={selectedMethod === id ? theme.colors.primary : theme.colors.textSecondary}
+            />
             <Text style={[styles.methodLabel, { color: theme.colors.text }]}>{label}</Text>
-            {selectedMethod === id && <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} style={{ marginLeft: 'auto' }} />}
+            {selectedMethod === id && (
+                <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={theme.colors.primary}
+                    style={{ marginLeft: 'auto' }}
+                />
+            )}
         </TouchableOpacity>
     );
 
@@ -172,16 +206,29 @@ export default function PaymentScreen({ route, navigation }) {
         <>
             <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
                 <ScrollView contentContainerStyle={styles.content}>
-                    <Text style={[theme.typography.h2, { color: theme.colors.text, marginBottom: 20 }]}>Checkout</Text>
+                    <Text
+                        style={[
+                            theme.typography.h2,
+                            { color: theme.colors.text, marginBottom: 20 },
+                        ]}
+                    >
+                        Checkout
+                    </Text>
 
                     {/* Event Summary */}
                     <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}>
-                        <Text style={[styles.eventTitle, { color: theme.colors.text }]}>{event.title}</Text>
-                        <Text style={{ color: theme.colors.textSecondary, marginBottom: 10 }}>{new Date(event.startAt).toDateString()} • {event.location}</Text>
+                        <Text style={[styles.eventTitle, { color: theme.colors.text }]}>
+                            {event.title}
+                        </Text>
+                        <Text style={{ color: theme.colors.textSecondary, marginBottom: 10 }}>
+                            {new Date(event.startAt).toDateString()} • {event.location}
+                        </Text>
                         <View style={styles.divider} />
                         <View style={styles.row}>
                             <Text style={{ color: theme.colors.text }}>General Admission</Text>
-                            <Text style={[styles.price, { color: theme.colors.text }]}>₹{price}</Text>
+                            <Text style={[styles.price, { color: theme.colors.text }]}>
+                                ₹{price}
+                            </Text>
                         </View>
                         <View style={[styles.row, { marginTop: 10 }]}>
                             <Text style={{ color: theme.colors.textSecondary }}>Tax & Fees</Text>
@@ -189,17 +236,32 @@ export default function PaymentScreen({ route, navigation }) {
                         </View>
                         <View style={[styles.divider, { marginVertical: 15 }]} />
                         <View style={styles.row}>
-                            <Text style={[styles.totalLabel, { color: theme.colors.text }]}>Total to Pay</Text>
-                            <Text style={[styles.totalAmount, { color: theme.colors.primary }]}>₹{price}</Text>
+                            <Text style={[styles.totalLabel, { color: theme.colors.text }]}>
+                                Total to Pay
+                            </Text>
+                            <Text style={[styles.totalAmount, { color: theme.colors.primary }]}>
+                                ₹{price}
+                            </Text>
                         </View>
                     </View>
 
                     {/* Payment Methods */}
-                    <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>Payment Method</Text>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
+                        Payment Method
+                    </Text>
                     <PaymentMethod id="upi" label="UPI / GPay / PhonePe" icon="qr-code-outline" />
                     {selectedMethod === 'upi' && showUtrInput && (
-                        <View style={{ marginTop: 10, padding: 15, backgroundColor: theme.colors.surface, borderRadius: 12 }}>
-                            <Text style={{ color: theme.colors.textSecondary, marginBottom: 5 }}>Enter UPI Transaction ID / UTR:</Text>
+                        <View
+                            style={{
+                                marginTop: 10,
+                                padding: 15,
+                                backgroundColor: theme.colors.surface,
+                                borderRadius: 12,
+                            }}
+                        >
+                            <Text style={{ color: theme.colors.textSecondary, marginBottom: 5 }}>
+                                Enter UPI Transaction ID / UTR:
+                            </Text>
                             <TextInput
                                 style={{
                                     borderWidth: 1,
@@ -207,7 +269,7 @@ export default function PaymentScreen({ route, navigation }) {
                                     borderRadius: 8,
                                     padding: 10,
                                     color: theme.colors.text,
-                                    marginBottom: 10
+                                    marginBottom: 10,
                                 }}
                                 value={utr}
                                 onChangeText={setUtr}
@@ -215,27 +277,52 @@ export default function PaymentScreen({ route, navigation }) {
                                 placeholderTextColor={theme.colors.textSecondary}
                             />
                             <TouchableOpacity
-                                style={{ backgroundColor: theme.colors.primary, padding: 10, borderRadius: 8, alignItems: 'center' }}
+                                style={{
+                                    backgroundColor: theme.colors.primary,
+                                    padding: 10,
+                                    borderRadius: 8,
+                                    alignItems: 'center',
+                                }}
                                 onPress={verifyAndBook}
                                 disabled={loading}
                             >
-                                {loading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Verify & Book Ticket</Text>}
+                                {loading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                                        Verify & Book Ticket
+                                    </Text>
+                                )}
                             </TouchableOpacity>
                         </View>
                     )}
                     <PaymentMethod id="card" label="Credit / Debit Card" icon="card-outline" />
                     <PaymentMethod id="netbanking" label="Net Banking" icon="globe-outline" />
-
                 </ScrollView>
 
                 {/* Footer */}
-                <View style={[styles.footer, { borderTopColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
+                <View
+                    style={[
+                        styles.footer,
+                        {
+                            borderTopColor: theme.colors.border,
+                            backgroundColor: theme.colors.surface,
+                        },
+                    ]}
+                >
                     <TouchableOpacity
-                        style={[styles.payButton, { backgroundColor: theme.colors.primary, opacity: loading ? 0.7 : 1 }]}
+                        style={[
+                            styles.payButton,
+                            { backgroundColor: theme.colors.primary, opacity: loading ? 0.7 : 1 },
+                        ]}
                         onPress={handlePay}
                         disabled={loading}
                     >
-                        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.payButtonText}>Pay ₹{price}</Text>}
+                        {loading ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text style={styles.payButtonText}>Pay ₹{price}</Text>
+                        )}
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
@@ -265,7 +352,13 @@ const styles = StyleSheet.create({
     price: { fontWeight: '600', fontSize: 16 },
     totalLabel: { fontSize: 18, fontWeight: 'bold' },
     totalAmount: { fontSize: 24, fontWeight: '900' },
-    sectionTitle: { fontSize: 14, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 10, marginTop: 10 },
+    sectionTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        marginBottom: 10,
+        marginTop: 10,
+    },
     methodCard: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -285,5 +378,5 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    payButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' }
+    payButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
 });

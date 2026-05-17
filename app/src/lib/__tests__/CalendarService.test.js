@@ -1,120 +1,105 @@
-import { createMeetEvent, addToCalendar } from "../CalendarService";
+import { createMeetEvent, addToCalendar } from '../CalendarService';
 
 global.fetch = jest.fn();
 
-describe("CalendarService", () => {
+describe('CalendarService', () => {
+    let startAt;
+    let endAt;
 
-  let startAt;
-  let endAt;
+    beforeEach(() => {
+        startAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
-  beforeEach(() => {
-    
-    startAt = new Date(
-      Date.now() + 60 * 60 * 1000
-    ).toISOString();
+        endAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
 
-    endAt = new Date(
-      Date.now() + 2 * 60 * 60 * 1000
-    ).toISOString();
+        fetch.mockClear();
 
-    fetch.mockClear();
-
-    jest
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  test("creates Google Meet event successfully", async () => {
-
-    fetch.mockResolvedValueOnce({
-      json: async () => ({
-        hangoutLink: "https://meet.google.com/test",
-        id: "event123",
-        htmlLink: "https://calendar.google.com/event",
-      }),
+        jest.spyOn(console, 'error').mockImplementation(() => {});
     });
 
-    const result = await createMeetEvent("token123", {
-      title: "Tech Fest",
-      description: "Event Description",
-      startAt,
-      endAt,
+    afterEach(() => {
+        jest.restoreAllMocks();
     });
 
-    expect(fetch).toHaveBeenCalled();
+    test('creates Google Meet event successfully', async () => {
+        fetch.mockResolvedValueOnce({
+            json: async () => ({
+                hangoutLink: 'https://meet.google.com/test',
+                id: 'event123',
+                htmlLink: 'https://calendar.google.com/event',
+            }),
+        });
 
-    expect(result.meetLink).toBe(
-      "https://meet.google.com/test"
-    );
-  });
+        const result = await createMeetEvent('token123', {
+            title: 'Tech Fest',
+            description: 'Event Description',
+            startAt,
+            endAt,
+        });
 
-  test("throws error when Google Meet API fails", async () => {
+        expect(fetch).toHaveBeenCalled();
 
-    fetch.mockResolvedValueOnce({
-      json: async () => ({
-        error: {
-          message: "API Failure",
-        },
-      }),
+        expect(result.meetLink).toBe('https://meet.google.com/test');
     });
 
-    await expect(
-      createMeetEvent("token123", {
-        title: "Tech Fest",
-        description: "Event Description",
-        startAt,
-        endAt,
-      })
-    ).rejects.toThrow("API Failure");
-  });
+    test('throws error when Google Meet API fails', async () => {
+        fetch.mockResolvedValueOnce({
+            json: async () => ({
+                error: {
+                    message: 'API Failure',
+                },
+            }),
+        });
 
-  test("adds event to calendar successfully", async () => {
-
-    fetch.mockResolvedValueOnce({
-      json: async () => ({
-        id: "calendar-event-1",
-      }),
+        await expect(
+            createMeetEvent('token123', {
+                title: 'Tech Fest',
+                description: 'Event Description',
+                startAt,
+                endAt,
+            }),
+        ).rejects.toThrow('API Failure');
     });
 
-    const result = await addToCalendar("token123", {
-      id: "app-event-1",
-      title: "Hackathon",
-      description: "Coding Event",
-      location: "Online",
-      startAt,
-      endAt,
-      meetLink: "https://meet.google.com/test",
+    test('adds event to calendar successfully', async () => {
+        fetch.mockResolvedValueOnce({
+            json: async () => ({
+                id: 'calendar-event-1',
+            }),
+        });
+
+        const result = await addToCalendar('token123', {
+            id: 'app-event-1',
+            title: 'Hackathon',
+            description: 'Coding Event',
+            location: 'Online',
+            startAt,
+            endAt,
+            meetLink: 'https://meet.google.com/test',
+        });
+
+        expect(fetch).toHaveBeenCalled();
+
+        expect(result.id).toBe('calendar-event-1');
     });
 
-    expect(fetch).toHaveBeenCalled();
+    test('throws error when addToCalendar fails', async () => {
+        fetch.mockResolvedValueOnce({
+            json: async () => ({
+                error: {
+                    message: 'Calendar Failure',
+                },
+            }),
+        });
 
-    expect(result.id).toBe("calendar-event-1");
-  });
-
-  test("throws error when addToCalendar fails", async () => {
-
-    fetch.mockResolvedValueOnce({
-      json: async () => ({
-        error: {
-          message: "Calendar Failure",
-        },
-      }),
+        await expect(
+            addToCalendar('token123', {
+                id: 'app-event-1',
+                title: 'Hackathon',
+                description: 'Coding Event',
+                location: 'Online',
+                startAt,
+                endAt,
+            }),
+        ).rejects.toThrow('Calendar Failure');
     });
-
-    await expect(
-      addToCalendar("token123", {
-        id: "app-event-1",
-        title: "Hackathon",
-        description: "Coding Event",
-        location: "Online",
-        startAt,
-        endAt,
-      })
-    ).rejects.toThrow("Calendar Failure");
-  });
-
 });

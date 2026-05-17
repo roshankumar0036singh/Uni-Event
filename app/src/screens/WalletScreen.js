@@ -2,7 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
@@ -18,20 +26,21 @@ export default function WalletScreen({ navigation }) {
     useEffect(() => {
         if (!user) return;
 
-        const q = query(
-            collection(db, 'tickets'),
-            where('userId', '==', user.uid)
-        );
+        const q = query(collection(db, 'tickets'), where('userId', '==', user.uid));
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            list.sort((a, b) => new Date(b.purchasedAt) - new Date(a.purchasedAt));
-            setTickets(list);
-            setLoading(false);
-        }, (error) => {
-            console.error("Wallet Fetch Error:", error);
-            setLoading(false);
-        });
+        const unsubscribe = onSnapshot(
+            q,
+            snapshot => {
+                const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                list.sort((a, b) => new Date(b.purchasedAt) - new Date(a.purchasedAt));
+                setTickets(list);
+                setLoading(false);
+            },
+            error => {
+                console.error('Wallet Fetch Error:', error);
+                setLoading(false);
+            },
+        );
 
         return () => unsubscribe();
     }, [user]);
@@ -39,20 +48,21 @@ export default function WalletScreen({ navigation }) {
     const renderTicket = ({ item }) => (
         <TouchableOpacity
             style={styles.ticketCard}
-            onPress={() => navigation.navigate('TicketScreen', { ticketId: item.id, ticketData: item })}
+            onPress={() =>
+                navigation.navigate('TicketScreen', { ticketId: item.id, ticketData: item })
+            }
             activeOpacity={0.9}
         >
             <LinearGradient
-                colors={[
-                    theme.colors.surface + 'E6',
-                    theme.colors.surface + 'CC'
-                ]}
+                colors={[theme.colors.surface + 'E6', theme.colors.surface + 'CC']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.glassCard}
             >
                 {/* Holographic overlay */}
-                <View style={[styles.holoOverlay, { backgroundColor: theme.colors.primary + '10' }]} />
+                <View
+                    style={[styles.holoOverlay, { backgroundColor: theme.colors.primary + '10' }]}
+                />
 
                 {/* Left accent strip */}
                 <LinearGradient
@@ -62,29 +72,50 @@ export default function WalletScreen({ navigation }) {
 
                 <View style={styles.cardContent}>
                     <View style={styles.mainInfo}>
-                        <Text style={[styles.eventTitle, { color: theme.colors.text }]} numberOfLines={2}>
+                        <Text
+                            style={[styles.eventTitle, { color: theme.colors.text }]}
+                            numberOfLines={2}
+                        >
                             {item.eventTitle}
                         </Text>
                         <View style={styles.detailsRow}>
-                            <Ionicons name="calendar-outline" size={14} color={theme.colors.textSecondary} />
-                            <Text style={[styles.detailText, { color: theme.colors.textSecondary }]}>
+                            <Ionicons
+                                name="calendar-outline"
+                                size={14}
+                                color={theme.colors.textSecondary}
+                            />
+                            <Text
+                                style={[styles.detailText, { color: theme.colors.textSecondary }]}
+                            >
                                 {new Date(item.eventDate).toLocaleDateString('en-US', {
                                     month: 'short',
                                     day: 'numeric',
-                                    year: 'numeric'
+                                    year: 'numeric',
                                 })}
                             </Text>
                         </View>
                         <View style={styles.detailsRow}>
-                            <Ionicons name="location-outline" size={14} color={theme.colors.textSecondary} />
-                            <Text style={[styles.detailText, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+                            <Ionicons
+                                name="location-outline"
+                                size={14}
+                                color={theme.colors.textSecondary}
+                            />
+                            <Text
+                                style={[styles.detailText, { color: theme.colors.textSecondary }]}
+                                numberOfLines={1}
+                            >
                                 {item.eventLocation}
                             </Text>
                         </View>
                     </View>
 
                     <View style={styles.rightSection}>
-                        <View style={[styles.qrIcon, { backgroundColor: theme.colors.primary + '20' }]}>
+                        <View
+                            style={[
+                                styles.qrIcon,
+                                { backgroundColor: theme.colors.primary + '20' },
+                            ]}
+                        >
                             <Ionicons name="qr-code" size={32} color={theme.colors.primary} />
                         </View>
                         <View style={[styles.statusBadge, { backgroundColor: '#4CAF50' + '20' }]}>
@@ -117,13 +148,25 @@ export default function WalletScreen({ navigation }) {
                             <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
                         </TouchableOpacity>
                         <View>
-                            <Text style={[styles.headerTitle, { color: theme.colors.text }]}>My Wallet</Text>
-                            <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
+                            <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+                                My Wallet
+                            </Text>
+                            <Text
+                                style={[
+                                    styles.headerSubtitle,
+                                    { color: theme.colors.textSecondary },
+                                ]}
+                            >
                                 {tickets.length} {tickets.length === 1 ? 'ticket' : 'tickets'}
                             </Text>
                         </View>
                     </View>
-                    <View style={[styles.walletIcon, { backgroundColor: theme.colors.primary + '20' }]}>
+                    <View
+                        style={[
+                            styles.walletIcon,
+                            { backgroundColor: theme.colors.primary + '20' },
+                        ]}
+                    >
                         <Ionicons name="wallet" size={28} color={theme.colors.primary} />
                     </View>
                 </View>
@@ -142,15 +185,29 @@ export default function WalletScreen({ navigation }) {
                     showsVerticalScrollIndicator={false}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
-                            <View style={[styles.emptyIcon, { backgroundColor: theme.colors.surface }]}>
-                                <Ionicons name="ticket-outline" size={64} color={theme.colors.textSecondary} />
+                            <View
+                                style={[
+                                    styles.emptyIcon,
+                                    { backgroundColor: theme.colors.surface },
+                                ]}
+                            >
+                                <Ionicons
+                                    name="ticket-outline"
+                                    size={64}
+                                    color={theme.colors.textSecondary}
+                                />
                             </View>
-                            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>No Tickets Yet</Text>
+                            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+                                No Tickets Yet
+                            </Text>
                             <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
                                 Browse events and book your first ticket
                             </Text>
                             <TouchableOpacity
-                                style={[styles.browseBtn, { backgroundColor: theme.colors.primary }]}
+                                style={[
+                                    styles.browseBtn,
+                                    { backgroundColor: theme.colors.primary },
+                                ]}
                                 onPress={() => navigation.navigate('Home')}
                             >
                                 <Ionicons name="compass" size={20} color="#fff" />
