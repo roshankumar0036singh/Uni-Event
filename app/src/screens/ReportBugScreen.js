@@ -21,6 +21,7 @@ import { db, storage } from '../lib/firebaseConfig';
 import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
 import ScreenWrapper from '../components/ScreenWrapper';
+import { Ionicons } from '@expo/vector-icons';
 
 const showAlert = (title, message, onOk) => {
     if (Platform.OS === 'web') {
@@ -166,45 +167,44 @@ export default function ReportBugScreen({ navigation }) {
         }
         setSubmitting(true);
         let uploadedPath = null;
-    try {
-      const { url: screenshotUrl, path: screenshotPath } = await uploadScreenshot(user.uid);
-      uploadedPath = screenshotPath;
-
-      await addDoc(collection(db, 'feedback'), {
-        userId: user.uid,
-        userEmail: user.email || null,
-        userRole: role || 'student',
-        category,
-        description: description.trim(),
-        screenshotUrl,
-        telemetry: collectTelemetry(),
-        status: 'open',           
-        createdAt: serverTimestamp(),
-      });
-
-     
-      uploadedPath = null;
-
-      showAlert('Thank you!', 'Your feedback has been submitted.', () => navigation.goBack());
-    } catch (e) {
-      console.error('Feedback submit failed', e);
-
-      
-      if (uploadedPath) {
         try {
-          await deleteObject(storageRef(storage, uploadedPath));
-        } catch (cleanupError) {
-          console.error('Failed to clean up orphaned screenshot', cleanupError);
-        }
-      }
+            const { url: screenshotUrl, path: screenshotPath } = await uploadScreenshot(user.uid);
+            uploadedPath = screenshotPath;
 
-      const safeMessage = e instanceof ValidationError
-        ? e.message
-        : 'Something went wrong. Please try again.';
-      showAlert('Submission failed', safeMessage);
-    } finally {
-      setSubmitting(false);
-    }
+            await addDoc(collection(db, 'feedback'), {
+                userId: user.uid,
+                userEmail: user.email || null,
+                userRole: role || 'student',
+                category,
+                description: description.trim(),
+                screenshotUrl,
+                telemetry: collectTelemetry(),
+                status: 'open',
+                createdAt: serverTimestamp(),
+            });
+
+            uploadedPath = null;
+
+            showAlert('Thank you!', 'Your feedback has been submitted.', () => navigation.goBack());
+        } catch (e) {
+            console.error('Feedback submit failed', e);
+
+            if (uploadedPath) {
+                try {
+                    await deleteObject(storageRef(storage, uploadedPath));
+                } catch (cleanupError) {
+                    console.error('Failed to clean up orphaned screenshot', cleanupError);
+                }
+            }
+
+            const safeMessage =
+                e instanceof ValidationError
+                    ? e.message
+                    : 'Something went wrong. Please try again.';
+            showAlert('Submission failed', safeMessage);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -288,8 +288,14 @@ export default function ReportBugScreen({ navigation }) {
                     onPress={pickScreenshot}
                     style={[styles.attachBtn, { borderColor: theme.colors.primary }]}
                 >
+                    <Ionicons
+                        name="image-outline"
+                        size={20}
+                        color={theme.colors.primary}
+                        style={{ marginRight: 8 }}
+                    />
                     <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>
-                        {screenshotUri ? 'Change Screenshot' : '📎 Attach Screenshot'}
+                        {screenshotUri ? 'Change Screenshot' : 'Attach Screenshot'}
                     </Text>
                 </TouchableOpacity>
 
@@ -337,6 +343,8 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderStyle: 'dashed',
         alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
     },
     preview: { width: '100%', height: 220, marginTop: 12, borderRadius: 8 },
     submitBtn: { marginTop: 24, paddingVertical: 14, borderRadius: 8, alignItems: 'center' },
