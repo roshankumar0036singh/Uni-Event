@@ -34,6 +34,7 @@ import SavedEventsScreen from './src/screens/SavedEventsScreen';
 import FormBuilderScreen from './src/screens/FormBuilderScreen';
 import EventRegistrationFormScreen from './src/screens/EventRegistrationFormScreen';
 import WrappedScreen from './src/screens/WrappedScreen';
+import ReportBugScreen from './src/screens/ReportBugScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -308,6 +309,11 @@ function Navigation() {
                             name="Wrapped"
                             component={WrappedScreen}
                             options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="ReportBug"
+                            component={ReportBugScreen}
+                            options={{ title: 'Report a Bug' }}
                         />
                     </>
                 ) : (
