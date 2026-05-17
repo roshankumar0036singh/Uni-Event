@@ -1,0 +1,1 @@
+{"version":3,"file":"distance.js","sourceRoot":"","sources":["../../src/utils/distance.ts"],"names":[],"mappings":";;AAEA,8CAgBC;AAlBD,mCAAqC;AAErC,SAAgB,iBAAiB,CAC/B,IAAY,EACZ,IAAY,EACZ,IAAY,EACZ,IAAY;IAEZ,OAAO,IAAA,oBAAW,EAChB;QACE,QAAQ,EAAE,IAAI;QACd,SAAS,EAAE,IAAI;KAChB,EACD;QACE,QAAQ,EAAE,IAAI;QACd,SAAS,EAAE,IAAI;KAChB,CACF,CAAC;AACJ,CAAC"}
