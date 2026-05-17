@@ -56,6 +56,7 @@ export default function QRScannerScreen({ navigation, route }) {
                 }
             } catch (_e) {
                 // If JSON parsing fails, treat as plain userId string (fallback)
+                console.log('JSON parsing failed, falling back to plain string format:', _e);
                 scannedUserId = data;
             }
 

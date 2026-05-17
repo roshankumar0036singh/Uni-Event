@@ -46,7 +46,9 @@ export default function WrappedConfetti({ visible, onComplete }) {
     const timeoutIdsRef = useRef([]);
 
     const particles = useRef(
-        CONFETTI_COLORS.map(() => ({
+        CONFETTI_COLORS.map((color, i) => ({
+            id: `particle-${i}`,
+            color,
             x: new Animated.Value(0),
             y: new Animated.Value(0),
             opacity: new Animated.Value(0),
@@ -222,22 +224,26 @@ export default function WrappedConfetti({ visible, onComplete }) {
                 ]}
             >
                 {/* Ripples */}
-                {[ripple1, ripple2, ripple3].map((ripple, i) => (
+                {[
+                    { id: 'ripple1', anim: ripple1 },
+                    { id: 'ripple2', anim: ripple2 },
+                    { id: 'ripple3', anim: ripple3 },
+                ].map(item => (
                     <Animated.View
-                        key={i}
+                        key={item.id}
                         style={[
                             styles.ripple,
                             {
                                 backgroundColor: theme.colors.primary,
                                 transform: [
                                     {
-                                        scale: ripple.interpolate({
+                                        scale: item.anim.interpolate({
                                             inputRange: [0, 1],
                                             outputRange: [0.8, 3],
                                         }),
                                     },
                                 ],
-                                opacity: ripple.interpolate({
+                                opacity: item.anim.interpolate({
                                     inputRange: [0, 1],
                                     outputRange: [0.15, 0],
                                 }),
@@ -247,13 +253,13 @@ export default function WrappedConfetti({ visible, onComplete }) {
                 ))}
 
                 {/* Confetti particles */}
-                {particles.map((p, i) => (
+                {particles.map(p => (
                     <Animated.View
-                        key={i}
+                        key={p.id}
                         style={[
                             styles.particle,
                             {
-                                backgroundColor: CONFETTI_COLORS[i],
+                                backgroundColor: p.color,
                                 transform: [
                                     { translateX: p.x },
                                     { translateY: p.y },

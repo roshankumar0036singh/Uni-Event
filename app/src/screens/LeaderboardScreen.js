@@ -45,6 +45,7 @@ export default function LeaderboardScreen({ navigation }) {
             const userRef = doc(db, 'users', user.uid);
             await updateDoc(userRef, { isAnonymous: value });
         } catch (_error) {
+            console.error('Privacy toggle error:', _error);
             Alert.alert('Error', 'Failed to update privacy setting.');
         }
     };

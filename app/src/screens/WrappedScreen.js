@@ -94,7 +94,9 @@ export default function WrappedScreen({ navigation }) {
                 (a, b) => monthCount[b] - monthCount[a],
             )[0];
             const activeMonth =
-                activeMonthIndex !== undefined ? MONTH_NAMES[parseInt(activeMonthIndex)] : 'N/A';
+                activeMonthIndex === undefined
+                    ? 'N/A'
+                    : MONTH_NAMES[Number.parseInt(activeMonthIndex, 10)];
 
             // Favorite category
             const catCount = {};
@@ -121,7 +123,7 @@ export default function WrappedScreen({ navigation }) {
 
     const slides = [
         {
-            id: 1,
+            id: 'slide_events',
             icon: 'calendar-outline',
             title: 'Your Year in Events',
             value: String(stats.totalEvents),
@@ -129,7 +131,7 @@ export default function WrappedScreen({ navigation }) {
             accent: theme.colors.primary,
         },
         {
-            id: 2,
+            id: 'slide_month',
             icon: 'flame-outline',
             title: 'Most Active Month',
             value: stats.mostActiveMonth,
@@ -137,7 +139,7 @@ export default function WrappedScreen({ navigation }) {
             accent: '#FF6B6B',
         },
         {
-            id: 3,
+            id: 'slide_category',
             icon: 'star-outline',
             title: 'Favourite Category',
             value: stats.favoriteCategory,
@@ -145,7 +147,7 @@ export default function WrappedScreen({ navigation }) {
             accent: theme.colors.info,
         },
         {
-            id: 4,
+            id: 'slide_points',
             icon: 'trophy-outline',
             title: 'Points Earned',
             value: String(stats.totalPoints),
@@ -153,7 +155,7 @@ export default function WrappedScreen({ navigation }) {
             accent: theme.colors.success,
         },
         {
-            id: 5,
+            id: 'slide_star',
             icon: 'heart-outline',
             title: 'You are a Campus Star!',
             value: 'Amazing',
@@ -245,8 +247,8 @@ export default function WrappedScreen({ navigation }) {
 
                 {/* Dot indicators */}
                 <View style={styles.dots}>
-                    {slides.map((_, i) => (
-                        <TouchableOpacity key={i} onPress={() => setCurrent(i)}>
+                    {slides.map((slideItem, i) => (
+                        <TouchableOpacity key={slideItem.id} onPress={() => setCurrent(i)}>
                             <View
                                 style={[
                                     styles.dot,

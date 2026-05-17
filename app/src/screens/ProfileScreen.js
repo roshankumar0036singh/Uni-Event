@@ -24,6 +24,20 @@ import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
+// Helper to get ordinal year labels
+const getYearLabel = y => {
+    switch (y) {
+        case '1':
+            return '1st';
+        case '2':
+            return '2nd';
+        case '3':
+            return '3rd';
+        default:
+            return `${y}th`;
+    }
+};
+
 // Helper for menu items
 const MenuItem = ({ icon, label, onPress, theme, styles, showChevron = true, rightElement }) => (
     <TouchableOpacity style={styles.menuItem} onPress={onPress}>
@@ -412,9 +426,9 @@ export default function ProfileScreen({ navigation }) {
                                 {/* Other badges as chips */}
                                 {otherBadges.length > 0 && (
                                     <View style={styles.badgesRow}>
-                                        {otherBadges.map((badge, index) => (
+                                        {otherBadges.map((badge) => (
                                             <View
-                                                key={index}
+                                                key={badge}
                                                 style={[
                                                     styles.badgeChip,
                                                     {
@@ -563,14 +577,7 @@ export default function ProfileScreen({ navigation }) {
                                                     year === y && styles.chipTextActive,
                                                 ]}
                                             >
-                                                {y === '1'
-                                                    ? '1st'
-                                                    : y === '2'
-                                                      ? '2nd'
-                                                      : y === '3'
-                                                        ? '3rd'
-                                                        : y + 'th'}{' '}
-                                                Year
+                                                {getYearLabel(y)} Year
                                             </Text>
                                         </TouchableOpacity>
                                     ))}

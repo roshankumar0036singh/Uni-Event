@@ -15,6 +15,23 @@ import { Rating } from 'react-native-ratings';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
+const getRatingText = rating => {
+    switch (rating) {
+        case 1:
+            return 'Poor';
+        case 2:
+            return 'Fair';
+        case 3:
+            return 'Good';
+        case 4:
+            return 'Very Good';
+        case 5:
+            return 'Excellent';
+        default:
+            return 'Tap to rate';
+    }
+};
+
 export default function FeedbackModal({ visible, onClose, feedbackRequest, onSubmit }) {
     const { theme } = useTheme();
     const [attended, setAttended] = useState(null); // null, true, false
@@ -194,17 +211,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                             { color: theme.colors.textSecondary },
                                         ]}
                                     >
-                                        {eventRating === 0
-                                            ? 'Tap to rate'
-                                            : eventRating === 1
-                                              ? 'Poor'
-                                              : eventRating === 2
-                                                ? 'Fair'
-                                                : eventRating === 3
-                                                  ? 'Good'
-                                                  : eventRating === 4
-                                                    ? 'Very Good'
-                                                    : 'Excellent'}
+                                        {getRatingText(eventRating)}
                                     </Text>
                                 </View>
 
@@ -230,17 +237,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                             { color: theme.colors.textSecondary },
                                         ]}
                                     >
-                                        {clubRating === 0
-                                            ? 'Tap to rate'
-                                            : clubRating === 1
-                                              ? 'Poor'
-                                              : clubRating === 2
-                                                ? 'Fair'
-                                                : clubRating === 3
-                                                  ? 'Good'
-                                                  : clubRating === 4
-                                                    ? 'Very Good'
-                                                    : 'Excellent'}
+                                        {getRatingText(clubRating)}
                                     </Text>
                                 </View>
 

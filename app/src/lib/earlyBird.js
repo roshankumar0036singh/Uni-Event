@@ -1,7 +1,7 @@
 // Safely convert any createdAt or deadline value to milliseconds.
 // Handles: ISO strings, numbers, Firestore Timestamp objects ({ seconds, nanoseconds }),
 // and objects with a .toDate() method (Expo/web Firebase SDK).
-const getTimestampMs = value => {
+export const getTimestampMs = value => {
     if (!value) return null;
     if (typeof value === 'string' || typeof value === 'number') {
         const ms = new Date(value).getTime();

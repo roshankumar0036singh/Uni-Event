@@ -39,8 +39,12 @@ import { db } from '../lib/firebaseConfig';
 import { cancelScheduledNotification, scheduleEventReminder } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
-import { getEarlyBirdInfo } from '../lib/earlyBird';
+import { getEarlyBirdInfo, getTimestampMs } from '../lib/earlyBird';
 import PropTypes from 'prop-types';
+
+// Constants to eliminate SonarQube Magic Numbers
+const RSVP_POINTS_CHANGE = 10;
+const FALLBACK_EARLY_BIRD_MS = 3600000; // 1 hour early-bird duration fallback
 
 export default function EventDetail({ route, navigation }) {
     const { eventId, action } = route.params;
@@ -49,6 +53,8 @@ export default function EventDetail({ route, navigation }) {
     const styles = useMemo(() => getStyles(theme), [theme]);
 
     const [event, setEvent] = useState(null);
+    const ebInfo = useMemo(() => getEarlyBirdInfo(event), [event]);
+
     const [loading, setLoading] = useState(true);
     const [sendingCertificates, setSendingCertificates] = useState(false);
     const [rsvpStatus, setRsvpStatus] = useState(null);
@@ -83,6 +89,7 @@ export default function EventDetail({ route, navigation }) {
             setShowAppealModal(false);
             Alert.alert('Submitted', 'Appeal sent to admin for review.');
         } catch (_e) {
+            console.error('Error submitting appeal:', _e);
             Alert.alert('Error', 'Failed to submit appeal');
         } finally {
             setSendingAppeal(false);
@@ -371,8 +378,11 @@ export default function EventDetail({ route, navigation }) {
             if (rsvpStatus === 'going') {
                 await deleteDoc(ref);
                 await deleteDoc(userRef);
-                await updateDoc(userProfileRef, { points: increment(-10) });
-                Alert.alert('Withdrawn', 'You are no longer registered. (-10 Points)');
+                await updateDoc(userProfileRef, { points: increment(-RSVP_POINTS_CHANGE) });
+                Alert.alert(
+                    'Withdrawn',
+                    `You are no longer registered. (-${RSVP_POINTS_CHANGE} Points)`,
+                );
             } else {
                 const userDoc = await getDoc(userProfileRef);
                 const userData = userDoc.exists() ? userDoc.data() : {};
@@ -387,8 +397,8 @@ export default function EventDetail({ route, navigation }) {
                 });
                 await setDoc(userRef, { eventId: eventId, joinedAt: new Date().toISOString() });
 
-                const { isEligible: earlyBird } = getEarlyBirdInfo(event);
-                const userUpdate = { points: increment(10) };
+                const earlyBird = ebInfo?.isEligible;
+                const userUpdate = { points: increment(RSVP_POINTS_CHANGE) };
                 if (earlyBird) {
                     userUpdate.badges = arrayUnion(`early_bird_${eventId}`);
                 }
@@ -398,8 +408,8 @@ export default function EventDetail({ route, navigation }) {
                 Alert.alert(
                     'Registered! 🎉',
                     earlyBird
-                        ? 'You earned +10 Points and the 🐦 Early Bird badge for being one of the first to RSVP!'
-                        : 'You earned +10 Points for registering.',
+                        ? `You earned +${RSVP_POINTS_CHANGE} Points and the 🐦 Early Bird badge for being one of the first to RSVP!`
+                        : `You earned +${RSVP_POINTS_CHANGE} Points for registering.`,
                 );
             }
         } catch (e) {
@@ -780,8 +790,6 @@ export default function EventDetail({ route, navigation }) {
         );
 
     // --- Compute ticket list before render ---
-    const ebInfo = getEarlyBirdInfo(event);
-
     const commonBenefits = [
         'Entry to all sessions',
         'Networking opportunities with peers',
@@ -790,7 +798,7 @@ export default function EventDetail({ route, navigation }) {
     ];
 
     const defaultTickets = [
-        ...(event.hasEarlyBird || ebInfo.isEligible
+        ...(event.hasEarlyBird || ebInfo?.isEligible
             ? [
                   {
                       name: 'Early Bird Pass',
@@ -798,20 +806,11 @@ export default function EventDetail({ route, navigation }) {
                       benefits: [
                           ...commonBenefits,
                           'Exclusive Early Bird badge on your profile',
-                          '+10 bonus points reward',
+                          `+${RSVP_POINTS_CHANGE} bonus points reward`,
                       ],
-                      availableTill: ebInfo.deadline
-                          ? new Date(
-                                typeof ebInfo.deadline === 'string' ||
-                                    typeof ebInfo.deadline === 'number'
-                                    ? ebInfo.deadline
-                                    : typeof ebInfo.deadline.toMillis === 'function'
-                                      ? ebInfo.deadline.toMillis()
-                                      : typeof ebInfo.deadline.toDate === 'function'
-                                        ? ebInfo.deadline.toDate()
-                                        : ebInfo.deadline.seconds * 1000,
-                            )
-                          : new Date(new Date(event.createdAt).getTime() + 3600000),
+                      availableTill: ebInfo?.deadline
+                          ? new Date(getTimestampMs(ebInfo.deadline))
+                          : new Date(getTimestampMs(event.createdAt) + FALLBACK_EARLY_BIRD_MS),
                       price: ebInfo.currentPrice ?? 0,
                       isEarlyBird: true,
                   },
@@ -833,12 +832,12 @@ export default function EventDetail({ route, navigation }) {
         event.ticketTypes && event.ticketTypes.length > 0 ? event.ticketTypes : defaultTickets;
 
     const renderTicketCard = (ticket, idx) => {
-        const deadline =
-            ticket.availableTill instanceof Date
+        let deadline = null;
+        if (ticket.availableTill) {
+            deadline = ticket.availableTill instanceof Date
                 ? ticket.availableTill
-                : ticket.availableTill
-                  ? new Date(ticket.availableTill)
-                  : null;
+                : new Date(ticket.availableTill);
+        }
         const isExpired = deadline && new Date() > deadline;
         const isEarlyBirdTicket =
             ticket.isEarlyBird || (ticket.name && ticket.name.toLowerCase().includes('early'));
@@ -1004,9 +1003,9 @@ export default function EventDetail({ route, navigation }) {
 
                             {benefitsOpen && (
                                 <View style={{ marginTop: 8, gap: 6 }}>
-                                    {ticket.benefits.map((b, bi) => (
+                                    {ticket.benefits.map((b) => (
                                         <View
-                                            key={String(bi)}
+                                            key={b}
                                             style={{
                                                 flexDirection: 'row',
                                                 alignItems: 'center',
