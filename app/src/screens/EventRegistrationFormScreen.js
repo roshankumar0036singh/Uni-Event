@@ -8,8 +8,9 @@ import {
     Alert,
     TextInput,
     ActivityIndicator,
-} import { View, Text, Vibration }
-    from 'react-native';
+} 
+    import { View, Text, Vibration }
+    from 'react-native'; 
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useTheme } from '../lib/ThemeContext';
