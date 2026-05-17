@@ -75,37 +75,40 @@ export default function CreateEvent({ navigation, route }) {
     // Google Auth
     const { request, response, promptAsync, getAccessToken } = CalendarService.useCalendarAuth();
 
-    useEffect(() => {
-        navigation.setOptions({ headerShown: false }); // Hide default header
-        if (response?.type === 'success') {
-            getAccessToken()
-                .then(token => {
-                    if (token) handleGenerateMeet(token);
-                })
-                .catch(e => Alert.alert('Error', e.message));
+    
+    const handleGenerateMeetLink = async () => {
+    try {
+        const authResult = await promptAsync();
+        const token =
+            authResult?.authentication?.accessToken ||
+            authResult?.params?.access_token ||
+            response?.authentication?.accessToken ||
+            response?.params?.access_token;
+        if (!token) {
+            Alert.alert('Error', 'Unable to get Google access token');
+            return null;
         }
-    }, [response]);
+        const result = await CalendarService.createMeetEvent(token, {
+            title: title || 'New Event',
+            description: description || 'Virtual Event',
+            startAt: startDate.toISOString(),
+            endAt: endDate.toISOString(),
+        });
+        if (result?.meetLink) {
+            setMeetLink(result.meetLink);
+            setLocation('Google Meet');
+            Alert.alert('Success', 'Google Meet link generated!');
+            return result.meetLink;
+        } else {
+            Alert.alert('Error', 'Meet link not returned from Google API');
+            return null;
+        }
+    } catch (error) {
+        Alert.alert('Error', error.message || 'Failed to generate Meet link');
+        return null;
+    }
+};
 
-    const handleGenerateMeet = async token => {
-        setLoading(true);
-        try {
-            const result = await CalendarService.createMeetEvent(token, {
-                title: title || 'New Club Event',
-                description: description || 'Created via Event App',
-                startAt: startDate.toISOString(),
-                endAt: endDate.toISOString(),
-            });
-            if (result.meetLink) {
-                setMeetLink(result.meetLink);
-                setLocation('Google Meet');
-                Alert.alert('Success', 'Google Meet Link Generated!');
-            }
-        } catch (e) {
-            Alert.alert('Error', e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
@@ -195,14 +198,26 @@ export default function CreateEvent({ navigation, route }) {
             } else if (!bannerUrl) {
                 bannerUrl = DEFAULT_BANNERS[Math.floor(Math.random() * DEFAULT_BANNERS.length)];
             }
+            
+        
+        let generatedMeetLink = meetLink;
+
+        if (eventMode === 'online' && !meetLink) {
+            generatedMeetLink = await handleGenerateMeetLink();   
+        }
+        if (eventMode === 'online' && !generatedMeetLink) {
+            setLoading(false);
+            return;
+}
+
 
             const eventData = {
                 title,
                 description,
-                location,
+                location: eventMode === 'online' ? 'Google Meet' : location,
                 category,
                 eventMode,
-                meetLink: eventMode === 'online' ? meetLink : null,
+                meetLink: eventMode === 'online' ? generatedMeetLink  : null,
                 startAt: startDate.toISOString(),
                 endAt: endDate.toISOString(),
                 isPaid,
@@ -236,7 +251,6 @@ export default function CreateEvent({ navigation, route }) {
 
             navigation.goBack();
         } catch (e) {
-            console.error(e);
             Alert.alert(
                 'Error',
                 isEditMode ? 'Failed to update event.' : 'Failed to create event.',
@@ -485,7 +499,7 @@ export default function CreateEvent({ navigation, route }) {
                             />
                             <TouchableOpacity
                                 style={styles.gmeetBtn}
-                                onPress={() => promptAsync()}
+                                onPress={handleGenerateMeetLink}
                                 disabled={!request}
                             >
                                 <Ionicons name="logo-google" size={20} color="#fff" />
