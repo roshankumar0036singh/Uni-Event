@@ -1,0 +1,15 @@
+# Node modules
+node_modules/
+
+# Compiled output
+lib/
+
+# Environment variables
+.env
+
+# Debug logs
+firebase-debug.log
+*.log
+
+# Map files
+*.map

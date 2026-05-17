@@ -4,11 +4,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow create: if request.auth != null && request.auth.uid == userId;
       allow read: if request.auth != null && request.auth.uid == userId;
+      // Only admin custom claim can write roles
       allow update: if request.auth.token.admin == true;
     }
     match /clubs/{clubId} {
       allow read: if true;
-      allow create: if request.auth != null && request.auth.token.admin == true;
+      allow create: if request.auth != null && request.auth.token.admin == true; // admin should create clubs
       allow update, delete: if request.auth != null && request.auth.token.admin == true;
     }
     match /events/{eventId} {
@@ -22,17 +23,6 @@ service cloud.firestore {
     }
     match /admin/{doc} {
       allow read, write: if request.auth != null && request.auth.token.admin == true;
-    }
-    match /feedback/{docId} {
-      allow create: if request.auth != null
-                    && request.resource.data.userId == request.auth.uid;
-
-      allow read: if request.auth != null
-                  && (resource.data.userId == request.auth.uid
-                      || request.auth.token.admin == true);
-
-      allow update, delete: if request.auth != null
-                            && request.auth.token.admin == true;
     }
   }
 }
