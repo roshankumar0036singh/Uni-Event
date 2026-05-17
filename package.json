@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "test:rules": "jest tests/firestore.rules.test.ts --runInBand"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.8.0",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.9"
+  }
+}
