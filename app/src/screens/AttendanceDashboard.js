@@ -11,7 +11,7 @@ import {
     where,
     updateDoc,
 } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -27,6 +27,7 @@ import {
     TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BarChart } from 'react-native-chart-kit';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
@@ -207,6 +208,61 @@ export default function AttendanceDashboard({ route, navigation }) {
 
         return () => unsubscribe();
     }, [eventId]);
+
+    // Calculate Peak Attendance Data
+    const peakAttendanceData = useMemo(() => {
+        if (!checkIns || checkIns.length === 0 || !eventData?.startAt) return null;
+
+        const startAt = new Date(eventData.startAt).getTime();
+        if (isNaN(startAt)) return null;
+        const buckets = {
+            '>30m Early': 0,
+            '15-30m Early': 0,
+            '0-15m Early': 0,
+            '0-15m Late': 0,
+            '15-30m Late': 0,
+            '>30m Late': 0,
+        };
+
+        checkIns.forEach(checkIn => {
+            const checkInTime = checkIn.checkedInAt?.toMillis();
+            if (!checkInTime) return;
+
+            const diffMinutes = (checkInTime - startAt) / 60000;
+
+            if (diffMinutes < -30) buckets['>30m Early']++;
+            else if (diffMinutes >= -30 && diffMinutes < -15) buckets['15-30m Early']++;
+            else if (diffMinutes >= -15 && diffMinutes < 0) buckets['0-15m Early']++;
+            else if (diffMinutes >= 0 && diffMinutes <= 15) buckets['0-15m Late']++;
+            else if (diffMinutes > 15 && diffMinutes <= 30) buckets['15-30m Late']++;
+            else buckets['>30m Late']++;
+        });
+
+        // Only render graph if there is at least one check-in with a valid timestamp
+        const totalValid = Object.values(buckets).reduce((sum, val) => sum + val, 0);
+        if (totalValid === 0) return null;
+
+        const data = Object.values(buckets);
+        const maxVal = Math.max(...data);
+
+        return {
+            segments: Math.max(1, Math.min(maxVal, 4)), // Prevent duplicate Y-axis labels by limiting segments
+            labels: ['>30 E', '15-30 E', '0-15 E', '0-15 L', '15-30 L', '>30 L'],
+            datasets: [
+                {
+                    data,
+                    colors: [
+                        (opacity = 1) => theme.colors.success || '#00C853',
+                        (opacity = 1) => '#4CAF50',
+                        (opacity = 1) => theme.colors.primary,
+                        (opacity = 1) => theme.colors.warning || '#FFAB00',
+                        (opacity = 1) => '#FF5722',
+                        (opacity = 1) => theme.colors.error || '#FF3D00',
+                    ],
+                },
+            ],
+        };
+    }, [checkIns, eventData, theme]);
 
     const downloadCSV = async (csvContent, fileName) => {
         if (Platform.OS === 'web') {
@@ -495,7 +551,7 @@ export default function AttendanceDashboard({ route, navigation }) {
     return (
         <SafeAreaView
             style={[styles.container, { backgroundColor: theme.colors.background }]}
-            edges={['bottom']}
+            // Removed edges={['bottom']} so iOS notch doesn't cover the back button
         >
             <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -582,6 +638,55 @@ export default function AttendanceDashboard({ route, navigation }) {
                         </View>
                     )}
                 </View>
+
+                {peakAttendanceData && (
+                    <View style={[styles.analyticsCard, { backgroundColor: theme.colors.surface }]}>
+                        <View style={styles.analyticsHeader}>
+                            <View style={styles.analyticsHeaderLeft}>
+                                <Ionicons name="bar-chart" size={18} color={theme.colors.primary} />
+                                <Text style={[styles.analyticsTitle, { color: theme.colors.text }]}>
+                                    Peak Attendance Time
+                                </Text>
+                            </View>
+                        </View>
+                        <BarChart
+                            data={peakAttendanceData}
+                            width={width - 40}
+                            height={220}
+                            yAxisLabel=""
+                            yAxisSuffix=""
+                            segments={peakAttendanceData.segments}
+                            chartConfig={{
+                                backgroundGradientFrom: theme.colors.surface,
+                                backgroundGradientTo: theme.colors.surface,
+                                color: (opacity = 1) => theme.colors.border,
+                                labelColor: (opacity = 1) => theme.colors.textSecondary,
+                                barPercentage: 0.7,
+                                barRadius: 4,
+                                decimalPlaces: 0,
+                                propsForLabels: {
+                                    fontSize: 10,
+                                    fontWeight: '600',
+                                },
+                                propsForBackgroundLines: {
+                                    strokeDasharray: '4',
+                                    stroke: theme.colors.textSecondary + '20',
+                                },
+                            }}
+                            style={{
+                                marginVertical: 0,
+                                borderRadius: 16,
+                                marginHorizontal: -10,
+                                paddingRight: 30,
+                            }}
+                            showValuesOnTopOfBars={true}
+                            fromZero={true}
+                            withInnerLines={true}
+                            withCustomBarColorFromData={true}
+                            flatColor={true}
+                        />
+                    </View>
+                )}
 
                 {Object.keys(departmentStats).length > 0 && (
                     <AnalyticsSection
