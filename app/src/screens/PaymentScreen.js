@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
 import { useState } from 'react';
 import {
     ActivityIndicator,
@@ -17,6 +17,8 @@ import PaymentSuccessAnimation from '../components/PaymentSuccessAnimation';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+
+import { getEarlyBirdInfo } from '../lib/earlyBird';
 
 export default function PaymentScreen({ route, navigation }) {
     const { event, price, formResponses } = route.params;
@@ -153,14 +155,26 @@ export default function PaymentScreen({ route, navigation }) {
                     });
                 }
 
+                // 5. Award Points & Early Bird Badge
+                const { isEligible: earlyBird } = getEarlyBirdInfo(event);
+                const userUpdate = { points: increment(10) };
+                if (earlyBird) {
+                    userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
+                }
+                await updateDoc(doc(db, 'users', user.uid), userUpdate);
+
                 setLoading(false);
 
-                // Show success animation
+                // Show success animation (badge info surfaced via ticketData so TicketScreen can display it)
                 setShowSuccessAnimation(true);
 
                 // Navigate to ticket after animation completes
                 setTimeout(() => {
-                    navigation.replace('TicketScreen', { ticketId: ticketRef.id, ticketData });
+                    navigation.replace('TicketScreen', {
+                        ticketId: ticketRef.id,
+                        ticketData,
+                        earlyBirdEarned: earlyBird,
+                    });
                 }, 2500);
             } catch (error) {
                 console.error('Payment Error:', error);
