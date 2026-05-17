@@ -1,5 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore';
+import {
+    addDoc,
+    collection,
+    doc,
+    getDoc,
+    serverTimestamp,
+    setDoc,
+    updateDoc,
+    increment,
+    arrayUnion,
+} from 'firebase/firestore';
 import { useState } from 'react';
 import {
     ActivityIndicator,

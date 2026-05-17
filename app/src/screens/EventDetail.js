@@ -48,7 +48,6 @@ const UniEventLogo = require('../../assets/UniEvent.png');
 
 import { getEarlyBirdInfo } from '../lib/earlyBird';
 
-
 export default function EventDetail({ route, navigation }) {
     const { eventId, action } = route.params;
     const { user, role } = useAuth();
@@ -68,7 +67,7 @@ export default function EventDetail({ route, navigation }) {
     const [activeTab, setActiveTab] = useState('about');
     const [expandedBenefits, setExpandedBenefits] = useState(new Set());
 
-    const toggleBenefits = (idx) => {
+    const toggleBenefits = idx => {
         setExpandedBenefits(prev => {
             const next = new Set(prev);
             if (next.has(idx)) next.delete(idx);
@@ -359,7 +358,10 @@ export default function EventDetail({ route, navigation }) {
                 return;
             }
             // Navigate to Payment — pass the correct (possibly early-bird) price
-            navigation.navigate('Payment', { event, price: ebInfo.currentPrice ?? event.price ?? 0 });
+            navigation.navigate('Payment', {
+                event,
+                price: ebInfo.currentPrice ?? event.price ?? 0,
+            });
             return;
         }
 
@@ -820,24 +822,32 @@ export default function EventDetail({ route, navigation }) {
 
     const defaultTickets = [
         ...(event.hasEarlyBird || ebInfo.isEligible
-            ? [{
-                name: 'Early Bird Pass',
-                description: `\u26a1 LIMITED TIME OFFER! Grab your spot early and be among the first to experience ${event.title}. Registering early earns you the exclusive 🐦 Early Bird badge and bonus points!`,
-                benefits: [...commonBenefits, 'Exclusive Early Bird badge on your profile', '+10 bonus points reward'],
-                availableTill: ebInfo.deadline
-                    ? new Date(typeof ebInfo.deadline === 'string' || typeof ebInfo.deadline === 'number'
-                        ? ebInfo.deadline
-                        : typeof ebInfo.deadline.toMillis === 'function'
-                            ? ebInfo.deadline.toMillis()
-                            : typeof ebInfo.deadline.toDate === 'function'
-                                ? ebInfo.deadline.toDate()
-                                : ebInfo.deadline.seconds * 1000)
-                    : new Date(new Date(event.createdAt).getTime() + 3600000),
-                price: ebInfo.currentPrice ?? 0,
-                isEarlyBird: true,
-            }]
-            : []
-        ),
+            ? [
+                  {
+                      name: 'Early Bird Pass',
+                      description: `\u26a1 LIMITED TIME OFFER! Grab your spot early and be among the first to experience ${event.title}. Registering early earns you the exclusive 🐦 Early Bird badge and bonus points!`,
+                      benefits: [
+                          ...commonBenefits,
+                          'Exclusive Early Bird badge on your profile',
+                          '+10 bonus points reward',
+                      ],
+                      availableTill: ebInfo.deadline
+                          ? new Date(
+                                typeof ebInfo.deadline === 'string' ||
+                                    typeof ebInfo.deadline === 'number'
+                                    ? ebInfo.deadline
+                                    : typeof ebInfo.deadline.toMillis === 'function'
+                                      ? ebInfo.deadline.toMillis()
+                                      : typeof ebInfo.deadline.toDate === 'function'
+                                        ? ebInfo.deadline.toDate()
+                                        : ebInfo.deadline.seconds * 1000,
+                            )
+                          : new Date(new Date(event.createdAt).getTime() + 3600000),
+                      price: ebInfo.currentPrice ?? 0,
+                      isEarlyBird: true,
+                  },
+              ]
+            : []),
         {
             name: 'Regular Pass',
             description: event.isPaid
@@ -850,17 +860,19 @@ export default function EventDetail({ route, navigation }) {
         },
     ];
 
-    const ticketList = (event.ticketTypes && event.ticketTypes.length > 0)
-        ? event.ticketTypes
-        : defaultTickets;
+    const ticketList =
+        event.ticketTypes && event.ticketTypes.length > 0 ? event.ticketTypes : defaultTickets;
 
     const renderTicketCard = (ticket, idx) => {
-        const deadline = ticket.availableTill instanceof Date
-            ? ticket.availableTill
-            : ticket.availableTill ? new Date(ticket.availableTill) : null;
+        const deadline =
+            ticket.availableTill instanceof Date
+                ? ticket.availableTill
+                : ticket.availableTill
+                  ? new Date(ticket.availableTill)
+                  : null;
         const isExpired = deadline && new Date() > deadline;
-        const isEarlyBirdTicket = ticket.isEarlyBird ||
-            (ticket.name && ticket.name.toLowerCase().includes('early'));
+        const isEarlyBirdTicket =
+            ticket.isEarlyBird || (ticket.name && ticket.name.toLowerCase().includes('early'));
         const isFree = !ticket.price || ticket.price === 0;
         const accentColor = isEarlyBirdTicket ? '#EAB308' : theme.colors.primary;
         const benefitsOpen = expandedBenefits.has(idx);
@@ -883,32 +895,103 @@ export default function EventDetail({ route, navigation }) {
 
                 <View style={{ padding: 18 }}>
                     {/* Header row: Name + badge + status pill */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            marginBottom: 8,
+                        }}
+                    >
                         <View style={{ flex: 1, marginRight: 8 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                <Text style={{ fontSize: 18, fontWeight: '800', color: theme.colors.text }}>
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    flexWrap: 'wrap',
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        fontSize: 18,
+                                        fontWeight: '800',
+                                        color: theme.colors.text,
+                                    }}
+                                >
                                     {ticket.name}
                                 </Text>
                                 {isEarlyBirdTicket && (
-                                    <View style={{ backgroundColor: '#EAB30820', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20, borderWidth: 1, borderColor: '#EAB308' }}>
-                                        <Text style={{ color: '#EAB308', fontWeight: '700', fontSize: 10, lineHeight: 14 }}>{'\uD83D\uDC26'} EARLY BIRD</Text>
+                                    <View
+                                        style={{
+                                            backgroundColor: '#EAB30820',
+                                            paddingVertical: 4,
+                                            paddingHorizontal: 10,
+                                            borderRadius: 20,
+                                            borderWidth: 1,
+                                            borderColor: '#EAB308',
+                                        }}
+                                    >
+                                        <Text
+                                            style={{
+                                                color: '#EAB308',
+                                                fontWeight: '700',
+                                                fontSize: 10,
+                                                lineHeight: 14,
+                                            }}
+                                        >
+                                            {'\uD83D\uDC26'} EARLY BIRD
+                                        </Text>
                                     </View>
                                 )}
                             </View>
                         </View>
                         {isExpired ? (
-                            <View style={{ backgroundColor: theme.colors.textSecondary + '25', paddingVertical: 5, paddingHorizontal: 14, borderRadius: 20 }}>
-                                <Text style={{ color: theme.colors.textSecondary, fontWeight: '600', fontSize: 12 }}>Expired</Text>
+                            <View
+                                style={{
+                                    backgroundColor: theme.colors.textSecondary + '25',
+                                    paddingVertical: 5,
+                                    paddingHorizontal: 14,
+                                    borderRadius: 20,
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        color: theme.colors.textSecondary,
+                                        fontWeight: '600',
+                                        fontSize: 12,
+                                    }}
+                                >
+                                    Expired
+                                </Text>
                             </View>
                         ) : (
-                            <View style={{ backgroundColor: '#22C55E20', paddingVertical: 5, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: '#22C55E40' }}>
-                                <Text style={{ color: '#22C55E', fontWeight: '700', fontSize: 12 }}>Active</Text>
+                            <View
+                                style={{
+                                    backgroundColor: '#22C55E20',
+                                    paddingVertical: 5,
+                                    paddingHorizontal: 14,
+                                    borderRadius: 20,
+                                    borderWidth: 1,
+                                    borderColor: '#22C55E40',
+                                }}
+                            >
+                                <Text style={{ color: '#22C55E', fontWeight: '700', fontSize: 12 }}>
+                                    Active
+                                </Text>
                             </View>
                         )}
                     </View>
 
                     {/* Description */}
-                    <Text style={{ fontSize: 13, color: theme.colors.textSecondary, lineHeight: 20, marginBottom: 12 }}>
+                    <Text
+                        style={{
+                            fontSize: 13,
+                            color: theme.colors.textSecondary,
+                            lineHeight: 20,
+                            marginBottom: 12,
+                        }}
+                    >
                         {ticket.description}
                     </Text>
 
@@ -929,13 +1012,23 @@ export default function EventDetail({ route, navigation }) {
                                     borderColor: accentColor + '30',
                                 }}
                             >
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <Text style={{ fontSize: 14, }}>{'\uD83C\uDF81'}</Text>
-                                    <Text style={{ fontSize: 13, fontWeight: '700', color: accentColor }}>
+                                <View
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                                >
+                                    <Text style={{ fontSize: 14 }}>{'\uD83C\uDF81'}</Text>
+                                    <Text
+                                        style={{
+                                            fontSize: 13,
+                                            fontWeight: '700',
+                                            color: accentColor,
+                                        }}
+                                    >
                                         Benefits ({ticket.benefits.length})
                                     </Text>
                                 </View>
-                                <Text style={{ fontSize: 16, color: accentColor, fontWeight: '700' }}>
+                                <Text
+                                    style={{ fontSize: 16, color: accentColor, fontWeight: '700' }}
+                                >
                                     {benefitsOpen ? '\u25B2' : '\u25BC'}
                                 </Text>
                             </TouchableOpacity>
@@ -943,11 +1036,44 @@ export default function EventDetail({ route, navigation }) {
                             {benefitsOpen && (
                                 <View style={{ marginTop: 8, gap: 6 }}>
                                     {ticket.benefits.map((b, bi) => (
-                                        <View key={String(bi)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 4 }}>
-                                            <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: accentColor + '25', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Text style={{ color: accentColor, fontSize: 11, fontWeight: '800' }}>{String.fromCharCode(10003)}</Text>
+                                        <View
+                                            key={String(bi)}
+                                            style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                gap: 8,
+                                                paddingLeft: 4,
+                                            }}
+                                        >
+                                            <View
+                                                style={{
+                                                    width: 18,
+                                                    height: 18,
+                                                    borderRadius: 9,
+                                                    backgroundColor: accentColor + '25',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                }}
+                                            >
+                                                <Text
+                                                    style={{
+                                                        color: accentColor,
+                                                        fontSize: 11,
+                                                        fontWeight: '800',
+                                                    }}
+                                                >
+                                                    {String.fromCharCode(10003)}
+                                                </Text>
                                             </View>
-                                            <Text style={{ fontSize: 13, color: theme.colors.textSecondary, flex: 1 }}>{b}</Text>
+                                            <Text
+                                                style={{
+                                                    fontSize: 13,
+                                                    color: theme.colors.textSecondary,
+                                                    flex: 1,
+                                                }}
+                                            >
+                                                {b}
+                                            </Text>
                                         </View>
                                     ))}
                                 </View>
@@ -957,13 +1083,38 @@ export default function EventDetail({ route, navigation }) {
 
                     {/* Available till pill */}
                     {deadline && (
-                        <View style={{ backgroundColor: theme.colors.background, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12, alignSelf: 'flex-start', marginBottom: 16, borderWidth: 1, borderColor: theme.colors.border }}>
-                            <Text style={{ fontSize: 12, color: theme.colors.textSecondary, fontWeight: '500' }}>
+                        <View
+                            style={{
+                                backgroundColor: theme.colors.background,
+                                borderRadius: 8,
+                                paddingVertical: 7,
+                                paddingHorizontal: 12,
+                                alignSelf: 'flex-start',
+                                marginBottom: 16,
+                                borderWidth: 1,
+                                borderColor: theme.colors.border,
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    color: theme.colors.textSecondary,
+                                    fontWeight: '500',
+                                }}
+                            >
                                 {'Available Till: '}
-                                <Text style={{ fontWeight: '700', color: isExpired ? theme.colors.textSecondary : accentColor }}>
+                                <Text
+                                    style={{
+                                        fontWeight: '700',
+                                        color: isExpired ? theme.colors.textSecondary : accentColor,
+                                    }}
+                                >
                                     {deadline.toLocaleString('en-IN', {
-                                        day: 'numeric', month: 'short', year: 'numeric',
-                                        hour: '2-digit', minute: '2-digit',
+                                        day: 'numeric',
+                                        month: 'short',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
                                     })}
                                 </Text>
                             </Text>
@@ -971,23 +1122,62 @@ export default function EventDetail({ route, navigation }) {
                     )}
 
                     {/* Footer: price */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 14 }}>
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            borderTopWidth: 1,
+                            borderTopColor: theme.colors.border,
+                            paddingTop: 14,
+                        }}
+                    >
                         <View>
-                            <Text style={{ fontSize: 11, color: theme.colors.textSecondary, marginBottom: 2 }}>
+                            <Text
+                                style={{
+                                    fontSize: 11,
+                                    color: theme.colors.textSecondary,
+                                    marginBottom: 2,
+                                }}
+                            >
                                 {isEarlyBirdTicket ? 'Early Bird Price' : 'Price'}
                             </Text>
                             <Text style={{ fontSize: 28, fontWeight: '800', color: accentColor }}>
-                                {isFree ? 'Free' : ('\u20B9' + ticket.price)}
+                                {isFree ? 'Free' : '\u20B9' + ticket.price}
                             </Text>
                         </View>
                         {!isExpired && !isFree && (
-                            <View style={{ backgroundColor: accentColor + '15', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10, borderWidth: 1, borderColor: accentColor + '40' }}>
-                                <Text style={{ color: accentColor, fontWeight: '700', fontSize: 13 }}>Select</Text>
+                            <View
+                                style={{
+                                    backgroundColor: accentColor + '15',
+                                    paddingVertical: 8,
+                                    paddingHorizontal: 18,
+                                    borderRadius: 10,
+                                    borderWidth: 1,
+                                    borderColor: accentColor + '40',
+                                }}
+                            >
+                                <Text
+                                    style={{ color: accentColor, fontWeight: '700', fontSize: 13 }}
+                                >
+                                    Select
+                                </Text>
                             </View>
                         )}
                         {!isExpired && isFree && (
-                            <View style={{ backgroundColor: '#22C55E15', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10, borderWidth: 1, borderColor: '#22C55E40' }}>
-                                <Text style={{ color: '#22C55E', fontWeight: '700', fontSize: 13 }}>Register Free</Text>
+                            <View
+                                style={{
+                                    backgroundColor: '#22C55E15',
+                                    paddingVertical: 8,
+                                    paddingHorizontal: 18,
+                                    borderRadius: 10,
+                                    borderWidth: 1,
+                                    borderColor: '#22C55E40',
+                                }}
+                            >
+                                <Text style={{ color: '#22C55E', fontWeight: '700', fontSize: 13 }}>
+                                    Register Free
+                                </Text>
                             </View>
                         )}
                     </View>
@@ -1001,7 +1191,11 @@ export default function EventDetail({ route, navigation }) {
             <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
                 {/* Immersive Header Image */}
                 <ImageBackground
-                    source={{ uri: event.bannerUrl || 'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image' }}
+                    source={{
+                        uri:
+                            event.bannerUrl ||
+                            'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image',
+                    }}
                     style={styles.headerImage}
                 >
                     <LinearGradient
@@ -1012,12 +1206,12 @@ export default function EventDetail({ route, navigation }) {
                             <TouchableOpacity
                                 style={styles.backButton}
                                 onPress={() => {
-                    if (navigation.canGoBack()) {
-                        navigation.goBack();
-                    } else {
-                        navigation.navigate('Main');
-                    }
-                }}
+                                    if (navigation.canGoBack()) {
+                                        navigation.goBack();
+                                    } else {
+                                        navigation.navigate('Main');
+                                    }
+                                }}
                             >
                                 <Ionicons name="arrow-back" size={24} color="#fff" />
                             </TouchableOpacity>
@@ -1121,9 +1315,13 @@ export default function EventDetail({ route, navigation }) {
                                     <Ionicons name="cash" size={14} color="#fff" />
                                     <Text style={styles.priceText}>
                                         ₹{getEarlyBirdInfo(event).currentPrice}
-                                        {getEarlyBirdInfo(event).isEligible && getEarlyBirdInfo(event).isExplicit && (
-                                            <Text style={{ fontSize: 10, opacity: 0.8 }}> (Early Bird)</Text>
-                                        )}
+                                        {getEarlyBirdInfo(event).isEligible &&
+                                            getEarlyBirdInfo(event).isExplicit && (
+                                                <Text style={{ fontSize: 10, opacity: 0.8 }}>
+                                                    {' '}
+                                                    (Early Bird)
+                                                </Text>
+                                            )}
                                     </Text>
                                 </View>
                             ) : (
@@ -1347,7 +1545,14 @@ export default function EventDetail({ route, navigation }) {
                     </View>
 
                     {/* Tabs Navigation — Interactive */}
-                    <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderColor: theme.colors.border, marginVertical: 20 }}>
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            borderBottomWidth: 1,
+                            borderColor: theme.colors.border,
+                            marginVertical: 20,
+                        }}
+                    >
                         {[
                             { key: 'about', label: 'About' },
                             { key: 'tickets', label: 'Tickets' },
@@ -1358,14 +1563,22 @@ export default function EventDetail({ route, navigation }) {
                                 onPress={() => setActiveTab(tab.key)}
                                 style={[
                                     { paddingBottom: 10, marginRight: 20 },
-                                    activeTab === tab.key && { borderBottomWidth: 2, borderColor: theme.colors.primary },
+                                    activeTab === tab.key && {
+                                        borderBottomWidth: 2,
+                                        borderColor: theme.colors.primary,
+                                    },
                                 ]}
                             >
-                                <Text style={{
-                                    color: activeTab === tab.key ? theme.colors.primary : theme.colors.textSecondary,
-                                    fontWeight: 'bold',
-                                    fontSize: 16,
-                                }}>
+                                <Text
+                                    style={{
+                                        color:
+                                            activeTab === tab.key
+                                                ? theme.colors.primary
+                                                : theme.colors.textSecondary,
+                                        fontWeight: 'bold',
+                                        fontSize: 16,
+                                    }}
+                                >
                                     {tab.label}
                                 </Text>
                             </TouchableOpacity>
@@ -1378,7 +1591,9 @@ export default function EventDetail({ route, navigation }) {
                             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
                                 ABOUT EVENT
                             </Text>
-                            <Text style={[styles.description, { color: theme.colors.textSecondary }]}>
+                            <Text
+                                style={[styles.description, { color: theme.colors.textSecondary }]}
+                            >
                                 {event.description}
                             </Text>
                         </View>
@@ -1387,7 +1602,12 @@ export default function EventDetail({ route, navigation }) {
                     {/* Tickets Tab Content */}
                     {activeTab === 'tickets' && (
                         <View style={styles.aboutSection}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 10 }]}>
+                            <Text
+                                style={[
+                                    styles.sectionTitle,
+                                    { color: theme.colors.text, marginTop: 10 },
+                                ]}
+                            >
                                 TICKETS
                             </Text>
                             {ticketList.map(renderTicketCard)}
@@ -1402,7 +1622,13 @@ export default function EventDetail({ route, navigation }) {
                             </Text>
                             <View style={{ alignItems: 'center', paddingVertical: 40 }}>
                                 <Text style={{ fontSize: 40, marginBottom: 12 }}>🎭</Text>
-                                <Text style={{ color: theme.colors.textSecondary, fontSize: 15, textAlign: 'center' }}>
+                                <Text
+                                    style={{
+                                        color: theme.colors.textSecondary,
+                                        fontSize: 15,
+                                        textAlign: 'center',
+                                    }}
+                                >
                                     Speaker info has not been added yet.
                                 </Text>
                             </View>
