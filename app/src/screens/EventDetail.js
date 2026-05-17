@@ -14,7 +14,8 @@ import {
     updateDoc,
     where,
 } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import { httpsCallable } from 'firebase/functions';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -36,7 +37,7 @@ import * as Sharing from 'expo-sharing';
 import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { submitFeedback } from '../lib/feedbackService';
-import { db } from '../lib/firebaseConfig';
+import { db, functions } from '../lib/firebaseConfig';
 import { cancelScheduledNotification, scheduleEventReminder } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
@@ -62,7 +63,14 @@ export default function EventDetail({ route, navigation }) {
 
     const [sendingAppeal, setSendingAppeal] = useState(false);
 
-    // ... existing useEffects ...
+    // Waitlist states
+    const [isOnWaitlist, setIsOnWaitlist] = useState(false);
+    const [waitlistPosition, setWaitlistPosition] = useState(null);
+    const [isWaitlistLoading, setIsWaitlistLoading] = useState(false);
+
+    const [hostName, setHostName] = useState('Organizer');
+    const [reminderId, setReminderId] = useState(null);
+    const [isBookmarked, setIsBookmarked] = useState(false);
 
     const handleSubmitAppeal = async ({ subject, message }) => {
         setSendingAppeal(true);
@@ -80,14 +88,10 @@ export default function EventDetail({ route, navigation }) {
             setSendingAppeal(false);
         }
     };
-    const [hostName, setHostName] = useState('Organizer');
-    const [reminderId, setReminderId] = useState(null); // Firestore Doc ID if set
-    const [isBookmarked, setIsBookmarked] = useState(false);
 
     // Auto-open feedback modal if accessed via feedback link
     useEffect(() => {
         if (action === 'feedback' && event && !loading) {
-            // Check if event has ended and user is registered
             const eventEnded = new Date() > new Date(event.endAt);
             if (eventEnded && rsvpStatus === 'going' && !hasGivenFeedback) {
                 setShowFeedbackModal(true);
@@ -113,12 +117,10 @@ export default function EventDetail({ route, navigation }) {
             if (!user || !eventId) return;
 
             try {
-                // Check if user has already viewed this event
                 const viewRef = doc(db, `events/${eventId}/views`, user.uid);
                 const viewSnap = await getDoc(viewRef);
 
                 if (!viewSnap.exists()) {
-                    // First time viewing: Record it and increment counter
                     await setDoc(viewRef, {
                         viewedAt: new Date().toISOString(),
                         userId: user.uid,
@@ -135,11 +137,11 @@ export default function EventDetail({ route, navigation }) {
         };
 
         recordView();
-    }, [eventId, user]); // Run when user loads
+    }, [eventId, user]);
 
     // Cleanup logic merged into the main effect or kept simple
     useEffect(() => {
-        navigation.setOptions({ headerShown: false }); // Hide default header
+        navigation.setOptions({ headerShown: false });
 
         const unsubEvent = onSnapshot(doc(db, 'events', eventId), doc => {
             if (doc.exists()) {
@@ -167,7 +169,6 @@ export default function EventDetail({ route, navigation }) {
             if (snap.exists()) setHasGivenFeedback(true);
         });
 
-        // Check if reminder exists
         getDocs(
             query(
                 collection(db, 'reminders'),
@@ -180,7 +181,6 @@ export default function EventDetail({ route, navigation }) {
             }
         });
 
-        // Check if event is bookmarked
         if (user) {
             getDoc(doc(db, 'users', user.uid, 'savedEvents', eventId)).then(snap => {
                 setIsBookmarked(snap.exists());
@@ -193,10 +193,103 @@ export default function EventDetail({ route, navigation }) {
         };
     }, [eventId, user]);
 
+    // Check if user is on waitlist - wrapped in useCallback
+    const checkWaitlistStatus = useCallback(async () => {
+        if (!user || !eventId) return;
+        
+        try {
+            const waitlistQuery = await getDocs(
+                query(
+                    collection(db, 'events', eventId, 'waitlist'),
+                    where('userId', '==', user.uid),
+                    where('status', '==', 'waiting')
+                )
+            );
+            
+            if (!waitlistQuery.empty) {
+                const waitlistData = waitlistQuery.docs[0].data();
+                setIsOnWaitlist(true);
+                setWaitlistPosition(waitlistData.position);
+            } else {
+                setIsOnWaitlist(false);
+                setWaitlistPosition(null);
+            }
+        } catch (error) {
+            console.error('Error checking waitlist:', error);
+        }
+    }, [user, eventId]);
+
+    // Check waitlist status when component loads or user changes
+    useEffect(() => {
+        checkWaitlistStatus();
+    }, [checkWaitlistStatus]);
+
+    // Join waitlist
+    const handleJoinWaitlist = async () => {
+        if (!user) {
+            Alert.alert('Sign In', 'Please sign in to join waitlist.');
+            return;
+        }
+        
+        setIsWaitlistLoading(true);
+        try {
+            const joinWaitlistFunction = httpsCallable(functions, 'joinWaitlist');
+            const result = await joinWaitlistFunction({ eventId });
+            
+            if (result.data.success) {
+    setIsOnWaitlist(true);
+    setWaitlistPosition(result.data.position);
+    Alert.alert('Joined Waitlist', result.data.message);
+} else {
+    Alert.alert('Unable to Join', result.data.message || 'Could not join waitlist');
+}
+        } catch (error) {
+            console.error('Join waitlist error:', error);
+            Alert.alert('Error', error.message || 'Failed to join waitlist');
+        } finally {
+            setIsWaitlistLoading(false);
+        }
+    };
+
+    const handleLeaveWaitlist = async () => {
+    if (!user) {
+        Alert.alert('Sign In', 'Please sign in to manage waitlist.');
+        return;
+    }
+    Alert.alert(
+        'Leave Waitlist',
+        'Are you sure you want to leave the waitlist?',
+        [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Leave',
+                style: 'destructive',
+                onPress: async () => {
+                    setIsWaitlistLoading(true);
+                    try {
+                        const leaveWaitlistFunction = httpsCallable(functions, 'leaveWaitlist');
+                        await leaveWaitlistFunction({ eventId });
+                        setIsOnWaitlist(false);
+                        setWaitlistPosition(null);
+                        Alert.alert('Success', 'Removed from waitlist');
+                    } catch (error) {
+                        console.error('Leave waitlist error:', error);
+                        Alert.alert('Error', error.message || 'Failed to leave waitlist');
+                    } finally {
+                        setIsWaitlistLoading(false);
+                    }
+                }
+            }
+        ]
+    );
+};
+    };
+
     // Derived State
     const isOwner = user && event?.ownerId === user.uid;
     const isAdmin = role === 'admin';
     const isSuspended = event?.status === 'suspended';
+    const isEventEnded = event?.endAt ? new Date() > new Date(event.endAt) : false;
 
     const toggleBookmark = async () => {
         if (!user) {
@@ -231,10 +324,9 @@ export default function EventDetail({ route, navigation }) {
 
     const shareEvent = async () => {
         try {
-            const eventUrl = `https://unievent-ez2w.onrender.com/event/${eventId}`; // Replace with your actual domain
+            const eventUrl = `https://unievent-ez2w.onrender.com/event/${eventId}`;
             const shareMessage = `🎉 Check out this event: ${event.title}\n\n📅 ${new Date(event.startAt).toLocaleDateString()} at ${new Date(event.startAt).toLocaleTimeString()}\n📍 ${event.location || 'Online'}\n\n${eventUrl}`;
 
-            // For web, use Web Share API if available
             if (Platform.OS === 'web' && navigator.share) {
                 await navigator.share({
                     title: event.title,
@@ -242,7 +334,6 @@ export default function EventDetail({ route, navigation }) {
                     url: eventUrl,
                 });
             } else if (Platform.OS === 'web') {
-                // Fallback for web browsers without Share API
                 Alert.alert('Share Event', 'Choose a platform:', [
                     {
                         text: 'WhatsApp',
@@ -268,7 +359,6 @@ export default function EventDetail({ route, navigation }) {
                     { text: 'Cancel', style: 'cancel' },
                 ]);
             } else {
-                // For mobile (React Native Share)
                 const { Share } = require('react-native');
                 await Share.share({
                     message: shareMessage,
@@ -286,7 +376,6 @@ export default function EventDetail({ route, navigation }) {
 
         try {
             if (reminderId) {
-                // Remove Reminder
                 const reminderDoc = await getDoc(doc(db, 'reminders', reminderId));
                 if (reminderDoc.exists()) {
                     await cancelScheduledNotification(reminderDoc.data().notificationId);
@@ -295,19 +384,18 @@ export default function EventDetail({ route, navigation }) {
                 setReminderId(null);
                 Alert.alert('Reminder Removed');
             } else {
-                // Set Reminder
                 const notifId = await scheduleEventReminder(event);
                 if (notifId) {
                     const docRef = await addDoc(collection(db, 'reminders'), {
                         userId: user.uid,
                         eventId: event.id,
                         eventTitle: event.title,
-                        remindAt: new Date(new Date(event.startAt).getTime() - 10 * 60000), // 10 mins before
+                        remindAt: new Date(new Date(event.startAt).getTime() - 10 * 60000),
                         notificationId: notifId,
                         createdAt: new Date().toISOString(),
                     });
                     setReminderId(docRef.id);
-                    Alert.alert('Reminder Added'); // Simple match to request
+                    Alert.alert('Reminder Added');
                 } else {
                     Alert.alert('Notice', 'Event is too close or passed.');
                 }
@@ -324,13 +412,11 @@ export default function EventDetail({ route, navigation }) {
             return;
         }
 
-        // 1. Custom Form Logic (if not already going and custom form exists)
         if (event.hasCustomForm && event.customFormSchema?.length > 0 && rsvpStatus !== 'going') {
             navigation.navigate('EventRegistrationForm', { event });
             return;
         }
 
-        // 2. Paid Event Logic
         if (event.isPaid && rsvpStatus !== 'going') {
             if (event.registrationLink) {
                 Alert.alert('External Registration', 'This event requires external registration.', [
@@ -339,12 +425,10 @@ export default function EventDetail({ route, navigation }) {
                 ]);
                 return;
             }
-            // Navigate to Payment
             navigation.navigate('Payment', { event, price: event.price || 0 });
             return;
         }
 
-        // 3. Normal RSVP
         performRsvp();
     };
 
@@ -411,7 +495,7 @@ export default function EventDetail({ route, navigation }) {
             let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
             snapshot.forEach(doc => {
                 const d = doc.data();
-                const line = `\"${d.userName || 'Anonymous'}\",${d.eventRating || '-'}\",${d.clubRating || '-'}\",\"${(d.feedback || '').replace(/\"/g, '""')}\",${d.createdAt}\n`;
+                const line = `"${(d.userName || 'Anonymous').replace(/"/g, '""')}","${d.eventRating || '-'}","${d.clubRating || '-'}","${(d.feedback || '').replace(/"/g, '""')}","${d.createdAt || ''}"\n`;
                 csv += line;
             });
 
@@ -425,7 +509,6 @@ export default function EventDetail({ route, navigation }) {
     const sendCertificates = async () => {
         setSendingCertificates(true);
         try {
-            // Fetch Participants
             console.log(`Fetching participants for event: ${event.id}`);
             const participantsRef = collection(db, `events/${event.id}/participants`);
             const snapshot = await getDocs(participantsRef);
@@ -450,7 +533,6 @@ export default function EventDetail({ route, navigation }) {
                 return;
             }
 
-            // Send certificates via EmailJS (Frontend)
             console.log('Calling sendBulkCertificates...');
             const eventLink = `https://unievent-ez2w.onrender.com/event/${event.id}`;
             const count = await sendBulkCertificates(
@@ -461,7 +543,6 @@ export default function EventDetail({ route, navigation }) {
             );
             console.log(`Sent count: ${count}`);
 
-            // Update event status
             await updateDoc(doc(db, 'events', event.id), {
                 certificatesSent: true,
                 certificatesSentAt: new Date().toISOString(),
@@ -480,7 +561,6 @@ export default function EventDetail({ route, navigation }) {
         try {
             setSendingCertificates(true);
 
-            // Modern Professional Certificate Design
             const html = `
             <!DOCTYPE html>
             <html>
@@ -520,7 +600,6 @@ export default function EventDetail({ route, navigation }) {
                         position: relative;
                     }
 
-                    /* Corner Ornaments (CSS Shapes) */
                     .corner {
                         position: absolute; width: 40px; height: 40px;
                         border-color: #FF6B35; border-style: solid;
@@ -530,7 +609,6 @@ export default function EventDetail({ route, navigation }) {
                     .bl { bottom: 10px; left: 10px; border-width: 0 0 3px 3px; }
                     .br { bottom: 10px; right: 10px; border-width: 0 3px 3px 0; }
 
-                    /* Text Logo */
                     .brand-name {
                         font-family: 'Great Vibes', cursive;
                         font-size: 50px;
@@ -538,7 +616,6 @@ export default function EventDetail({ route, navigation }) {
                         margin-bottom: 30px;
                     }
                     
-                    /* Title */
                     h1 { 
                         font-family: 'Cinzel', serif; 
                         font-size: 42px; 
@@ -563,7 +640,6 @@ export default function EventDetail({ route, navigation }) {
                         margin-bottom: 10px;
                     }
                     
-                    /* Participant Name */
                     h2.name { 
                         font-family: 'Playfair Display', serif;
                         font-style: italic;
@@ -591,7 +667,6 @@ export default function EventDetail({ route, navigation }) {
                         font-weight: 600;
                     }
                     
-                    /* Event Title */
                     h3.event { 
                         font-family: 'Cinzel', serif;
                         color: #e65100; 
@@ -666,13 +741,11 @@ export default function EventDetail({ route, navigation }) {
 
                             <div class="watermark">UniEvent</div>
                             
-                            <!-- Header -->
                             <div style="text-align: center; width: 100%; z-index: 1;">
                                 <div class="brand-name">UniEvent</div>
                                 <h1>Certificate of Participation</h1>
                             </div>
                             
-                            <!-- Body -->
                             <div style="text-align: center; width: 100%; z-index: 1; flex: 1; display: flex; flex-direction: column; justify-content: center;">
                                 <p class="certify">This is to certify that</p>
                                 
@@ -685,7 +758,6 @@ export default function EventDetail({ route, navigation }) {
                                 <h3 class="event">${event.title}</h3>
                             </div>
                             
-                            <!-- Footer -->
                             <div class="footer" style="z-index: 1;">
                                 <div class="sign-box">
                                     <div class="sign-name">UniEvent Team</div>
@@ -693,7 +765,6 @@ export default function EventDetail({ route, navigation }) {
                                 </div>
                                 
                                 <div style="opacity: 0.9;">
-                                    <!-- Badge Icon -->
                                     <svg width="60" height="60" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#FFB74D" stroke="#E65100" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                         <path d="M12 17.77V2" stroke="#E65100" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.5"/>
@@ -715,13 +786,11 @@ export default function EventDetail({ route, navigation }) {
             `;
 
             if (Platform.OS === 'web') {
-                // Open separate window for reliable printing on mobile web
                 const printWindow = window.open('', '_blank');
                 if (printWindow) {
                     printWindow.document.write(html);
                     printWindow.document.close();
 
-                    // Allow styles and fonts to load
                     setTimeout(() => {
                         printWindow.focus();
                         printWindow.print();
@@ -742,7 +811,7 @@ export default function EventDetail({ route, navigation }) {
             console.error('Certificate Error:', e);
             Alert.alert('Error', 'Failed to generate certificate: ' + e.message);
         } finally {
-            setSendingCertificates(false); // Reset loading state
+            setSendingCertificates(false);
         }
     };
 
@@ -781,7 +850,6 @@ export default function EventDetail({ route, navigation }) {
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
             <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
-                {/* Immersive Header Image */}
                 <ImageBackground
                     source={{ uri: event.bannerUrl || 'https://via.placeholder.com/800x600' }}
                     style={styles.headerImage}
@@ -810,7 +878,6 @@ export default function EventDetail({ route, navigation }) {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Live Badge - only show when event is currently happening */}
                         {new Date() >= new Date(event.startAt) &&
                             new Date() <= new Date(event.endAt) && (
                                 <View style={styles.liveBadge}>
@@ -821,9 +888,7 @@ export default function EventDetail({ route, navigation }) {
                     </LinearGradient>
                 </ImageBackground>
 
-                {/* Content Sheet */}
                 <View style={styles.contentSheet}>
-                    {/* SUSPENSION BANNER */}
                     {event?.status === 'suspended' && (
                         <View
                             style={{
@@ -857,7 +922,6 @@ export default function EventDetail({ route, navigation }) {
                                     : ''}
                             </Text>
 
-                            {/* OWNER APPEAL BUTTON */}
                             {user?.uid === event?.ownerId && event?.appealStatus !== 'pending' && (
                                 <TouchableOpacity
                                     style={{
@@ -877,7 +941,6 @@ export default function EventDetail({ route, navigation }) {
                         </View>
                     )}
 
-                    {/* Header Section */}
                     <View style={styles.headerSection}>
                         <View style={styles.badgeRow}>
                             <View
@@ -951,7 +1014,6 @@ export default function EventDetail({ route, navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Quick Actions Row */}
                     <View
                         style={[styles.quickActionsCard, { backgroundColor: theme.colors.surface }]}
                     >
@@ -1040,7 +1102,6 @@ export default function EventDetail({ route, navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Event Details Card */}
                     <View style={[styles.detailsCard, { backgroundColor: theme.colors.surface }]}>
                         <View style={styles.detailRow}>
                             <View
@@ -1111,7 +1172,6 @@ export default function EventDetail({ route, navigation }) {
                         </View>
                     </View>
 
-                    {/* About Section */}
                     <View style={styles.aboutSection}>
                         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
                             About Event
@@ -1121,7 +1181,6 @@ export default function EventDetail({ route, navigation }) {
                         </Text>
                     </View>
 
-                    {/* Meeting Link - Only for Attendees/Owner */}
                     {(rsvpStatus === 'going' || isOwner) && event.meetLink && (
                         <TouchableOpacity
                             style={[styles.outlinedButton, { borderColor: theme.colors.primary }]}
@@ -1136,7 +1195,6 @@ export default function EventDetail({ route, navigation }) {
                         </TouchableOpacity>
                     )}
 
-                    {/* Organizer Tools */}
                     {isOwner && (
                         <View style={styles.organizerSection}>
                             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
@@ -1295,7 +1353,6 @@ export default function EventDetail({ route, navigation }) {
                         </View>
                     )}
 
-                    {/* Feedback Button (Post Event) */}
                     {rsvpStatus === 'going' &&
                         !isOwner &&
                         new Date(event.endAt) < new Date() &&
@@ -1338,12 +1395,10 @@ export default function EventDetail({ route, navigation }) {
                             </TouchableOpacity>
                         )}
 
-                    {/* Spacer for FAB */}
                     <View style={{ height: 100 }} />
                 </View>
             </ScrollView>
 
-            {/* Floating Action Bar (Bottom) */}
             {!isSuspended && (
                 <View style={[styles.fabContainer, { backgroundColor: theme.colors.surface }]}>
                     <View style={styles.fabSubInfo}>
@@ -1351,51 +1406,73 @@ export default function EventDetail({ route, navigation }) {
                         <Text style={styles.fabValue}>{participantCount} People</Text>
                     </View>
 
-                    <TouchableOpacity
-                        style={[
-                            styles.primaryBtn,
-                            rsvpStatus === 'going' && styles.secondaryBtn,
-                            new Date(event.endAt) < new Date() &&
-                                !(rsvpStatus === 'going' && event.certificatesSent) && {
-                                    backgroundColor: theme.colors.textSecondary,
-                                    borderColor: theme.colors.textSecondary,
-                                },
-                        ]}
-                        onPress={
-                            new Date(event.endAt) < new Date()
-                                ? rsvpStatus === 'going' && event.certificatesSent
-                                    ? handleDownloadCertificate
-                                    : null
-                                : toggleRsvp
-                        }
-                        disabled={
-                            new Date(event.endAt) < new Date() &&
-                            !(rsvpStatus === 'going' && event.certificatesSent)
-                        }
-                    >
-                        <Text
+                    {!rsvpStatus && event && event.capacity && participantCount >= event.capacity && !isOnWaitlist && !isEventEnded ? (
+                        <TouchableOpacity
+                            style={[styles.waitlistButton]}
+                            onPress={handleJoinWaitlist}
+                            disabled={isWaitlistLoading}
+                        >
+                            <Text style={styles.buttonText}>
+                                {isWaitlistLoading ? 'Joining...' : 'Join Waitlist'}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : isOnWaitlist && !isEventEnded ? (
+    <TouchableOpacity
+        style={[styles.leaveWaitlistButton]}
+        onPress={handleLeaveWaitlist}
+        disabled={isWaitlistLoading}
+    >
+        <Text style={styles.leaveWaitlistText}>
+            {isWaitlistLoading ? 'Leaving...' : `Waitlist #${waitlistPosition}`}
+        </Text>
+    </TouchableOpacity>
+) : (
+                        <TouchableOpacity
                             style={[
-                                styles.primaryBtnText,
-                                rsvpStatus === 'going' && styles.secondaryBtnText,
+                                styles.primaryBtn,
+                                rsvpStatus === 'going' && styles.secondaryBtn,
                                 new Date(event.endAt) < new Date() &&
                                     !(rsvpStatus === 'going' && event.certificatesSent) && {
-                                        color: '#fff',
+                                        backgroundColor: theme.colors.textSecondary,
+                                        borderColor: theme.colors.textSecondary,
                                     },
                             ]}
+                            onPress={
+                                new Date(event.endAt) < new Date()
+                                    ? rsvpStatus === 'going' && event.certificatesSent
+                                        ? handleDownloadCertificate
+                                        : null
+                                    : toggleRsvp
+                            }
+                            disabled={
+                                new Date(event.endAt) < new Date() &&
+                                !(rsvpStatus === 'going' && event.certificatesSent)
+                            }
                         >
-                            {new Date(event.endAt) < new Date()
-                                ? rsvpStatus === 'going'
-                                    ? event.certificatesSent
-                                        ? 'Download Certificate'
-                                        : 'Event Ended'
-                                    : 'Closed'
-                                : rsvpStatus === 'going'
-                                  ? 'Registered ✓'
-                                  : event.isPaid
-                                    ? `Book Ticket (₹${event.price})`
-                                    : 'RSVP Now'}
-                        </Text>
-                    </TouchableOpacity>
+                            <Text
+                                style={[
+                                    styles.primaryBtnText,
+                                    rsvpStatus === 'going' && styles.secondaryBtnText,
+                                    new Date(event.endAt) < new Date() &&
+                                        !(rsvpStatus === 'going' && event.certificatesSent) && {
+                                            color: '#fff',
+                                        },
+                                ]}
+                            >
+                                {new Date(event.endAt) < new Date()
+                                    ? rsvpStatus === 'going'
+                                        ? event.certificatesSent
+                                            ? 'Download Certificate'
+                                            : 'Event Ended'
+                                        : 'Closed'
+                                    : rsvpStatus === 'going'
+                                      ? 'Registered ✓'
+                                      : event.isPaid
+                                        ? `Book Ticket (₹${event.price})`
+                                        : 'RSVP Now'}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             )}
 
@@ -1421,7 +1498,6 @@ export default function EventDetail({ route, navigation }) {
 
 const getStyles = theme =>
     StyleSheet.create({
-        // Header
         headerImage: { height: 350, width: '100%' },
         headerGradient: { flex: 1, paddingTop: 40, paddingHorizontal: 20 },
         headerSafe: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -1467,7 +1543,6 @@ const getStyles = theme =>
             paddingTop: 32,
         },
 
-        // Header Section
         headerSection: {
             marginBottom: 20,
         },
@@ -1529,7 +1604,6 @@ const getStyles = theme =>
             fontWeight: '600',
         },
 
-        // Quick Actions
         quickActionsCard: {
             flexDirection: 'row',
             justifyContent: 'space-around',
@@ -1554,7 +1628,6 @@ const getStyles = theme =>
             fontWeight: '500',
         },
 
-        // Details Card
         detailsCard: {
             borderRadius: 20,
             padding: 20,
@@ -1594,7 +1667,6 @@ const getStyles = theme =>
             marginVertical: 16,
         },
 
-        // About Section
         aboutSection: {
             marginBottom: 20,
         },
@@ -1608,7 +1680,6 @@ const getStyles = theme =>
             lineHeight: 24,
         },
 
-        // Outlined Button (for Virtual Meeting, Check-In, Analytics)
         outlinedButton: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -1627,7 +1698,6 @@ const getStyles = theme =>
             fontWeight: '700',
         },
 
-        // Meet Link Card
         meetLinkCard: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -1657,7 +1727,6 @@ const getStyles = theme =>
             fontSize: 11,
         },
 
-        // Organizer Section
         organizerSection: {
             marginBottom: 20,
         },
@@ -1692,7 +1761,6 @@ const getStyles = theme =>
             opacity: 0.7,
         },
 
-        // Compact Buttons for Organizer Tools
         compactButton: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -1702,15 +1770,14 @@ const getStyles = theme =>
             paddingHorizontal: 16,
             borderWidth: 1,
             borderRadius: 12,
-            flexGrow: 1, // Allow buttons to grow to fill space
-            minWidth: '45%', // Ensure 2 per row roughly
+            flexGrow: 1,
+            minWidth: '45%',
         },
         compactButtonText: {
             fontSize: 14,
             fontWeight: '600',
         },
 
-        // Feedback Card
         feedbackCard: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -1727,7 +1794,32 @@ const getStyles = theme =>
             flex: 1,
         },
 
-        // FAB
+        waitlistButton: {
+            backgroundColor: '#f59e0b',
+            paddingVertical: 14,
+            paddingHorizontal: 32,
+            borderRadius: 12,
+            ...theme.shadows.default,
+        },
+        leaveWaitlistButton: {
+            backgroundColor: '#fef3c7',
+            paddingVertical: 14,
+            paddingHorizontal: 32,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: '#f59e0b',
+        },
+        leaveWaitlistText: {
+            color: '#92400e',
+            fontWeight: 'bold',
+            fontSize: 14,
+        },
+        buttonText: {
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: 16,
+        },
+
         fabContainer: {
             position: 'absolute',
             bottom: 0,
