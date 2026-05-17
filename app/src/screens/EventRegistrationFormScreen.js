@@ -8,7 +8,8 @@ import {
     Alert,
     TextInput,
     ActivityIndicator,
-} from 'react-native';
+} import { View, Text, Vibration }
+    from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useTheme } from '../lib/ThemeContext';
@@ -53,7 +54,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
 
     const handleSubmit = async () => {
         if (!validate()) return;
-        if ("vibrate" in navigator) navigator.vibrate(50);
+        Vibration.vibrate(50); 
         // 1. Paid Event Flow -> Navigate to Payment
         if (event.isPaid) {
             navigation.navigate('Payment', {
