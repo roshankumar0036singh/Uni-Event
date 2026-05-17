@@ -1,6 +1,6 @@
 import { makeRedirectUri, Prompt, ResponseType, useAuthRequest } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 
 // Use the same Client ID as AuthScreen to ensure consistent Redirect URI configuration
@@ -26,7 +26,7 @@ export const useCalendarAuth = () => {
                 `Generated Redirect URI:\n${redirectUri}\n\nPlease add EXACTLY this to Google Console.`,
             );
         }
-    }, []);
+    }, [redirectUri]);
 
     const [request, response, promptAsync] = useAuthRequest(
         {
@@ -41,14 +41,14 @@ export const useCalendarAuth = () => {
     );
 
     // ✅ FIXED: Using Implicit Flow (ResponseType.Token), so we get accessToken directly.
-    const getAccessToken = async () => {
+    const getAccessToken = useCallback(async () => {
         if (response?.type === 'success') {
             // Check both locations just to be safe (authentication object is preferred in newer versions)
             const token = response.authentication?.accessToken || response.params?.access_token;
             return token || null;
         }
         return null;
-    };
+    }, [response]);
 
     return { request, response, promptAsync, getAccessToken };
 };

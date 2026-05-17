@@ -26,6 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function EventChatScreen({ route, navigation }) {
     const { eventId, eventTitle } = route.params;
@@ -48,9 +49,15 @@ export default function EventChatScreen({ route, navigation }) {
     useEffect(() => {
         // Check organizer status
         const checkOwner = async () => {
+            if (!user?.uid) {
+                setIsOrganizer(false);
+                return;
+            }
             const eventDoc = await getDoc(doc(db, 'events', eventId));
             if (eventDoc.exists() && eventDoc.data().ownerId === user.uid) {
                 setIsOrganizer(true);
+            } else {
+                setIsOrganizer(false);
             }
         };
         checkOwner();
@@ -71,7 +78,7 @@ export default function EventChatScreen({ route, navigation }) {
         });
 
         return () => unsubscribe();
-    }, [eventId]);
+    }, [eventId, user?.uid]);
 
     const handleSend = async () => {
         if (!inputText.trim()) return;
@@ -366,3 +373,8 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
     },
 });
+
+EventChatScreen.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};

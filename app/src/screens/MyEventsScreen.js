@@ -16,6 +16,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
 import { db } from '../lib/firebaseConfig';
+import PropTypes from 'prop-types';
 
 export default function MyEventsScreen({ navigation }) {
     const { user } = useAuth();
@@ -53,7 +54,7 @@ export default function MyEventsScreen({ navigation }) {
         if (Platform.OS === 'web') {
             try {
                 await deleteDoc(doc(db, 'events', eventId));
-            } catch (e) {
+            } catch (_e) {
                 alert('Error: Could not delete event');
             }
         } else {
@@ -65,7 +66,7 @@ export default function MyEventsScreen({ navigation }) {
                     onPress: async () => {
                         try {
                             await deleteDoc(doc(db, 'events', eventId));
-                        } catch (e) {
+                        } catch (_e) {
                             Alert.alert('Error', 'Could not delete event');
                         }
                     },
@@ -166,7 +167,7 @@ export default function MyEventsScreen({ navigation }) {
                             color={theme.colors.textSecondary}
                         />
                         <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                            You haven't created any events yet.
+                            You haven&apos;t created any events yet.
                         </Text>
                         <TouchableOpacity
                             style={[
@@ -258,3 +259,7 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
     },
 });
+
+MyEventsScreen.propTypes = {
+    navigation: PropTypes.object,
+};

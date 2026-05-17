@@ -2,12 +2,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SHIMMER_DURATION = 1200;
 
 export function ShimmerItem({ style }) {
-    const { theme, isDarkMode } = useTheme();
+    const { isDarkMode } = useTheme();
     const translateX = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
 
     useEffect(() => {
@@ -157,3 +158,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
 });
+
+ShimmerItem.propTypes = {
+    style: PropTypes.any,
+};

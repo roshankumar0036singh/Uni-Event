@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import {
     ActivityIndicator,
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 import { Rating } from 'react-native-ratings';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function FeedbackModal({ visible, onClose, feedbackRequest, onSubmit }) {
     const { theme } = useTheme();
@@ -163,7 +163,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                             },
                                         ]}
                                     >
-                                        No, I didn't
+                                        No, I didn&apos;t
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -419,3 +419,10 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
 });
+
+FeedbackModal.propTypes = {
+    visible: PropTypes.any,
+    onClose: PropTypes.any,
+    feedbackRequest: PropTypes.any,
+    onSubmit: PropTypes.any,
+};

@@ -8,6 +8,7 @@ import WebQRScanner from '../components/WebQRScanner';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 const { width } = Dimensions.get('window');
 
@@ -53,7 +54,7 @@ export default function QRScannerScreen({ navigation, route }) {
                     });
                     return;
                 }
-            } catch (e) {
+            } catch (_e) {
                 // If JSON parsing fails, treat as plain userId string (fallback)
                 scannedUserId = data;
             }
@@ -241,3 +242,8 @@ const styles = StyleSheet.create({
     actionBtn: { paddingHorizontal: 40, paddingVertical: 12, borderRadius: 25 },
     actionBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 });
+
+QRScannerScreen.propTypes = {
+    navigation: PropTypes.object,
+    route: PropTypes.object,
+};

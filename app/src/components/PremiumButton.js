@@ -8,6 +8,7 @@ import {
     View,
 } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function PremiumButton({
     onPress,
@@ -128,3 +129,13 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
 });
+
+PremiumButton.propTypes = {
+    onPress: PropTypes.any,
+    title: PropTypes.string,
+    variant: PropTypes.any,
+    disabled: PropTypes.bool,
+    loading: PropTypes.bool,
+    icon: PropTypes.any,
+    style: PropTypes.any,
+};

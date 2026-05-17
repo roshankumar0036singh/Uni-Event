@@ -3,7 +3,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { addDoc, collection, updateDoc, doc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -13,7 +13,6 @@ import {
     StyleSheet,
     Switch,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -23,6 +22,7 @@ import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { db, storage } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 const DEFAULT_BANNERS = [
     'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1000&q=80',
@@ -75,6 +75,30 @@ export default function CreateEvent({ navigation, route }) {
     // Google Auth
     const { request, response, promptAsync, getAccessToken } = CalendarService.useCalendarAuth();
 
+    const handleGenerateMeet = useCallback(
+        async token => {
+            setLoading(true);
+            try {
+                const result = await CalendarService.createMeetEvent(token, {
+                    title: title || 'New Club Event',
+                    description: description || 'Created via Event App',
+                    startAt: startDate.toISOString(),
+                    endAt: endDate.toISOString(),
+                });
+                if (result.meetLink) {
+                    setMeetLink(result.meetLink);
+                    setLocation('Google Meet');
+                    Alert.alert('Success', 'Google Meet Link Generated!');
+                }
+            } catch (e) {
+                Alert.alert('Error', e.message);
+            } finally {
+                setLoading(false);
+            }
+        },
+        [title, description, startDate, endDate],
+    );
+
     useEffect(() => {
         navigation.setOptions({ headerShown: false }); // Hide default header
         if (response?.type === 'success') {
@@ -84,28 +108,7 @@ export default function CreateEvent({ navigation, route }) {
                 })
                 .catch(e => Alert.alert('Error', e.message));
         }
-    }, [response]);
-
-    const handleGenerateMeet = async token => {
-        setLoading(true);
-        try {
-            const result = await CalendarService.createMeetEvent(token, {
-                title: title || 'New Club Event',
-                description: description || 'Created via Event App',
-                startAt: startDate.toISOString(),
-                endAt: endDate.toISOString(),
-            });
-            if (result.meetLink) {
-                setMeetLink(result.meetLink);
-                setLocation('Google Meet');
-                Alert.alert('Success', 'Google Meet Link Generated!');
-            }
-        } catch (e) {
-            Alert.alert('Error', e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [response, getAccessToken, handleGenerateMeet, navigation]);
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
@@ -166,7 +169,7 @@ export default function CreateEvent({ navigation, route }) {
             setCustomFormSchema(event.customFormSchema || []);
             navigation.setOptions({ title: 'Edit Event' });
         }
-    }, [isEditMode]);
+    }, [isEditMode, event, navigation]);
 
     const handleCreate = async () => {
         if (!title.trim() || !description.trim() || !category) {
@@ -883,3 +886,8 @@ const getStyles = theme =>
         },
         formBuilderText: { color: theme.colors.primary, fontWeight: 'bold' },
     });
+
+CreateEvent.propTypes = {
+    navigation: PropTypes.object,
+    route: PropTypes.object,
+};

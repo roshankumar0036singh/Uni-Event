@@ -7,9 +7,10 @@ import {
     signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Platform } from 'react-native';
 import { auth, db } from './firebaseConfig';
+import PropTypes from 'prop-types';
 
 const AuthContext = createContext({});
 
@@ -21,6 +22,35 @@ export const AuthProvider = ({ children }) => {
     const [role, setRole] = useState('student');
     const [loading, setLoading] = useState(true);
     const [savedAccounts, setSavedAccounts] = useState([]);
+
+    // Helper to interact with storage abstractly
+    const getItemAsync = useCallback(async key => {
+        if (Platform.OS === 'web') {
+            const value = await AsyncStorage.getItem(key);
+            return value;
+        } else {
+            return await SecureStore.getItemAsync(key);
+        }
+    }, []);
+
+    const setItemAsync = async (key, value) => {
+        if (Platform.OS === 'web') {
+            return await AsyncStorage.setItem(key, value);
+        } else {
+            return await SecureStore.setItemAsync(key, value);
+        }
+    };
+
+    const loadSavedAccounts = useCallback(async () => {
+        try {
+            const json = await getItemAsync('saved_accounts');
+            if (json) {
+                setSavedAccounts(JSON.parse(json));
+            }
+        } catch (e) {
+            console.log('Failed to load saved accounts', e);
+        }
+    }, [getItemAsync]);
 
     useEffect(() => {
         loadSavedAccounts(); // Load accounts on mount
@@ -62,161 +92,150 @@ export const AuthProvider = ({ children }) => {
         });
 
         return unsubscribe;
-    }, []);
+    }, [loadSavedAccounts]);
 
-    // Helper to interact with storage abstractly
-    const getItemAsync = async key => {
-        if (Platform.OS === 'web') {
-            const value = await AsyncStorage.getItem(key);
-            return value;
-        } else {
-            return await SecureStore.getItemAsync(key);
-        }
-    };
+    const saveAccountCredentials = useCallback(
+        async user => {
+            try {
+                // Get existing accounts
+                let currentAccounts = [];
+                const json = await getItemAsync('saved_accounts');
+                if (json) currentAccounts = JSON.parse(json);
 
-    const setItemAsync = async (key, value) => {
-        if (Platform.OS === 'web') {
-            return await AsyncStorage.setItem(key, value);
-        } else {
-            return await SecureStore.setItemAsync(key, value);
-        }
-    };
+                // Update or Add
+                const existingIndex = currentAccounts.findIndex(a => a.email === user.email);
+                const newAccount = {
+                    email: user.email,
+                    displayName: user.displayName || 'User',
+                    photoURL: user.photoURL,
+                    uid: user.uid,
+                    provider: 'password',
+                    lastSignedInAt: new Date().toISOString(),
+                };
 
-    const loadSavedAccounts = async () => {
-        try {
-            const json = await getItemAsync('saved_accounts');
-            if (json) {
-                setSavedAccounts(JSON.parse(json));
+                if (existingIndex >= 0) {
+                    currentAccounts[existingIndex] = newAccount;
+                } else {
+                    currentAccounts.push(newAccount);
+                }
+
+                await setItemAsync('saved_accounts', JSON.stringify(currentAccounts));
+                setSavedAccounts(currentAccounts);
+            } catch (e) {
+                console.log('Failed to save account', e);
             }
-        } catch (e) {
-            console.log('Failed to load saved accounts', e);
-        }
-    };
+        },
+        [getItemAsync],
+    );
 
-    const saveAccountCredentials = async (user, password) => {
-        try {
-            // Get existing accounts
-            let currentAccounts = [];
-            const json = await getItemAsync('saved_accounts');
-            if (json) currentAccounts = JSON.parse(json);
+    const saveGoogleAccountCredentials = useCallback(
+        async user => {
+            try {
+                let currentAccounts = [];
+                const json = await getItemAsync('saved_accounts');
+                if (json) currentAccounts = JSON.parse(json);
 
-            // Update or Add
-            const existingIndex = currentAccounts.findIndex(a => a.email === user.email);
-            const newAccount = {
-                email: user.email,
-                password, // Storing password securely
-                displayName: user.displayName || 'User',
-                photoURL: user.photoURL,
-                uid: user.uid,
-                provider: 'password',
-            };
+                const existingIndex = currentAccounts.findIndex(a => a.email === user.email);
+                const newAccount = {
+                    email: user.email,
+                    displayName: user.displayName || 'User',
+                    photoURL: user.photoURL,
+                    uid: user.uid,
+                    provider: 'google',
+                    lastSignedInAt: new Date().toISOString(),
+                };
 
-            if (existingIndex >= 0) {
-                currentAccounts[existingIndex] = newAccount;
-            } else {
-                currentAccounts.push(newAccount);
+                if (existingIndex >= 0) {
+                    currentAccounts[existingIndex] = newAccount;
+                } else {
+                    currentAccounts.push(newAccount);
+                }
+
+                await setItemAsync('saved_accounts', JSON.stringify(currentAccounts));
+                setSavedAccounts(currentAccounts);
+            } catch (e) {
+                console.log('Failed to save google account', e);
             }
+        },
+        [getItemAsync],
+    );
 
-            await setItemAsync('saved_accounts', JSON.stringify(currentAccounts));
-            setSavedAccounts(currentAccounts);
-        } catch (e) {
-            console.log('Failed to save account', e);
-        }
-    };
+    const switchAccount = useCallback(
+        async targetEmail => {
+            // Use a separate flag for switching to prevent "flash" of Auth screen
+            // We will handle this in the UI by keeping the current screen or showing a loader
+            setLoading(true);
 
-    const saveGoogleAccountCredentials = async user => {
-        try {
-            let currentAccounts = [];
-            const json = await getItemAsync('saved_accounts');
-            if (json) currentAccounts = JSON.parse(json);
+            try {
+                const account = savedAccounts.find(a => a.email === targetEmail);
+                if (!account) throw new Error('Account not found');
 
-            const existingIndex = currentAccounts.findIndex(a => a.email === user.email);
-            const newAccount = {
-                email: user.email,
-                password: null, // No password for Google
-                displayName: user.displayName || 'User',
-                photoURL: user.photoURL,
-                uid: user.uid,
-                provider: 'google',
-            };
+                await firebaseSignOut(auth);
 
-            if (existingIndex >= 0) {
-                currentAccounts[existingIndex] = newAccount;
-            } else {
-                currentAccounts.push(newAccount);
+                if (account.provider === 'google' || !account.password) {
+                    // Cannot auto-login Google accounts without prompting.
+                    // For MVP, we just sign out and let them click "Continue with Google" again on AuthScreen.
+                    // Ideally, we'd trigger the prompt here, but we need the hook.
+                    // Pass a param? No.
+                    // Just return, user is now signed out.
+                    // App will go to AuthScreen.
+                    return;
+                }
+
+                await signInWithEmailAndPassword(auth, account.email, account.password);
+                // Don't need to manually set user, onAuthStateChanged in useEffect will handle it
+            } catch (e) {
+                console.error('Switch failed', e);
+                // If fail, ensure we stop loading so user isn't stuck
+            } finally {
+                setLoading(false);
             }
+        },
+        [savedAccounts],
+    );
 
-            await setItemAsync('saved_accounts', JSON.stringify(currentAccounts));
-            setSavedAccounts(currentAccounts);
-        } catch (e) {
-            console.log('Failed to save google account', e);
-        }
-    };
-
-    const switchAccount = async targetEmail => {
-        // Use a separate flag for switching to prevent "flash" of Auth screen
-        // We will handle this in the UI by keeping the current screen or showing a loader
-        setLoading(true);
-
-        try {
-            const account = savedAccounts.find(a => a.email === targetEmail);
-            if (!account) throw new Error('Account not found');
-
-            await firebaseSignOut(auth);
-
-            if (account.provider === 'google' || !account.password) {
-                // Cannot auto-login Google accounts without prompting.
-                // For MVP, we just sign out and let them click "Continue with Google" again on AuthScreen.
-                // Ideally, we'd trigger the prompt here, but we need the hook.
-                // Pass a param? No.
-                // Just return, user is now signed out.
-                // App will go to AuthScreen.
-                return;
-            }
-
-            await signInWithEmailAndPassword(auth, account.email, account.password);
-            // Don't need to manually set user, onAuthStateChanged in useEffect will handle it
-        } catch (e) {
-            console.error('Switch failed', e);
-            // If fail, ensure we stop loading so user isn't stuck
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const removeSavedAccount = async targetEmail => {
-        const newAccounts = savedAccounts.filter(a => a.email !== targetEmail);
-        await setItemAsync('saved_accounts', JSON.stringify(newAccounts));
-        setSavedAccounts(newAccounts);
-    };
+    const removeSavedAccount = useCallback(
+        async targetEmail => {
+            const newAccounts = savedAccounts.filter(a => a.email !== targetEmail);
+            await setItemAsync('saved_accounts', JSON.stringify(newAccounts));
+            setSavedAccounts(newAccounts);
+        },
+        [savedAccounts],
+    );
 
     // --- Auth Actions ---
 
-    const signIn = async (email, password) => {
-        const result = await signInWithEmailAndPassword(auth, email, password);
-        await saveAccountCredentials(result.user, password); // Auto-save
-        return result;
-    };
+    const signIn = useCallback(
+        async (email, password) => {
+            const result = await signInWithEmailAndPassword(auth, email, password);
+            await saveAccountCredentials(result.user); // Auto-save
+            return result;
+        },
+        [saveAccountCredentials],
+    );
 
-    const signUp = async (email, password, additionalData = {}) => {
-        const result = await createUserWithEmailAndPassword(auth, email, password);
-        const { user } = result;
+    const signUp = useCallback(
+        async (email, password, additionalData = {}) => {
+            const result = await createUserWithEmailAndPassword(auth, email, password);
+            const { user } = result;
 
-        // Create user document
-        await setDoc(doc(db, 'users', user.uid), {
-            email: user.email,
-            role: 'student', // Default role
-            createdAt: new Date().toISOString(),
-            ...additionalData,
-        });
+            // Create user document
+            await setDoc(doc(db, 'users', user.uid), {
+                email: user.email,
+                role: 'student', // Default role
+                createdAt: new Date().toISOString(),
+                ...additionalData,
+            });
 
-        await saveAccountCredentials(user, password); // Auto-save
-        return result;
-    };
+            await saveAccountCredentials(user); // Auto-save
+            return result;
+        },
+        [saveAccountCredentials],
+    );
 
-    const signOut = () => {
+    const signOut = useCallback(() => {
         return firebaseSignOut(auth);
-    };
+    }, []);
 
     return (
         <AuthContext.Provider
@@ -237,4 +256,8 @@ export const AuthProvider = ({ children }) => {
             {children}
         </AuthContext.Provider>
     );
+};
+
+AuthProvider.propTypes = {
+    children: PropTypes.any,
 };

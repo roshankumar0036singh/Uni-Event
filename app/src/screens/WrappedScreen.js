@@ -3,7 +3,6 @@ import { collection, getDocs } from 'firebase/firestore';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import {
     Animated,
-    Dimensions,
     ScrollView,
     Share,
     StyleSheet,
@@ -16,8 +15,7 @@ import WrappedConfetti from '../components/WrappedConfetti';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
-
-const { width } = Dimensions.get('window');
+import PropTypes from 'prop-types';
 
 const MONTH_NAMES = [
     'January',
@@ -513,3 +511,7 @@ const getStyles = theme =>
             fontWeight: '500',
         },
     });
+
+WrappedScreen.propTypes = {
+    navigation: PropTypes.object,
+};

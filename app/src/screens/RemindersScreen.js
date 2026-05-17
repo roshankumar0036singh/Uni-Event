@@ -1,14 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-    collection,
-    deleteDoc,
-    doc,
-    getDocs,
-    query,
-    where,
-    getDoc,
-    onSnapshot,
-} from 'firebase/firestore';
+import { collection, deleteDoc, doc, query, where, getDoc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -26,6 +17,7 @@ import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { cancelScheduledNotification } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function RemindersScreen({ navigation }) {
     const { user } = useAuth();
@@ -349,3 +341,7 @@ const getStyles = (theme, isDarkMode) =>
         emptyText: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
         emptySubText: { color: theme.colors.textSecondary, marginTop: 8 },
     });
+
+RemindersScreen.propTypes = {
+    navigation: PropTypes.object,
+};

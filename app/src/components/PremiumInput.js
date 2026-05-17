@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function PremiumInput({
     label,
@@ -113,3 +114,16 @@ const styles = StyleSheet.create({
         marginLeft: 4,
     },
 });
+
+PremiumInput.propTypes = {
+    label: PropTypes.any,
+    value: PropTypes.number,
+    onChangeText: PropTypes.func,
+    placeholder: PropTypes.any,
+    secureTextEntry: PropTypes.any,
+    icon: PropTypes.any,
+    error: PropTypes.any,
+    keyboardType: PropTypes.any,
+    autoCapitalize: PropTypes.any,
+    style: PropTypes.any,
+};

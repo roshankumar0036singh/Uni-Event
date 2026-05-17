@@ -3,7 +3,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect } from 'react';
 import {
     BackHandler,
-    Dimensions,
     Platform,
     SafeAreaView,
     ScrollView,
@@ -14,8 +13,7 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useTheme } from '../lib/ThemeContext';
-
-const { width } = Dimensions.get('window');
+import PropTypes from 'prop-types';
 
 export default function TicketScreen({ route, navigation }) {
     const { ticketId, ticketData } = route.params;
@@ -46,7 +44,7 @@ export default function TicketScreen({ route, navigation }) {
                     <Text
                         style={[theme.typography.h2, { color: theme.colors.text, marginTop: 10 }]}
                     >
-                        You're Going!
+                        You&apos;re Going!
                     </Text>
                     <Text style={{ color: theme.colors.textSecondary }}>Ticket Confirmed</Text>
                 </View>
@@ -254,3 +252,8 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
 });
+
+TicketScreen.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};

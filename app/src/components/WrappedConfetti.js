@@ -11,8 +11,9 @@ import {
     View,
 } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const CONFETTI_COLORS = [
     '#FFB74D',
@@ -188,7 +189,17 @@ export default function WrappedConfetti({ visible, onComplete }) {
             timeoutIdsRef.current.forEach(id => clearTimeout(id));
             timeoutIdsRef.current = [];
         };
-    }, [visible]);
+    }, [
+        visible,
+        cardSlide,
+        checkmarkScale,
+        fadeAnim,
+        particles,
+        ripple1,
+        ripple2,
+        ripple3,
+        scaleAnim,
+    ]);
 
     const handleDismiss = () => {
         Animated.timing(fadeAnim, {
@@ -412,3 +423,8 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
 });
+
+WrappedConfetti.propTypes = {
+    visible: PropTypes.any,
+    onComplete: PropTypes.any,
+};

@@ -3,8 +3,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import { Animated, Dimensions, Easing, Modal, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 export default function PaymentSuccessAnimation({ visible, onComplete, amount }) {
     const { theme } = useTheme();
@@ -18,7 +19,18 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
     const ripple2 = useRef(new Animated.Value(0)).current;
     const ripple3 = useRef(new Animated.Value(0)).current;
 
+    const onCompleteRef = useRef(onComplete);
     useEffect(() => {
+        onCompleteRef.current = onComplete;
+    }, [onComplete]);
+
+    const checkmarkTimerRef = useRef(null);
+    const completeTimerRef = useRef(null);
+    const rippleAnimsRef = useRef([]);
+
+    useEffect(() => {
+        let mounted = true;
+
         if (visible) {
             // Reset
             scaleAnim.setValue(0);
@@ -30,19 +42,21 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
             ripple3.setValue(0);
 
             // 1. Fade In Overlay
-            Animated.timing(fadeAnim, {
+            const f1 = Animated.timing(fadeAnim, {
                 toValue: 1,
                 duration: 200,
                 useNativeDriver: true,
-            }).start();
+            });
+            f1.start();
 
             // 2. Main Circle Pop
-            Animated.spring(scaleAnim, {
+            const s1 = Animated.spring(scaleAnim, {
                 toValue: 1,
                 friction: 6,
                 tension: 40,
                 useNativeDriver: true,
-            }).start();
+            });
+            s1.start();
 
             // 3. Ripples (Staggered)
             const rippleAnim = (anim, delay) =>
@@ -60,13 +74,19 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
                 );
 
             // Start ripples
-            rippleAnim(ripple1, 0).start();
-            rippleAnim(ripple2, 400).start();
-            rippleAnim(ripple3, 800).start();
+            const r1 = rippleAnim(ripple1, 0);
+            const r2 = rippleAnim(ripple2, 400);
+            const r3 = rippleAnim(ripple3, 800);
+            r1.start();
+            r2.start();
+            r3.start();
+
+            rippleAnimsRef.current = [f1, s1, r1, r2, r3];
 
             // 4. Checkmark Pop & Receipt Slide (Delayed slightly)
-            setTimeout(() => {
-                Animated.parallel([
+            checkmarkTimerRef.current = setTimeout(() => {
+                if (!mounted) return;
+                const p1 = Animated.parallel([
                     Animated.spring(checkmarkScale, {
                         toValue: 1,
                         friction: 5,
@@ -79,21 +99,40 @@ export default function PaymentSuccessAnimation({ visible, onComplete, amount })
                         tension: 40,
                         useNativeDriver: true,
                     }),
-                ]).start();
+                ]);
+                rippleAnimsRef.current.push(p1);
+                p1.start();
             }, 300);
 
             // 5. Complete
-            setTimeout(() => {
-                Animated.timing(fadeAnim, {
+            completeTimerRef.current = setTimeout(() => {
+                if (!mounted) return;
+                const f2 = Animated.timing(fadeAnim, {
                     toValue: 0,
                     duration: 300,
                     useNativeDriver: true,
-                }).start(() => {
-                    if (onComplete) onComplete();
+                });
+                rippleAnimsRef.current.push(f2);
+                f2.start(() => {
+                    if (mounted && onCompleteRef.current) {
+                        onCompleteRef.current();
+                    }
                 });
             }, 3500); // Slightly longer to appreciate the "Receipt"
         }
-    }, [visible]);
+
+        return () => {
+            mounted = false;
+            if (checkmarkTimerRef.current) clearTimeout(checkmarkTimerRef.current);
+            if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
+            rippleAnimsRef.current.forEach(anim => {
+                if (anim && typeof anim.stop === 'function') {
+                    anim.stop();
+                }
+            });
+            rippleAnimsRef.current = [];
+        };
+    }, [visible, checkmarkScale, fadeAnim, receiptSlide, ripple1, ripple2, ripple3, scaleAnim]);
 
     if (!visible) return null;
 
@@ -327,3 +366,9 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
 });
+
+PaymentSuccessAnimation.propTypes = {
+    visible: PropTypes.any,
+    onComplete: PropTypes.any,
+    amount: PropTypes.any,
+};

@@ -9,6 +9,7 @@ import { theme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
 import { getEarlyBirdInfo } from '../lib/earlyBird';
 import { ShimmerItem } from './SkeletonLoader';
+import PropTypes from 'prop-types';
 
 export default function EventCard({
     event,
@@ -42,7 +43,7 @@ export default function EventCard({
                 }
             });
         }
-    }, [event?.ownerId]);
+    }, [event?.ownerId, event?.organization]);
 
     if (!event) return null;
 
@@ -440,3 +441,14 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
 });
+
+EventCard.propTypes = {
+    event: PropTypes.object,
+    onLike: PropTypes.any,
+    onShare: PropTypes.any,
+    isLiked: PropTypes.bool,
+    isRegistered: PropTypes.bool,
+    isRecommended: PropTypes.bool,
+    showRegisterButton: PropTypes.any,
+    style: PropTypes.any,
+};
