@@ -44,6 +44,7 @@ export default [
             'node_modules/**',
             'web-build/**',
             '.expo/**',
+            'coverage/**',
         ],
     },
 
@@ -65,7 +66,7 @@ export default [
             'prettier/prettier': 'error',
             'react-hooks/rules-of-hooks': 'error',
             'react-hooks/exhaustive-deps': 'warn',
-            'react/prop-types': 'warn',
+            'react/prop-types': 'off',
             'react/no-unescaped-entities': 'warn',
             'import/named': 'warn',
         },

@@ -162,7 +162,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                             },
                                         ]}
                                     >
-                                        No, I didn't
+                                        No, I didn&apos;t
                                     </Text>
                                 </TouchableOpacity>
                             </View>

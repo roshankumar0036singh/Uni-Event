@@ -1,8 +1,8 @@
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp } from 'firebase/app';
-// eslint-disable-next-line import/named
 import {
     browserLocalPersistence,
+    // eslint-disable-next-line import/named
     getReactNativePersistence,
     initializeAuth,
     connectAuthEmulator,
@@ -10,6 +10,7 @@ import {
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { getMessaging } from 'firebase/messaging';
 import { Platform } from 'react-native';
 
 const firebaseConfig = {
@@ -43,8 +44,6 @@ if (Platform.OS === 'web') {
 }
 
 export { auth };
-
-import { getMessaging } from 'firebase/messaging';
 
 // Initialize other services
 export const db = getFirestore(app);

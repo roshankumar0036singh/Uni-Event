@@ -23,7 +23,6 @@ import {
     Linking,
     Platform,
     ScrollView,
-    Share,
     StyleSheet,
     Text,
     TouchableOpacity,
