@@ -5,12 +5,12 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
+    Vibration, 
     Alert,
     TextInput,
     ActivityIndicator,
 } 
-    import { View, Text, Vibration }
-    from 'react-native'; 
+    from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useTheme } from '../lib/ThemeContext';
