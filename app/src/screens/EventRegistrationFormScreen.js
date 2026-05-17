@@ -53,7 +53,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
 
     const handleSubmit = async () => {
         if (!validate()) return;
-
+        if ("vibrate" in navigator) navigator.vibrate(50);
         // 1. Paid Event Flow -> Navigate to Payment
         if (event.isPaid) {
             navigation.navigate('Payment', {
