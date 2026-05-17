@@ -75,17 +75,6 @@ export default function CreateEvent({ navigation, route }) {
     // Google Auth
     const { request, response, promptAsync, getAccessToken } = CalendarService.useCalendarAuth();
 
-    useEffect(() => {
-        navigation.setOptions({ headerShown: false }); // Hide default header
-        if (response?.type === 'success') {
-            getAccessToken()
-                .then(token => {
-                    if (token) handleGenerateMeet(token);
-                })
-                .catch(e => Alert.alert('Error', e.message));
-        }
-    }, [response, getAccessToken, handleGenerateMeet, navigation]);
-
     const handleGenerateMeet = useCallback(
         async token => {
             setLoading(true);
@@ -109,6 +98,17 @@ export default function CreateEvent({ navigation, route }) {
         },
         [title, description, startDate, endDate],
     );
+
+    useEffect(() => {
+        navigation.setOptions({ headerShown: false }); // Hide default header
+        if (response?.type === 'success') {
+            getAccessToken()
+                .then(token => {
+                    if (token) handleGenerateMeet(token);
+                })
+                .catch(e => Alert.alert('Error', e.message));
+        }
+    }, [response, getAccessToken, handleGenerateMeet, navigation]);
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({

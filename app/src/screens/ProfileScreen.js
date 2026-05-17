@@ -77,15 +77,15 @@ export default function ProfileScreen({ navigation }) {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             if (userDoc.exists()) {
                 const data = userDoc.data();
-                if (data.year) setYear(String(data.year));
-                if (data.displayName) setName(data.displayName);
-                if (data.headline) setHeadline(data.headline);
-                if (data.bio) setBio(data.bio);
-                if (data.instagram) setInstagram(data.instagram);
-                if (data.linkedin) setLinkedin(data.linkedin);
-                if (data.branch) setBranch(data.branch);
-                if (data.points) setPoints(data.points);
-                if (data.badges) setBadges(data.badges);
+                setYear(data.year ? String(data.year) : '1');
+                setName(data.displayName || user?.displayName || '');
+                setHeadline(data.headline || '');
+                setBio(data.bio || '');
+                setInstagram(data.instagram || '');
+                setLinkedin(data.linkedin || '');
+                setBranch(data.branch || 'CSE');
+                setPoints(data.points ?? 0);
+                setBadges(data.badges || []);
 
                 // Fetch Club Rating (for club/admin users) from reputation field
                 if (role === 'club' || role === 'admin') {
@@ -108,7 +108,7 @@ export default function ProfileScreen({ navigation }) {
         } catch (e) {
             console.error(e);
         }
-    }, [user?.uid, role]);
+    }, [user?.uid, user?.displayName, role]);
 
     useEffect(() => {
         fetchUserData();

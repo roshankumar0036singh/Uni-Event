@@ -49,10 +49,15 @@ export default function EventChatScreen({ route, navigation }) {
     useEffect(() => {
         // Check organizer status
         const checkOwner = async () => {
-            if (!user?.uid) return;
+            if (!user?.uid) {
+                setIsOrganizer(false);
+                return;
+            }
             const eventDoc = await getDoc(doc(db, 'events', eventId));
             if (eventDoc.exists() && eventDoc.data().ownerId === user.uid) {
                 setIsOrganizer(true);
+            } else {
+                setIsOrganizer(false);
             }
         };
         checkOwner();

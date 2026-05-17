@@ -23,6 +23,35 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [savedAccounts, setSavedAccounts] = useState([]);
 
+    // Helper to interact with storage abstractly
+    const getItemAsync = useCallback(async key => {
+        if (Platform.OS === 'web') {
+            const value = await AsyncStorage.getItem(key);
+            return value;
+        } else {
+            return await SecureStore.getItemAsync(key);
+        }
+    }, []);
+
+    const setItemAsync = async (key, value) => {
+        if (Platform.OS === 'web') {
+            return await AsyncStorage.setItem(key, value);
+        } else {
+            return await SecureStore.setItemAsync(key, value);
+        }
+    };
+
+    const loadSavedAccounts = useCallback(async () => {
+        try {
+            const json = await getItemAsync('saved_accounts');
+            if (json) {
+                setSavedAccounts(JSON.parse(json));
+            }
+        } catch (e) {
+            console.log('Failed to load saved accounts', e);
+        }
+    }, [getItemAsync]);
+
     useEffect(() => {
         loadSavedAccounts(); // Load accounts on mount
         const unsubscribe = onAuthStateChanged(auth, async currentUser => {
@@ -65,37 +94,8 @@ export const AuthProvider = ({ children }) => {
         return unsubscribe;
     }, [loadSavedAccounts]);
 
-    // Helper to interact with storage abstractly
-    const getItemAsync = useCallback(async key => {
-        if (Platform.OS === 'web') {
-            const value = await AsyncStorage.getItem(key);
-            return value;
-        } else {
-            return await SecureStore.getItemAsync(key);
-        }
-    }, []);
-
-    const setItemAsync = async (key, value) => {
-        if (Platform.OS === 'web') {
-            return await AsyncStorage.setItem(key, value);
-        } else {
-            return await SecureStore.setItemAsync(key, value);
-        }
-    };
-
-    const loadSavedAccounts = useCallback(async () => {
-        try {
-            const json = await getItemAsync('saved_accounts');
-            if (json) {
-                setSavedAccounts(JSON.parse(json));
-            }
-        } catch (e) {
-            console.log('Failed to load saved accounts', e);
-        }
-    }, [getItemAsync]);
-
     const saveAccountCredentials = useCallback(
-        async (user, password) => {
+        async user => {
             try {
                 // Get existing accounts
                 let currentAccounts = [];
@@ -106,11 +106,11 @@ export const AuthProvider = ({ children }) => {
                 const existingIndex = currentAccounts.findIndex(a => a.email === user.email);
                 const newAccount = {
                     email: user.email,
-                    password, // Storing password securely
                     displayName: user.displayName || 'User',
                     photoURL: user.photoURL,
                     uid: user.uid,
                     provider: 'password',
+                    lastSignedInAt: new Date().toISOString(),
                 };
 
                 if (existingIndex >= 0) {
@@ -138,11 +138,11 @@ export const AuthProvider = ({ children }) => {
                 const existingIndex = currentAccounts.findIndex(a => a.email === user.email);
                 const newAccount = {
                     email: user.email,
-                    password: null, // No password for Google
                     displayName: user.displayName || 'User',
                     photoURL: user.photoURL,
                     uid: user.uid,
                     provider: 'google',
+                    lastSignedInAt: new Date().toISOString(),
                 };
 
                 if (existingIndex >= 0) {
@@ -208,7 +208,7 @@ export const AuthProvider = ({ children }) => {
     const signIn = useCallback(
         async (email, password) => {
             const result = await signInWithEmailAndPassword(auth, email, password);
-            await saveAccountCredentials(result.user, password); // Auto-save
+            await saveAccountCredentials(result.user); // Auto-save
             return result;
         },
         [saveAccountCredentials],
@@ -227,7 +227,7 @@ export const AuthProvider = ({ children }) => {
                 ...additionalData,
             });
 
-            await saveAccountCredentials(user, password); // Auto-save
+            await saveAccountCredentials(user); // Auto-save
             return result;
         },
         [saveAccountCredentials],
