@@ -58,7 +58,7 @@ export default function ProfileScreen({ navigation }) {
     const [instagram, setInstagram] = useState('');
     const [linkedin, setLinkedin] = useState('');
     const [year, setYear] = useState('1');
-    const [branch, setBranch] = useState('CSE');
+    const [currentStreak, setCurrentStreak] = useState(0);
     const [points, setPoints] = useState(0);
     const [eventsCount, setEventsCount] = useState(0);
     const [rating, setRating] = useState(0);
@@ -77,6 +77,7 @@ export default function ProfileScreen({ navigation }) {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             if (userDoc.exists()) {
                 const data = userDoc.data();
+                setCurrentStreak(data.currentStreak || 0);
                 if (data.year) setYear(String(data.year));
                 if (data.displayName) setName(data.displayName);
                 if (data.headline) setHeadline(data.headline);
@@ -290,6 +291,7 @@ export default function ProfileScreen({ navigation }) {
                                     theme={theme}
                                     styles={styles}
                                 />
+
                                 <StatCard
                                     label="Points"
                                     value={points}
@@ -297,10 +299,19 @@ export default function ProfileScreen({ navigation }) {
                                     theme={theme}
                                     styles={styles}
                                 />
+
                                 <StatCard
                                     label="Events"
                                     value={eventsCount}
                                     icon="calendar-outline"
+                                    theme={theme}
+                                    styles={styles}
+                                />
+
+                                <StatCard
+                                    label="Streak"
+                                    value={currentStreak}
+                                    icon="flame-outline"
                                     theme={theme}
                                     styles={styles}
                                 />
@@ -434,10 +445,10 @@ export default function ProfileScreen({ navigation }) {
                                                 {y === '1'
                                                     ? '1st'
                                                     : y === '2'
-                                                      ? '2nd'
-                                                      : y === '3'
-                                                        ? '3rd'
-                                                        : y + 'th'}{' '}
+                                                        ? '2nd'
+                                                        : y === '3'
+                                                            ? '3rd'
+                                                            : y + 'th'}{' '}
                                                 Year
                                             </Text>
                                         </TouchableOpacity>
