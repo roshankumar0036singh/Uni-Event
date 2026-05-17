@@ -10,3 +10,5 @@ export * from './reminders';
 export * from './reputation';
 export * from './setRole';
 
+// RSVP Predictions
+export { calculateShowUpRatio } from "./predictions";
