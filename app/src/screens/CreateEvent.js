@@ -206,7 +206,6 @@ export default function CreateEvent({ navigation, route }) {
             generatedMeetLink = await handleGenerateMeetLink();   
         }
         if (eventMode === 'online' && !generatedMeetLink) {
-            Alert.alert('Error', 'Meet link generation failed');
             setLoading(false);
             return;
 }
@@ -215,7 +214,7 @@ export default function CreateEvent({ navigation, route }) {
             const eventData = {
                 title,
                 description,
-                location,
+                location: eventMode === 'online' ? 'Google Meet' : location,
                 category,
                 eventMode,
                 meetLink: eventMode === 'online' ? generatedMeetLink  : null,
