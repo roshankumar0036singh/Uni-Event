@@ -759,10 +759,24 @@ export default function ProfileScreen({ navigation }) {
                                     </Text>
                                 </View>
                             </View>
-                        </View>
+                </View>
 
-                        {/* Logout Button */}
-                        <TouchableOpacity style={styles.logoutBtn} onPress={signOut}>
+                {/* Support Section */}
+                <View style={styles.menuGroup}>
+                    <Text style={styles.groupTitle}>Support</Text>
+                    <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+                        <MenuItem
+                            icon="bug-outline"
+                            label="Report a Bug"
+                            onPress={() => navigation.navigate('ReportBug')}
+                            theme={theme}
+                            styles={styles}
+                        />
+                    </View>
+                </View>
+
+                {/* Logout Button */}
+                <TouchableOpacity style={styles.logoutBtn} onPress={signOut}>
                             <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
                             <Text style={styles.logoutText}>Sign Out</Text>
                         </TouchableOpacity>

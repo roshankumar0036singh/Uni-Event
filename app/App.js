@@ -33,6 +33,7 @@ import MyRegisteredEventsScreen from './src/screens/MyRegisteredEventsScreen';
 import SavedEventsScreen from './src/screens/SavedEventsScreen';
 import FormBuilderScreen from './src/screens/FormBuilderScreen';
 import EventRegistrationFormScreen from './src/screens/EventRegistrationFormScreen';
+import ReportBugScreen from './src/screens/ReportBugScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -310,6 +311,11 @@ function Navigation() {
                             name="EventRegistrationForm"
                             component={EventRegistrationFormScreen}
                             options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="ReportBug"
+                            component={ReportBugScreen}
+                            options={{ title: 'Report a Bug' }}
                         />
                     </>
                 ) : (
