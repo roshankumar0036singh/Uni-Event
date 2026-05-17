@@ -47,12 +47,16 @@ exports.analyzeAttendance = (0, firestore_1.onDocumentCreated)("events/{eventId}
     const { userId, latitude, longitude, deviceId, checkedInAt, qrId, } = attendance;
     const eventId = event.params.eventId;
     const result = (0, fraudScore_1.createFraudResult)();
-    await checkRapidDuplicate(eventId, qrId, checkedInAt, result);
+    await checkRapidDuplicate(eventId, event.params.userId, qrId, checkedInAt, result);
     await checkImpossibleDistance(eventId, latitude, longitude, result);
     await checkDeviceAbuse(deviceId, result);
     await checkMultipleEvents(userId, checkedInAt, eventId, result);
     if (result.fraudScore >= 60) {
-        await db.collection("fraudReports").add({
+        const reportId = `${eventId}_${event.params.userId}`;
+        await db
+            .collection("fraudReports")
+            .doc(reportId)
+            .set({
             attendanceId: event.params.userId,
             userId,
             eventId,
@@ -60,10 +64,10 @@ exports.analyzeAttendance = (0, firestore_1.onDocumentCreated)("events/{eventId}
             reasons: result.reasons,
             resolved: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        }, { merge: true });
     }
 });
-async function checkRapidDuplicate(eventId, qrId, checkedInAt, result) {
+async function checkRapidDuplicate(eventId, currentUserId, qrId, checkedInAt, result) {
     const snapshot = await db
         .collection("events")
         .doc(eventId)
@@ -71,11 +75,21 @@ async function checkRapidDuplicate(eventId, qrId, checkedInAt, result) {
         .where("qrId", "==", qrId)
         .get();
     snapshot.forEach((doc) => {
+        var _a;
+        // Skip current check-in
+        if (doc.id === currentUserId) {
+            return;
+        }
         const data = doc.data();
         if (!data.checkedInAt)
             return;
-        const diff = Math.abs(new Date(checkedInAt).getTime() -
-            new Date(data.checkedInAt).getTime());
+        const currentTime = (checkedInAt === null || checkedInAt === void 0 ? void 0 : checkedInAt.toDate)
+            ? checkedInAt.toDate().getTime()
+            : new Date(checkedInAt).getTime();
+        const existingTime = ((_a = data.checkedInAt) === null || _a === void 0 ? void 0 : _a.toDate)
+            ? data.checkedInAt.toDate().getTime()
+            : new Date(data.checkedInAt).getTime();
+        const diff = Math.abs(currentTime - existingTime);
         if (diff < 30000) {
             result.fraudScore += 40;
             result.reasons.push("Rapid repeated QR check-in");
@@ -90,8 +104,10 @@ async function checkImpossibleDistance(eventId, latitude, longitude, result) {
     const eventData = eventDoc.data();
     if (!eventData)
         return;
-    if (!eventData.latitude ||
-        !eventData.longitude) {
+    if (eventData.latitude == null ||
+        eventData.longitude == null ||
+        latitude == null ||
+        longitude == null) {
         return;
     }
     const distance = (0, distance_1.calculateDistance)(latitude, longitude, eventData.latitude, eventData.longitude);
@@ -109,7 +125,7 @@ async function checkDeviceAbuse(deviceId, result) {
     snapshot.forEach((doc) => {
         users.add(doc.data().userId);
     });
-    if (users.size > 3) {
+    if (users.size >= 3) {
         result.fraudScore += 50;
         result.reasons.push("Multiple accounts using same device");
     }
@@ -120,9 +136,15 @@ async function checkMultipleEvents(userId, checkedInAt, currentEventId, result) 
         .where("userId", "==", userId)
         .get();
     snapshot.forEach((doc) => {
+        var _a;
         const data = doc.data();
-        const diff = Math.abs(new Date(checkedInAt).getTime() -
-            new Date(data.checkedInAt).getTime());
+        const currentTime = (checkedInAt === null || checkedInAt === void 0 ? void 0 : checkedInAt.toDate)
+            ? checkedInAt.toDate().getTime()
+            : new Date(checkedInAt).getTime();
+        const existingTime = ((_a = data.checkedInAt) === null || _a === void 0 ? void 0 : _a.toDate)
+            ? data.checkedInAt.toDate().getTime()
+            : new Date(data.checkedInAt).getTime();
+        const diff = Math.abs(currentTime - existingTime);
         if (diff < 60000 &&
             data.eventId !== currentEventId) {
             result.fraudScore += 50;

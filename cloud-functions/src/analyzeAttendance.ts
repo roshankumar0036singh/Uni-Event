@@ -30,6 +30,7 @@ export const analyzeAttendance = onDocumentCreated(
 
     await checkRapidDuplicate(
       eventId,
+      event.params.userId,
       qrId,
       checkedInAt,
       result
@@ -55,22 +56,40 @@ export const analyzeAttendance = onDocumentCreated(
     );
 
     if (result.fraudScore >= 60) {
-      await db.collection("fraudReports").add({
-        attendanceId: event.params.userId,
-        userId,
-        eventId,
-        fraudScore: result.fraudScore,
-        reasons: result.reasons,
-        resolved: false,
-        createdAt:
-          admin.firestore.FieldValue.serverTimestamp(),
-      });
+      const reportId =
+        `${eventId}_${event.params.userId}`;
+
+      await db
+        .collection("fraudReports")
+        .doc(reportId)
+        .set(
+          {
+            attendanceId:
+              event.params.userId,
+
+            userId,
+            eventId,
+
+            fraudScore:
+              result.fraudScore,
+
+            reasons:
+              result.reasons,
+
+            resolved: false,
+
+            createdAt:
+              admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
     }
   }
 );
 
 async function checkRapidDuplicate(
   eventId: string,
+  currentUserId: string,
   qrId: string,
   checkedInAt: any,
   result: any
@@ -83,13 +102,29 @@ async function checkRapidDuplicate(
     .get();
 
   snapshot.forEach((doc) => {
+    // Skip current check-in
+    if (doc.id === currentUserId) {
+      return;
+    }
+
     const data = doc.data();
 
     if (!data.checkedInAt) return;
 
+    const currentTime =
+      checkedInAt?.toDate
+        ? checkedInAt.toDate().getTime()
+        : new Date(checkedInAt).getTime();
+
+    const existingTime =
+      data.checkedInAt?.toDate
+        ? data.checkedInAt.toDate().getTime()
+        : new Date(
+            data.checkedInAt
+          ).getTime();
+
     const diff = Math.abs(
-      new Date(checkedInAt).getTime() -
-      new Date(data.checkedInAt).getTime()
+      currentTime - existingTime
     );
 
     if (diff < 30000) {
@@ -118,8 +153,10 @@ async function checkImpossibleDistance(
   if (!eventData) return;
 
   if (
-    !eventData.latitude ||
-    !eventData.longitude
+    eventData.latitude == null ||
+    eventData.longitude == null ||
+    latitude == null ||
+    longitude == null
   ) {
     return;
   }
@@ -155,7 +192,7 @@ async function checkDeviceAbuse(
     users.add(doc.data().userId);
   });
 
-  if (users.size > 3) {
+  if (users.size >= 3) {
     result.fraudScore += 50;
 
     result.reasons.push(
@@ -178,9 +215,20 @@ async function checkMultipleEvents(
   snapshot.forEach((doc) => {
     const data = doc.data();
 
+    const currentTime =
+      checkedInAt?.toDate
+        ? checkedInAt.toDate().getTime()
+        : new Date(checkedInAt).getTime();
+
+    const existingTime =
+      data.checkedInAt?.toDate
+        ? data.checkedInAt.toDate().getTime()
+        : new Date(
+            data.checkedInAt
+          ).getTime();
+
     const diff = Math.abs(
-      new Date(checkedInAt).getTime() -
-      new Date(data.checkedInAt).getTime()
+      currentTime - existingTime
     );
 
     if (
