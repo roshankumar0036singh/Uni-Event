@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-import fs from "fs";
+import fs from "node:fs";
 import {
   initializeTestEnvironment,
   assertSucceeds,
