@@ -74,76 +74,34 @@ export default function CreateEvent({ navigation, route }) {
 
     // Google Auth
     const { request, response, promptAsync, getAccessToken } = CalendarService.useCalendarAuth();
-
-    useEffect(() => {
-        navigation.setOptions({ headerShown: false }); // Hide default header
-        if (response?.type === 'success') {
-            getAccessToken()
-                .then(token => {
-                    if (token) handleGenerateMeet(token);
-                })
-                .catch(e => Alert.alert('Error', e.message));
-        }
-    }, [response]);
-
-    const handleGenerateMeet = async token => {
-        setLoading(true);
-        try {
-            const result = await CalendarService.createMeetEvent(token, {
-                title: title || 'New Club Event',
-                description: description || 'Created via Event App',
-                startAt: startDate.toISOString(),
-                endAt: endDate.toISOString(),
-            });
-            if (result.meetLink) {
-                setMeetLink(result.meetLink);
-                setLocation('Google Meet');
-                Alert.alert('Success', 'Google Meet Link Generated!');
-            }
-        } catch (e) {
-            Alert.alert('Error', e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
+    
     const handleGenerateMeetLink = async () => {
     try {
         const authResult = await promptAsync();
-
-        console.log('AUTH RESULT:', authResult);
-
         const token =
             authResult?.authentication?.accessToken ||
             authResult?.params?.access_token ||
             response?.authentication?.accessToken ||
             response?.params?.access_token;
-
-        console.log('TOKEN:', token);
-
         if (!token) {
             Alert.alert('Error', 'Unable to get Google access token');
             return;
         }
-
         const result = await CalendarService.createMeetEvent(token, {
             title: title || 'New Event',
             description: description || 'Virtual Event',
             startAt: startDate.toISOString(),
             endAt: endDate.toISOString(),
         });
-
-        console.log('MEET RESULT:', result);
-
         if (result?.meetLink) {
             setMeetLink(result.meetLink);
             setLocation('Google Meet');
             Alert.alert('Success', 'Google Meet link generated!');
+            return result.meetLink;
         } else {
             Alert.alert('Error', 'Meet link not returned from Google API');
         }
     } catch (error) {
-        console.error('MEET ERROR:', error);
         Alert.alert('Error', error.message || 'Failed to generate Meet link');
     }
 };
@@ -242,46 +200,8 @@ export default function CreateEvent({ navigation, route }) {
         let generatedMeetLink = meetLink;
 
         if (eventMode === 'online' && !meetLink) {
-            try {
-                const authResult = await promptAsync();
-
-const token =
-    authResult?.authentication?.accessToken ||
-    authResult?.params?.access_token;
-
-if (!token) {
-    Alert.alert(
-        'Google Authentication Required',
-        'Unable to get Google access token.'
-    );
-    setLoading(false);
-    return;
-}
-
-        if (!token) {
-            Alert.alert(
-                'Google Authentication Required',
-                'Please sign in with Google to generate a Meet link.'
-            );
-            setLoading(false);
-            return;
+            generatedMeetLink = await handleGenerateMeetLink();   
         }
-
-        const result = await CalendarService.createMeetEvent(token, {
-            title: title || 'New Club Event',
-            description: description || 'Created via Event App',
-            startAt: startDate.toISOString(),
-            endAt: endDate.toISOString(),
-        });
-
-        generatedMeetLink = result.meetLink;
-    } catch (e) {
-        console.error(e);
-        Alert.alert('Error', 'Failed to auto-generate Google Meet link.');
-        setLoading(false);
-        return;
-    }
-}
 
             const eventData = {
                 title,
@@ -323,7 +243,6 @@ if (!token) {
 
             navigation.goBack();
         } catch (e) {
-            console.error(e);
             Alert.alert(
                 'Error',
                 isEditMode ? 'Failed to update event.' : 'Failed to create event.',
