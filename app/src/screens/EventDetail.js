@@ -13,17 +13,16 @@ import {
     setDoc,
     updateDoc,
     where,
+    arrayUnion,
 } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Dimensions,
     ImageBackground,
     Linking,
     Platform,
     ScrollView,
-    Share,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -40,18 +39,22 @@ import { db } from '../lib/firebaseConfig';
 import { cancelScheduledNotification, scheduleEventReminder } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
+import { getEarlyBirdInfo, getTimestampMs } from '../lib/earlyBird';
+import PropTypes from 'prop-types';
 
-const { width } = Dimensions.get('window');
-
-const UniEventLogo = require('../../assets/UniEvent.png');
+// Constants to eliminate SonarQube Magic Numbers
+const RSVP_POINTS_CHANGE = 10;
+const FALLBACK_EARLY_BIRD_MS = 3600000; // 1 hour early-bird duration fallback
 
 export default function EventDetail({ route, navigation }) {
     const { eventId, action } = route.params;
-    const { user, role } = useAuth();
+    const { user } = useAuth();
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
 
     const [event, setEvent] = useState(null);
+    const ebInfo = useMemo(() => getEarlyBirdInfo(event), [event]);
+
     const [loading, setLoading] = useState(true);
     const [sendingCertificates, setSendingCertificates] = useState(false);
     const [rsvpStatus, setRsvpStatus] = useState(null);
@@ -61,6 +64,17 @@ export default function EventDetail({ route, navigation }) {
     const [showAppealModal, setShowAppealModal] = useState(false);
 
     const [sendingAppeal, setSendingAppeal] = useState(false);
+    const [activeTab, setActiveTab] = useState('about');
+    const [expandedBenefits, setExpandedBenefits] = useState(new Set());
+
+    const toggleBenefits = idx => {
+        setExpandedBenefits(prev => {
+            const next = new Set(prev);
+            if (next.has(idx)) next.delete(idx);
+            else next.add(idx);
+            return next;
+        });
+    };
 
     // ... existing useEffects ...
 
@@ -74,7 +88,8 @@ export default function EventDetail({ route, navigation }) {
             });
             setShowAppealModal(false);
             Alert.alert('Submitted', 'Appeal sent to admin for review.');
-        } catch (e) {
+        } catch (_e) {
+            console.error('Error submitting appeal:', _e);
             Alert.alert('Error', 'Failed to submit appeal');
         } finally {
             setSendingAppeal(false);
@@ -146,7 +161,11 @@ export default function EventDetail({ route, navigation }) {
                 setEvent({ id: doc.id, ...doc.data() });
             } else {
                 Alert.alert('Error', 'Event not found');
-                navigation.goBack();
+                if (navigation.canGoBack()) {
+                    navigation.goBack();
+                } else {
+                    navigation.navigate('Main');
+                }
             }
             setLoading(false);
         });
@@ -191,11 +210,10 @@ export default function EventDetail({ route, navigation }) {
             unsubEvent();
             unsubParticipants();
         };
-    }, [eventId, user]);
+    }, [eventId, user, navigation]);
 
     // Derived State
     const isOwner = user && event?.ownerId === user.uid;
-    const isAdmin = role === 'admin';
     const isSuspended = event?.status === 'suspended';
 
     const toggleBookmark = async () => {
@@ -339,8 +357,11 @@ export default function EventDetail({ route, navigation }) {
                 ]);
                 return;
             }
-            // Navigate to Payment
-            navigation.navigate('Payment', { event, price: event.price || 0 });
+            // Navigate to Payment — pass the correct (possibly early-bird) price
+            navigation.navigate('Payment', {
+                event,
+                price: ebInfo.currentPrice ?? event.price ?? 0,
+            });
             return;
         }
 
@@ -357,8 +378,11 @@ export default function EventDetail({ route, navigation }) {
             if (rsvpStatus === 'going') {
                 await deleteDoc(ref);
                 await deleteDoc(userRef);
-                await updateDoc(userProfileRef, { points: increment(-10) });
-                Alert.alert('Withdrawn', 'You are no longer registered. (-10 Points)');
+                await updateDoc(userProfileRef, { points: increment(-RSVP_POINTS_CHANGE) });
+                Alert.alert(
+                    'Withdrawn',
+                    `You are no longer registered. (-${RSVP_POINTS_CHANGE} Points)`,
+                );
             } else {
                 const userDoc = await getDoc(userProfileRef);
                 const userData = userDoc.exists() ? userDoc.data() : {};
@@ -372,10 +396,21 @@ export default function EventDetail({ route, navigation }) {
                     joinedAt: new Date().toISOString(),
                 });
                 await setDoc(userRef, { eventId: eventId, joinedAt: new Date().toISOString() });
-                await updateDoc(userProfileRef, { points: increment(10) });
+
+                const earlyBird = ebInfo?.isEligible;
+                const userUpdate = { points: increment(RSVP_POINTS_CHANGE) };
+                if (earlyBird) {
+                    userUpdate.badges = arrayUnion(`early_bird_${eventId}`);
+                }
+                await updateDoc(userProfileRef, userUpdate);
 
                 await scheduleEventReminder(event);
-                Alert.alert('Success', 'Registered! (+10 Points)');
+                Alert.alert(
+                    'Registered! 🎉',
+                    earlyBird
+                        ? `You earned +${RSVP_POINTS_CHANGE} Points and the 🐦 Early Bird badge for being one of the first to RSVP!`
+                        : `You earned +${RSVP_POINTS_CHANGE} Points for registering.`,
+                );
             }
         } catch (e) {
             console.error('RSVP Error: ', e);
@@ -383,7 +418,7 @@ export default function EventDetail({ route, navigation }) {
         }
     };
 
-    const { request, response, promptAsync } = CalendarService.useCalendarAuth();
+    const { response, promptAsync } = CalendarService.useCalendarAuth();
 
     useEffect(() => {
         if (response?.type === 'success') {
@@ -392,34 +427,10 @@ export default function EventDetail({ route, navigation }) {
                 .then(() => Alert.alert('Success', 'Added to Google Calendar!'))
                 .catch(() => Alert.alert('Error', 'Failed to add to calendar.'));
         }
-    }, [response]);
+    }, [response, event]);
 
     const openLink = url => {
         if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link'));
-    };
-
-    const handleExportReviews = async () => {
-        try {
-            const feedbackRef = collection(db, `events/${eventId}/feedback`);
-            const snapshot = await getDocs(feedbackRef);
-
-            if (snapshot.empty) {
-                Alert.alert('No Reviews', 'This event has no feedback yet.');
-                return;
-            }
-
-            let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
-            snapshot.forEach(doc => {
-                const d = doc.data();
-                const line = `\"${d.userName || 'Anonymous'}\",${d.eventRating || '-'}\",${d.clubRating || '-'}\",\"${(d.feedback || '').replace(/\"/g, '""')}\",${d.createdAt}\n`;
-                csv += line;
-            });
-
-            await Share.share({ message: csv, title: `Reviews - ${event.title}` });
-        } catch (error) {
-            console.error('Export Error: ', error);
-            Alert.alert('Error', 'Failed to export reviews.');
-        }
     };
 
     const sendCertificates = async () => {
@@ -778,12 +789,382 @@ export default function EventDetail({ route, navigation }) {
             </View>
         );
 
+    // --- Compute ticket list before render ---
+    const commonBenefits = [
+        'Entry to all sessions',
+        'Networking opportunities with peers',
+        'Welcome kit',
+        'Win exciting goodies',
+    ];
+
+    const defaultTickets = [
+        ...(event.hasEarlyBird || ebInfo?.isEligible
+            ? [
+                  {
+                      name: 'Early Bird Pass',
+                      description: `\u26a1 LIMITED TIME OFFER! Grab your spot early and be among the first to experience ${event.title}. Registering early earns you the exclusive 🐦 Early Bird badge and bonus points!`,
+                      benefits: [
+                          ...commonBenefits,
+                          'Exclusive Early Bird badge on your profile',
+                          `+${RSVP_POINTS_CHANGE} bonus points reward`,
+                      ],
+                      availableTill: ebInfo?.deadline
+                          ? new Date(getTimestampMs(ebInfo.deadline))
+                          : new Date(getTimestampMs(event.createdAt) + FALLBACK_EARLY_BIRD_MS),
+                      price: ebInfo.currentPrice ?? 0,
+                      isEarlyBird: true,
+                  },
+              ]
+            : []),
+        {
+            name: 'Regular Pass',
+            description: event.isPaid
+                ? `Standard registration with full access to ${event.title}. Join after the early bird phase and enjoy all the core event experiences.`
+                : `Free registration for ${event.title}. Secure your spot and enjoy the full event experience.`,
+            benefits: [...commonBenefits],
+            availableTill: new Date(event.startAt),
+            price: event.price || 0,
+            isEarlyBird: false,
+        },
+    ];
+
+    const ticketList =
+        event.ticketTypes && event.ticketTypes.length > 0 ? event.ticketTypes : defaultTickets;
+
+    const renderTicketCard = (ticket, idx) => {
+        let deadline = null;
+        if (ticket.availableTill) {
+            deadline =
+                ticket.availableTill instanceof Date
+                    ? ticket.availableTill
+                    : new Date(ticket.availableTill);
+        }
+        const isExpired = deadline && new Date() > deadline;
+        const isEarlyBirdTicket =
+            ticket.isEarlyBird || (ticket.name && ticket.name.toLowerCase().includes('early'));
+        const isFree = !ticket.price || ticket.price === 0;
+        const accentColor = isEarlyBirdTicket ? '#EAB308' : theme.colors.primary;
+        const benefitsOpen = expandedBenefits.has(idx);
+        const hasBenefits = ticket.benefits && ticket.benefits.length > 0;
+
+        return (
+            <View
+                key={String(idx)}
+                style={{
+                    borderRadius: 16,
+                    borderWidth: isEarlyBirdTicket ? 1.5 : 1,
+                    borderColor: isEarlyBirdTicket ? '#EAB308' : theme.colors.border,
+                    backgroundColor: theme.colors.surface,
+                    marginBottom: 16,
+                    overflow: 'hidden',
+                }}
+            >
+                {/* Coloured top stripe */}
+                <View style={{ height: 5, backgroundColor: accentColor }} />
+
+                <View style={{ padding: 18 }}>
+                    {/* Header row: Name + badge + status pill */}
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            marginBottom: 8,
+                        }}
+                    >
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    flexWrap: 'wrap',
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        fontSize: 18,
+                                        fontWeight: '800',
+                                        color: theme.colors.text,
+                                    }}
+                                >
+                                    {ticket.name}
+                                </Text>
+                                {isEarlyBirdTicket && (
+                                    <View
+                                        style={{
+                                            backgroundColor: '#EAB30820',
+                                            paddingVertical: 4,
+                                            paddingHorizontal: 10,
+                                            borderRadius: 20,
+                                            borderWidth: 1,
+                                            borderColor: '#EAB308',
+                                        }}
+                                    >
+                                        <Text
+                                            style={{
+                                                color: '#EAB308',
+                                                fontWeight: '700',
+                                                fontSize: 10,
+                                                lineHeight: 14,
+                                            }}
+                                        >
+                                            {'\uD83D\uDC26'} EARLY BIRD
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        </View>
+                        {isExpired ? (
+                            <View
+                                style={{
+                                    backgroundColor: theme.colors.textSecondary + '25',
+                                    paddingVertical: 5,
+                                    paddingHorizontal: 14,
+                                    borderRadius: 20,
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        color: theme.colors.textSecondary,
+                                        fontWeight: '600',
+                                        fontSize: 12,
+                                    }}
+                                >
+                                    Expired
+                                </Text>
+                            </View>
+                        ) : (
+                            <View
+                                style={{
+                                    backgroundColor: '#22C55E20',
+                                    paddingVertical: 5,
+                                    paddingHorizontal: 14,
+                                    borderRadius: 20,
+                                    borderWidth: 1,
+                                    borderColor: '#22C55E40',
+                                }}
+                            >
+                                <Text style={{ color: '#22C55E', fontWeight: '700', fontSize: 12 }}>
+                                    Active
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Description */}
+                    <Text
+                        style={{
+                            fontSize: 13,
+                            color: theme.colors.textSecondary,
+                            lineHeight: 20,
+                            marginBottom: 12,
+                        }}
+                    >
+                        {ticket.description}
+                    </Text>
+
+                    {/* Collapsible Benefits */}
+                    {hasBenefits && (
+                        <View style={{ marginBottom: 12 }}>
+                            <TouchableOpacity
+                                onPress={() => toggleBenefits(idx)}
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    paddingVertical: 8,
+                                    paddingHorizontal: 12,
+                                    borderRadius: 8,
+                                    backgroundColor: accentColor + '12',
+                                    borderWidth: 1,
+                                    borderColor: accentColor + '30',
+                                }}
+                            >
+                                <View
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                                >
+                                    <Text style={{ fontSize: 14 }}>{'\uD83C\uDF81'}</Text>
+                                    <Text
+                                        style={{
+                                            fontSize: 13,
+                                            fontWeight: '700',
+                                            color: accentColor,
+                                        }}
+                                    >
+                                        Benefits ({ticket.benefits.length})
+                                    </Text>
+                                </View>
+                                <Text
+                                    style={{ fontSize: 16, color: accentColor, fontWeight: '700' }}
+                                >
+                                    {benefitsOpen ? '\u25B2' : '\u25BC'}
+                                </Text>
+                            </TouchableOpacity>
+
+                            {benefitsOpen && (
+                                <View style={{ marginTop: 8, gap: 6 }}>
+                                    {ticket.benefits.map(b => (
+                                        <View
+                                            key={b}
+                                            style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                gap: 8,
+                                                paddingLeft: 4,
+                                            }}
+                                        >
+                                            <View
+                                                style={{
+                                                    width: 18,
+                                                    height: 18,
+                                                    borderRadius: 9,
+                                                    backgroundColor: accentColor + '25',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                }}
+                                            >
+                                                <Text
+                                                    style={{
+                                                        color: accentColor,
+                                                        fontSize: 11,
+                                                        fontWeight: '800',
+                                                    }}
+                                                >
+                                                    {String.fromCharCode(10003)}
+                                                </Text>
+                                            </View>
+                                            <Text
+                                                style={{
+                                                    fontSize: 13,
+                                                    color: theme.colors.textSecondary,
+                                                    flex: 1,
+                                                }}
+                                            >
+                                                {b}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    )}
+
+                    {/* Available till pill */}
+                    {deadline && (
+                        <View
+                            style={{
+                                backgroundColor: theme.colors.background,
+                                borderRadius: 8,
+                                paddingVertical: 7,
+                                paddingHorizontal: 12,
+                                alignSelf: 'flex-start',
+                                marginBottom: 16,
+                                borderWidth: 1,
+                                borderColor: theme.colors.border,
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    fontSize: 12,
+                                    color: theme.colors.textSecondary,
+                                    fontWeight: '500',
+                                }}
+                            >
+                                {'Available Till: '}
+                                <Text
+                                    style={{
+                                        fontWeight: '700',
+                                        color: isExpired ? theme.colors.textSecondary : accentColor,
+                                    }}
+                                >
+                                    {deadline.toLocaleString('en-IN', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                    })}
+                                </Text>
+                            </Text>
+                        </View>
+                    )}
+
+                    {/* Footer: price */}
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            borderTopWidth: 1,
+                            borderTopColor: theme.colors.border,
+                            paddingTop: 14,
+                        }}
+                    >
+                        <View>
+                            <Text
+                                style={{
+                                    fontSize: 11,
+                                    color: theme.colors.textSecondary,
+                                    marginBottom: 2,
+                                }}
+                            >
+                                {isEarlyBirdTicket ? 'Early Bird Price' : 'Price'}
+                            </Text>
+                            <Text style={{ fontSize: 28, fontWeight: '800', color: accentColor }}>
+                                {isFree ? 'Free' : '\u20B9' + ticket.price}
+                            </Text>
+                        </View>
+                        {!isExpired && !isFree && (
+                            <View
+                                style={{
+                                    backgroundColor: accentColor + '15',
+                                    paddingVertical: 8,
+                                    paddingHorizontal: 18,
+                                    borderRadius: 10,
+                                    borderWidth: 1,
+                                    borderColor: accentColor + '40',
+                                }}
+                            >
+                                <Text
+                                    style={{ color: accentColor, fontWeight: '700', fontSize: 13 }}
+                                >
+                                    Select
+                                </Text>
+                            </View>
+                        )}
+                        {!isExpired && isFree && (
+                            <View
+                                style={{
+                                    backgroundColor: '#22C55E15',
+                                    paddingVertical: 8,
+                                    paddingHorizontal: 18,
+                                    borderRadius: 10,
+                                    borderWidth: 1,
+                                    borderColor: '#22C55E40',
+                                }}
+                            >
+                                <Text style={{ color: '#22C55E', fontWeight: '700', fontSize: 13 }}>
+                                    Register Free
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
+            </View>
+        );
+    };
+
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
             <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
                 {/* Immersive Header Image */}
                 <ImageBackground
-                    source={{ uri: event.bannerUrl || 'https://via.placeholder.com/800x600' }}
+                    source={{
+                        uri:
+                            event.bannerUrl ||
+                            'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image',
+                    }}
                     style={styles.headerImage}
                 >
                     <LinearGradient
@@ -793,7 +1174,13 @@ export default function EventDetail({ route, navigation }) {
                         <View style={styles.headerSafe}>
                             <TouchableOpacity
                                 style={styles.backButton}
-                                onPress={() => navigation.goBack()}
+                                onPress={() => {
+                                    if (navigation.canGoBack()) {
+                                        navigation.goBack();
+                                    } else {
+                                        navigation.navigate('Main');
+                                    }
+                                }}
                             >
                                 <Ionicons name="arrow-back" size={24} color="#fff" />
                             </TouchableOpacity>
@@ -895,12 +1282,27 @@ export default function EventDetail({ route, navigation }) {
                             {event.isPaid ? (
                                 <View style={[styles.priceBadge, { backgroundColor: '#F59E0B' }]}>
                                     <Ionicons name="cash" size={14} color="#fff" />
-                                    <Text style={styles.priceText}>₹{event.price}</Text>
+                                    <Text style={styles.priceText}>
+                                        ₹{getEarlyBirdInfo(event).currentPrice}
+                                        {getEarlyBirdInfo(event).isEligible &&
+                                            getEarlyBirdInfo(event).isExplicit && (
+                                                <Text style={{ fontSize: 10, opacity: 0.8 }}>
+                                                    {' '}
+                                                    (Early Bird)
+                                                </Text>
+                                            )}
+                                    </Text>
                                 </View>
                             ) : (
                                 <View style={[styles.priceBadge, { backgroundColor: '#F59E0B' }]}>
                                     <Ionicons name="gift" size={14} color="#fff" />
                                     <Text style={styles.priceText}>Free</Text>
+                                </View>
+                            )}
+                            {/* Early Bird indicator */}
+                            {getEarlyBirdInfo(event).isEligible && rsvpStatus !== 'going' && (
+                                <View style={[styles.priceBadge, { backgroundColor: '#EAB308' }]}>
+                                    <Text style={styles.priceText}>🐦 Early Bird</Text>
                                 </View>
                             )}
                         </View>
@@ -1111,15 +1513,96 @@ export default function EventDetail({ route, navigation }) {
                         </View>
                     </View>
 
-                    {/* About Section */}
-                    <View style={styles.aboutSection}>
-                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                            About Event
-                        </Text>
-                        <Text style={[styles.description, { color: theme.colors.textSecondary }]}>
-                            {event.description}
-                        </Text>
+                    {/* Tabs Navigation — Interactive */}
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            borderBottomWidth: 1,
+                            borderColor: theme.colors.border,
+                            marginVertical: 20,
+                        }}
+                    >
+                        {[
+                            { key: 'about', label: 'About' },
+                            { key: 'tickets', label: 'Tickets' },
+                            { key: 'speakers', label: 'Event Speakers' },
+                        ].map(tab => (
+                            <TouchableOpacity
+                                key={tab.key}
+                                onPress={() => setActiveTab(tab.key)}
+                                style={[
+                                    { paddingBottom: 10, marginRight: 20 },
+                                    activeTab === tab.key && {
+                                        borderBottomWidth: 2,
+                                        borderColor: theme.colors.primary,
+                                    },
+                                ]}
+                            >
+                                <Text
+                                    style={{
+                                        color:
+                                            activeTab === tab.key
+                                                ? theme.colors.primary
+                                                : theme.colors.textSecondary,
+                                        fontWeight: 'bold',
+                                        fontSize: 16,
+                                    }}
+                                >
+                                    {tab.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
                     </View>
+
+                    {/* About Tab Content */}
+                    {activeTab === 'about' && (
+                        <View style={styles.aboutSection}>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                                ABOUT EVENT
+                            </Text>
+                            <Text
+                                style={[styles.description, { color: theme.colors.textSecondary }]}
+                            >
+                                {event.description}
+                            </Text>
+                        </View>
+                    )}
+
+                    {/* Tickets Tab Content */}
+                    {activeTab === 'tickets' && (
+                        <View style={styles.aboutSection}>
+                            <Text
+                                style={[
+                                    styles.sectionTitle,
+                                    { color: theme.colors.text, marginTop: 10 },
+                                ]}
+                            >
+                                TICKETS
+                            </Text>
+                            {ticketList.map(renderTicketCard)}
+                        </View>
+                    )}
+
+                    {/* Event Speakers Tab Content */}
+                    {activeTab === 'speakers' && (
+                        <View style={styles.aboutSection}>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                                EVENT SPEAKERS
+                            </Text>
+                            <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                                <Text style={{ fontSize: 40, marginBottom: 12 }}>🎭</Text>
+                                <Text
+                                    style={{
+                                        color: theme.colors.textSecondary,
+                                        fontSize: 15,
+                                        textAlign: 'center',
+                                    }}
+                                >
+                                    Speaker info has not been added yet.
+                                </Text>
+                            </View>
+                        </View>
+                    )}
 
                     {/* Meeting Link - Only for Attendees/Owner */}
                     {(rsvpStatus === 'going' || isOwner) && event.meetLink && (
@@ -1392,7 +1875,7 @@ export default function EventDetail({ route, navigation }) {
                                 : rsvpStatus === 'going'
                                   ? 'Registered ✓'
                                   : event.isPaid
-                                    ? `Book Ticket (₹${event.price})`
+                                    ? `Book Ticket (${ebInfo.isEligible ? '\u20B9' + ebInfo.currentPrice + ' Early Bird' : '\u20B9' + (event.price ?? 0)})`
                                     : 'RSVP Now'}
                         </Text>
                     </TouchableOpacity>
@@ -1759,4 +2242,62 @@ const getStyles = theme =>
         },
         primaryBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
         secondaryBtnText: { color: theme.colors.primary },
+
+        // Pass Card Styles
+        passCard: {
+            borderWidth: 1,
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 16,
+        },
+        passHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 12,
+        },
+        passTitle: {
+            fontSize: 20,
+            fontWeight: '700',
+        },
+        passDesc: {
+            fontSize: 14,
+            lineHeight: 22,
+            marginBottom: 16,
+        },
+        passBenefits: {
+            marginBottom: 20,
+            gap: 8,
+            paddingLeft: 4,
+        },
+        benefitItem: {
+            fontSize: 14,
+        },
+        passAvailable: {
+            padding: 8,
+            paddingHorizontal: 12,
+            borderRadius: 8,
+            alignSelf: 'flex-start',
+            marginBottom: 20,
+        },
+        passAvailableText: {
+            fontSize: 12,
+            fontWeight: '500',
+        },
+        passFooter: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderTopWidth: 1,
+            paddingTop: 16,
+        },
+        passPrice: {
+            fontSize: 28,
+            fontWeight: '800',
+        },
     });
+
+EventDetail.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};

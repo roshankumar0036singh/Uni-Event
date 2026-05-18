@@ -1,5 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import {
+    addDoc,
+    collection,
+    doc,
+    getDoc,
+    setDoc,
+    updateDoc,
+    increment,
+    arrayUnion,
+} from 'firebase/firestore';
 import { useState } from 'react';
 import {
     ActivityIndicator,
@@ -17,6 +26,9 @@ import PaymentSuccessAnimation from '../components/PaymentSuccessAnimation';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+
+import { getEarlyBirdInfo } from '../lib/earlyBird';
+import PropTypes from 'prop-types';
 
 export default function PaymentScreen({ route, navigation }) {
     const { event, price, formResponses } = route.params;
@@ -153,14 +165,26 @@ export default function PaymentScreen({ route, navigation }) {
                     });
                 }
 
+                // 5. Award Points & Early Bird Badge
+                const { isEligible: earlyBird } = getEarlyBirdInfo(event);
+                const userUpdate = { points: increment(10) };
+                if (earlyBird) {
+                    userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
+                }
+                await updateDoc(doc(db, 'users', user.uid), userUpdate);
+
                 setLoading(false);
 
-                // Show success animation
+                // Show success animation (badge info surfaced via ticketData so TicketScreen can display it)
                 setShowSuccessAnimation(true);
 
                 // Navigate to ticket after animation completes
                 setTimeout(() => {
-                    navigation.replace('TicketScreen', { ticketId: ticketRef.id, ticketData });
+                    navigation.replace('TicketScreen', {
+                        ticketId: ticketRef.id,
+                        ticketData,
+                        earlyBirdEarned: earlyBird,
+                    });
                 }, 2500);
             } catch (error) {
                 console.error('Payment Error:', error);
@@ -169,38 +193,6 @@ export default function PaymentScreen({ route, navigation }) {
             }
         }, 2000);
     };
-
-    const PaymentMethod = ({ id, label, icon }) => (
-        <TouchableOpacity
-            style={[
-                styles.methodCard,
-                {
-                    backgroundColor: theme.colors.surface,
-                    borderColor: selectedMethod === id ? theme.colors.primary : theme.colors.border,
-                    borderWidth: selectedMethod === id ? 2 : 1,
-                },
-            ]}
-            onPress={() => {
-                setSelectedMethod(id);
-                setShowUtrInput(false);
-            }}
-        >
-            <Ionicons
-                name={icon}
-                size={24}
-                color={selectedMethod === id ? theme.colors.primary : theme.colors.textSecondary}
-            />
-            <Text style={[styles.methodLabel, { color: theme.colors.text }]}>{label}</Text>
-            {selectedMethod === id && (
-                <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={theme.colors.primary}
-                    style={{ marginLeft: 'auto' }}
-                />
-            )}
-        </TouchableOpacity>
-    );
 
     return (
         <>
@@ -249,7 +241,14 @@ export default function PaymentScreen({ route, navigation }) {
                     <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
                         Payment Method
                     </Text>
-                    <PaymentMethod id="upi" label="UPI / GPay / PhonePe" icon="qr-code-outline" />
+                    <PaymentMethod
+                        id="upi"
+                        label="UPI / GPay / PhonePe"
+                        icon="qr-code-outline"
+                        selectedMethod={selectedMethod}
+                        setSelectedMethod={setSelectedMethod}
+                        setShowUtrInput={setShowUtrInput}
+                    />
                     {selectedMethod === 'upi' && showUtrInput && (
                         <View
                             style={{
@@ -296,8 +295,22 @@ export default function PaymentScreen({ route, navigation }) {
                             </TouchableOpacity>
                         </View>
                     )}
-                    <PaymentMethod id="card" label="Credit / Debit Card" icon="card-outline" />
-                    <PaymentMethod id="netbanking" label="Net Banking" icon="globe-outline" />
+                    <PaymentMethod
+                        id="card"
+                        label="Credit / Debit Card"
+                        icon="card-outline"
+                        selectedMethod={selectedMethod}
+                        setSelectedMethod={setSelectedMethod}
+                        setShowUtrInput={setShowUtrInput}
+                    />
+                    <PaymentMethod
+                        id="netbanking"
+                        label="Net Banking"
+                        icon="globe-outline"
+                        selectedMethod={selectedMethod}
+                        setSelectedMethod={setSelectedMethod}
+                        setShowUtrInput={setShowUtrInput}
+                    />
                 </ScrollView>
 
                 {/* Footer */}
@@ -336,6 +349,41 @@ export default function PaymentScreen({ route, navigation }) {
         </>
     );
 }
+
+const PaymentMethod = ({ id, label, icon, selectedMethod, setSelectedMethod, setShowUtrInput }) => {
+    const { theme } = useTheme();
+    return (
+        <TouchableOpacity
+            style={[
+                styles.methodCard,
+                {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: selectedMethod === id ? theme.colors.primary : theme.colors.border,
+                    borderWidth: selectedMethod === id ? 2 : 1,
+                },
+            ]}
+            onPress={() => {
+                setSelectedMethod(id);
+                setShowUtrInput(false);
+            }}
+        >
+            <Ionicons
+                name={icon}
+                size={24}
+                color={selectedMethod === id ? theme.colors.primary : theme.colors.textSecondary}
+            />
+            <Text style={[styles.methodLabel, { color: theme.colors.text }]}>{label}</Text>
+            {selectedMethod === id && (
+                <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={theme.colors.primary}
+                    style={{ marginLeft: 'auto' }}
+                />
+            )}
+        </TouchableOpacity>
+    );
+};
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
@@ -380,3 +428,16 @@ const styles = StyleSheet.create({
     },
     payButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
 });
+
+PaymentScreen.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};
+PaymentMethod.propTypes = {
+    id: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired,
+    icon: PropTypes.string.isRequired,
+    selectedMethod: PropTypes.string,
+    setSelectedMethod: PropTypes.func.isRequired,
+    setShowUtrInput: PropTypes.func.isRequired,
+};
