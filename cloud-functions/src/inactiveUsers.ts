@@ -13,7 +13,8 @@ export const detectInactiveUsers = functions.pubsub
 
     const usersSnapshot = await db.collection("users").get();
 
-    const batch = db.batch();
+    let batch = db.batch();
+    let operationCount = 0;
 
     for (const userDoc of usersSnapshot.docs) {
 
@@ -35,17 +36,40 @@ export const detectInactiveUsers = functions.pubsub
 
       const isInactive = lastActiveDate < thirtyDaysAgo;
 
-      batch.update(userDoc.ref, {
+      const updateData: any = {
         isInactive,
-        inactiveSince: isInactive
-          ? admin.firestore.FieldValue.serverTimestamp()
-          : null,
-      });
+      };
+      
+      if (isInactive) {
+        if (!userData.inactiveSince) {
+          updateData.inactiveSince =
+            admin.firestore.FieldValue.serverTimestamp();
+        }
+      } else {
+        updateData.inactiveSince = null;
+      }
+      
+      batch.update(userDoc.ref, updateData);
+      operationCount++;
+
+        if (operationCount === 500) {
+        await batch.commit();
+        batch = db.batch();
+        operationCount = 0;
+    }
     }
 
-    await batch.commit();
+    try {
+        if (operationCount > 0) {
+          await batch.commit();
+        }
+      
+        console.log("Inactive users scan completed.");
+      
+      } catch (error) {
+        console.error("Error committing inactivity batch:", error);
+      }
 
-    console.log("Inactive users scan completed.");
 
     return null;
   });
