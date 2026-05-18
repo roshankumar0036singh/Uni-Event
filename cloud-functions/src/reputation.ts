@@ -1,113 +1,137 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
+const db = admin.firestore();
+
 /**
- * Calculates reputation for all clubs or a specific club.
- * Can be triggered manually or scheduled.
- * Logic:
- * +10 points per 100 attendees
- * +2 points per registration
+ * Recalculates reputation points for users/students.
+ *
+ * Scoring:
+ * +10 points per attended event
+ * +2 points per registered event
  * +1 point per reminder set
  */
-export const calculateReputation = functions.https.onCall(async (data, context) => {
-      if (!context.auth || !context.auth.token.admin) {
-    throw new functions.https.HttpsError(
-      "permission-denied",
-      "Only admins can calculate reputation."
-    );
-  }
-
-
-    const db = admin.firestore();
-
-    const clubsSnapshot = await db.collection('clubs').get();
-    const updates: Promise<any>[] = [];
-
-    for (const clubDoc of clubsSnapshot.docs) {
-        // const clubId = clubDoc.id; // Unused
-        let points = 0;
-
-        // Fetch events for this club
-        const eventsSnapshot = await db
-            .collection('events')
-            .where('ownerId', '==', clubDoc.data().ownerUserId)
-            .get(); // Assuming ownerId links event to club owner. Better: store clubId on event.
-
-        // Correction: Strategy says clubs/{clubId} has ownerUserId. Events have ownerId.
-        // Ideally event should have `clubId` field. For MVP we assume ownerId on event matches club owner.
-
-        let totalAttendance = 0;
-        let totalRegistrations = 0;
-        let totalReminders = 0;
-
-        eventsSnapshot.forEach(eventDoc => {
-            const metrics = eventDoc.data().metrics || {};
-            totalAttendance += metrics.attendance || 0;
-            totalRegistrations += metrics.registrations || 0;
-            totalReminders += metrics.remindersSet || 0;
-        });
-
-        points += Math.floor(totalAttendance / 100) * 10;
-        points += totalRegistrations * 2;
-        points += totalReminders * 1;
-
-        // Optional: Feedback logic stub
-        // points += 5 (if avg feedback > 4.0)
-
-        updates.push(
-            clubDoc.ref.update({
-                'reputation.points': points,
-                'reputation.attendanceCount': totalAttendance,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            }),
+export const calculateReputation = functions.https.onCall(async (_data, context) => {
+    if (!context.auth?.token.admin) {
+        throw new functions.https.HttpsError(
+            'permission-denied',
+            'Only admin can calculate reputation.',
         );
     }
 
+    const usersSnapshot = await db.collection('users').get();
+    const updates: Promise<FirebaseFirestore.WriteResult>[] = [];
+
+    usersSnapshot.forEach(userDoc => {
+        const userData = userDoc.data();
+
+        const attendanceCount =
+            userData.reputation?.attendanceCount || userData.attendanceCount || 0;
+
+        const registrationCount =
+            userData.reputation?.registrationCount || userData.registrationCount || 0;
+
+        const remindersSet = userData.reputation?.remindersSet || userData.remindersSet || 0;
+
+        const points =
+            Math.floor(attendanceCount / 100) * 10 + registrationCount * 2 + remindersSet;
+
+        updates.push(
+            userDoc.ref.update({
+                'reputation.points': points,
+                'reputation.attendanceCount': attendanceCount,
+                'reputation.registrationCount': registrationCount,
+                'reputation.remindersSet': remindersSet,
+                'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+            }),
+        );
+    });
+
     await Promise.all(updates);
-    return { success: true, message: `Updated ${updates.length} clubs` };
+
+    return {
+        success: true,
+        message: `Updated reputation for ${updates.length} users`,
+    };
 });
 
 /**
- * Refreshes the campus-wide top contributors leaderboard every 24 hours.
- * Stores a precomputed top 10 list to avoid expensive client-side queries.
+ * Refreshes campus-wide top contributors leaderboard every 24 hours.
+ * Stores an initial top 10 list for quick display.
  */
 export const refreshTopContributorsLeaderboard = functions.pubsub
-  .schedule("every 24 hours")
-  .onRun(async () => {
-    const db = admin.firestore();
+    .schedule('every 24 hours')
+    .onRun(async () => {
+        const usersSnapshot = await db
+            .collection('users')
+            .orderBy('reputation.points', 'desc')
+            .limit(10)
+            .get();
 
-    const clubsSnapshot = await db
-      .collection("clubs")
-      .orderBy("reputation.points", "desc")
-      .limit(10)
-      .get();
+        const leaderboard = usersSnapshot.docs.map((doc, index) => {
+            const userData = doc.data();
 
-    const contributors = clubsSnapshot.empty
-      ? []
-      : clubsSnapshot.docs.map((clubDoc, index) => {
-          const clubData = clubDoc.data();
-          const reputation = clubData.reputation || {};
-
-          return {
-            id: clubDoc.id,
-            rank: index + 1,
-            name:
-              clubData.name ||
-              clubData.clubName ||
-              clubData.title ||
-              "Unknown Contributor",
-            department:
-              clubData.department ||
-              clubData.departmentName ||
-              "General",
-            reputationPoints: reputation.points || 0,
-          };
+            return {
+                userId: doc.id,
+                rank: index + 1,
+                name: userData.name || userData.displayName || 'Unknown User',
+                email: userData.email || '',
+                photoURL: userData.photoURL || '',
+                points: userData.reputation?.points || 0,
+                attendanceCount: userData.reputation?.attendanceCount || 0,
+                registrationCount: userData.reputation?.registrationCount || 0,
+                remindersSet: userData.reputation?.remindersSet || 0,
+            };
         });
 
-    await db.collection("leaderboards").doc("topContributors").set({
-      contributors,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        await db.collection('leaderboards').doc('topContributors').set({
+            type: 'topContributors',
+            leaderboard,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        return null;
     });
 
-    return null;
-  });
+/**
+ * Fetches paginated top contributors.
+ * Client can request first 10 and then load more using lastPoints.
+ */
+export const getTopContributors = functions.https.onCall(async data => {
+    const limit = Math.min(data?.limit || 10, 25);
+    const lastPoints = data?.lastPoints;
+
+    let query: FirebaseFirestore.Query = db
+        .collection('users')
+        .orderBy('reputation.points', 'desc')
+        .limit(limit);
+
+    if (typeof lastPoints === 'number') {
+        query = query.startAfter(lastPoints);
+    }
+
+    const usersSnapshot = await query.get();
+
+    const contributors = usersSnapshot.docs.map((doc, index) => {
+        const userData = doc.data();
+
+        return {
+            userId: doc.id,
+            rank: index + 1,
+            name: userData.name || userData.displayName || 'Unknown User',
+            email: userData.email || '',
+            photoURL: userData.photoURL || '',
+            points: userData.reputation?.points || 0,
+            attendanceCount: userData.reputation?.attendanceCount || 0,
+            registrationCount: userData.reputation?.registrationCount || 0,
+            remindersSet: userData.reputation?.remindersSet || 0,
+        };
+    });
+
+    return {
+        success: true,
+        contributors,
+        hasMore: contributors.length === limit,
+        lastPoints: contributors.length > 0 ? contributors[contributors.length - 1].points : null,
+    };
+});
