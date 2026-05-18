@@ -66,9 +66,7 @@ export const calculateStreaks = functions.pubsub
                 currentStreak: streak,
             });
 
-            console.log(
-                `Updated ${userId} streak to ${streak}`
-            );
+            console.log(`Updated streak to ${streak}`);
         }
 
         return null;

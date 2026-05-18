@@ -589,12 +589,12 @@ export default function ProfileScreen({ navigation }) {
                                                 ]}
                                             >
                                                 {getYearLabel(y)} Year
-                                            </Text >
-                                        </TouchableOpacity >
+                                            </Text>
+                                        </TouchableOpacity>
                                     ))
                                     }
-                                </ScrollView >
-                            </View >
+                                </ScrollView>
+                            </View>
                         )}
 
                         {
@@ -642,7 +642,7 @@ export default function ProfileScreen({ navigation }) {
                                 style={{ flex: 1 }}
                             />
                         </View>
-                    </View >
+                    </View>
                 ) : (
                     <View style={styles.menuContainer}>
                         {/* Activity Section */}
@@ -863,7 +863,7 @@ export default function ProfileScreen({ navigation }) {
                         <View style={{ height: 50 }} />
                     </View>
                 )}
-            </ScrollView >
+            </ScrollView>
 
             <Modal visible={showRequestModal} transparent animationType="slide">
                 <View
@@ -960,7 +960,7 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                 </View>
             </Modal>
-        </ScreenWrapper >
+        </ScreenWrapper>
     );
 }
 
