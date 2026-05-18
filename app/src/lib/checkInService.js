@@ -102,10 +102,9 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
         // Update event stats
         const eventRef = doc(db, 'events', eventId);
 
-        await updateDoc(eventRef, {
-            'stats.totalCheckedIn': increment(1),
-            'stats.lastCheckInAt': serverTimestamp(),
-        });
+        await setDoc(userRef, {
+            lastActive: serverTimestamp(),
+        }, { merge: true });
 
         // Update user activity
         const userRef = doc(db, 'users', userId);

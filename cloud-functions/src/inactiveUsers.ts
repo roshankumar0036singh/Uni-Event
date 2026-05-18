@@ -1,6 +1,15 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 
+function getLastActiveDate(lastActive: any): Date {
+    if (typeof lastActive.toDate === "function") {
+      return lastActive.toDate();
+    }
+  
+    return new Date(lastActive);
+  }
+  
+
 export const detectInactiveUsers = functions.pubsub
   .schedule("every 24 hours")
   .timeZone("UTC")
@@ -25,14 +34,7 @@ export const detectInactiveUsers = functions.pubsub
         continue;
       }
 
-      let lastActiveDate: Date;
-
-      // Firestore Timestamp support
-      if (typeof userData.lastActive.toDate === "function") {
-        lastActiveDate = userData.lastActive.toDate();
-      } else {
-        lastActiveDate = new Date(userData.lastActive);
-      }
+      const lastActiveDate = getLastActiveDate(userData.lastActive);
 
       const isInactive = lastActiveDate < thirtyDaysAgo;
 
