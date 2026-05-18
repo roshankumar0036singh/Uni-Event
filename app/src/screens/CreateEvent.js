@@ -74,39 +74,39 @@ export default function CreateEvent({ navigation, route }) {
 
     // Google Auth
     const { request, response, promptAsync } = CalendarService.useCalendarAuth();
-    
+
     const handleGenerateMeetLink = async () => {
-    try {
-        const authResult = await promptAsync();
-        const token =
-            authResult?.authentication?.accessToken ||
-            authResult?.params?.access_token ||
-            response?.authentication?.accessToken ||
-            response?.params?.access_token;
-        if (!token) {
-            Alert.alert('Error', 'Unable to get Google access token');
+        try {
+            const authResult = await promptAsync();
+            const token =
+                authResult?.authentication?.accessToken ||
+                authResult?.params?.access_token ||
+                response?.authentication?.accessToken ||
+                response?.params?.access_token;
+            if (!token) {
+                Alert.alert('Error', 'Unable to get Google access token');
+                return null;
+            }
+            const result = await CalendarService.createMeetEvent(token, {
+                title: title || 'New Event',
+                description: description || 'Virtual Event',
+                startAt: startDate.toISOString(),
+                endAt: endDate.toISOString(),
+            });
+            if (result?.meetLink) {
+                setMeetLink(result.meetLink);
+                setLocation('Google Meet');
+                Alert.alert('Success', 'Google Meet link generated!');
+                return result.meetLink;
+            } else {
+                Alert.alert('Error', 'Meet link not returned from Google API');
+                return null;
+            }
+        } catch (error) {
+            Alert.alert('Error', error.message || 'Failed to generate Meet link');
             return null;
         }
-        const result = await CalendarService.createMeetEvent(token, {
-            title: title || 'New Event',
-            description: description || 'Virtual Event',
-            startAt: startDate.toISOString(),
-            endAt: endDate.toISOString(),
-        });
-        if (result?.meetLink) {
-            setMeetLink(result.meetLink);
-            setLocation('Google Meet');
-            Alert.alert('Success', 'Google Meet link generated!');
-            return result.meetLink;
-        } else {
-            Alert.alert('Error', 'Meet link not returned from Google API');
-            return null;
-        }
-    } catch (error) {
-        Alert.alert('Error', error.message || 'Failed to generate Meet link');
-        return null;
-    }
-};
+    };
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
@@ -197,18 +197,16 @@ export default function CreateEvent({ navigation, route }) {
             } else if (!bannerUrl) {
                 bannerUrl = DEFAULT_BANNERS[Math.floor(Math.random() * DEFAULT_BANNERS.length)];
             }
-            
-        
-        let generatedMeetLink = meetLink;
 
-        if (eventMode === 'online' && !meetLink) {
-            generatedMeetLink = await handleGenerateMeetLink();   
-        }
-        if (eventMode === 'online' && !generatedMeetLink) {
-            setLoading(false);
-            return;
-}
+            let generatedMeetLink = meetLink;
 
+            if (eventMode === 'online' && !meetLink) {
+                generatedMeetLink = await handleGenerateMeetLink();
+            }
+            if (eventMode === 'online' && !generatedMeetLink) {
+                setLoading(false);
+                return;
+            }
 
             const eventData = {
                 title,
@@ -216,7 +214,7 @@ export default function CreateEvent({ navigation, route }) {
                 location: eventMode === 'online' ? 'Google Meet' : location,
                 category,
                 eventMode,
-                meetLink: eventMode === 'online' ? generatedMeetLink  : null,
+                meetLink: eventMode === 'online' ? generatedMeetLink : null,
                 startAt: startDate.toISOString(),
                 endAt: endDate.toISOString(),
                 isPaid,
