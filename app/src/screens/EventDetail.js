@@ -1868,4 +1868,4 @@ const getStyles = theme =>
         primaryBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
         secondaryBtnText: { color: theme.colors.primary },
     });
-
+}
