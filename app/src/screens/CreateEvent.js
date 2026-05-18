@@ -249,7 +249,8 @@ export default function CreateEvent({ navigation, route }) {
             }
 
             navigation.goBack();
-        } catch (e) {
+        } catch (error) {
+            console.error('Event creation failed:', error);
             Alert.alert(
                 'Error',
                 isEditMode ? 'Failed to update event.' : 'Failed to create event.',
