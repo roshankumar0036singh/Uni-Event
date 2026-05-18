@@ -13,7 +13,6 @@ import {
     StyleSheet,
     Switch,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -23,6 +22,7 @@ import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { db, storage } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 const DEFAULT_BANNERS = [
     'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1000&q=80',
@@ -73,8 +73,7 @@ export default function CreateEvent({ navigation, route }) {
     const [customFormSchema, setCustomFormSchema] = useState([]);
 
     // Google Auth
-    const { request, response, promptAsync, getAccessToken } = CalendarService.useCalendarAuth();
-
+    const { request, response, promptAsync } = CalendarService.useCalendarAuth();
     
     const handleGenerateMeetLink = async () => {
     try {
@@ -108,7 +107,6 @@ export default function CreateEvent({ navigation, route }) {
         return null;
     }
 };
-
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
@@ -169,7 +167,7 @@ export default function CreateEvent({ navigation, route }) {
             setCustomFormSchema(event.customFormSchema || []);
             navigation.setOptions({ title: 'Edit Event' });
         }
-    }, [isEditMode]);
+    }, [isEditMode, event, navigation]);
 
     const handleCreate = async () => {
         if (!title.trim() || !description.trim() || !category) {
@@ -897,3 +895,8 @@ const getStyles = theme =>
         },
         formBuilderText: { color: theme.colors.primary, fontWeight: 'bold' },
     });
+
+CreateEvent.propTypes = {
+    navigation: PropTypes.object,
+    route: PropTypes.object,
+};

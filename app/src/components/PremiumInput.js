@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function PremiumInput({
     label,
@@ -19,6 +20,13 @@ export default function PremiumInput({
     const [isFocused, setIsFocused] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
+    let borderColor = 'transparent';
+    if (error) {
+        borderColor = theme.colors.error;
+    } else if (isFocused) {
+        borderColor = theme.colors.primary;
+    }
+
     return (
         <View style={[styles.container, style]}>
             {label && (
@@ -30,11 +38,7 @@ export default function PremiumInput({
                     styles.inputWrapper,
                     {
                         backgroundColor: theme.colors.surface,
-                        borderColor: error
-                            ? theme.colors.error
-                            : isFocused
-                              ? theme.colors.primary
-                              : 'transparent',
+                        borderColor: borderColor,
                         borderWidth: isFocused || error ? 1.5 : 0,
                     },
                 ]}
@@ -113,3 +117,16 @@ const styles = StyleSheet.create({
         marginLeft: 4,
     },
 });
+
+PremiumInput.propTypes = {
+    label: PropTypes.any,
+    value: PropTypes.number,
+    onChangeText: PropTypes.func,
+    placeholder: PropTypes.any,
+    secureTextEntry: PropTypes.any,
+    icon: PropTypes.any,
+    error: PropTypes.any,
+    keyboardType: PropTypes.any,
+    autoCapitalize: PropTypes.any,
+    style: PropTypes.any,
+};

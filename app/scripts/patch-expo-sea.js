@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 
 const filePath = 'node_modules/@expo/cli/build/src/start/server/metro/externals.js';
 
