@@ -68,7 +68,7 @@ const TopContributors = () => {
     };
 
     const getContributorName = item => {
-        return item.name || item.fullName || item.displayName || item.email || 'Unknown Student';
+        return item.name || item.fullName || item.displayName || 'Unknown Student';
     };
 
     const getReputationPoints = item => {
@@ -164,7 +164,7 @@ const TopContributors = () => {
                     <FlatList
                         data={visibleContributors}
                         keyExtractor={(item, index) =>
-                            item.userId || item.id || item.email || `contributor-${index}`
+                            item.userId || item.id || `contributor-${index}`
                         }
                         scrollEnabled={false}
                         renderItem={renderContributor}

@@ -4,11 +4,11 @@ import * as functions from 'firebase-functions';
 const db = admin.firestore();
 
 /**
- * Recalculates reputation points for users/students.
+ * Calculates reputation for all users/students.
  *
  * Scoring:
  * +10 points per attended event
- * +2 points per registered event
+ * +2 points per registration
  * +1 point per reminder set
  */
 export const calculateReputation = functions.https.onCall(async (_data, context) => {
@@ -33,8 +33,7 @@ export const calculateReputation = functions.https.onCall(async (_data, context)
 
         const remindersSet = userData.reputation?.remindersSet || userData.remindersSet || 0;
 
-        const points =
-            Math.floor(attendanceCount / 100) * 10 + registrationCount * 2 + remindersSet;
+        const points = attendanceCount * 10 + registrationCount * 2 + remindersSet;
 
         updates.push(
             userDoc.ref.update({
@@ -56,8 +55,9 @@ export const calculateReputation = functions.https.onCall(async (_data, context)
 });
 
 /**
- * Refreshes campus-wide top contributors leaderboard every 24 hours.
- * Stores an initial top 10 list for quick display.
+ * Refreshes the campus-wide top contributors leaderboard every 24 hours.
+ *
+ * Stores the initial top 10 contributors for fast profile screen display.
  */
 export const refreshTopContributorsLeaderboard = functions.pubsub
     .schedule('every 24 hours')
@@ -65,17 +65,19 @@ export const refreshTopContributorsLeaderboard = functions.pubsub
         const usersSnapshot = await db
             .collection('users')
             .orderBy('reputation.points', 'desc')
+            .orderBy(admin.firestore.FieldPath.documentId())
             .limit(10)
             .get();
 
-        const leaderboard = usersSnapshot.docs.map((doc, index) => {
+        const contributors = usersSnapshot.docs.map((doc, index) => {
             const userData = doc.data();
 
             return {
                 userId: doc.id,
                 rank: index + 1,
-                name: userData.name || userData.displayName || 'Unknown User',
-                email: userData.email || '',
+                name:
+                    userData.name || userData.fullName || userData.displayName || 'Unknown Student',
+                department: userData.department || '',
                 photoURL: userData.photoURL || '',
                 points: userData.reputation?.points || 0,
                 attendanceCount: userData.reputation?.attendanceCount || 0,
@@ -86,7 +88,7 @@ export const refreshTopContributorsLeaderboard = functions.pubsub
 
         await db.collection('leaderboards').doc('topContributors').set({
             type: 'topContributors',
-            leaderboard,
+            contributors,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
@@ -95,19 +97,24 @@ export const refreshTopContributorsLeaderboard = functions.pubsub
 
 /**
  * Fetches paginated top contributors.
- * Client can request first 10 and then load more using lastPoints.
+ *
+ * Client can load the first 10 contributors and then request more using
+ * lastPoints, lastUserId, and startRank.
  */
 export const getTopContributors = functions.https.onCall(async data => {
     const limit = Math.min(data?.limit || 10, 25);
     const lastPoints = data?.lastPoints;
+    const lastUserId = data?.lastUserId;
+    const startRank = data?.startRank || 1;
 
     let query: FirebaseFirestore.Query = db
         .collection('users')
         .orderBy('reputation.points', 'desc')
+        .orderBy(admin.firestore.FieldPath.documentId())
         .limit(limit);
 
-    if (typeof lastPoints === 'number') {
-        query = query.startAfter(lastPoints);
+    if (typeof lastPoints === 'number' && typeof lastUserId === 'string') {
+        query = query.startAfter(lastPoints, lastUserId);
     }
 
     const usersSnapshot = await query.get();
@@ -117,9 +124,9 @@ export const getTopContributors = functions.https.onCall(async data => {
 
         return {
             userId: doc.id,
-            rank: index + 1,
-            name: userData.name || userData.displayName || 'Unknown User',
-            email: userData.email || '',
+            rank: startRank + index,
+            name: userData.name || userData.fullName || userData.displayName || 'Unknown Student',
+            department: userData.department || '',
             photoURL: userData.photoURL || '',
             points: userData.reputation?.points || 0,
             attendanceCount: userData.reputation?.attendanceCount || 0,
@@ -128,10 +135,18 @@ export const getTopContributors = functions.https.onCall(async data => {
         };
     });
 
+    const lastContributor = contributors.length > 0 ? contributors[contributors.length - 1] : null;
+
     return {
         success: true,
         contributors,
         hasMore: contributors.length === limit,
-        lastPoints: contributors.length > 0 ? contributors[contributors.length - 1].points : null,
+        nextCursor: lastContributor
+            ? {
+                  lastPoints: lastContributor.points,
+                  lastUserId: lastContributor.userId,
+                  startRank: startRank + contributors.length,
+              }
+            : null,
     };
 });
