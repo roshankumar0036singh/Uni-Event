@@ -34,9 +34,12 @@ export const calculateStreaks = functions.pubsub
 
             const eventDate = eventData.startAt.toDate();
 
-            const weekKey = `${eventDate.getFullYear()}-${Math.ceil(
-                eventDate.getDate() / 7
-            )}`;
+            const firstDayOfYear = new Date(eventDate.getFullYear(), 0, 1);
+            const daysSinceStart =
+                Math.floor((eventDate.getTime() - firstDayOfYear.getTime()) / 86400000);
+
+            const weekNumber = Math.ceil((daysSinceStart + 1) / 7);
+            const weekKey = `${eventDate.getFullYear()}-${weekNumber}`;
 
             for (const checkInDoc of checkInsSnapshot.docs) {
                 const userId = checkInDoc.id;
