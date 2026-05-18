@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../lib/ThemeContext';
 import UniEventLogo from './UniEventLogo';
+import PropTypes from 'prop-types';
 
 export default function ScreenWrapper({
     children,
@@ -41,3 +42,10 @@ const styles = StyleSheet.create({
         marginBottom: 5,
     },
 });
+
+ScreenWrapper.propTypes = {
+    children: PropTypes.any,
+    style: PropTypes.any,
+    edges: PropTypes.any,
+    showLogo: PropTypes.any,
+};
