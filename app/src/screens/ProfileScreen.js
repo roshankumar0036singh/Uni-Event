@@ -74,6 +74,7 @@ export default function ProfileScreen({ navigation }) {
     const [instagram, setInstagram] = useState('');
     const [linkedin, setLinkedin] = useState('');
     const [year, setYear] = useState('1');
+    const [branch, setBranch] = useState('CSE');
     const [currentStreak, setCurrentStreak] = useState(0);
     const [points, setPoints] = useState(0);
     const [eventsCount, setEventsCount] = useState(0);
