@@ -11,11 +11,10 @@ import {
     where,
     updateDoc,
 } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Dimensions,
     ScrollView,
     Share,
     StyleSheet,
@@ -25,18 +24,19 @@ import {
     Platform,
     Modal,
     TextInput,
+    useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BarChart } from 'react-native-chart-kit';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkAnnouncement, sendBulkFeedbackRequest } from '../lib/EmailService';
-
-const { width } = Dimensions.get('window');
+import PropTypes from 'prop-types';
 
 export default function AttendanceDashboard({ route, navigation }) {
+    const { width: screenWidth } = useWindowDimensions();
     const { eventId, eventTitle } = route.params;
-    const { user } = useAuth();
     const { theme } = useTheme();
 
     const [checkIns, setCheckIns] = useState([]);
@@ -208,6 +208,61 @@ export default function AttendanceDashboard({ route, navigation }) {
         return () => unsubscribe();
     }, [eventId]);
 
+    // Calculate Peak Attendance Data
+    const peakAttendanceData = useMemo(() => {
+        if (!checkIns || checkIns.length === 0 || !eventData?.startAt) return null;
+
+        const startAt = new Date(eventData.startAt).getTime();
+        if (isNaN(startAt)) return null;
+        const buckets = {
+            '>30m Early': 0,
+            '15-30m Early': 0,
+            '0-15m Early': 0,
+            '0-15m Late': 0,
+            '15-30m Late': 0,
+            '>30m Late': 0,
+        };
+
+        checkIns.forEach(checkIn => {
+            const checkInTime = checkIn.checkedInAt?.toMillis();
+            if (!checkInTime) return;
+
+            const diffMinutes = (checkInTime - startAt) / 60000;
+
+            if (diffMinutes < -30) buckets['>30m Early']++;
+            else if (diffMinutes >= -30 && diffMinutes < -15) buckets['15-30m Early']++;
+            else if (diffMinutes >= -15 && diffMinutes < 0) buckets['0-15m Early']++;
+            else if (diffMinutes >= 0 && diffMinutes <= 15) buckets['0-15m Late']++;
+            else if (diffMinutes > 15 && diffMinutes <= 30) buckets['15-30m Late']++;
+            else buckets['>30m Late']++;
+        });
+
+        // Only render graph if there is at least one check-in with a valid timestamp
+        const totalValid = Object.values(buckets).reduce((sum, val) => sum + val, 0);
+        if (totalValid === 0) return null;
+
+        const data = Object.values(buckets);
+        const maxVal = Math.max(...data);
+
+        return {
+            segments: Math.max(1, Math.min(maxVal, 4)), // Prevent duplicate Y-axis labels by limiting segments
+            labels: ['>30 E', '15-30 E', '0-15 E', '0-15 L', '15-30 L', '>30 L'],
+            datasets: [
+                {
+                    data,
+                    colors: [
+                        (opacity = 1) => theme.colors.success || '#00C853',
+                        (opacity = 1) => '#4CAF50',
+                        (opacity = 1) => theme.colors.primary,
+                        (opacity = 1) => theme.colors.warning || '#FFAB00',
+                        (opacity = 1) => '#FF5722',
+                        (opacity = 1) => theme.colors.error || '#FF3D00',
+                    ],
+                },
+            ],
+        };
+    }, [checkIns, eventData, theme]);
+
     const downloadCSV = async (csvContent, fileName) => {
         if (Platform.OS === 'web') {
             // Create a blob and trigger download
@@ -358,132 +413,6 @@ export default function AttendanceDashboard({ route, navigation }) {
         }
     };
 
-    const StatCard = ({ icon, label, value, color, subtitle, gradient }) => (
-        <View style={styles.statCard}>
-            <LinearGradient
-                colors={gradient || [color + '20', color + '10']}
-                style={styles.statGradient}
-            >
-                <View style={[styles.statIconBox, { backgroundColor: color + '30' }]}>
-                    <Ionicons name={icon} size={22} color={color} />
-                </View>
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
-                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
-                    {label}
-                </Text>
-                {subtitle && (
-                    <Text style={[styles.statSubtitle, { color: theme.colors.textSecondary }]}>
-                        {subtitle}
-                    </Text>
-                )}
-            </LinearGradient>
-        </View>
-    );
-
-    const CheckInItem = ({ item }) => {
-        const timeAgo = getTimeAgo(item.checkedInAt?.toMillis());
-
-        return (
-            <View style={[styles.checkInItem, { backgroundColor: theme.colors.surface }]}>
-                <View
-                    style={[styles.checkInAvatar, { backgroundColor: theme.colors.primary + '20' }]}
-                >
-                    <Text style={[styles.avatarText, { color: theme.colors.primary }]}>
-                        {item.userName?.[0]?.toUpperCase() || '?'}
-                    </Text>
-                </View>
-                <View style={styles.checkInInfo}>
-                    <Text style={[styles.checkInName, { color: theme.colors.text }]}>
-                        {item.userName}
-                    </Text>
-                    <View style={styles.checkInMeta}>
-                        <Ionicons
-                            name="school-outline"
-                            size={12}
-                            color={theme.colors.textSecondary}
-                        />
-                        <Text
-                            style={[styles.checkInDetails, { color: theme.colors.textSecondary }]}
-                        >
-                            {item.userBranch} • Year {item.userYear}
-                        </Text>
-                    </View>
-                </View>
-                <View style={styles.checkInTime}>
-                    <View style={styles.checkmarkBadge}>
-                        <Ionicons name="checkmark-circle" size={16} color={theme.colors.primary} />
-                    </View>
-                    <Text style={[styles.timeText, { color: theme.colors.textSecondary }]}>
-                        {timeAgo}
-                    </Text>
-                </View>
-            </View>
-        );
-    };
-
-    const getTimeAgo = timestamp => {
-        if (!timestamp) return 'Just now';
-        const now = Date.now();
-        const diff = now - timestamp;
-        const minutes = Math.floor(diff / 60000);
-        if (minutes < 1) return 'Just now';
-        if (minutes === 1) return '1 min ago';
-        if (minutes < 60) return `${minutes} mins ago`;
-        const hours = Math.floor(minutes / 60);
-        if (hours === 1) return '1 hour ago';
-        if (hours < 24) return `${hours} hours ago`;
-        return new Date(timestamp).toLocaleDateString();
-    };
-
-    const AnalyticsSection = ({ title, data, icon }) => {
-        const total = Object.values(data).reduce((sum, val) => sum + val, 0);
-        const sortedData = Object.entries(data).sort((a, b) => b[1] - a[1]);
-
-        return (
-            <View style={[styles.analyticsCard, { backgroundColor: theme.colors.surface }]}>
-                <View style={styles.analyticsHeader}>
-                    <View style={styles.analyticsHeaderLeft}>
-                        <Ionicons name={icon} size={18} color={theme.colors.primary} />
-                        <Text style={[styles.analyticsTitle, { color: theme.colors.text }]}>
-                            {title}
-                        </Text>
-                    </View>
-                    <Text style={[styles.analyticsTotal, { color: theme.colors.textSecondary }]}>
-                        {total} total
-                    </Text>
-                </View>
-                {sortedData.map(([key, value]) => {
-                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                    return (
-                        <View key={key} style={styles.analyticsItem}>
-                            <View style={styles.analyticsItemHeader}>
-                                <Text style={[styles.analyticsLabel, { color: theme.colors.text }]}>
-                                    {key}
-                                </Text>
-                                <Text
-                                    style={[
-                                        styles.analyticsValue,
-                                        { color: theme.colors.textSecondary },
-                                    ]}
-                                >
-                                    {value} ({percentage}%)
-                                </Text>
-                            </View>
-                            <View style={styles.analyticsBarBg}>
-                                <LinearGradient
-                                    colors={[theme.colors.primary, theme.colors.primary + '80']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={[styles.analyticsBarFill, { width: `${percentage}%` }]}
-                                />
-                            </View>
-                        </View>
-                    );
-                })}
-            </View>
-        );
-    };
-
     if (loading) {
         return (
             <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -495,7 +424,7 @@ export default function AttendanceDashboard({ route, navigation }) {
     return (
         <SafeAreaView
             style={[styles.container, { backgroundColor: theme.colors.background }]}
-            edges={['bottom']}
+            // Removed edges={['bottom']} so iOS notch doesn't cover the back button
         >
             <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -582,6 +511,55 @@ export default function AttendanceDashboard({ route, navigation }) {
                         </View>
                     )}
                 </View>
+
+                {peakAttendanceData && (
+                    <View style={[styles.analyticsCard, { backgroundColor: theme.colors.surface }]}>
+                        <View style={styles.analyticsHeader}>
+                            <View style={styles.analyticsHeaderLeft}>
+                                <Ionicons name="bar-chart" size={18} color={theme.colors.primary} />
+                                <Text style={[styles.analyticsTitle, { color: theme.colors.text }]}>
+                                    Peak Attendance Time
+                                </Text>
+                            </View>
+                        </View>
+                        <BarChart
+                            data={peakAttendanceData}
+                            width={Math.max(screenWidth - 40, 280)}
+                            height={220}
+                            yAxisLabel=""
+                            yAxisSuffix=""
+                            segments={peakAttendanceData.segments}
+                            chartConfig={{
+                                backgroundGradientFrom: theme.colors.surface,
+                                backgroundGradientTo: theme.colors.surface,
+                                color: (opacity = 1) => theme.colors.border,
+                                labelColor: (opacity = 1) => theme.colors.textSecondary,
+                                barPercentage: 0.7,
+                                barRadius: 4,
+                                decimalPlaces: 0,
+                                propsForLabels: {
+                                    fontSize: 10,
+                                    fontWeight: '600',
+                                },
+                                propsForBackgroundLines: {
+                                    strokeDasharray: '4',
+                                    stroke: theme.colors.textSecondary + '20',
+                                },
+                            }}
+                            style={{
+                                marginVertical: 0,
+                                borderRadius: 16,
+                                marginHorizontal: -10,
+                                paddingRight: 30,
+                            }}
+                            showValuesOnTopOfBars={true}
+                            fromZero={true}
+                            withInnerLines={true}
+                            withCustomBarColorFromData={true}
+                            flatColor={true}
+                        />
+                    </View>
+                )}
 
                 {Object.keys(departmentStats).length > 0 && (
                     <AnalyticsSection
@@ -884,6 +862,129 @@ export default function AttendanceDashboard({ route, navigation }) {
     );
 }
 
+const StatCard = ({ icon, label, value, color, subtitle, gradient }) => {
+    const { theme } = useTheme();
+    return (
+        <View style={styles.statCard}>
+            <LinearGradient
+                colors={gradient || [color + '20', color + '10']}
+                style={styles.statGradient}
+            >
+                <View style={[styles.statIconBox, { backgroundColor: color + '30' }]}>
+                    <Ionicons name={icon} size={22} color={color} />
+                </View>
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
+                    {label}
+                </Text>
+                {subtitle && (
+                    <Text style={[styles.statSubtitle, { color: theme.colors.textSecondary }]}>
+                        {subtitle}
+                    </Text>
+                )}
+            </LinearGradient>
+        </View>
+    );
+};
+
+const CheckInItem = ({ item }) => {
+    const { theme } = useTheme();
+    const timeAgo = getTimeAgo(item.checkedInAt?.toMillis());
+
+    return (
+        <View style={[styles.checkInItem, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.checkInAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+                <Text style={[styles.avatarText, { color: theme.colors.primary }]}>
+                    {item.userName?.[0]?.toUpperCase() || '?'}
+                </Text>
+            </View>
+            <View style={styles.checkInInfo}>
+                <Text style={[styles.checkInName, { color: theme.colors.text }]}>
+                    {item.userName}
+                </Text>
+                <View style={styles.checkInMeta}>
+                    <Ionicons name="school-outline" size={12} color={theme.colors.textSecondary} />
+                    <Text style={[styles.checkInDetails, { color: theme.colors.textSecondary }]}>
+                        {item.userBranch} • Year {item.userYear}
+                    </Text>
+                </View>
+            </View>
+            <View style={styles.checkInTime}>
+                <View style={styles.checkmarkBadge}>
+                    <Ionicons name="checkmark-circle" size={16} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.timeText, { color: theme.colors.textSecondary }]}>
+                    {timeAgo}
+                </Text>
+            </View>
+        </View>
+    );
+};
+
+const getTimeAgo = timestamp => {
+    if (!timestamp) return 'Just now';
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return 'Just now';
+    if (minutes === 1) return '1 min ago';
+    if (minutes < 60) return `${minutes} mins ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours === 1) return '1 hour ago';
+    if (hours < 24) return `${hours} hours ago`;
+    return new Date(timestamp).toLocaleDateString();
+};
+
+const AnalyticsSection = ({ title, data, icon }) => {
+    const { theme } = useTheme();
+    const total = Object.values(data).reduce((sum, val) => sum + val, 0);
+    const sortedData = Object.entries(data).sort((a, b) => b[1] - a[1]);
+
+    return (
+        <View style={[styles.analyticsCard, { backgroundColor: theme.colors.surface }]}>
+            <View style={styles.analyticsHeader}>
+                <View style={styles.analyticsHeaderLeft}>
+                    <Ionicons name={icon} size={18} color={theme.colors.primary} />
+                    <Text style={[styles.analyticsTitle, { color: theme.colors.text }]}>
+                        {title}
+                    </Text>
+                </View>
+                <Text style={[styles.analyticsTotal, { color: theme.colors.textSecondary }]}>
+                    {total} total
+                </Text>
+            </View>
+            {sortedData.map(([key, value]) => {
+                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                return (
+                    <View key={key} style={styles.analyticsItem}>
+                        <View style={styles.analyticsItemHeader}>
+                            <Text style={[styles.analyticsLabel, { color: theme.colors.text }]}>
+                                {key}
+                            </Text>
+                            <Text
+                                style={[
+                                    styles.analyticsValue,
+                                    { color: theme.colors.textSecondary },
+                                ]}
+                            >
+                                {value} ({percentage}%)
+                            </Text>
+                        </View>
+                        <View style={styles.analyticsBarBg}>
+                            <LinearGradient
+                                colors={[theme.colors.primary, theme.colors.primary + '80']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={[styles.analyticsBarFill, { width: `${percentage}%` }]}
+                            />
+                        </View>
+                    </View>
+                );
+            })}
+        </View>
+    );
+};
+
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: {
@@ -1074,3 +1175,30 @@ const styles = StyleSheet.create({
     },
     modalButtonText: { fontSize: 15, fontWeight: '700' },
 });
+
+AttendanceDashboard.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};
+StatCard.propTypes = {
+    icon: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired,
+    value: PropTypes.number.isRequired,
+    color: PropTypes.string.isRequired,
+    subtitle: PropTypes.string,
+    gradient: PropTypes.arrayOf(PropTypes.string),
+};
+CheckInItem.propTypes = {
+    item: PropTypes.shape({
+        id: PropTypes.string.isRequired,
+        userName: PropTypes.string,
+        userBranch: PropTypes.string,
+        userYear: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        checkedInAt: PropTypes.object,
+    }).isRequired,
+};
+AnalyticsSection.propTypes = {
+    title: PropTypes.string.isRequired,
+    data: PropTypes.object.isRequired,
+    icon: PropTypes.string.isRequired,
+};
