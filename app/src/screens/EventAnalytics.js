@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, getCountFromServer, getDocs, query, where } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function EventAnalytics({ route, navigation }) {
     const { eventId } = route.params;
@@ -13,11 +14,7 @@ export default function EventAnalytics({ route, navigation }) {
     const [reminderCount, setReminderCount] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchData();
-    }, [eventId]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             // 1. Fetch Participants
             const pRef = collection(db, 'events', eventId, 'participants');
@@ -38,7 +35,11 @@ export default function EventAnalytics({ route, navigation }) {
             console.error('Analytics Error', e);
             setLoading(false);
         }
-    };
+    }, [eventId]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     if (loading)
         return (
@@ -154,3 +155,8 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
 });
+
+EventAnalytics.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};

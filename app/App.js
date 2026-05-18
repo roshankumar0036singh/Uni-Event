@@ -1,43 +1,52 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import * as NavigationBar from 'expo-navigation-bar';
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import PropTypes from 'prop-types';
 
 import 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { doc, updateDoc } from 'firebase/firestore';
+import CustomTabBar from './src/components/CustomTabBar';
 import NotificationBell from './src/components/NotificationBell';
+import PWAInstallPrompt from './src/components/PWAInstallPrompt';
 import ScreenWrapper from './src/components/ScreenWrapper';
 import { AuthProvider, useAuth } from './src/lib/AuthContext';
 import { ThemeProvider, useTheme } from './src/lib/ThemeContext';
-import { checkAndTriggerAutomations } from './src/lib/AutomationService';
+import { db } from './src/lib/firebaseConfig';
+import { registerForPushNotificationsAsync } from './src/lib/notificationService';
 import AdminDashboard from './src/screens/AdminDashboard';
+import AppearanceScreen from './src/screens/AppearanceScreen';
 import AttendanceDashboard from './src/screens/AttendanceDashboard';
 import AuthScreen from './src/screens/AuthScreen';
+import ClubProfileScreen from './src/screens/ClubProfileScreen';
 import CreateEvent from './src/screens/CreateEvent';
+import EventAnalytics from './src/screens/EventAnalytics';
+import EventChatScreen from './src/screens/EventChatScreen';
 import EventDetail from './src/screens/EventDetail';
+import EventRegistrationFormScreen from './src/screens/EventRegistrationFormScreen';
+import FormBuilderScreen from './src/screens/FormBuilderScreen';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import MyEventsScreen from './src/screens/MyEventsScreen';
+import MyRegisteredEventsScreen from './src/screens/MyRegisteredEventsScreen';
 import ParticipatingEventsScreen from './src/screens/ParticipatingEventsScreen';
+import PaymentScreen from './src/screens/PaymentScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import QRScannerScreen from './src/screens/QRScannerScreen';
 import RemindersScreen from './src/screens/RemindersScreen';
-import UserFeed from './src/screens/UserFeed';
-import AppearanceScreen from './src/screens/AppearanceScreen';
-import ClubProfileScreen from './src/screens/ClubProfileScreen';
-import EventChatScreen from './src/screens/EventChatScreen';
-import PaymentScreen from './src/screens/PaymentScreen';
-import TicketScreen from './src/screens/TicketScreen';
-import WalletScreen from './src/screens/WalletScreen';
-import MyRegisteredEventsScreen from './src/screens/MyRegisteredEventsScreen';
+import ReportBugScreen from './src/screens/ReportBugScreen';
 import SavedEventsScreen from './src/screens/SavedEventsScreen';
-import FormBuilderScreen from './src/screens/FormBuilderScreen';
-import EventRegistrationFormScreen from './src/screens/EventRegistrationFormScreen';
+import TicketScreen from './src/screens/TicketScreen';
+import UserFeed from './src/screens/UserFeed';
+import WalletScreen from './src/screens/WalletScreen';
+import WrappedScreen from './src/screens/WrappedScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
-
-import * as NavigationBar from 'expo-navigation-bar';
 
 function HomeScreen({ navigation }) {
     const { user, role } = useAuth();
@@ -45,7 +54,6 @@ function HomeScreen({ navigation }) {
 
     useEffect(() => {
         const updateNavBar = async () => {
-            // Set Android Navigation Bar Color
             await NavigationBar.setBackgroundColorAsync(theme.colors.surface);
             await NavigationBar.setButtonStyleAsync(isDarkMode ? 'light' : 'dark');
         };
@@ -108,14 +116,8 @@ function HomeScreen({ navigation }) {
     );
 }
 
-import EventAnalytics from './src/screens/EventAnalytics';
-
-import CustomTabBar from './src/components/CustomTabBar';
-import LeaderboardScreen from './src/screens/LeaderboardScreen';
-
 function TabNavigator() {
     const { role } = useAuth();
-    const { theme } = useTheme();
 
     return (
         <Tab.Navigator
@@ -123,7 +125,7 @@ function TabNavigator() {
             screenOptions={{
                 headerShown: false,
                 tabBarStyle: {
-                    position: 'absolute', // Required for BlurView transparency to see content behind
+                    position: 'absolute',
                     backgroundColor: 'transparent',
                     elevation: 0,
                     borderTopWidth: 0,
@@ -132,7 +134,6 @@ function TabNavigator() {
         >
             <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
 
-            {/* Admin Tab: Control Panel (Admin Only) */}
             {role === 'admin' && (
                 <Tab.Screen
                     name="Admin"
@@ -141,7 +142,6 @@ function TabNavigator() {
                 />
             )}
 
-            {/* My Events Tab: For Admin & Club */}
             {(role === 'admin' || role === 'club') && (
                 <Tab.Screen
                     name="MyEvents"
@@ -156,7 +156,6 @@ function TabNavigator() {
                 options={{ title: 'Reminders' }}
             />
 
-            {/* Leaderboard for everyone or students */}
             <Tab.Screen
                 name="Leaderboard"
                 component={LeaderboardScreen}
@@ -243,7 +242,6 @@ function Navigation() {
                             component={ParticipatingEventsScreen}
                             options={{ title: "Events I'm Going To" }}
                         />
-                        {/* MyEvents is now a Tab, but can still be navigated to if needed, though usually via tab */}
                         <Stack.Screen
                             name="EventAnalytics"
                             component={EventAnalytics}
@@ -259,8 +257,6 @@ function Navigation() {
                             component={QRScannerScreen}
                             options={{ title: 'Scan QR', headerShown: false }}
                         />
-
-                        {/* Migrated Screens */}
                         <Stack.Screen
                             name="Appearance"
                             component={AppearanceScreen}
@@ -311,6 +307,16 @@ function Navigation() {
                             component={EventRegistrationFormScreen}
                             options={{ headerShown: false }}
                         />
+                        <Stack.Screen
+                            name="Wrapped"
+                            component={WrappedScreen}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="ReportBug"
+                            component={ReportBugScreen}
+                            options={{ title: 'Report a Bug' }}
+                        />
                     </>
                 ) : (
                     <Stack.Screen
@@ -323,14 +329,6 @@ function Navigation() {
         </NavigationContainer>
     );
 }
-
-import * as Notifications from 'expo-notifications';
-import { doc, updateDoc } from 'firebase/firestore';
-import { useRef } from 'react';
-import { db } from './src/lib/firebaseConfig';
-import { registerForPushNotificationsAsync } from './src/lib/notificationService';
-
-import PWAInstallPrompt from './src/components/PWAInstallPrompt';
 
 export default function App() {
     return (
@@ -353,28 +351,23 @@ function AppContent() {
     useEffect(() => {
         registerForPushNotificationsAsync().then(token => {
             if (user && token) {
-                // Save token to user profile
                 updateDoc(doc(db, 'users', user.uid), {
                     pushToken: token,
                 }).catch(err => console.log('Failed to save push token', err));
-
-                // Global Automation Check - DISABLED (Manual feedback sending only)
-                // checkAndTriggerAutomations(user.uid);
             }
         });
+        // Global Automation Check - DISABLED (Manual feedback sending only)
+        // checkAndTriggerAutomations(user.uid);
 
-        // Listeners for foreground notifications
         notificationListener.current = Notifications.addNotificationReceivedListener(
             notification => {
                 console.log('Notification Received:', notification);
             },
         );
 
-        // Listeners for user interacting with notification
         responseListener.current = Notifications.addNotificationResponseReceivedListener(
             response => {
                 console.log('Notification Tapped:', response);
-                // Could navigate to event detail here
             },
         );
 
@@ -427,3 +420,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
 });
+
+HomeScreen.propTypes = {
+    navigation: PropTypes.shape({
+        navigate: PropTypes.func.isRequired,
+    }).isRequired,
+};

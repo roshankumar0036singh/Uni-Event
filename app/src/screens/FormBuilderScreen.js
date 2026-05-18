@@ -1,20 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    TextInput,
     Alert,
     Modal,
-    FlatList,
     Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useTheme } from '../lib/ThemeContext';
 import PremiumInput from '../components/PremiumInput';
+import PropTypes from 'prop-types';
 
 export default function FormBuilderScreen({ navigation, route }) {
     const { onSave, initialSchema = [] } = route.params || {};
@@ -129,7 +128,9 @@ export default function FormBuilderScreen({ navigation, route }) {
                             color={theme.colors.textSecondary}
                         />
                         <Text style={styles.emptyText}>No fields added yet.</Text>
-                        <Text style={styles.emptySubText}>Tap "+" to add a custom field.</Text>
+                        <Text style={styles.emptySubText}>
+                            Tap &quot;+&quot; to add a custom field.
+                        </Text>
                     </View>
                 ) : (
                     fields.map((field, index) => (
@@ -482,3 +483,8 @@ const getStyles = theme =>
         },
         addBtnText: { color: '#000', fontWeight: '800', fontSize: 18 },
     });
+
+FormBuilderScreen.propTypes = {
+    navigation: PropTypes.object,
+    route: PropTypes.object,
+};

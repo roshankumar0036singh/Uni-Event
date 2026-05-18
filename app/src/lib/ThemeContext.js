@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Platform, useColorScheme } from 'react-native';
 import { darkTheme, lightTheme } from './theme';
+import PropTypes from 'prop-types';
 
 const ThemeContext = createContext();
 
@@ -58,3 +59,7 @@ export const ThemeProvider = ({ children }) => {
 };
 
 export const useTheme = () => useContext(ThemeContext);
+
+ThemeProvider.propTypes = {
+    children: PropTypes.any,
+};

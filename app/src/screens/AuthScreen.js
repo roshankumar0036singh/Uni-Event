@@ -9,8 +9,6 @@ import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Dimensions,
-    Keyboard,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -18,7 +16,6 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    TouchableWithoutFeedback,
     View,
 } from 'react-native';
 import { useAuth } from '../lib/AuthContext';
@@ -26,8 +23,6 @@ import { useTheme } from '../lib/ThemeContext';
 import { auth, db } from '../lib/firebaseConfig';
 
 WebBrowser.maybeCompleteAuthSession();
-
-const { width } = Dimensions.get('window');
 
 const MIN_PASSWORD_LENGTH = 6;
 const ERR_PASSWORD_SHORT = 'Password must be at least 6 characters';
@@ -133,7 +128,7 @@ export default function AuthScreen() {
                 })
                 .finally(() => setLoading(false));
         }
-    }, [response]);
+    }, [response, saveGoogleAccountCredentials, signIn, signUp]);
 
     const handleAuth = async () => {
         if (!email || !password) {
