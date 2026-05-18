@@ -190,7 +190,8 @@ export default function CreateEvent({ navigation, route }) {
                 // Only upload if changed and local file
                 try {
                     bannerUrl = await uploadImage(imageUri);
-                } catch {
+                } catch (error) {
+                    console.error('Image upload failed:', error);
                     bannerUrl = DEFAULT_BANNERS[0];
                 }
             } else if (!bannerUrl) {
