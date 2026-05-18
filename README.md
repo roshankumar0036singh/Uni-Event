@@ -261,6 +261,32 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
 
 ---
 
+## Contributors
+
+Thanks to all the amazing people who contribute to **Uni-Event** 🚀
+
+<p align="center">
+  <a href="https://github.com/roshankumar0036singh/Uni-Event/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=roshankumar0036singh/Uni-Event" alt="Contributors"/>
+  </a>
+</p>
+
+<br>
+
+## Project Support
+
+<p align="center">
+  <a href="https://github.com/roshankumar0036singh/Uni-Event/stargazers">
+    <img src="https://img.shields.io/github/stars/roshankumar0036singh/Uni-Event?style=social" alt="Stars">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/roshankumar0036singh/Uni-Event/network/members">
+    <img src="https://img.shields.io/github/forks/roshankumar0036singh/Uni-Event?style=social" alt="Forks">
+  </a>
+</p>
+
+---
+
 ## License
 
 This project is licensed under the **MIT License** - see the [LICENSE](./LICENSE) file for details.
