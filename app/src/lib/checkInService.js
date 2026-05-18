@@ -109,9 +109,7 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
         // Update user activity
         const userRef = doc(db, 'users', userId);
 
-        await updateDoc(userRef, {
-            lastActive: serverTimestamp(),
-        });
+
 
         return {
             success: true,
