@@ -36,11 +36,13 @@ const TopContributors = () => {
 
             const leaderboardData = leaderboardSnapshot.data();
 
-            const leaderboardContributors = Array.isArray(leaderboardData.contributors)
-                ? leaderboardData.contributors
-                : Array.isArray(leaderboardData.leaderboard)
-                  ? leaderboardData.leaderboard
-                  : [];
+            let leaderboardContributors = [];
+
+            if (Array.isArray(leaderboardData.contributors)) {
+                leaderboardContributors = leaderboardData.contributors;
+            } else if (Array.isArray(leaderboardData.leaderboard)) {
+                leaderboardContributors = leaderboardData.leaderboard;
+            }
 
             setContributors(leaderboardContributors);
         } catch (error) {
