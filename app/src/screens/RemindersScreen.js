@@ -1,14 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-    collection,
-    deleteDoc,
-    doc,
-    getDocs,
-    query,
-    where,
-    getDoc,
-    onSnapshot,
-} from 'firebase/firestore';
+import { collection, deleteDoc, doc, query, where, getDoc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -26,6 +17,7 @@ import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { cancelScheduledNotification } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function RemindersScreen({ navigation }) {
     const { user } = useAuth();
@@ -168,6 +160,12 @@ export default function RemindersScreen({ navigation }) {
                             ? item.remindAt.toDate()
                             : new Date(item.remindAt);
                         const status = getRelativeTime(item.remindAt);
+                        let badgeBg = '#E3F2FD';
+                        if (status.isPassed) {
+                            badgeBg = 'rgba(245, 158, 11, 0.15)';
+                        } else if (isDarkMode) {
+                            badgeBg = 'rgba(var(--primary-rgb), 0.15)';
+                        }
 
                         return (
                             <TouchableOpacity
@@ -219,11 +217,7 @@ export default function RemindersScreen({ navigation }) {
                                             style={[
                                                 styles.timerBadge,
                                                 {
-                                                    backgroundColor: status.isPassed
-                                                        ? 'rgba(245, 158, 11, 0.15)'
-                                                        : isDarkMode
-                                                          ? 'rgba(var(--primary-rgb), 0.15)'
-                                                          : '#E3F2FD',
+                                                    backgroundColor: badgeBg,
                                                 },
                                             ]}
                                         >
@@ -349,3 +343,7 @@ const getStyles = (theme, isDarkMode) =>
         emptyText: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
         emptySubText: { color: theme.colors.textSecondary, marginTop: 8 },
     });
+
+RemindersScreen.propTypes = {
+    navigation: PropTypes.object,
+};

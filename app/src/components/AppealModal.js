@@ -11,6 +11,7 @@ import {
     View,
 } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function AppealModal({ visible, onClose, onSubmit, isSubmitting }) {
     const { theme } = useTheme();
@@ -170,3 +171,10 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
 });
+
+AppealModal.propTypes = {
+    visible: PropTypes.any,
+    onClose: PropTypes.any,
+    onSubmit: PropTypes.any,
+    isSubmitting: PropTypes.bool,
+};

@@ -3,7 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { updateProfile } from 'firebase/auth';
 import { addDoc, collection, doc, getCountFromServer, getDoc, updateDoc } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     Alert,
     Modal,
@@ -21,6 +22,21 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
+
+// Helper to get ordinal year labels
+const getYearLabel = y => {
+    switch (y) {
+        case '1':
+            return '1st';
+        case '2':
+            return '2nd';
+        case '3':
+            return '3rd';
+        default:
+            return `${y}th`;
+    }
+};
 
 // Helper for menu items
 const MenuItem = ({ icon, label, onPress, theme, styles, showChevron = true, rightElement }) => (
@@ -62,29 +78,28 @@ export default function ProfileScreen({ navigation }) {
     const [points, setPoints] = useState(0);
     const [eventsCount, setEventsCount] = useState(0);
     const [rating, setRating] = useState(0);
+    const [badges, setBadges] = useState([]);
     const [isEditing, setIsEditing] = useState(false);
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [requestSubject, setRequestSubject] = useState('Request Club Access');
     const [requestMessage, setRequestMessage] = useState('');
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        if (user?.uid) fetchUserData();
-    }, [user]);
-
-    const fetchUserData = async () => {
+    const fetchUserData = useCallback(async () => {
+        if (!user?.uid) return;
         try {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             if (userDoc.exists()) {
                 const data = userDoc.data();
-                if (data.year) setYear(String(data.year));
-                if (data.displayName) setName(data.displayName);
-                if (data.headline) setHeadline(data.headline);
-                if (data.bio) setBio(data.bio);
-                if (data.instagram) setInstagram(data.instagram);
-                if (data.linkedin) setLinkedin(data.linkedin);
-                if (data.branch) setBranch(data.branch);
-                if (data.points) setPoints(data.points);
+                setYear(data.year ? String(data.year) : '1');
+                setName(data.displayName || user?.displayName || '');
+                setHeadline(data.headline || '');
+                setBio(data.bio || '');
+                setInstagram(data.instagram || '');
+                setLinkedin(data.linkedin || '');
+                setBranch(data.branch || 'CSE');
+                setPoints(data.points ?? 0);
+                setBadges(data.badges || []);
 
                 // Fetch Club Rating (for club/admin users) from reputation field
                 if (role === 'club' || role === 'admin') {
@@ -107,7 +122,18 @@ export default function ProfileScreen({ navigation }) {
         } catch (e) {
             console.error(e);
         }
-    };
+    }, [user?.uid, user?.displayName, role]);
+
+    useEffect(() => {
+        fetchUserData();
+    }, [fetchUserData]);
+
+    // Re-fetch on every focus so newly earned badges appear immediately.
+    useFocusEffect(
+        useCallback(() => {
+            fetchUserData();
+        }, [fetchUserData]),
+    );
 
     const handleSave = async () => {
         if (!name) return Alert.alert('Error', 'Name cannot be empty');
@@ -309,6 +335,126 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                 )}
 
+                {/* Badges Section */}
+                {!isEditing &&
+                    badges.length > 0 &&
+                    (() => {
+                        const earlyBirdCount = badges.filter(b =>
+                            b.startsWith('early_bird'),
+                        ).length;
+                        const otherBadges = badges.filter(b => !b.startsWith('early_bird'));
+
+                        return (
+                            <View style={styles.badgesContainer}>
+                                <Text style={styles.groupTitle}>🏅 My Badges</Text>
+
+                                {/* Early Bird badge card — gold & black theme */}
+                                {earlyBirdCount > 0 && (
+                                    <View
+                                        style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            backgroundColor: '#1a1400',
+                                            borderColor: '#F59E0B',
+                                            borderWidth: 1.5,
+                                            borderRadius: 14,
+                                            paddingVertical: 10,
+                                            paddingHorizontal: 14,
+                                            marginBottom: 10,
+                                            gap: 12,
+                                        }}
+                                    >
+                                        {/* Gold circle with black bird icon */}
+                                        <View
+                                            style={{
+                                                width: 42,
+                                                height: 42,
+                                                borderRadius: 21,
+                                                backgroundColor: '#F59E0B',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}
+                                        >
+                                            <Ionicons name="leaf" size={20} color="#000" />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text
+                                                style={{
+                                                    fontWeight: '800',
+                                                    fontSize: 14,
+                                                    color: '#F59E0B',
+                                                    letterSpacing: 0.3,
+                                                }}
+                                            >
+                                                Early Bird
+                                            </Text>
+                                            <Text
+                                                style={{
+                                                    color: '#D97706',
+                                                    fontSize: 11,
+                                                    marginTop: 1,
+                                                }}
+                                            >
+                                                Registered early for {earlyBirdCount} event
+                                                {earlyBirdCount > 1 ? 's' : ''}
+                                            </Text>
+                                        </View>
+                                        {/* Black pill with gold text */}
+                                        <View
+                                            style={{
+                                                backgroundColor: '#000',
+                                                borderRadius: 20,
+                                                borderWidth: 1,
+                                                borderColor: '#F59E0B',
+                                                paddingVertical: 4,
+                                                paddingHorizontal: 10,
+                                            }}
+                                        >
+                                            <Text
+                                                style={{
+                                                    color: '#F59E0B',
+                                                    fontWeight: '800',
+                                                    fontSize: 13,
+                                                }}
+                                            >
+                                                ×{earlyBirdCount}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                )}
+
+                                {/* Other badges as chips */}
+                                {otherBadges.length > 0 && (
+                                    <View style={styles.badgesRow}>
+                                        {otherBadges.map(badge => (
+                                            <View
+                                                key={badge}
+                                                style={[
+                                                    styles.badgeChip,
+                                                    {
+                                                        backgroundColor:
+                                                            theme.colors.primary + '20',
+                                                        borderColor: theme.colors.primary,
+                                                    },
+                                                ]}
+                                            >
+                                                <Text style={{ fontSize: 16 }}>🏅</Text>
+                                                <Text
+                                                    style={[
+                                                        styles.badgeText,
+                                                        { color: theme.colors.primary },
+                                                    ]}
+                                                >
+                                                    {badge.replace(/_/g, ' ').toUpperCase()}
+                                                </Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                        );
+                    })()}
+
                 {/* Edit Form */}
                 {isEditing ? (
                     <View style={styles.formContainer}>
@@ -431,14 +577,7 @@ export default function ProfileScreen({ navigation }) {
                                                     year === y && styles.chipTextActive,
                                                 ]}
                                             >
-                                                {y === '1'
-                                                    ? '1st'
-                                                    : y === '2'
-                                                      ? '2nd'
-                                                      : y === '3'
-                                                        ? '3rd'
-                                                        : y + 'th'}{' '}
-                                                Year
+                                                {getYearLabel(y)} Year
                                             </Text>
                                         </TouchableOpacity>
                                     ))}
@@ -528,6 +667,14 @@ export default function ProfileScreen({ navigation }) {
                                     icon="bookmark-outline"
                                     label="Saved Events"
                                     onPress={() => navigation.navigate('SavedEvents')}
+                                    theme={theme}
+                                    styles={styles}
+                                />
+                                <View style={styles.divider} />
+                                <MenuItem
+                                    icon="sparkles-outline"
+                                    label="My Wrapped"
+                                    onPress={() => navigation.navigate('Wrapped')}
                                     theme={theme}
                                     styles={styles}
                                 />
@@ -666,6 +813,20 @@ export default function ProfileScreen({ navigation }) {
                                         Tap to switch • Long press to remove
                                     </Text>
                                 </View>
+                            </View>
+                        </View>
+
+                        {/* Support Section */}
+                        <View style={styles.menuGroup}>
+                            <Text style={styles.groupTitle}>Support</Text>
+                            <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+                                <MenuItem
+                                    icon="bug-outline"
+                                    label="Report a Bug"
+                                    onPress={() => navigation.navigate('ReportBug')}
+                                    theme={theme}
+                                    styles={styles}
+                                />
                             </View>
                         </View>
 
@@ -972,6 +1133,30 @@ const getStyles = theme =>
             fontWeight: 'bold',
         },
 
+        // Badges Styles
+        badgesContainer: {
+            paddingHorizontal: 20,
+            marginBottom: 20,
+        },
+        badgesRow: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 10,
+        },
+        badgeChip: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 20,
+            borderWidth: 1,
+            gap: 6,
+        },
+        badgeText: {
+            fontSize: 12,
+            fontWeight: 'bold',
+        },
+
         formActions: {
             flexDirection: 'row',
             marginTop: 20,
@@ -1012,3 +1197,23 @@ const getStyles = theme =>
             marginLeft: 8,
         },
     });
+
+MenuItem.propTypes = {
+    icon: PropTypes.any,
+    label: PropTypes.any,
+    onPress: PropTypes.any,
+    theme: PropTypes.object,
+    styles: PropTypes.object,
+    showChevron: PropTypes.any,
+    rightElement: PropTypes.object,
+};
+StatCard.propTypes = {
+    label: PropTypes.any,
+    value: PropTypes.number,
+    icon: PropTypes.any,
+    theme: PropTypes.object,
+    styles: PropTypes.object,
+};
+ProfileScreen.propTypes = {
+    navigation: PropTypes.object,
+};
