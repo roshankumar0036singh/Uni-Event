@@ -25,6 +25,7 @@ export default function MyEventsScreen({ navigation }) {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [refreshNonce, setRefreshNonce] = useState(0);
 
     useEffect(() => {
         if (!user) return;
@@ -52,7 +53,7 @@ export default function MyEventsScreen({ navigation }) {
         );
 
         return () => unsubscribe();
-    }, [user]);
+    }, [user, refreshNonce]);
 
     const handleDelete = async eventId => {
         if (Platform.OS === 'web') {
@@ -83,6 +84,7 @@ export default function MyEventsScreen({ navigation }) {
 
     const onRefresh = () => {
         setRefreshing(true);
+        setRefreshNonce(n => n + 1);
     };
 
     const renderItem = ({ item }) => (

@@ -14,6 +14,7 @@ export default function MyRegisteredEventsScreen({ navigation }) {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [refreshNonce, setRefreshNonce] = useState(0);
 
     useEffect(() => {
         if (!user) {
@@ -71,7 +72,12 @@ export default function MyRegisteredEventsScreen({ navigation }) {
         });
 
         return () => unsubscribe();
-    }, [user]);
+    }, [user, refreshNonce]);
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        setRefreshNonce(n => n + 1);
+    };
 
     if (loading) {
         return (
@@ -80,10 +86,6 @@ export default function MyRegisteredEventsScreen({ navigation }) {
             </View>
         );
     }
-
-    const onRefresh = () => {
-        setRefreshing(true);
-    };
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>

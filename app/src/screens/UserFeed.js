@@ -34,6 +34,7 @@ export default function UserFeed({ navigation, headerContent }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [refreshNonce, setRefreshNonce] = useState(0);
 
     // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -110,7 +111,7 @@ export default function UserFeed({ navigation, headerContent }) {
         );
 
         return () => unsubscribe();
-    }, [role, user]);
+    }, [role, user, refreshNonce]);
 
     // Recommendation Logic: Views + User History + Freshness
     const getRecommendedEvents = () => {
@@ -245,6 +246,7 @@ export default function UserFeed({ navigation, headerContent }) {
 
     const onRefresh = () => {
         setRefreshing(true);
+        setRefreshNonce(n => n + 1);
     };
 
     const StickyHeader = () => (
