@@ -21,11 +21,10 @@ import { useAuth } from '../lib/AuthContext';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
-import PropTypes from 'prop-types';
 
 const FILTERS = ['Upcoming', 'Past', 'Cultural', 'Sports', 'Tech', 'Workshop', 'Seminar'];
 
-export default function UserFeed({ navigation, headerContent }) {
+export default function UserFeed() {
     const { user, userData, role } = useAuth();
     const { theme } = useTheme();
     const [events, setEvents] = useState([]);
@@ -203,8 +202,6 @@ export default function UserFeed({ navigation, headerContent }) {
             });
         }
 
-        // 2. Tab/Category Filtering
-        // Common Date Threshold
         // 2. Tab/Category Filtering
 
         if (activeFilter === 'Upcoming') {
@@ -511,8 +508,3 @@ const styles = StyleSheet.create({
     emptyContainer: { alignItems: 'center', marginTop: 50, padding: 20 },
     emptyText: { marginTop: 10, fontSize: 16 },
 });
-
-UserFeed.propTypes = {
-    navigation: PropTypes.object,
-    headerContent: PropTypes.object,
-};

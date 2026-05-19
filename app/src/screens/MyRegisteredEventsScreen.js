@@ -8,7 +8,7 @@ import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
-export default function MyRegisteredEventsScreen({ navigation }) {
+export default function MyRegisteredEventsScreen() {
     const { user } = useAuth();
     const { theme } = useTheme();
     const [events, setEvents] = useState([]);
