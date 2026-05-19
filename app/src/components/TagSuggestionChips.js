@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { fetchTagSuggestions } from '../lib/tagSuggestionService';
 import { normalizeTags }        from '../lib/tagDictionary';
 import { useTheme }             from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 const DEBOUNCE_MS      = 800; 
 const MIN_DESC_LENGTH  = 30;  
@@ -44,7 +45,7 @@ export default function TagSuggestionChips({ description, selectedTags, onTagsCh
     }, DEBOUNCE_MS);
 
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
-  }, [description]); 
+  }, [description, apiKey, selectedTags, onTagsChange]); 
 
   const addTag = (tag) => {
     onTagsChange([...selectedTags, tag]);
@@ -123,3 +124,10 @@ const getStyles = (theme) => StyleSheet.create({
   },
   suggestChipText: { color: theme.colors.primary, fontSize: 13, marginLeft: 3 },
 });
+
+fetchTagSuggestions.propTypes = {
+    description: propTypes.string.isRequired,
+    selectedTags: PropTypes.arrayOf(PropTypes.string).isRequired,
+  onTagsChange: PropTypes.func.isRequired,
+    apikey: propTypes.string
+};

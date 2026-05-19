@@ -2,7 +2,7 @@ const MISTRAL_API_URL="https://api.mistral.ai/v1/chat/completions";
 const MISTRAL_MODEL="mistral-small-latest";
 
 export async function fetchTagSuggestions(description, apikey) {
-    if(!description || description.trim().length < 30) return[];
+    if(!apikey || !description || description.trim().length < 30) return[];
     const systemPrompt = `You are a tag extraction engine for a university event platform.
         Given an event description, return ONLY a JSON array of 3 to 7 lowercase, hyphenated tags.
         Rules:

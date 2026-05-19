@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import TagSuggestionChips from '../components/TagSuggestionChips';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -155,7 +156,7 @@ export default function CreateEvent({ navigation, route }) {
             setUseCustomForm(event.hasCustomForm);
             setCustomFormSchema(event.customFormSchema || []);
             navigation.setOptions({ title: 'Edit Event' });
-            setTags(event.tags || []);
+            setTags(event.tags ? event.tags.map(tag => tag.toLowerCase().trim()) : []);
         }
     }, [isEditMode]);
 
@@ -625,3 +626,14 @@ const getStyles = (theme) => StyleSheet.create({
     },
     formBuilderText: { color: theme.colors.primary, fontWeight: 'bold' }
 });
+
+CreateEvent.propTypes = {
+  navigation: PropTypes.shape({
+    setOptions: PropTypes.func,
+    goBack: PropTypes.func,
+    navigate: PropTypes.func,
+  }).isRequired,
+  route: PropTypes.shape({
+    params: PropTypes.object,
+  }).isRequired,
+};
