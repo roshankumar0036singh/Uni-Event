@@ -8,7 +8,6 @@ import {
     ActivityIndicator,
     Alert,
     Animated,
-    Easing,
     Image,
     Platform,
     ScrollView,
@@ -44,6 +43,7 @@ const DEFAULT_BANNERS = [
 const CATEGORIES = ['Tech', 'Cultural', 'Sports', 'Workshop', 'Seminar', 'General'];
 const BRANCHES = ['All', 'CSE', 'ETC', 'EE', 'ME', 'Civil'];
 const YEARS = [1, 2, 3, 4];
+const COORDINATE_REGEX = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/;
 
 export default function CreateEvent({ navigation, route }) {
     const { user, loading: authLoading } = useAuth();
@@ -56,7 +56,7 @@ export default function CreateEvent({ navigation, route }) {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('');
-    const [location, setLocation] = useState('28.6139, 77.2090');
+    const [location, setLocation] = useState('');
 
     // Target
     const [targetBranches, setTargetBranches] = useState(['All']);
@@ -83,16 +83,8 @@ export default function CreateEvent({ navigation, route }) {
     const [customFormSchema, setCustomFormSchema] = useState([]);
 
     // Map & Venue
-    const [venueCoords, setVenueCoords] = useState({
-        latitude: 28.6139,
-        longitude: 77.2090,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-    });
-    const [pinCoords, setPinCoords] = useState({
-        latitude: 28.6139,
-        longitude: 77.2090,
-    });
+    const [venueCoords, setVenueCoords] = useState(null);
+    const [pinCoords, setPinCoords] = useState(null);
     const pinAnimation = useRef(new Animated.Value(-50)).current;
 
     // Google Auth
@@ -200,7 +192,7 @@ export default function CreateEvent({ navigation, route }) {
 
     const webMapSrc = useMemo(() => {
         const latitude = venueCoords?.latitude ?? 28.6139;
-        const longitude = venueCoords?.longitude ?? 77.2090;
+        const longitude = venueCoords?.longitude ?? 77.209;
         const padding = 0.01;
         const bbox = [
             longitude - padding,
@@ -221,6 +213,29 @@ export default function CreateEvent({ navigation, route }) {
             setDescription(event.description);
             setCategory(event.category);
             setLocation(event.location || '');
+
+            const coordinateMatch = (event.location || '').match(COORDINATE_REGEX);
+            if (coordinateMatch) {
+                const latitude = Number(coordinateMatch[1]);
+                const longitude = Number(coordinateMatch[2]);
+                if (
+                    Number.isFinite(latitude) &&
+                    Number.isFinite(longitude) &&
+                    latitude >= -90 &&
+                    latitude <= 90 &&
+                    longitude >= -180 &&
+                    longitude <= 180
+                ) {
+                    setVenueCoords({
+                        latitude,
+                        longitude,
+                        latitudeDelta: 0.05,
+                        longitudeDelta: 0.05,
+                    });
+                    setPinCoords({ latitude, longitude });
+                }
+            }
+
             setTargetBranches(event.target?.departments || ['All']);
             setTargetYears(event.target?.years || []);
             setStartDate(new Date(event.startAt));
@@ -264,7 +279,7 @@ export default function CreateEvent({ navigation, route }) {
                 if (Platform.OS === 'web') {
                     Alert.alert(
                         'Image upload (Web)',
-                        'Uploading local images from the web is disabled in this build due to CORS. A default banner will be used. Use the mobile app to upload a custom banner.'
+                        'Uploading local images from the web is disabled in this build due to CORS. A default banner will be used. Use the mobile app to upload a custom banner.',
                     );
                     bannerUrl = DEFAULT_BANNERS[0];
                 } else {
@@ -332,10 +347,10 @@ export default function CreateEvent({ navigation, route }) {
     // Helper to render platform-specific date input
     const renderDateInput = (label, date, setDate, showPicker, setShowPicker, isStart) => {
         if (Platform.OS === 'web') {
-                const safeDate = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
-                const iso = new Date(safeDate.getTime() - safeDate.getTimezoneOffset() * 60000)
-                    .toISOString()
-                    .slice(0, 16);
+            const safeDate = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
+            const iso = new Date(safeDate.getTime() - safeDate.getTimezoneOffset() * 60000)
+                .toISOString()
+                .slice(0, 16);
 
             return (
                 <View style={[styles.webDateContainer, { flex: 1, minWidth: 0 }]}>
@@ -581,101 +596,166 @@ export default function CreateEvent({ navigation, route }) {
                             <Text style={styles.label}>Venue Location</Text>
                             <View style={styles.mapContainer}>
                                 {Platform.OS === 'web' ? (
-                                        <View style={{ flex: 1 }}>
-                                            <iframe
-                                                title="Venue location map"
-                                                src={webMapSrc}
-                                                style={styles.mapFrame}
-                                            />
+                                    <View style={{ flex: 1 }}>
+                                        <iframe
+                                            title="Venue location map"
+                                            src={webMapSrc}
+                                            sandbox="allow-scripts allow-same-origin"
+                                            style={styles.mapFrame}
+                                        />
 
-                                            <View style={{ padding: 8 }}>
-                                                <Text style={styles.mapHintText}>
-                                                    On web, dragging the native map is not supported. You can
-                                                    edit the coordinates below or press "Use my location" to
-                                                    autofill.
-                                                </Text>
+                                        <View style={{ padding: 8 }}>
+                                            <Text style={styles.mapHintText}>
+                                                On web, dragging the native map is not supported.
+                                                You can edit the coordinates below or press "Use my
+                                                location" to autofill.
+                                            </Text>
 
-                                                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                                                    <TextInput
-                                                        value={location}
-                                                        onChangeText={setLocation}
-                                                        placeholder="lat, lng"
-                                                        style={{
-                                                            flex: 1,
-                                                            padding: 10,
-                                                            borderRadius: 10,
-                                                            backgroundColor: theme.colors.surface,
-                                                            color: theme.colors.text,
-                                                            borderWidth: 1,
-                                                            borderColor: theme.colors.border,
-                                                        }}
-                                                    />
+                                            <View
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    gap: 8,
+                                                    marginTop: 8,
+                                                }}
+                                            >
+                                                <TextInput
+                                                    value={location}
+                                                    onChangeText={text => {
+                                                        setLocation(text);
 
-                                                    <TouchableOpacity
-                                                        onPress={() => {
-                                                            if (typeof navigator !== 'undefined' && navigator.geolocation) {
-                                                                navigator.geolocation.getCurrentPosition(
-                                                                    p => {
-                                                                        const { latitude, longitude } = p.coords;
-                                                                        setVenueCoords(prev => ({
-                                                                            ...prev,
-                                                                            latitude,
-                                                                            longitude,
-                                                                        }));
-                                                                        setPinCoords({ latitude, longitude });
-                                                                        setLocation(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-                                                                    },
-                                                                    e => {
-                                                                        Alert.alert('Location Error', e.message || 'Failed to get location');
-                                                                    },
-                                                                );
-                                                            } else {
-                                                                Alert.alert('Not available', 'Geolocation is not available in this browser.');
+                                                        const coordinateMatch =
+                                                            text.match(COORDINATE_REGEX);
+                                                        if (coordinateMatch) {
+                                                            const latitude = Number(
+                                                                coordinateMatch[1],
+                                                            );
+                                                            const longitude = Number(
+                                                                coordinateMatch[2],
+                                                            );
+                                                            if (
+                                                                Number.isFinite(latitude) &&
+                                                                Number.isFinite(longitude) &&
+                                                                latitude >= -90 &&
+                                                                latitude <= 90 &&
+                                                                longitude >= -180 &&
+                                                                longitude <= 180
+                                                            ) {
+                                                                setVenueCoords({
+                                                                    latitude,
+                                                                    longitude,
+                                                                    latitudeDelta: 0.05,
+                                                                    longitudeDelta: 0.05,
+                                                                });
+                                                                setPinCoords({
+                                                                    latitude,
+                                                                    longitude,
+                                                                });
                                                             }
-                                                        }}
-                                                        style={{
-                                                            backgroundColor: theme.colors.primary,
-                                                            padding: 10,
-                                                            borderRadius: 10,
-                                                            justifyContent: 'center',
-                                                        }}
+                                                        }
+                                                    }}
+                                                    placeholder="lat, lng"
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: 10,
+                                                        borderRadius: 10,
+                                                        backgroundColor: theme.colors.surface,
+                                                        color: theme.colors.text,
+                                                        borderWidth: 1,
+                                                        borderColor: theme.colors.border,
+                                                    }}
+                                                />
+
+                                                <TouchableOpacity
+                                                    onPress={() => {
+                                                        if (
+                                                            typeof navigator !== 'undefined' &&
+                                                            navigator.geolocation
+                                                        ) {
+                                                            navigator.geolocation.getCurrentPosition(
+                                                                p => {
+                                                                    const { latitude, longitude } =
+                                                                        p.coords;
+                                                                    setVenueCoords({
+                                                                        latitude,
+                                                                        longitude,
+                                                                        latitudeDelta: 0.05,
+                                                                        longitudeDelta: 0.05,
+                                                                    });
+                                                                    setPinCoords({
+                                                                        latitude,
+                                                                        longitude,
+                                                                    });
+                                                                    setLocation(
+                                                                        `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+                                                                    );
+                                                                },
+                                                                e => {
+                                                                    Alert.alert(
+                                                                        'Location Error',
+                                                                        e.message ||
+                                                                            'Failed to get location',
+                                                                    );
+                                                                },
+                                                            );
+                                                        } else {
+                                                            Alert.alert(
+                                                                'Not available',
+                                                                'Geolocation is not available in this browser.',
+                                                            );
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        backgroundColor: theme.colors.primary,
+                                                        padding: 10,
+                                                        borderRadius: 10,
+                                                        justifyContent: 'center',
+                                                    }}
+                                                >
+                                                    <Text
+                                                        style={{ color: '#fff', fontWeight: '700' }}
                                                     >
-                                                        <Text style={{ color: '#fff', fontWeight: '700' }}>Use my location</Text>
-                                                    </TouchableOpacity>
-                                                </View>
+                                                        Use my location
+                                                    </Text>
+                                                </TouchableOpacity>
                                             </View>
                                         </View>
+                                    </View>
                                 ) : (
                                     <MapView
                                         style={styles.map}
-                                        initialRegion={venueCoords || {
-                                            latitude: 28.6139,
-                                            longitude: 77.2090,
-                                            latitudeDelta: 0.05,
-                                            longitudeDelta: 0.05,
-                                        }}
+                                        initialRegion={
+                                            venueCoords ?? {
+                                                latitude: 28.6139,
+                                                longitude: 77.209,
+                                                latitudeDelta: 0.05,
+                                                longitudeDelta: 0.05,
+                                            }
+                                        }
                                         onRegionChangeComplete={handleRegionChangeComplete}
                                     >
-                                        <Marker
-                                            coordinate={pinCoords}
-                                            draggable
-                                            onDragEnd={handlePinDragEnd}
-                                        >
-                                            <Animated.View
-                                                style={{
-                                                    transform: [{ translateY: pinAnimation }],
-                                                    alignItems: 'center',
-                                                }}
+                                        {pinCoords && (
+                                            <Marker
+                                                coordinate={pinCoords}
+                                                draggable
+                                                onDragEnd={handlePinDragEnd}
                                             >
-                                                <View style={styles.customPin} />
-                                                <View style={styles.pinShadow} />
-                                            </Animated.View>
-                                        </Marker>
+                                                <Animated.View
+                                                    style={{
+                                                        transform: [{ translateY: pinAnimation }],
+                                                        alignItems: 'center',
+                                                    }}
+                                                >
+                                                    <View style={styles.customPin} />
+                                                    <View style={styles.pinShadow} />
+                                                </Animated.View>
+                                            </Marker>
+                                        )}
                                     </MapView>
                                 )}
                             </View>
                             <Text style={styles.mapLocationText}>
-                                Selected location: {venueCoords?.latitude ? venueCoords.latitude.toFixed(5) : 'N/A'},{' '}
+                                Selected location:{' '}
+                                {venueCoords?.latitude ? venueCoords.latitude.toFixed(5) : 'N/A'},{' '}
                                 {venueCoords?.longitude ? venueCoords.longitude.toFixed(5) : 'N/A'}
                             </Text>
                         </View>
@@ -880,7 +960,10 @@ export default function CreateEvent({ navigation, route }) {
                 </View>
 
                 <TouchableOpacity
-                    style={[styles.createBtn, { opacity: loading || authLoading || !user ? 0.7 : 1 }]}
+                    style={[
+                        styles.createBtn,
+                        { opacity: loading || authLoading || !user ? 0.7 : 1 },
+                    ]}
                     onPress={handleCreate}
                     disabled={loading || authLoading || !user}
                 >
@@ -1032,9 +1115,15 @@ const getStyles = theme =>
             padding: 18,
             borderRadius: 16,
             alignItems: 'center',
-            shadowColor: theme.colors.primary,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
+            ...(Platform.OS === 'web'
+                ? {
+                      boxShadow: `0px 4px 12px ${theme.colors.primary}4D`,
+                  }
+                : {
+                      shadowColor: theme.colors.primary,
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.3,
+                  }),
             elevation: 5,
         },
         createBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
