@@ -208,7 +208,7 @@ export default function CreateEvent({ navigation, route }) {
     const isEditMode = !!event;
 
     useEffect(() => {
-        if (isEditMode) {
+        if (isEditMode && event) {
             setTitle(event.title);
             setDescription(event.description);
             setCategory(event.category);
@@ -251,7 +251,7 @@ export default function CreateEvent({ navigation, route }) {
             setCustomFormSchema(event.customFormSchema || []);
             navigation.setOptions({ title: 'Edit Event' });
         }
-    }, [isEditMode]);
+    }, [isEditMode, event]);
 
     const handleCreate = async () => {
         if (authLoading || !user) {
@@ -733,23 +733,26 @@ export default function CreateEvent({ navigation, route }) {
                                         }
                                         onRegionChangeComplete={handleRegionChangeComplete}
                                     >
-                                        {pinCoords && (
-                                            <Marker
-                                                coordinate={pinCoords}
-                                                draggable
-                                                onDragEnd={handlePinDragEnd}
+                                        <Marker
+                                            coordinate={
+                                                pinCoords || {
+                                                    latitude: 28.6139,
+                                                    longitude: 77.2090,
+                                                }
+                                            }
+                                            draggable
+                                            onDragEnd={handlePinDragEnd}
+                                        >
+                                            <Animated.View
+                                                style={{
+                                                    transform: [{ translateY: pinAnimation }],
+                                                    alignItems: 'center',
+                                                }}
                                             >
-                                                <Animated.View
-                                                    style={{
-                                                        transform: [{ translateY: pinAnimation }],
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    <View style={styles.customPin} />
-                                                    <View style={styles.pinShadow} />
-                                                </Animated.View>
-                                            </Marker>
-                                        )}
+                                                <View style={styles.customPin} />
+                                                <View style={styles.pinShadow} />
+                                            </Animated.View>
+                                        </Marker>
                                     </MapView>
                                 )}
                             </View>
