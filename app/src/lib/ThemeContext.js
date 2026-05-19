@@ -11,6 +11,10 @@ export const ThemeProvider = ({ children }) => {
     const [isDarkMode, setIsDarkMode] = useState(systemScheme === 'dark');
     const [theme, setTheme] = useState(systemScheme === 'dark' ? darkTheme : lightTheme);
     const [loading, setLoading] = useState(true);
+
+    // Declared states to fix the 'not defined' lint errors
+    const [textScale, setTextScale] = useState(1);
+    const [isHighContrast, setIsHighContrast] = useState(false);
     
     // Animated value for smooth color transitions (0 = light, 1 = dark)
     const themeAnimationProgress = useMemo(() => new Animated.Value(systemScheme === 'dark' ? 1 : 0), []);
