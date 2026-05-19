@@ -9,6 +9,7 @@ export * from './onEventCreate';
 export * from './reminders';
 export * from './reputation';
 export * from './setRole';
+export * from "./inactiveUsers";
 
 export const joinWaitlist = onCall(async (request) => {
   if (!request.auth) {

@@ -30,6 +30,7 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Share,
 } from 'react-native';
 import FeedbackModal from '../components/FeedbackModal';
 import AppealModal from '../components/AppealModal';
@@ -705,6 +706,30 @@ export default function EventDetail({ route, navigation }) {
 
     const openLink = url => { if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link')); };
 
+    const handleExportReviews = async () => {
+        try {
+            const feedbackRef = collection(db, `events/${eventId}/feedback`);
+            const snapshot = await getDocs(feedbackRef);
+
+            if (snapshot.empty) {
+                Alert.alert('No Reviews', 'This event has no feedback yet.');
+                return;
+            }
+
+            let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
+            snapshot.forEach(doc => {
+                const d = doc.data();
+                const line = `\"${d.userName || 'Anonymous'}\",\"${d.eventRating || '-'}\",\"${d.clubRating || '-'}\",\"${(d.feedback || '').replace(/\"/g, '""')}\",${d.createdAt}\n`;
+                csv += line;
+            });
+
+            await Share.share({ message: csv, title: `Reviews - ${event.title}` });
+        } catch (error) {
+            console.error('Export Error: ', error);
+            Alert.alert('Error', 'Failed to export reviews.');
+        }
+    };
+
     const sendCertificates = async () => {
         setSendingCertificates(true);
         try {
@@ -806,6 +831,28 @@ export default function EventDetail({ route, navigation }) {
             Alert.alert('Error', 'Failed to generate certificate: ' + e.message);
         } finally {
             setSendingCertificates(false);
+        }
+    };
+    const handleLinkedInShare = async () => {
+        try {
+            const linkedinUrl = `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME`;
+
+            const certificateName = encodeURIComponent(event.title);
+            const organizationName = encodeURIComponent('UniEvent');
+            const issueYear = new Date(event.startAt).getFullYear();
+            const issueMonth = new Date(event.startAt).getMonth() + 1;
+
+            const finalUrl =
+                `${linkedinUrl}` +
+                `&name=${certificateName}` +
+                `&organizationName=${organizationName}` +
+                `&issueYear=${issueYear}` +
+                `&issueMonth=${issueMonth}`;
+
+            await Linking.openURL(finalUrl);
+        } catch (error) {
+            console.log(error);
+            Alert.alert('Error', 'Failed to open LinkedIn');
         }
     };
 
