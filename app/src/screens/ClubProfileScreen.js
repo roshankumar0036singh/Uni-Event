@@ -12,9 +12,7 @@ import {
 } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
     Alert,
-    Dimensions,
     Image,
     Linking,
     Platform,
@@ -28,10 +26,8 @@ import { EventListSkeleton } from '../components/SkeletonLoader';
 import EventCard from '../components/EventCard';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
-import { calculateAverageRating } from '../lib/feedbackService';
 import { useTheme } from '../lib/ThemeContext';
-
-const { width } = Dimensions.get('window');
+import PropTypes from 'prop-types';
 
 export default function ClubProfileScreen({ route, navigation }) {
     const { clubId, clubName } = route.params || {};
@@ -98,7 +94,7 @@ export default function ClubProfileScreen({ route, navigation }) {
 
         fetchClub();
         return () => unsubscribeClub && unsubscribeClub();
-    }, [clubId]);
+    }, [clubId, clubName, navigation]);
 
     // Fetch Events by this Club
     useEffect(() => {
@@ -513,3 +509,8 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
 });
+
+ClubProfileScreen.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};

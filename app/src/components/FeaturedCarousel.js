@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
 import { FeaturedCarouselSkeleton } from './SkeletonLoader';
+import PropTypes from 'prop-types';
 
 const width = Dimensions.get('window').width;
 
@@ -103,3 +104,9 @@ const styles = StyleSheet.create({
         fontSize: 12,
     },
 });
+
+FeaturedCarousel.propTypes = {
+    data: PropTypes.any,
+    onEventPress: PropTypes.any,
+    isLoading: PropTypes.bool,
+};

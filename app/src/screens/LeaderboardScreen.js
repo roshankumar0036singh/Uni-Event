@@ -6,6 +6,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function LeaderboardScreen({ navigation }) {
     const { theme } = useTheme();
@@ -43,7 +44,8 @@ export default function LeaderboardScreen({ navigation }) {
         try {
             const userRef = doc(db, 'users', user.uid);
             await updateDoc(userRef, { isAnonymous: value });
-        } catch (error) {
+        } catch (_error) {
+            console.error('Privacy toggle error:', _error);
             Alert.alert('Error', 'Failed to update privacy setting.');
         }
     };
@@ -200,3 +202,7 @@ const styles = StyleSheet.create({
     toggleTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
     toggleSubtitle: { fontSize: 12 },
 });
+
+LeaderboardScreen.propTypes = {
+    navigation: PropTypes.object,
+};

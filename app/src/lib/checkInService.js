@@ -192,11 +192,7 @@ export const checkInAttendee = async (
         });
 
         // Update event stats
-        const eventRef = doc(
-            db,
-            'events',
-            eventId
-        );
+        const eventRef = doc(db, 'events', eventId);
 
         await updateDoc(eventRef, {
             'stats.totalCheckedIn':
@@ -205,6 +201,17 @@ export const checkInAttendee = async (
             'stats.lastCheckInAt':
                 serverTimestamp(),
         });
+
+        // Update user activity
+        const userRef = doc(db, 'users', userId);
+
+        await setDoc(
+            userRef,
+            {
+                lastActive: serverTimestamp(),
+            },
+            { merge: true },
+        );
 
         return {
             success: true,
@@ -309,7 +316,8 @@ export const parseQRCode = qrData => {
             year: data.year,
             branch: data.branch,
         };
-    } catch (error) {
+    } catch (_error) {
+        console.warn('QR parse failed:', _error);
         return {
             valid: false,
             error:

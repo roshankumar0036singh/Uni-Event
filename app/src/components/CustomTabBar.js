@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 export default function CustomTabBar({ state, descriptors, navigation }) {
     const { theme, isDarkMode } = useTheme();
@@ -16,12 +17,6 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
                 <View style={styles.content}>
                     {state.routes.map((route, index) => {
                         const { options } = descriptors[route.key];
-                        const label =
-                            options.tabBarLabel !== undefined
-                                ? options.tabBarLabel
-                                : options.title !== undefined
-                                  ? options.title
-                                  : route.name;
 
                         const isFocused = state.index === index;
 
@@ -121,3 +116,9 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
 });
+
+CustomTabBar.propTypes = {
+    state: PropTypes.any,
+    descriptors: PropTypes.any,
+    navigation: PropTypes.object,
+};
