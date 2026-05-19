@@ -1,3 +1,4 @@
+import TagSuggestionChips from '../components/TagSuggestionChips';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,11 +20,14 @@ const DEFAULT_BANNERS = [
     'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1000&q=80',
 ];
 
+const MISTRAL_API_KEY = process.env.EXPO_PUBLIC_MISTRAL_API_KEY ?? '';
+
 const CATEGORIES = ['Tech', 'Cultural', 'Sports', 'Workshop', 'Seminar', 'General'];
 const BRANCHES = ['All', 'CSE', 'ETC', 'EE', 'ME', 'Civil'];
 const YEARS = [1, 2, 3, 4];
 
 export default function CreateEvent({ navigation, route }) {
+    const [tags, setTags] = useState([]);
     const { user } = useAuth();
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
@@ -151,6 +155,7 @@ export default function CreateEvent({ navigation, route }) {
             setUseCustomForm(event.hasCustomForm);
             setCustomFormSchema(event.customFormSchema || []);
             navigation.setOptions({ title: 'Edit Event' });
+            setTags(event.tags || []);
         }
     }, [isEditMode]);
 
@@ -189,6 +194,7 @@ export default function CreateEvent({ navigation, route }) {
                 bannerUrl,
                 hasCustomForm: useCustomForm,
                 customFormSchema: useCustomForm ? customFormSchema : [],
+                tags,
             };
 
             if (isEditMode) {
@@ -331,6 +337,12 @@ export default function CreateEvent({ navigation, route }) {
                         multiline
                         style={{ height: 120 }} // Taller container for multiline
                         icon={<Ionicons name="document-text-outline" size={20} color={theme.colors.primary} />}
+                    />
+                    <TagSuggestionChips 
+                        description={description}
+                        selectedTags={tags}
+                        onTagsChange={setTags}
+                        apiKey={MISTRAL_API_KEY}
                     />
                 </View>
 
