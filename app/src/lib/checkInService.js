@@ -103,12 +103,8 @@ const getLocation = async () => {
                 }
             );
         });
-    } catch (err) {
-        return {
-            latitude: null,
-            longitude: null,
-        };
-    }
+    } 
+    
 };
 
 /**
@@ -267,7 +263,7 @@ export const getAttendanceStats = async eventId => {
             totalCheckedIn,
 
             checkInRate:
-                parseFloat(checkInRate),
+                Number.parseFloat(checkInRate),
 
             lastCheckInAt:
                 stats.lastCheckInAt,
