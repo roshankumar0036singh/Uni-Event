@@ -9,12 +9,15 @@ import {
     View,
 } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
+import { FeaturedCarouselSkeleton } from './SkeletonLoader';
+import PropTypes from 'prop-types';
 
 const width = Dimensions.get('window').width;
 
-export default function FeaturedCarousel({ data = [], onEventPress }) {
+export default function FeaturedCarousel({ data = [], onEventPress, isLoading = false }) {
     const { theme } = useTheme();
 
+    if (isLoading) return <FeaturedCarouselSkeleton />;
     if (data.length === 0) return null;
 
     return (
@@ -101,3 +104,9 @@ const styles = StyleSheet.create({
         fontSize: 12,
     },
 });
+
+FeaturedCarousel.propTypes = {
+    data: PropTypes.any,
+    onEventPress: PropTypes.any,
+    isLoading: PropTypes.bool,
+};

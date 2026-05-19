@@ -14,7 +14,6 @@ import {
     StyleSheet,
     Switch,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -24,6 +23,7 @@ import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { db, storage } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import PropTypes from 'prop-types';
 
 let MapView;
 let Marker;
@@ -88,37 +88,38 @@ export default function CreateEvent({ navigation, route }) {
     const pinAnimation = useRef(new Animated.Value(-50)).current;
 
     // Google Auth
-    const { request, response, promptAsync, getAccessToken } = CalendarService.useCalendarAuth();
+    const { request, response, promptAsync } = CalendarService.useCalendarAuth();
 
-    useEffect(() => {
-        navigation.setOptions({ headerShown: false }); // Hide default header
-        if (response?.type === 'success') {
-            getAccessToken()
-                .then(token => {
-                    if (token) handleGenerateMeet(token);
-                })
-                .catch(e => Alert.alert('Error', e.message));
-        }
-    }, [response]);
-
-    const handleGenerateMeet = async token => {
-        setLoading(true);
+    const handleGenerateMeetLink = async () => {
         try {
+            const authResult = await promptAsync();
+            const token =
+                authResult?.authentication?.accessToken ||
+                authResult?.params?.access_token ||
+                response?.authentication?.accessToken ||
+                response?.params?.access_token;
+            if (!token) {
+                Alert.alert('Error', 'Unable to get Google access token');
+                return null;
+            }
             const result = await CalendarService.createMeetEvent(token, {
-                title: title || 'New Club Event',
-                description: description || 'Created via Event App',
+                title: title || 'New Event',
+                description: description || 'Virtual Event',
                 startAt: startDate.toISOString(),
                 endAt: endDate.toISOString(),
             });
-            if (result.meetLink) {
+            if (result?.meetLink) {
                 setMeetLink(result.meetLink);
                 setLocation('Google Meet');
-                Alert.alert('Success', 'Google Meet Link Generated!');
+                Alert.alert('Success', 'Google Meet link generated!');
+                return result.meetLink;
+            } else {
+                Alert.alert('Error', 'Meet link not returned from Google API');
+                return null;
             }
-        } catch (e) {
-            Alert.alert('Error', e.message);
-        } finally {
-            setLoading(false);
+        } catch (error) {
+            Alert.alert('Error', error.message || 'Failed to generate Meet link');
+            return null;
         }
     };
 
@@ -251,7 +252,7 @@ export default function CreateEvent({ navigation, route }) {
             setCustomFormSchema(event.customFormSchema || []);
             navigation.setOptions({ title: 'Edit Event' });
         }
-    }, [isEditMode, event]);
+    }, [isEditMode, event, navigation]);
 
     const handleCreate = async () => {
         if (authLoading || !user) {
@@ -281,6 +282,11 @@ export default function CreateEvent({ navigation, route }) {
                         'Image upload (Web)',
                         'Uploading local images from the web is disabled in this build due to CORS. A default banner will be used. Use the mobile app to upload a custom banner.',
                     );
+                // Only upload if changed and local file
+                try {
+                    bannerUrl = await uploadImage(imageUri);
+                } catch (error) {
+                    console.error('Image upload failed:', error);
                     bannerUrl = DEFAULT_BANNERS[0];
                 } else {
                     try {
@@ -294,13 +300,23 @@ export default function CreateEvent({ navigation, route }) {
                 bannerUrl = DEFAULT_BANNERS[Math.floor(Math.random() * DEFAULT_BANNERS.length)];
             }
 
+            let generatedMeetLink = meetLink;
+
+            if (eventMode === 'online' && !meetLink) {
+                generatedMeetLink = await handleGenerateMeetLink();
+            }
+            if (eventMode === 'online' && !generatedMeetLink) {
+                setLoading(false);
+                return;
+            }
+
             const eventData = {
                 title,
                 description,
-                location,
+                location: eventMode === 'online' ? 'Google Meet' : location,
                 category,
                 eventMode,
-                meetLink: eventMode === 'online' ? meetLink : null,
+                meetLink: eventMode === 'online' ? generatedMeetLink : null,
                 startAt: startDate.toISOString(),
                 endAt: endDate.toISOString(),
                 isPaid,
@@ -333,8 +349,8 @@ export default function CreateEvent({ navigation, route }) {
             }
 
             navigation.goBack();
-        } catch (e) {
-            console.error(e);
+        } catch (error) {
+            console.error('Event creation failed:', error);
             Alert.alert(
                 'Error',
                 isEditMode ? 'Failed to update event.' : 'Failed to create event.',
@@ -584,7 +600,7 @@ export default function CreateEvent({ navigation, route }) {
                             />
                             <TouchableOpacity
                                 style={styles.gmeetBtn}
-                                onPress={() => promptAsync()}
+                                onPress={handleGenerateMeetLink}
                                 disabled={!request}
                             >
                                 <Ionicons name="logo-google" size={20} color="#fff" />
@@ -1193,3 +1209,8 @@ const getStyles = theme =>
             fontStyle: 'italic',
         },
     });
+
+CreateEvent.propTypes = {
+    navigation: PropTypes.object,
+    route: PropTypes.object,
+};

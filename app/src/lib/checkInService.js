@@ -100,10 +100,22 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
 
         // Update event stats
         const eventRef = doc(db, 'events', eventId);
+
         await updateDoc(eventRef, {
             'stats.totalCheckedIn': increment(1),
             'stats.lastCheckInAt': serverTimestamp(),
         });
+
+        // Update user activity
+        const userRef = doc(db, 'users', userId);
+
+        await setDoc(
+            userRef,
+            {
+                lastActive: serverTimestamp(),
+            },
+            { merge: true },
+        );
 
         return {
             success: true,
@@ -176,7 +188,8 @@ export const parseQRCode = qrData => {
             year: data.year,
             branch: data.branch,
         };
-    } catch (error) {
+    } catch (_error) {
+        console.warn('QR parse failed:', _error);
         return {
             valid: false,
             error: 'Unable to parse QR code',
