@@ -49,14 +49,15 @@
 - [Tech Stack](#️-tech-stack)
 - [Project Structure](#-project-structure)
 - [Quick Start](#-quick-start)
-- [Configuration](#️-configuration)
-- [Running Locally](#-running-locally)
-- [Testing](#-testing)
-- [Documentation](#-documentation)
+- [Configuration](#configuration)
+- [Running Locally](#running-locally)
+- [Testing](#testing)
+- [Documentation](#documentation)
 - [Contributing](#-contributing)
 - [Contributors](#-contributors)
 - [License](#-license)
 - [Acknowledgments](#-acknowledgments)
+
 ---
  
 ## 🌟 Overview
@@ -77,48 +78,49 @@ Whether it's a department seminar, cultural fest, hackathon, or club meetup — 
  
 ### Key Highlights
  
-- 🏛️ **Built for Campus Life** — Tailored for students, clubs, and administrators
-- 📊 **Data-Driven** — Rich analytics for every event organizer
-- 🔥 **Firebase-Powered** — Enterprise-grade scalability and real-time sync
-- 📱 **Cross-Platform** — Native iOS, Android, and Progressive Web App
-- 🌍 **Open Source** — MIT licensed, community contributions welcome
+- **Built for Campus Life** — Tailored for students, clubs, and administrators
+- **Data-Driven** — Rich analytics for every event organizer
+- **Firebase-Powered** — Enterprise-grade scalability and real-time sync
+- **Cross-Platform** — Native iOS, Android, and Progressive Web App
+- **Open Source** — MIT licensed, community contributions welcome
+
 ---
  
 ## ✨ Features
  
-### 👩‍🎓 For Students
+### For Students
  
 | Feature | Description |
 |---------|-------------|
-| 🔍 **Event Discovery** | Browse and search events filtered by department, year, and interests |
-| ✅ **One-Tap Registration** | Quick RSVP with automatic calendar integration |
-| 🔔 **Smart Notifications** | Push notifications and timely reminders before events |
-| 📲 **QR Code Check-in** | Contactless, instant attendance tracking |
-| 🏆 **Gamification** | Earn reputation points and compete on campus leaderboards |
-| 🔖 **Saved Events** | Bookmark events you're interested in for quick access later |
-| 💬 **Event Chat** | Real-time discussion space with fellow attendees |
+| **Event Discovery** | Browse and search events filtered by department, year, and interests |
+| **One-Tap Registration** | Quick RSVP with automatic calendar integration |
+| **Smart Notifications** | Push notifications and timely reminders before events |
+| **QR Code Check-in** | Contactless, instant attendance tracking |
+| **Gamification** | Earn reputation points and compete on campus leaderboards |
+| **Saved Events** | Bookmark events you're interested in for quick access later |
+| **Event Chat** | Real-time discussion space with fellow attendees |
  
-### 🧑‍💼 For Event Organizers
- 
-| Feature | Description |
-|---------|-------------|
-| 📝 **Event Creation** | Rich media support with precise audience targeting |
-| 📡 **Live Attendance Dashboard** | Real-time QR code scanning and attendee tracking |
-| 📈 **Analytics Suite** | Branch-wise, year-wise, and time-based participation insights |
-| 📋 **Custom Registration Forms** | Dynamic forms with validation tailored to each event |
-| 💳 **Payment Integration** | Built-in ticketing and payment support for paid events |
-| 🎥 **Google Meet Integration** | Auto-generate meeting links for virtual or hybrid events |
-| ⭐ **Reputation Tracking** | Gamified scoring system based on event success metrics |
- 
-### 🛡️ For Administrators
+### For Event Organizers
  
 | Feature | Description |
 |---------|-------------|
-| 🖥️ **Control Panel** | Platform-wide event moderation and oversight tools |
-| 🔐 **Role Management** | Assign admin and club privileges via Firebase Cloud Functions |
-| 🚫 **Event Moderation** | Suspend or reinstate events that violate community guidelines |
-| 📊 **Platform Analytics** | Track engagement, user growth, and event activity metrics |
-| ⚙️ **Bulk Operations** | Efficiently manage multiple events simultaneously |
+| **Event Creation** | Rich media support with precise audience targeting |
+| **Live Attendance Dashboard** | Real-time QR code scanning and attendee tracking |
+| **Analytics Suite** | Branch-wise, year-wise, and time-based participation insights |
+| **Custom Registration Forms** | Dynamic forms with validation tailored to each event |
+| **Payment Integration** | Built-in ticketing and payment support for paid events |
+| **Google Meet Integration** | Auto-generate meeting links for virtual or hybrid events |
+| **Reputation Tracking** | Gamified scoring system based on event success metrics |
+ 
+### For Administrators
+ 
+| Feature | Description |
+|---------|-------------|
+| **Control Panel** | Platform-wide event moderation and oversight tools |
+| **Role Management** | Assign admin and club privileges via Firebase Cloud Functions |
+| **Event Moderation** | Suspend or reinstate events that violate community guidelines |
+| **Platform Analytics** | Track engagement, user growth, and event activity metrics |
+| **Bulk Operations** | Efficiently manage multiple events simultaneously |
  
 ---
  
@@ -182,6 +184,7 @@ Uni-Event/
 │
 ├── docs/                         # Project documentation
 │   ├── SETUP.md                  # Full setup guide
+│   ├── ENV_SETUP.md              # Environment variables & API key guide
 │   ├── FIREBASE_SETUP.md         # Firebase & emulator config
 │   └── Architecture.md           # System architecture overview
 │
@@ -228,7 +231,7 @@ npm install
  
 ---
  
-## ⚙️ Configuration
+## Configuration
  
 ### Step 1 — Copy the Environment Template
  
@@ -238,29 +241,15 @@ cp app/.env.example app/.env
  
 ### Step 2 — Fill in Your Credentials
  
-Open `app/.env` and configure the following:
+Open `app/.env` and populate the required keys. The file contains three groups of variables:
  
-```env
-# Firebase Project Config
-FIREBASE_API_KEY=your_api_key
-FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-FIREBASE_PROJECT_ID=your_project_id
-FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-FIREBASE_APP_ID=your_app_id
+| Group | Variables |
+|-------|-----------|
+| Firebase Config | `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID` |
+| Google OAuth | `GOOGLE_CLIENT_ID_ANDROID`, `GOOGLE_CLIENT_ID_IOS`, `GOOGLE_CLIENT_ID_WEB` |
+| Email Service (Optional) | `EMAILJS_SERVICE_ID`, `EMAILJS_TEMPLATE_ID`, `EMAILJS_PUBLIC_KEY` |
  
-# Google OAuth
-GOOGLE_CLIENT_ID_ANDROID=your_android_client_id
-GOOGLE_CLIENT_ID_IOS=your_ios_client_id
-GOOGLE_CLIENT_ID_WEB=your_web_client_id
- 
-# Email Service (Optional)
-EMAILJS_SERVICE_ID=your_emailjs_service_id
-EMAILJS_TEMPLATE_ID=your_emailjs_template_id
-EMAILJS_PUBLIC_KEY=your_emailjs_public_key
-```
- 
-> 📖 For a full walkthrough, see [docs/SETUP.md](./docs/SETUP.md) and [docs/FIREBASE_SETUP.md](./docs/FIREBASE_SETUP.md).
+> For a step-by-step guide on how to obtain each key from the respective platforms (Firebase Console, Google Cloud Console, EmailJS), refer to [docs/ENV_SETUP.md](./docs/ENV_SETUP.md).
  
 ---
  
@@ -312,12 +301,20 @@ npm test
  
 ---
  
-## 📚 Documentation
+## Documentation
+ 
+### Setup & Configuration
  
 | Document | Description |
 |----------|-------------|
 | [Setup Guide](./docs/SETUP.md) | Full installation and configuration walkthrough |
-| [Firebase Setup](./docs/FIREBASE_SETUP.md) | Emulator and Firebase project configuration |
+| [Environment Variables](./docs/ENV_SETUP.md) | How to obtain and configure all required API keys |
+| [Firebase Setup](./docs/FIREBASE_SETUP.md) | Firebase project creation and emulator configuration |
+ 
+### Architecture & Development
+ 
+| Document | Description |
+|----------|-------------|
 | [Architecture](./docs/Architecture.md) | System design, data flow, and architecture overview |
 | [Contributing Guide](./CONTRIBUTING.md) | How to contribute code, docs, or bug reports |
 | [Code of Conduct](./CODE_OF_CONDUCT.md) | Community standards and expectations |
