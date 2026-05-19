@@ -7,7 +7,7 @@ import { useTheme } from './ThemeContext';
  * @param {string} darkColor - Color for dark mode
  * @returns {Animated.Value} Interpolated animated value
  */
-export const AnimatedThemeColor = (lightColor, darkColor) => {
+export const useAnimatedThemeColor = (lightColor, darkColor) => {
     const { interpolateThemeColor } = useTheme();
     return useMemo(() => interpolateThemeColor(lightColor, darkColor), [
         lightColor,
