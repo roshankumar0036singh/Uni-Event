@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import PropTypes from 'prop-types';
 import {
     addDoc,
     collection,
@@ -299,7 +300,6 @@ export default function EventDetail({ route, navigation }) {
 
     // Derived State
     const isOwner = user && event?.ownerId === user.uid;
-    const isAdmin = role === 'admin';
     const isSuspended = event?.status === 'suspended';
     const isEventEnded = event?.endAt ? new Date() > new Date(event.endAt) : false;
 
@@ -479,7 +479,7 @@ export default function EventDetail({ route, navigation }) {
         }
     };
 
-    const { request, response, promptAsync } = CalendarService.useCalendarAuth();
+    const { request, promptAsync } = CalendarService.useCalendarAuth();
 
     useEffect(() => {
         if (response?.type === 'success') {
@@ -494,29 +494,6 @@ export default function EventDetail({ route, navigation }) {
         if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link'));
     };
 
-    const handleExportReviews = async () => {
-        try {
-            const feedbackRef = collection(db, `events/${eventId}/feedback`);
-            const snapshot = await getDocs(feedbackRef);
-
-            if (snapshot.empty) {
-                Alert.alert('No Reviews', 'This event has no feedback yet.');
-                return;
-            }
-
-            let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
-            snapshot.forEach(doc => {
-                const d = doc.data();
-                const line = `"${(d.userName || 'Anonymous').replace(/"/g, '""')}","${d.eventRating || '-'}","${d.clubRating || '-'}","${(d.feedback || '').replace(/"/g, '""')}","${d.createdAt || ''}"\n`;
-                csv += line;
-            });
-
-            await Share.share({ message: csv, title: `Reviews - ${event.title}` });
-        } catch (error) {
-            console.error('Export Error: ', error);
-            Alert.alert('Error', 'Failed to export reviews.');
-        }
-    };
 
     const sendCertificates = async () => {
         setSendingCertificates(true);
@@ -1513,6 +1490,10 @@ export default function EventDetail({ route, navigation }) {
     );
 
     const getStyles = theme =>
+        EventDetail.propTypes = {
+    route: PropTypes.object,
+    navigation: PropTypes.object,
+};
         StyleSheet.create({
             headerImage: { height: 350, width: '100%' },
             headerGradient: { flex: 1, paddingTop: 40, paddingHorizontal: 20 },
