@@ -109,11 +109,13 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
         // Update user activity
         const userRef = doc(db, 'users', userId);
 
-        await setDoc(userRef, {
-            lastActive: serverTimestamp(),
-        }, { merge: true });
-
-
+        await setDoc(
+            userRef,
+            {
+                lastActive: serverTimestamp(),
+            },
+            { merge: true },
+        );
 
         return {
             success: true,
