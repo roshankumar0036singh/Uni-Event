@@ -25,7 +25,7 @@
             "package": "com.hack2skill.eventloop"
         },
         "web": {
-            "favicon": "./assets/UniEvent.png",
+           // "favicon": "./assets/UniEvent.png",
             "bundler": "metro",
             "name": "UniEvent",
             "shortName": "UniEvent",
