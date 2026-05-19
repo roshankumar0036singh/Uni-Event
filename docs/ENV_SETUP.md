@@ -93,28 +93,17 @@ GOOGLE_CLIENT_ID_IOS
 ```env
 GOOGLE_CLIENT_ID_WEB=XXXXXXXXXX-XXXXXXXXXXXXXXXXXXXX.apps.googleusercontent.com
 ```
- 
-**For Android Client ID:**
-- Application type: **Android**
-- Package name: enter your app's package name (found in `app/app.json` under `android.package`)
-- SHA-1 certificate: run the command below and paste the output
-```bash
-cd android && ./gradlew signingReport
-```
- 
-- Click **Create** and copy the **Client ID**
+
+ **For Android and iOS Client ID:**
+- Use the same Web Client ID you generated above for both variables.
+
 ```env
 GOOGLE_CLIENT_ID_ANDROID=XXXXXXXXXX-XXXXXXXXXXXXXXXXXXXX.apps.googleusercontent.com
-```
- 
-**For iOS Client ID:**
-- Application type: **iOS**
-- Bundle ID: enter your app's bundle ID (found in `app/app.json` under `ios.bundleIdentifier`)
-- Click **Create** and copy the **Client ID**
-```env
 GOOGLE_CLIENT_ID_IOS=XXXXXXXXXX-XXXXXXXXXXXXXXXXXXXX.apps.googleusercontent.com
 ```
- 
+
+> Simply copy the same Web Client ID into all three variables.
+
 ---
  
 ## 3. EmailJS (Optional)
@@ -169,7 +158,7 @@ FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 FIREBASE_MESSAGING_SENDER_ID=000000000000
 FIREBASE_APP_ID=1:000000000000:web:XXXXXXXXXXXXXXXX
  
-# Google OAuth
+# Google OAuth (use the same Web Client ID for all three)
 GOOGLE_CLIENT_ID_WEB=XXXXXXXXXX-XXXXXXXXXXXXXXXXXXXX.apps.googleusercontent.com
 GOOGLE_CLIENT_ID_ANDROID=XXXXXXXXXX-XXXXXXXXXXXXXXXXXXXX.apps.googleusercontent.com
 GOOGLE_CLIENT_ID_IOS=XXXXXXXXXX-XXXXXXXXXXXXXXXXXXXX.apps.googleusercontent.com

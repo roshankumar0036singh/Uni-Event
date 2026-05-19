@@ -3,7 +3,7 @@
 <div align="center">
 
 # 🎓 UniEvent
-### University Event Management Platform
+## University Event Management Platform
  
 [![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=22&pause=1000&color=1E3A8A&center=true&vCenter=true&width=500&lines=Discover.+Register.+Attend.;Built+for+Students%2C+by+the+Community.;Open+Source+%7C+Cross-Platform+%7C+Firebase-Powered.)](https://git.io/typing-svg)
  
@@ -50,8 +50,8 @@
 - [Project Structure](#-project-structure)
 - [Quick Start](#-quick-start)
 - [Configuration](#configuration)
-- [Running Locally](#running-locally)
-- [Testing](#testing)
+- [Running Locally](#-running-locally)
+- [Testing](#-testing)
 - [Documentation](#documentation)
 - [Contributing](#-contributing)
 - [Contributors](#-contributors)
