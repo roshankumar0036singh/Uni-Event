@@ -22,6 +22,14 @@ import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
+let LottieView;
+let LottieWeb;
+if (Platform.OS === 'web') {
+    LottieWeb = require('lottie-react').default;
+} else {
+    LottieView = require('lottie-react-native').default;
+}
+
 const FILTERS = ['Upcoming', 'Past', 'Cultural', 'Sports', 'Tech', 'Workshop', 'Seminar'];
 
 export default function UserFeed({ navigation, headerContent }) {
@@ -398,20 +406,30 @@ export default function UserFeed({ navigation, headerContent }) {
                         useNativeDriver: true,
                     })}
                     contentContainerStyle={{ paddingBottom: 100 }}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Ionicons
-                                name="search-outline"
-                                size={64}
-                                color={theme.colors.textSecondary}
-                                style={{ opacity: 0.5 }}
-                            />
-                            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                                {searchQuery
-                                    ? `No events found for "${searchQuery}"`
-                                    : 'No events found.'}
-                            </Text>
-                        </View>
+                    ListFooterComponent={
+                        displayList.length === 0 ? (
+                            <View style={styles.emptyContainer}>
+                                {Platform.OS === 'web' && LottieWeb ? (
+                                    <LottieWeb
+                                        animationData={require('../../assets/empty-search.json')}
+                                        loop={true}
+                                        style={{ width: 200, height: 200 }}
+                                    />
+                                ) : LottieView && Platform.OS !== 'web' ? (
+                                    <LottieView
+                                        source={require('../../assets/empty-search.json')}
+                                        autoPlay
+                                        loop
+                                        style={{ width: 200, height: 200 }}
+                                    />
+                                ) : null}
+                                <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                                    {searchQuery
+                                        ? `No events found for "${searchQuery}"`
+                                        : 'No events found.'}
+                                </Text>
+                            </View>
+                        ) : null
                     }
                 />
             )}
