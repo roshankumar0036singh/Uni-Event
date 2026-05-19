@@ -72,10 +72,21 @@ export const ThemeProvider = ({ children }) => {
             theme,
             isDarkMode,
             toggleTheme,
+            textScale,          // 👈 Added
+            updateTextScale,    // 👈 Added
+            isHighContrast,     // 👈 Added
+            toggleHighContrast, // 👈 Added
             themeAnimationProgress,
             interpolateThemeColor,
         }),
-        [theme, isDarkMode, toggleTheme, themeAnimationProgress, interpolateThemeColor]
+        [theme, 
+         isDarkMode,
+         toggleTheme,
+         textScale,          // 👈 Added
+         updateTextScale,    // 👈 Added
+         isHighContrast,     // 👈 Added
+         toggleHighContrast, // 👈 Added 
+         themeAnimationProgress, interpolateThemeColor]
     );
 
     if (loading) return null;
