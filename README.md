@@ -272,7 +272,7 @@ This starts local emulators for Firestore, Auth, and Cloud Functions.
 cd app
 npm start
 ```
- 
+
 Then press the appropriate key in the terminal:
  
 | Key | Platform |
@@ -281,6 +281,12 @@ Then press the appropriate key in the terminal:
 | `a` | Android (emulator or device) |
 | `i` | iOS (simulator) |
  
+
+**Run Firestore security rule tests**:
+```bash
+npm run test:rules
+```
+
 ---
  
 ## 🧪 Testing

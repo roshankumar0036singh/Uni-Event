@@ -45,4 +45,5 @@ __exportStar(require("./onEventCreate"), exports);
 __exportStar(require("./reminders"), exports);
 __exportStar(require("./reputation"), exports);
 __exportStar(require("./setRole"), exports);
+__exportStar(require("./inactiveUsers"), exports);
 //# sourceMappingURL=index.js.map

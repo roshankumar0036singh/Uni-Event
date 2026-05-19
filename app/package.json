@@ -85,6 +85,7 @@
         "@babel/core": "^7.20.0",
         "@eslint/eslintrc": "^3.3.5",
         "@eslint/js": "^10.0.1",
+        "@testing-library/react-native": "^13.3.3",
         "eslint": "^9.0.0",
         "eslint-config-expo": "~7.0.0",
         "eslint-config-prettier": "^9.0.0",
