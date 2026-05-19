@@ -9,11 +9,10 @@ import { useTheme } from './ThemeContext';
  */
 export const useAnimatedThemeColor = (lightColor, darkColor) => {
     const { interpolateThemeColor } = useTheme();
-    return useMemo(() => interpolateThemeColor(lightColor, darkColor), [
-        lightColor,
-        darkColor,
-        interpolateThemeColor,
-    ]);
+    return useMemo(
+        () => interpolateThemeColor(lightColor, darkColor),
+        [lightColor, darkColor, interpolateThemeColor],
+    );
 };
 
 /**
@@ -37,4 +36,3 @@ export const useAnimatedBackgroundColor = (lightColor, darkColor) => {
     const animatedColor = useAnimatedThemeColor(lightColor, darkColor);
     return useMemo(() => ({ backgroundColor: animatedColor }), [animatedColor]);
 };
-

@@ -18,15 +18,12 @@ export default function ScreenWrapper({
     const backgroundStyle = {
         backgroundColor: interpolateThemeColor(
             lightTheme.colors.background,
-            darkTheme.colors.background
+            darkTheme.colors.background,
         ),
     };
 
     return (
-        <AnimatedSafeAreaView
-            style={[styles.safeArea, backgroundStyle]}
-            edges={edges}
-        >
+        <AnimatedSafeAreaView style={[styles.safeArea, backgroundStyle]} edges={edges}>
             <View style={[styles.container, { paddingHorizontal: theme.spacing.m }, style]}>
                 {showLogo && (
                     <View style={styles.logoContainer}>

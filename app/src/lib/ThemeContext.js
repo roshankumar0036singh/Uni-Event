@@ -17,7 +17,10 @@ export const ThemeProvider = ({ children }) => {
     const [isHighContrast, setIsHighContrast] = useState(false);
 
     // Animated value for smooth color transitions (0 = light, 1 = dark)
-    const themeAnimationProgress = useMemo(() => new Animated.Value(systemScheme === 'dark' ? 1 : 0), []);
+    const themeAnimationProgress = useMemo(
+        () => new Animated.Value(systemScheme === 'dark' ? 1 : 0),
+        [],
+    );
 
     useEffect(() => {
         loadPersistedSettings();
@@ -25,7 +28,7 @@ export const ThemeProvider = ({ children }) => {
 
     useEffect(() => {
         setTheme(isDarkMode ? darkTheme : lightTheme);
-        
+
         Animated.timing(themeAnimationProgress, {
             toValue: isDarkMode ? 1 : 0,
             duration: 500,
@@ -66,7 +69,7 @@ export const ThemeProvider = ({ children }) => {
         }
     }, [isDarkMode]);
 
-    const updateTextScale = useCallback(async (scale) => {
+    const updateTextScale = useCallback(async scale => {
         setTextScale(scale);
         try {
             await AsyncStorage.setItem('textScalePreference', scale.toString());
@@ -85,12 +88,15 @@ export const ThemeProvider = ({ children }) => {
         }
     }, [isHighContrast]);
 
-    const interpolateThemeColor = useCallback((lightColor, darkColor) => {
-        return themeAnimationProgress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [lightColor, darkColor],
-        });
-    }, [themeAnimationProgress]);
+    const interpolateThemeColor = useCallback(
+        (lightColor, darkColor) => {
+            return themeAnimationProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [lightColor, darkColor],
+            });
+        },
+        [themeAnimationProgress],
+    );
 
     const value = useMemo(
         () => ({
@@ -113,17 +119,13 @@ export const ThemeProvider = ({ children }) => {
             isHighContrast,
             toggleHighContrast,
             themeAnimationProgress,
-            interpolateThemeColor
-        ]
+            interpolateThemeColor,
+        ],
     );
 
     if (loading) return null;
 
-    return (
-        <ThemeContext.Provider value={value}>
-            {children}
-        </ThemeContext.Provider>
-    );
+    return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
 
 export const useTheme = () => useContext(ThemeContext);

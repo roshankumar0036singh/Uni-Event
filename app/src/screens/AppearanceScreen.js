@@ -1,4 +1,12 @@
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, Animated } from 'react-native';
+import {
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View,
+    Animated,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useTheme } from '../lib/ThemeContext';
@@ -38,12 +46,7 @@ export default function AppearanceScreen() {
     return (
         <ScreenWrapper>
             <ScrollView contentContainerStyle={styles.container}>
-                <Animated.Text
-                    style={[
-                        styles.header,
-                        headerTextColor,
-                    ]}
-                >
+                <Animated.Text style={[styles.header, headerTextColor]}>
                     Appearance & Accessibility
                 </Animated.Text>
 
@@ -66,15 +69,14 @@ export default function AppearanceScreen() {
                                 style={[
                                     styles.iconContainer,
                                     {
-                                        transform: [
-                                            { rotate: iconRotation },
-                                            { scale: iconScale },
-                                        ],
+                                        transform: [{ rotate: iconRotation }, { scale: iconScale }],
                                     },
                                 ]}
                             >
                                 <MaterialCommunityIcons
-                                    name={isDarkMode ? 'moon-waning-crescent' : 'white-balance-sunny'}
+                                    name={
+                                        isDarkMode ? 'moon-waning-crescent' : 'white-balance-sunny'
+                                    }
                                     size={24}
                                     color={theme.colors.primary}
                                 />
@@ -93,13 +95,7 @@ export default function AppearanceScreen() {
                     <Animated.Text style={[styles.sectionTitle, sectionTitleColor]}>
                         Text Size
                     </Animated.Text>
-                    <Animated.Text
-                        style={[
-                            styles.subLabel,
-                            subLabelColor,
-                            { marginBottom: 15 },
-                        ]}
-                    >
+                    <Animated.Text style={[styles.subLabel, subLabelColor, { marginBottom: 15 }]}>
                         Adjust the reading size of the app
                     </Animated.Text>
 
@@ -164,11 +160,7 @@ export default function AppearanceScreen() {
                     </View>
 
                     <Animated.Text
-                        style={[
-                            styles.preview,
-                            labelColor,
-                            { fontSize: 16 * textScale },
-                        ]}
+                        style={[styles.preview, labelColor, { fontSize: 16 * textScale }]}
                     >
                         Preview: This is how your event details will look.
                     </Animated.Text>
