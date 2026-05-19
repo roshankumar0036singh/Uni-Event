@@ -134,13 +134,17 @@ export default function ClubProfileScreen({ route, navigation }) {
         return { avgRating: 0, totalRatings: 0 };
     }, [club]);
 
-    const attendanceRate = club?.metrics?.attendanceRate || 0;
+    const rawAttendanceRate = Number(club?.metrics?.attendanceRate);
+    const attendanceRate = Number.isFinite(rawAttendanceRate)
+        ? Math.min(100, Math.max(0, rawAttendanceRate))
+        : 0;
 
-    const ratingScore = avgRating > 0 ? (Number(avgRating) / 5) * 100 : 0;
-
-    const successScore = Math.round(
-        attendanceRate * 0.4 + ratingScore * 0.6 ,
-    );
+    const rawRatingScore = avgRating > 0 ? (Number(avgRating) / 5) * 100 : 0;
+    const ratingScore = Number.isFinite(rawRatingScore)
+        ? Math.min(100, Math.max(0, rawRatingScore))
+        : 0;
+        
+    const successScore = Math.round(attendanceRate * 0.4 + ratingScore * 0.6);
 
     const toggleFollow = async () => {
         if (!user) return;
