@@ -23,7 +23,7 @@ export const useAnimatedThemeColor = (lightColor, darkColor) => {
  * @returns {object} Style object with animated color
  */
 export const useAnimatedTextColor = (lightColor, darkColor) => {
-    const animatedColor = AnimatedThemeColor(lightColor, darkColor);
+    const animatedColor = useAnimatedThemeColor(lightColor, darkColor);
     return useMemo(() => ({ color: animatedColor }), [animatedColor]);
 };
 
@@ -34,7 +34,7 @@ export const useAnimatedTextColor = (lightColor, darkColor) => {
  * @returns {object} Style object with animated backgroundColor
  */
 export const useAnimatedBackgroundColor = (lightColor, darkColor) => {
-    const animatedColor = AnimatedThemeColor(lightColor, darkColor);
+    const animatedColor = useAnimatedThemeColor(lightColor, darkColor);
     return useMemo(() => ({ backgroundColor: animatedColor }), [animatedColor]);
 };
 
