@@ -12,27 +12,26 @@ export const ThemeProvider = ({ children }) => {
     const [theme, setTheme] = useState(systemScheme === 'dark' ? darkTheme : lightTheme);
     const [loading, setLoading] = useState(true);
 
-    // Declared states to fix the 'not defined' lint errors
+    // Context states initialized to fix 'not defined' errors
     const [textScale, setTextScale] = useState(1);
     const [isHighContrast, setIsHighContrast] = useState(false);
-    
+
     // Animated value for smooth color transitions (0 = light, 1 = dark)
     const themeAnimationProgress = useMemo(() => new Animated.Value(systemScheme === 'dark' ? 1 : 0), []);
 
     useEffect(() => {
-        loadThemePreference();
+        loadPersistedSettings();
     }, []);
 
     useEffect(() => {
         setTheme(isDarkMode ? darkTheme : lightTheme);
         
-        // Animated the transition 500ms for a smoother feel
         Animated.timing(themeAnimationProgress, {
             toValue: isDarkMode ? 1 : 0,
             duration: 500,
             useNativeDriver: false,
         }).start();
-        
+
         if (Platform.OS === 'web') {
             const meta = document.querySelector('meta[name="theme-color"]');
             if (meta) {
@@ -41,14 +40,17 @@ export const ThemeProvider = ({ children }) => {
         }
     }, [isDarkMode, themeAnimationProgress]);
 
-    const loadThemePreference = async () => {
+    const loadPersistedSettings = async () => {
         try {
-            const stored = await AsyncStorage.getItem('themePreference');
-            if (stored) {
-                setIsDarkMode(stored === 'dark');
-            }
+            const storedTheme = await AsyncStorage.getItem('themePreference');
+            const storedScale = await AsyncStorage.getItem('textScalePreference');
+            const storedContrast = await AsyncStorage.getItem('highContrastPreference');
+
+            if (storedTheme) setIsDarkMode(storedTheme === 'dark');
+            if (storedScale) setTextScale(parseFloat(storedScale));
+            if (storedContrast) setIsHighContrast(storedContrast === 'true');
         } catch (e) {
-            console.log('Failed to load theme preference', e);
+            console.log('Failed to load theme preferences', e);
         } finally {
             setLoading(false);
         }
@@ -64,6 +66,25 @@ export const ThemeProvider = ({ children }) => {
         }
     }, [isDarkMode]);
 
+    const updateTextScale = useCallback(async (scale) => {
+        setTextScale(scale);
+        try {
+            await AsyncStorage.setItem('textScalePreference', scale.toString());
+        } catch (e) {
+            console.log('Failed to save text scale', e);
+        }
+    }, []);
+
+    const toggleHighContrast = useCallback(async () => {
+        const newContrast = !isHighContrast;
+        setIsHighContrast(newContrast);
+        try {
+            await AsyncStorage.setItem('highContrastPreference', newContrast ? 'true' : 'false');
+        } catch (e) {
+            console.log('Failed to save high contrast status', e);
+        }
+    }, [isHighContrast]);
+
     const interpolateThemeColor = useCallback((lightColor, darkColor) => {
         return themeAnimationProgress.interpolate({
             inputRange: [0, 1],
@@ -76,21 +97,24 @@ export const ThemeProvider = ({ children }) => {
             theme,
             isDarkMode,
             toggleTheme,
-            textScale,          // 👈 Added
-            updateTextScale,    // 👈 Added
-            isHighContrast,     // 👈 Added
-            toggleHighContrast, // 👈 Added
+            textScale,
+            updateTextScale,
+            isHighContrast,
+            toggleHighContrast,
             themeAnimationProgress,
             interpolateThemeColor,
         }),
-        [theme, 
-         isDarkMode,
-         toggleTheme,
-         textScale,          // 👈 Added
-         updateTextScale,    // 👈 Added
-         isHighContrast,     // 👈 Added
-         toggleHighContrast, // 👈 Added 
-         themeAnimationProgress, interpolateThemeColor]
+        [
+            theme,
+            isDarkMode,
+            toggleTheme,
+            textScale,
+            updateTextScale,
+            isHighContrast,
+            toggleHighContrast,
+            themeAnimationProgress,
+            interpolateThemeColor
+        ]
     );
 
     if (loading) return null;
