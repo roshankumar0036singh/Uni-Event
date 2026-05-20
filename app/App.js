@@ -378,11 +378,15 @@ function AppContent() {
             },
         );
 
-        return () => {
+        /*return () => {
             if (notificationListener.current)
                 Notifications.removeNotificationSubscription(notificationListener.current);
             if (responseListener.current)
                 Notifications.removeNotificationSubscription(responseListener.current);
+        };*/
+        return () => {
+            notificationListener.current?.remove?.();
+            responseListener.current?.remove?.();
         };
     }, [user]);
 

@@ -27,6 +27,7 @@ export default function UserFeed({ navigation, headerContent }) {
     const { user, userData, role } = useAuth();
     const { theme } = useTheme();
     const [events, setEvents] = useState([]);
+    const [friendEvents, setFriendEvents] = useState([]);
     const [participatingIds, setParticipatingIds] = useState([]); // Track joined events
     const [activeFilter, setActiveFilter] = useState('Upcoming');
     const [searchQuery, setSearchQuery] = useState('');
@@ -72,6 +73,59 @@ export default function UserFeed({ navigation, headerContent }) {
                 }
             },
             err => console.log('Feedback Listener Error', err),
+        );
+
+        return () => unsubscribe();
+    }, [user]);
+
+    useEffect(() => {
+        if (!user) return;
+
+        const unsubscribe = onSnapshot(
+            collection(db, 'users', user.uid, 'following'),
+            async snapshot => {
+                const followingIds = snapshot.docs.map(doc => doc.id);
+
+                if (followingIds.length === 0) {
+                    setFriendEvents([]);
+                    return;
+                }
+
+                const q = query(
+                    collection(db, 'rsvps'),
+                    where('userId', 'in', followingIds.slice(0, 10))
+                );
+
+                const unsubRsvps = onSnapshot(q, rsvpSnap => {
+                    const friendData = rsvpSnap.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data(),
+                    }));
+
+                    const grouped = {};
+
+                    rsvpSnap.forEach(doc => {
+                        const data = doc.data();
+
+                        if (!grouped[data.eventId]) {
+                            grouped[data.eventId] = {
+                                eventId: data.eventId,
+                                eventTitle: data.eventTitle,
+                                friends: [],
+                            };
+                        }
+
+                        grouped[data.eventId].friends.push({
+                            userId: data.userId,
+                            username: data.username,
+                        });
+                    });
+
+                    setFriendEvents(Object.values(grouped));
+                });
+
+                return () => unsubRsvps();
+            }
         );
 
         return () => unsubscribe();
@@ -330,7 +384,7 @@ export default function UserFeed({ navigation, headerContent }) {
             <EventCard
                 event={item}
                 isRegistered={participatingIds.includes(item.id)}
-                onLike={() => {}}
+                onLike={() => { }}
                 onShare={async () => {
                     try {
                         await Share.share({
@@ -354,6 +408,72 @@ export default function UserFeed({ navigation, headerContent }) {
         <Animated.View style={{ transform: [{ translateY: headerTranslateY }] }}>
             {/* Recommendations Rail */}
             <View style={{ marginBottom: 20 }}>
+                {/* Friends Activity Section */}
+                <View style={{ marginBottom: 20 }}>
+                    <Text style={styles.sectionTitle}>
+                        YOUR FRIENDS ARE GOING
+                    </Text>
+
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ paddingHorizontal: 20 }}
+                    >
+                        {friendEvents.map(event => (
+                            <View
+                                key={event.id}
+                                style={{
+                                    width: 280,
+                                    marginRight: 15,
+                                    backgroundColor: theme.colors.surface,
+                                    borderRadius: 16,
+                                    padding: 16,
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        color: theme.colors.text,
+                                        fontWeight: 'bold',
+                                        fontSize: 16,
+                                    }}
+                                >
+                                    {event.username}
+                                </Text>
+
+                                <Text
+                                    style={{
+                                        color: theme.colors.textSecondary,
+                                        marginTop: 6,
+                                    }}
+                                >
+                                    is going to
+                                </Text>
+
+                                <Text
+                                    style={{
+                                        color: theme.colors.text,
+                                        marginTop: 8,
+                                        fontSize: 18,
+                                        fontWeight: '700',
+                                    }}
+                                >
+                                    {event.eventTitle}
+                                </Text>
+                            </View>
+                        ))}
+
+                        {friendEvents.length === 0 && (
+                            <Text
+                                style={{
+                                    color: theme.colors.textSecondary,
+                                    marginHorizontal: 20,
+                                }}
+                            >
+                                No friend activity yet.
+                            </Text>
+                        )}
+                    </ScrollView>
+                </View>
                 <Text style={styles.sectionTitle}>RECOMMENDED FOR YOU</Text>
                 <ScrollView
                     horizontal

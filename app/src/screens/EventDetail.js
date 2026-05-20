@@ -41,6 +41,7 @@ import { cancelScheduledNotification, scheduleEventReminder } from '../lib/notif
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
 
+
 const { width } = Dimensions.get('window');
 
 const UniEventLogo = require('../../assets/UniEvent.png');
@@ -61,6 +62,8 @@ export default function EventDetail({ route, navigation }) {
     const [showAppealModal, setShowAppealModal] = useState(false);
 
     const [sendingAppeal, setSendingAppeal] = useState(false);
+    const [friendsAttending, setFriendsAttending] = useState([]);
+
 
     // ... existing useEffects ...
 
@@ -192,6 +195,36 @@ export default function EventDetail({ route, navigation }) {
             unsubParticipants();
         };
     }, [eventId, user]);
+
+
+    useEffect(() => {
+        if (!user?.uid || !eventId) return;
+
+        const load = async () => {
+            const followingSnap = await getDocs(
+                collection(db, 'users', user.uid, 'following')
+            );
+            const followingIds = followingSnap.docs.map(d => d.id);
+            if (followingIds.length === 0) return;
+
+            const results = await Promise.all(
+                followingIds.map(async friendId => {
+                    const snap = await getDoc(doc(db, 'events', eventId, 'participants', friendId));
+                    if (!snap.exists()) return null;
+                    const profileSnap = await getDoc(doc(db, 'users', friendId));
+                    const profile = profileSnap.exists() ? profileSnap.data() : {};
+                    return {
+                        id: friendId,
+                        name: profile.displayName || 'Someone',
+                        photo: profile.photoURL || null,
+                    };
+                })
+            );
+            setFriendsAttending(results.filter(Boolean));
+        };
+
+        load();
+    }, [user?.uid, eventId]);
 
     // Derived State
     const isOwner = user && event?.ownerId === user.uid;
@@ -1111,6 +1144,67 @@ export default function EventDetail({ route, navigation }) {
                         </View>
                     </View>
 
+
+                    {/* Friends Attending */}
+                    {!isOwner && friendsAttending.length > 0 && (() => {
+                        const visible = friendsAttending.slice(0, 3);
+                        const names = visible.map(f => f.name.split(' ')[0]);
+                        const socialText =
+                            names.length === 1 ? `${names[0]} is going` :
+                                names.length === 2 ? `${names[0]} & ${names[1]} are going` :
+                                    `${names[0]}, ${names[1]} & ${friendsAttending.length - 2} more are going`;
+
+                        return (
+                            <View style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 10,
+                                borderRadius: 14,
+                                borderWidth: 1,
+                                padding: 12,
+                                paddingHorizontal: 14,
+                                marginBottom: 20,
+                                backgroundColor: theme.colors.primary + '12',
+                                borderColor: theme.colors.primary + '30',
+                            }}>
+                                <Ionicons name="people" size={16} color={theme.colors.primary} />
+
+                                {/* Stacked avatars */}
+                                <View style={{ flexDirection: 'row' }}>
+                                    {visible.map((friend, idx) => (
+                                        <View key={friend.id} style={{
+                                            width: 26, height: 26, borderRadius: 13,
+                                            borderWidth: 2, borderColor: theme.colors.surface,
+                                            backgroundColor: theme.colors.primary + '30',
+                                            marginLeft: idx === 0 ? 0 : -8,
+                                            zIndex: visible.length - idx,
+                                            overflow: 'hidden',
+                                            alignItems: 'center', justifyContent: 'center',
+                                        }}>
+                                            {friend.photo ? (
+                                                <Image source={{ uri: friend.photo }}
+                                                    style={{ width: '100%', height: '100%' }} />
+                                            ) : (
+                                                <Text style={{ fontSize: 9, fontWeight: '700', color: theme.colors.primary }}>
+                                                    {friend.name[0].toUpperCase()}
+                                                </Text>
+                                            )}
+                                        </View>
+                                    ))}
+                                </View>
+
+                                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.text, flex: 1 }}>
+                                    {socialText}
+                                </Text>
+
+                                <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
+                            </View>
+                        );
+                    })()}
+
+                    {/* About Section */}
+                    <View style={styles.aboutSection}></View>
+
                     {/* About Section */}
                     <View style={styles.aboutSection}>
                         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
@@ -1241,10 +1335,10 @@ export default function EventDetail({ route, navigation }) {
                                         onPress={
                                             event.certificatesSent
                                                 ? () =>
-                                                      Alert.alert(
-                                                          'Sent',
-                                                          'Certificates have already been sent.',
-                                                      )
+                                                    Alert.alert(
+                                                        'Sent',
+                                                        'Certificates have already been sent.',
+                                                    )
                                                 : handleSendCertificates
                                         }
                                         disabled={sendingCertificates}
@@ -1286,8 +1380,8 @@ export default function EventDetail({ route, navigation }) {
                                             {sendingCertificates
                                                 ? 'Sending...'
                                                 : event.certificatesSent
-                                                  ? 'Certificates Sent'
-                                                  : 'Send Certificates'}
+                                                    ? 'Certificates Sent'
+                                                    : 'Send Certificates'}
                                         </Text>
                                     </TouchableOpacity>
                                 )}
@@ -1356,10 +1450,10 @@ export default function EventDetail({ route, navigation }) {
                             styles.primaryBtn,
                             rsvpStatus === 'going' && styles.secondaryBtn,
                             new Date(event.endAt) < new Date() &&
-                                !(rsvpStatus === 'going' && event.certificatesSent) && {
-                                    backgroundColor: theme.colors.textSecondary,
-                                    borderColor: theme.colors.textSecondary,
-                                },
+                            !(rsvpStatus === 'going' && event.certificatesSent) && {
+                                backgroundColor: theme.colors.textSecondary,
+                                borderColor: theme.colors.textSecondary,
+                            },
                         ]}
                         onPress={
                             new Date(event.endAt) < new Date()
@@ -1378,9 +1472,9 @@ export default function EventDetail({ route, navigation }) {
                                 styles.primaryBtnText,
                                 rsvpStatus === 'going' && styles.secondaryBtnText,
                                 new Date(event.endAt) < new Date() &&
-                                    !(rsvpStatus === 'going' && event.certificatesSent) && {
-                                        color: '#fff',
-                                    },
+                                !(rsvpStatus === 'going' && event.certificatesSent) && {
+                                    color: '#fff',
+                                },
                             ]}
                         >
                             {new Date(event.endAt) < new Date()
@@ -1390,10 +1484,10 @@ export default function EventDetail({ route, navigation }) {
                                         : 'Event Ended'
                                     : 'Closed'
                                 : rsvpStatus === 'going'
-                                  ? 'Registered ✓'
-                                  : event.isPaid
-                                    ? `Book Ticket (₹${event.price})`
-                                    : 'RSVP Now'}
+                                    ? 'Registered ✓'
+                                    : event.isPaid
+                                        ? `Book Ticket (₹${event.price})`
+                                        : 'RSVP Now'}
                         </Text>
                     </TouchableOpacity>
                 </View>

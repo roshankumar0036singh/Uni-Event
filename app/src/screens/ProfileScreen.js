@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 // import { Picker } from '@react-native-picker/picker'; // Removed native picker
 import { LinearGradient } from 'expo-linear-gradient';
 import { updateProfile } from 'firebase/auth';
-import { addDoc, collection, doc, getCountFromServer, getDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getCountFromServer, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import {
     Alert,
@@ -68,6 +68,10 @@ export default function ProfileScreen({ navigation }) {
     const [requestMessage, setRequestMessage] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const [followersCount, setFollowersCount] = useState(0);
+    const [followingCount, setFollowingCount] = useState(0);
+    const [isFollowing, setIsFollowing] = useState(false);
+
     useEffect(() => {
         if (user?.uid) fetchUserData();
     }, [user]);
@@ -97,6 +101,19 @@ export default function ProfileScreen({ navigation }) {
                     } else {
                         setRating(0);
                     }
+
+
+                    // Followers count
+                    const followersSnap = await getCountFromServer(
+                        collection(db, 'users', user.uid, 'followers')
+                    );
+                    setFollowersCount(followersSnap.data().count);
+
+                    // Following count
+                    const followingSnap = await getCountFromServer(
+                        collection(db, 'users', user.uid, 'following')
+                    );
+                    setFollowingCount(followingSnap.data().count);
                 }
             }
 
@@ -198,6 +215,48 @@ export default function ProfileScreen({ navigation }) {
         }
     };
 
+
+    const handleFollowToggle = async targetUserId => {
+        try {
+            const followRef = doc(
+                db,
+                'users',
+                user.uid,
+                'following',
+                targetUserId
+            );
+
+            const followerRef = doc(
+                db,
+                'users',
+                targetUserId,
+                'followers',
+                user.uid
+            );
+
+            if (isFollowing) {
+                await deleteDoc(followRef);
+                await deleteDoc(followerRef);
+                setIsFollowing(false);
+                setFollowingCount(prev => prev - 1);
+            } else {
+                await setDoc(followRef, {
+                    createdAt: new Date(),
+                });
+
+                await setDoc(followerRef, {
+                    createdAt: new Date(),
+                });
+
+                setIsFollowing(true);
+                setFollowingCount(prev => prev + 1);
+            }
+        } catch (e) {
+            console.error(e);
+            Alert.alert('Error', 'Failed to follow user');
+        }
+    };
+
     return (
         <ScreenWrapper>
             <ScrollView
@@ -252,6 +311,20 @@ export default function ProfileScreen({ navigation }) {
                             </Text>
                         </TouchableOpacity>
                     )}
+                    <TouchableOpacity
+                        style={{
+                            backgroundColor: theme.colors.primary,
+                            paddingHorizontal: 20,
+                            paddingVertical: 10,
+                            borderRadius: 20,
+                            marginTop: 15,
+                        }}
+                        onPress={() => handleFollowToggle(user.uid)}
+                    >
+                        <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                            {isFollowing ? 'Following' : 'Follow'}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Stats Row */}
@@ -277,6 +350,21 @@ export default function ProfileScreen({ navigation }) {
                                     label="Events"
                                     value={eventsCount}
                                     icon="calendar-outline"
+                                    theme={theme}
+                                    styles={styles}
+                                />
+                                <StatCard
+                                    label="Followers"
+                                    value={followersCount}
+                                    icon="people-outline"
+                                    theme={theme}
+                                    styles={styles}
+                                />
+
+                                <StatCard
+                                    label="Following"
+                                    value={followingCount}
+                                    icon="person-add-outline"
                                     theme={theme}
                                     styles={styles}
                                 />
@@ -434,10 +522,10 @@ export default function ProfileScreen({ navigation }) {
                                                 {y === '1'
                                                     ? '1st'
                                                     : y === '2'
-                                                      ? '2nd'
-                                                      : y === '3'
-                                                        ? '3rd'
-                                                        : y + 'th'}{' '}
+                                                        ? '2nd'
+                                                        : y === '3'
+                                                            ? '3rd'
+                                                            : y + 'th'}{' '}
                                                 Year
                                             </Text>
                                         </TouchableOpacity>
