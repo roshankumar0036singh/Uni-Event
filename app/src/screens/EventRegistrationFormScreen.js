@@ -7,9 +7,11 @@ import {
     TouchableOpacity,
     Alert,
     ActivityIndicator,
+    Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from '../components/ScreenWrapper';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import { useTheme } from '../lib/ThemeContext';
 import PremiumInput from '../components/PremiumInput';
 import {
@@ -39,6 +41,8 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
     const [responses, setResponses] = useState({});
     const [loading, setLoading] = useState(false);
     const [datePickers, setDatePickers] = useState({});
+    const [showConfetti, setShowConfetti] = useState(false);
+    const { width: screenWidth } = Dimensions.get('window');
 
     useEffect(() => {
         const initial = {};
@@ -129,7 +133,8 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                     ? 'You earned +10 Points and the 🐦 Early Bird badge for being one of the first to sign up!'
                     : 'You earned +10 Points for registering.',
             );
-            navigation.popToTop();
+            setShowConfetti(true);
+            setTimeout(() => navigation.popToTop(), 1200);
         } catch (e) {
             console.error(e);
             Alert.alert('Error', 'Failed to register.');
@@ -221,6 +226,17 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
 
     return (
         <ScreenWrapper>
+            {showConfetti && (
+                <View pointerEvents="none" style={styles.confettiOverlay}>
+                    <ConfettiCannon
+                        count={120}
+                        origin={{ x: screenWidth / 2, y: 0 }}
+                        fadeOut
+                        autoStart
+                        onAnimationEnd={() => setShowConfetti(false)}
+                    />
+                </View>
+            )}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
@@ -309,6 +325,15 @@ const getStyles = theme =>
             elevation: 5,
         },
         submitBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+        confettiOverlay: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 999,
+            elevation: 999,
+        },
     });
 
 EventRegistrationFormScreen.propTypes = {
