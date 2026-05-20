@@ -2,17 +2,19 @@ import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../lib/firebaseConfig';
-
 import { useAuth } from '../lib/AuthContext';
 
+import HeatmapScreen from './HeatmapScreen';
+
 export default function DesktopAdmin() {
-    const [activeTab, setActiveTab] = useState('clubs'); // 'clubs' | 'events' | 'analytics'
+    const [activeTab, setActiveTab] = useState('clubs'); // 'clubs' | 'events' | 'analytics' | 'heatmap'
     const [clubs, setClubs] = useState([]);
     const [events, setEvents] = useState([]);
 
     useEffect(() => {
         if (activeTab === 'clubs') fetchClubs();
         if (activeTab === 'events') fetchEvents();
+        // heatmap fetches its own data internally
     }, [activeTab]);
 
     const fetchClubs = async () => {
@@ -29,15 +31,13 @@ export default function DesktopAdmin() {
         setEvents(list);
     };
 
-    const { user } = useAuth(); // Get current admin user
-    const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'; // Backend URL
+    const { user } = useAuth();
+    const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
     const approveClub = async (clubId, ownerId) => {
         try {
-            // 1. Update Firestore
             await updateDoc(doc(db, 'clubs', clubId), { approved: true });
 
-            // 2. Call Backend to Set Role
             if (user && ownerId) {
                 const token = await user.getIdToken();
                 const response = await fetch(`${API_URL}/api/setRole`, {
@@ -88,72 +88,91 @@ export default function DesktopAdmin() {
                 >
                     <Text style={styles.navText}>Analytics</Text>
                 </TouchableOpacity>
+
+                {/* ▼ NEW NAV ITEM */}
+                <TouchableOpacity
+                    style={[styles.navItem, activeTab === 'heatmap' && styles.navActive]}
+                    onPress={() => setActiveTab('heatmap')}
+                >
+                    <Text style={styles.navText}>🗺 Heatmap</Text>
+                </TouchableOpacity>
+                {/* ▲ END NEW NAV ITEM */}
             </View>
 
             {/* Main Content */}
             <View style={styles.main}>
-                <Text style={styles.header}>
-                    {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Management
-                </Text>
+                {/* ▼ CHANGED: don't show the generic header when heatmap is active
+                    because HeatmapScreen has its own header */}
+                {activeTab !== 'heatmap' && (
+                    <Text style={styles.header}>
+                        {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Management
+                    </Text>
+                )}
 
-                <ScrollView style={styles.contentArea}>
-                    {activeTab === 'clubs' && (
-                        <View style={styles.table}>
-                            <View style={[styles.row, styles.headerRow]}>
-                                <Text style={styles.cell}>Name</Text>
-                                <Text style={styles.cell}>Owner</Text>
-                                <Text style={styles.cell}>Status</Text>
-                                <Text style={styles.cell}>Action</Text>
-                            </View>
-                            {clubs.map(club => (
-                                <View key={club.id} style={styles.row}>
-                                    <Text style={styles.cell}>{club.name}</Text>
-                                    <Text style={styles.cell}>{club.ownerUserId}</Text>
-                                    <Text style={styles.cell}>
-                                        {club.approved ? 'Approved' : 'Pending'}
-                                    </Text>
-                                    <View style={styles.cell}>
-                                        {!club.approved && (
-                                            <TouchableOpacity
-                                                style={styles.approveBtn}
-                                                onPress={() =>
-                                                    approveClub(club.id, club.ownerUserId)
-                                                }
-                                            >
-                                                <Text style={styles.approveText}>Approve</Text>
-                                            </TouchableOpacity>
-                                        )}
+                {activeTab === 'heatmap' ? (
+                    <View style={{ flex: 1 }}>
+                        <HeatmapScreen navigation={null} />
+                    </View>
+                ) : (
+                    <ScrollView style={styles.contentArea}>
+                        {activeTab === 'clubs' && (
+                            <View style={styles.table}>
+                                <View style={[styles.row, styles.headerRow]}>
+                                    <Text style={styles.cell}>Name</Text>
+                                    <Text style={styles.cell}>Owner</Text>
+                                    <Text style={styles.cell}>Status</Text>
+                                    <Text style={styles.cell}>Action</Text>
+                                </View>
+                                {clubs.map(club => (
+                                    <View key={club.id} style={styles.row}>
+                                        <Text style={styles.cell}>{club.name}</Text>
+                                        <Text style={styles.cell}>{club.ownerUserId}</Text>
+                                        <Text style={styles.cell}>
+                                            {club.approved ? 'Approved' : 'Pending'}
+                                        </Text>
+                                        <View style={styles.cell}>
+                                            {!club.approved && (
+                                                <TouchableOpacity
+                                                    style={styles.approveBtn}
+                                                    onPress={() =>
+                                                        approveClub(club.id, club.ownerUserId)
+                                                    }
+                                                >
+                                                    <Text style={styles.approveText}>Approve</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
                                     </View>
-                                </View>
-                            ))}
-                        </View>
-                    )}
-
-                    {activeTab === 'events' && (
-                        <View style={styles.table}>
-                            <View style={[styles.row, styles.headerRow]}>
-                                <Text style={styles.cell}>Title</Text>
-                                <Text style={styles.cell}>Date</Text>
-                                <Text style={styles.cell}>Category</Text>
+                                ))}
                             </View>
-                            {events.map(event => (
-                                <View key={event.id} style={styles.row}>
-                                    <Text style={styles.cell}>{event.title}</Text>
-                                    <Text style={styles.cell}>
-                                        {new Date(event.startAt).toLocaleDateString()}
-                                    </Text>
-                                    <Text style={styles.cell}>{event.category}</Text>
-                                </View>
-                            ))}
-                        </View>
-                    )}
+                        )}
 
-                    {activeTab === 'analytics' && (
-                        <View>
-                            <Text>Analytics Placeholder</Text>
-                        </View>
-                    )}
-                </ScrollView>
+                        {activeTab === 'events' && (
+                            <View style={styles.table}>
+                                <View style={[styles.row, styles.headerRow]}>
+                                    <Text style={styles.cell}>Title</Text>
+                                    <Text style={styles.cell}>Date</Text>
+                                    <Text style={styles.cell}>Category</Text>
+                                </View>
+                                {events.map(event => (
+                                    <View key={event.id} style={styles.row}>
+                                        <Text style={styles.cell}>{event.title}</Text>
+                                        <Text style={styles.cell}>
+                                            {new Date(event.startAt).toLocaleDateString()}
+                                        </Text>
+                                        <Text style={styles.cell}>{event.category}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
+
+                        {activeTab === 'analytics' && (
+                            <View>
+                                <Text>Analytics Placeholder</Text>
+                            </View>
+                        )}
+                    </ScrollView>
+                )}
             </View>
         </View>
     );

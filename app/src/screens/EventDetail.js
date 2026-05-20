@@ -43,7 +43,6 @@ import { sendBulkCertificates } from '../lib/EmailService';
 import { getEarlyBirdInfo, getTimestampMs } from '../lib/earlyBird';
 import PropTypes from 'prop-types';
 
-// Constants to eliminate SonarQube Magic Numbers
 const RSVP_POINTS_CHANGE = 10;
 const FALLBACK_EARLY_BIRD_MS = 3600000; // 1 hour early-bird duration fallback
 
@@ -100,10 +99,8 @@ export default function EventDetail({ route, navigation }) {
     const [reminderId, setReminderId] = useState(null); // Firestore Doc ID if set
     const [isBookmarked, setIsBookmarked] = useState(false);
 
-    // Auto-open feedback modal if accessed via feedback link
     useEffect(() => {
         if (action === 'feedback' && event && !loading) {
-            // Check if event has ended and user is registered
             const eventEnded = new Date() > new Date(event.endAt);
             if (eventEnded && rsvpStatus === 'going' && !hasGivenFeedback) {
                 setShowFeedbackModal(true);
@@ -123,18 +120,15 @@ export default function EventDetail({ route, navigation }) {
         }
     }, [event]);
 
-    // Increment View Count (Unique per User)
     useEffect(() => {
         const recordView = async () => {
             if (!user || !eventId) return;
 
             try {
-                // Check if user has already viewed this event
                 const viewRef = doc(db, `events/${eventId}/views`, user.uid);
                 const viewSnap = await getDoc(viewRef);
 
                 if (!viewSnap.exists()) {
-                    // First time viewing: Record it and increment counter
                     await setDoc(viewRef, {
                         viewedAt: new Date().toISOString(),
                         userId: user.uid,
@@ -153,7 +147,6 @@ export default function EventDetail({ route, navigation }) {
         recordView();
     }, [eventId, user]); // Run when user loads
 
-    // Cleanup logic merged into the main effect or kept simple
     useEffect(() => {
         navigation.setOptions({ headerShown: false }); // Hide default header
 
@@ -437,6 +430,7 @@ export default function EventDetail({ route, navigation }) {
         if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link'));
     };
 
+    // eslint-disable-next-line no-unused-vars
     const handleExportReviews = async () => {
         try {
             const feedbackRef = collection(db, `events/${eventId}/feedback`);

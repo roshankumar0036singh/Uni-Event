@@ -44,6 +44,7 @@ import TicketScreen from './src/screens/TicketScreen';
 import UserFeed from './src/screens/UserFeed';
 import WalletScreen from './src/screens/WalletScreen';
 import WrappedScreen from './src/screens/WrappedScreen';
+import HeatmapScreen from './src/screens/HeatmapScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -316,6 +317,11 @@ function Navigation() {
                             name="ReportBug"
                             component={ReportBugScreen}
                             options={{ title: 'Report a Bug' }}
+                        />
+                        <Stack.Screen
+                            name="Heatmap"
+                            component={HeatmapScreen}
+                            options={{ title: 'Campus Heatmap' }}
                         />
                     </>
                 ) : (

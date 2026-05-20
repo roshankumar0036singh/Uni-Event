@@ -41,6 +41,15 @@ UniEvent is a comprehensive event management platform designed for universities 
 - Compete on leaderboards
 - Provide feedback
 
+### 4. **Campus Heatmap Analytics**
+- **Venue Popularity Map**: Visual heatmap of event density across campus
+- **Native (iOS/Android)**: Interactive `react-native-maps` overlay with heat layer and venue markers
+- **Web/PWA**: Bar chart showing top venues by event count
+- **Date Range Filters**: All Time / This Year / Last 6 Months / Last Month
+- **Venue Rankings**: Ranked list with progress bars and event counts
+- **Unmapped Locations Warning**: Alerts admin when venue names aren't in `campusLocations.js`
+- **Accessible From**: DesktopAdmin sidebar tab and MobileAdmin bottom tab
+
 ---
 
 ## Authentication & Account Management
@@ -600,6 +609,7 @@ Centralized control panel with two main sections:
 ✅ Full event management  
 ✅ Analytics dashboard  
 ✅ All student features  
+✅ Campus heatmap & venue analytics
 
 ### Club/Organizer
 ✅ Event creation & editing  

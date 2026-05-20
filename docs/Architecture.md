@@ -39,4 +39,7 @@ graph TD
     
     AdminUI -->|Call| calc
     calc -->|Update Score| Firestore
+
+    AdminUI -->|Read| HeatmapService
+    HeatmapService -->|Aggregate| Firestore
 ```

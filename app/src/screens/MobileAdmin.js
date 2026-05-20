@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, deleteField, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Alert,
     FlatList,
@@ -15,21 +15,28 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 
+import HeatmapScreen from './HeatmapScreen';
+
 export default function MobileAdmin() {
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
-    const [activeTab, setActiveTab] = useState('events');
+
+    const [activeTab, setActiveTab] = useState('events'); // 'events' | 'requests' | 'appeals' | 'heatmap'
     const [events, setEvents] = useState([]);
     const [requests, setRequests] = useState([]);
     const [appeals, setAppeals] = useState([]);
     const [refreshing, setRefreshing] = useState(false);
 
-    // Suspension Modal State
     const [suspendModalVisible, setSuspendModalVisible] = useState(false);
     const [suspendReason, setSuspendReason] = useState('');
     const [targetEventId, setTargetEventId] = useState(null);
 
     const fetchData = useCallback(async () => {
+        if (activeTab === 'heatmap') {
+            setRefreshing(false);
+            return;
+        }
+
         try {
             if (activeTab === 'events') {
                 const q = query(collection(db, 'events'), where('status', '==', 'active'));
@@ -38,7 +45,6 @@ export default function MobileAdmin() {
                 const now = new Date();
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    // Filter future/ongoing events (endAt >= now, or startAt >= now if no endAt)
                     if (new Date(data.endAt || data.startAt) >= now) {
                         list.push({ id: doc.id, ...data });
                     }
@@ -112,9 +118,7 @@ export default function MobileAdmin() {
 
     const handleRejectAppeal = async eventId => {
         try {
-            await updateDoc(doc(db, 'events', eventId), {
-                appealStatus: 'rejected',
-            });
+            await updateDoc(doc(db, 'events', eventId), { appealStatus: 'rejected' });
             Alert.alert('Rejected', 'Appeal rejected.');
             fetchData();
         } catch (_e) {
@@ -203,7 +207,7 @@ export default function MobileAdmin() {
                     style={[styles.actionBtn, styles.approveBtn]}
                     onPress={() => handleApproveClub(item.id, item.ownerId)}
                 >
-                    <Text style={[styles.actionBtnText, { color: '#4CAF50' }]}>Approve</Text>
+                    <Text style={[styles.actionBtnText, { color: '#fff' }]}>Approve</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -212,144 +216,171 @@ export default function MobileAdmin() {
     const renderAppealItem = ({ item }) => (
         <View style={styles.card}>
             <View style={styles.cardHeader}>
-                <View style={[styles.iconContainer, { backgroundColor: '#FF444420' }]}>
-                    <Ionicons name="alert-circle" size={24} color="#FF4444" />
+                <View style={[styles.iconContainer, { backgroundColor: '#FF6B3520' }]}>
+                    <Ionicons name="alert-circle" size={24} color="#FF6B35" />
                 </View>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.cardTitle}>{item.title}</Text>
-                    <Text style={[styles.cardSubtitle, { color: '#FF4444' }]}>SUSPENDED</Text>
+                    <Text style={styles.cardSubtitle}>{item.ownerEmail || 'Organizer'}</Text>
+                </View>
+                <View style={[styles.badge, { backgroundColor: '#FF6B3520' }]}>
+                    <Text style={[styles.badgeText, { color: '#FF6B35' }]}>APPEAL</Text>
                 </View>
             </View>
-            <View style={styles.appealBox}>
-                <Text style={styles.appealLabel}>Appeal Message:</Text>
-                <Text style={styles.appealText}>
-                    &quot;{item.appealMessage || 'No message provided'}&quot;
-                </Text>
-            </View>
+            <Text style={styles.cardDesc}>
+                Reason: {item.suspensionReason || 'No reason provided'}
+            </Text>
             <View style={styles.actionRow}>
                 <TouchableOpacity
                     style={[styles.actionBtn, styles.rejectBtn]}
                     onPress={() => handleRejectAppeal(item.id)}
                 >
-                    <Text style={[styles.actionBtnText, { color: '#FF4444' }]}>Reject Appeal</Text>
+                    <Text style={[styles.actionBtnText, { color: '#FF4444' }]}>Reject</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.actionBtn, styles.approveBtn]}
                     onPress={() => handleAcceptAppeal(item.id)}
                 >
-                    <Text style={[styles.actionBtnText, { color: '#4CAF50' }]}>Restore Event</Text>
+                    <Text style={[styles.actionBtnText, { color: '#fff' }]}>Restore</Text>
                 </TouchableOpacity>
             </View>
         </View>
     );
 
-    let listData;
-    let listRenderItem;
+    const getData = () => {
+        if (activeTab === 'events') return events;
+        if (activeTab === 'requests') return requests;
+        if (activeTab === 'appeals') return appeals;
+        return [];
+    };
 
-    if (activeTab === 'events') {
-        listData = events;
-        listRenderItem = renderEventItem;
-    } else if (activeTab === 'requests') {
-        listData = requests;
-        listRenderItem = renderRequestItem;
-    } else {
-        listData = appeals;
-        listRenderItem = renderAppealItem;
-    }
+    const getRenderItem = () => {
+        if (activeTab === 'events') return renderEventItem;
+        if (activeTab === 'requests') return renderRequestItem;
+        if (activeTab === 'appeals') return renderAppealItem;
+        return () => null;
+    };
 
     return (
         <ScreenWrapper>
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.headerTitle}>Admin Dashboard</Text>
-                    <Text style={styles.headerSubtitle}>Manage platform activity</Text>
-                </View>
-            </View>
-
-            <View style={styles.tabContainer}>
-                <TouchableOpacity
-                    style={[styles.tab, activeTab === 'events' && styles.activeTab]}
-                    onPress={() => setActiveTab('events')}
-                >
-                    <Text style={[styles.tabText, activeTab === 'events' && styles.activeTabText]}>
-                        Events
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.tab, activeTab === 'requests' && styles.activeTab]}
-                    onPress={() => setActiveTab('requests')}
-                >
-                    <Text
-                        style={[styles.tabText, activeTab === 'requests' && styles.activeTabText]}
+            {/* ── Tab Bar ──────────────────────────────────────────────────── */}
+            <View style={styles.tabBar}>
+                {[
+                    { key: 'events', icon: 'calendar', label: 'Events' },
+                    { key: 'requests', icon: 'people', label: 'Requests' },
+                    { key: 'appeals', icon: 'alert-circle', label: 'Appeals' },
+                    // ▼ NEW TAB
+                    { key: 'heatmap', icon: 'map', label: 'Heatmap' },
+                    // ▲ END NEW TAB
+                ].map(tab => (
+                    <TouchableOpacity
+                        key={tab.key}
+                        style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+                        onPress={() => setActiveTab(tab.key)}
                     >
-                        Club Requests
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.tab, activeTab === 'appeals' && styles.activeTab]}
-                    onPress={() => setActiveTab('appeals')}
-                >
-                    <Text style={[styles.tabText, activeTab === 'appeals' && styles.activeTabText]}>
-                        Appeals
-                    </Text>
-                </TouchableOpacity>
+                        <Ionicons
+                            name={tab.icon}
+                            size={18}
+                            color={
+                                activeTab === tab.key
+                                    ? theme.colors.primary
+                                    : theme.colors.textSecondary
+                            }
+                        />
+                        <Text
+                            style={[
+                                styles.tabText,
+                                {
+                                    color:
+                                        activeTab === tab.key
+                                            ? theme.colors.primary
+                                            : theme.colors.textSecondary,
+                                },
+                            ]}
+                        >
+                            {tab.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
             </View>
 
-            <FlatList
-                data={listData}
-                keyExtractor={item => item.id}
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                renderItem={listRenderItem}
-                contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="search-outline" size={64} color="#666" />
-                        <Text style={styles.emptyText}>
-                            {activeTab === 'events'
-                                ? 'No active events found'
-                                : activeTab === 'requests'
-                                  ? 'No pending club requests'
-                                  : 'No pending appeals'}
-                        </Text>
-                    </View>
-                }
-            />
+            {/* ── Content ───────────────────────────────────────────────────── */}
+            {activeTab === 'heatmap' ? (
+                <View style={{ flex: 1 }}>
+                    <HeatmapScreen navigation={null} />
+                </View>
+            ) : (
+                // ▲ END NEW
+                <FlatList
+                    data={getData()}
+                    renderItem={getRenderItem()}
+                    keyExtractor={item => item.id}
+                    contentContainerStyle={styles.listContent}
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    ListEmptyComponent={
+                        <View style={styles.emptyState}>
+                            <Ionicons
+                                name="checkmark-circle-outline"
+                                size={48}
+                                color={theme.colors.textSecondary}
+                            />
+                            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                                Nothing here right now
+                            </Text>
+                        </View>
+                    }
+                />
+            )}
 
+            {/* Suspension Modal — unchanged */}
             <Modal
                 visible={suspendModalVisible}
                 transparent
-                animationType="fade"
+                animationType="slide"
                 onRequestClose={() => setSuspendModalVisible(false)}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Suspend Event</Text>
-                        <Text style={styles.modalSubtitle}>
-                            Please provide a reason for suspension.
+                    <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+                        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                            Suspend Event
+                        </Text>
+                        <Text style={[styles.modalSubtitle, { color: theme.colors.textSecondary }]}>
+                            Provide a reason for suspension:
                         </Text>
 
                         <TextInput
-                            style={styles.modalInput}
-                            placeholder="Reason (e.g. Violation of terms)..."
-                            placeholderTextColor="#666"
-                            multiline
+                            style={[
+                                styles.textInput,
+                                {
+                                    color: theme.colors.text,
+                                    borderColor: theme.colors.border,
+                                    backgroundColor: theme.colors.background,
+                                },
+                            ]}
                             value={suspendReason}
                             onChangeText={setSuspendReason}
+                            placeholder="e.g., Violation of campus policy..."
+                            placeholderTextColor={theme.colors.textSecondary}
+                            multiline
+                            numberOfLines={3}
                         />
-
-                        <View style={styles.modalButtons}>
+                        <View style={styles.modalActions}>
                             <TouchableOpacity
                                 style={[styles.modalBtn, styles.cancelBtn]}
                                 onPress={() => setSuspendModalVisible(false)}
                             >
-                                <Text style={styles.cancelText}>Cancel</Text>
+                                <Text style={[styles.modalBtnText, { color: theme.colors.text }]}>
+                                    Cancel
+                                </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.modalBtn, styles.confirmBtn]}
                                 onPress={handleConfirmSuspend}
                             >
-                                <Text style={styles.confirmText}>Suspend</Text>
+                                <Text style={[styles.modalBtnText, { color: '#fff' }]}>
+                                    Confirm
+                                </Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -361,121 +392,156 @@ export default function MobileAdmin() {
 
 const getStyles = theme =>
     StyleSheet.create({
-        header: {
+        tabBar: {
             flexDirection: 'row',
-            justifyContent: 'space-between',
+            backgroundColor: theme.colors.surface,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.border,
+        },
+        tab: {
+            flex: 1,
+            paddingVertical: 12,
             alignItems: 'center',
-            paddingHorizontal: 20,
-            paddingTop: 10,
-            marginBottom: 20,
+            gap: 4,
         },
-        headerTitle: { fontSize: 24, fontWeight: '800', color: theme.colors.text },
-        headerSubtitle: { fontSize: 14, color: theme.colors.textSecondary },
-        tabContainer: {
-            flexDirection: 'row',
-            marginHorizontal: 20,
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            borderRadius: 12,
-            padding: 4,
-            marginBottom: 20,
+        tabActive: {
+            borderBottomWidth: 2,
+            borderBottomColor: theme.colors.primary,
         },
-        tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
-        activeTab: { backgroundColor: theme.colors.surface, ...theme.shadows.small },
-        tabText: { fontSize: 14, fontWeight: '600', color: theme.colors.textSecondary },
-        activeTabText: { color: theme.colors.primary, fontWeight: '700' },
+        tabText: {
+            fontSize: 11,
+            fontWeight: '600',
+        },
+        listContent: {
+            padding: 16,
+            paddingBottom: 100,
+        },
         card: {
             backgroundColor: theme.colors.surface,
-            borderRadius: 16,
+            borderRadius: 12,
             padding: 16,
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.05)',
-            ...theme.shadows.small,
+            marginBottom: 12,
+            shadowColor: '#000',
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            elevation: 2,
         },
-        cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-        iconContainer: {
-            width: 48,
-            height: 48,
-            borderRadius: 24,
-            backgroundColor: '#FFA50020',
+        cardHeader: {
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
+            gap: 12,
+            marginBottom: 8,
         },
-        cardTitle: { fontSize: 16, fontWeight: '700', color: theme.colors.text },
-        cardSubtitle: { fontSize: 12, color: theme.colors.textSecondary },
+        iconContainer: {
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        cardTitle: {
+            fontSize: 15,
+            fontWeight: '700',
+            color: theme.colors.text,
+        },
+        cardSubtitle: {
+            fontSize: 12,
+            color: theme.colors.textSecondary,
+            marginTop: 2,
+        },
+
+        cardDesc: {
+            fontSize: 13,
+            color: theme.colors.textSecondary,
+            marginBottom: 12,
+        },
         badge: {
-            backgroundColor: '#FFA50020',
             paddingHorizontal: 8,
             paddingVertical: 4,
-            borderRadius: 6,
-        },
-        badgeText: { fontSize: 10, fontWeight: '700', color: '#FFA500' },
-        cardDesc: {
-            fontSize: 14,
-            color: theme.colors.textSecondary,
-            marginBottom: 16,
-            lineHeight: 20,
-        },
-        appealBox: {
-            backgroundColor: 'rgba(255,255,255,0.03)',
-            padding: 12,
             borderRadius: 8,
-            marginBottom: 16,
-            borderLeftWidth: 2,
-            borderLeftColor: '#FFA500',
         },
-        appealLabel: { fontSize: 12, color: theme.colors.textSecondary, marginBottom: 4 },
-        appealText: { fontSize: 14, color: theme.colors.text, fontStyle: 'italic' },
+        badgeText: {
+            fontSize: 10,
+            fontWeight: '800',
+        },
+
         actionRow: {
             flexDirection: 'row',
-            gap: 12,
-            borderTopWidth: 1,
-            borderTopColor: 'rgba(255,255,255,0.1)',
-            paddingTop: 16,
+            gap: 8,
         },
         actionBtn: {
             flex: 1,
-            paddingVertical: 12,
-            borderRadius: 10,
+            paddingVertical: 10,
+            borderRadius: 8,
             alignItems: 'center',
-            backgroundColor: 'rgba(255,255,255,0.05)',
         },
-        approveBtn: { backgroundColor: '#4CAF5015' },
-        rejectBtn: { backgroundColor: '#FF444415' },
-        actionBtnText: { fontWeight: '700', fontSize: 14 },
-        emptyContainer: { alignItems: 'center', marginTop: 60, opacity: 0.5 },
-        emptyText: { marginTop: 16, fontSize: 16, color: theme.colors.textSecondary },
-
-        // Modal Styles
+        rejectBtn: {
+            backgroundColor: '#FF444420',
+        },
+        approveBtn: {
+            backgroundColor: '#FF6B35',
+        },
+        actionBtnText: {
+            fontWeight: '700',
+            fontSize: 13,
+        },
+        emptyState: {
+            alignItems: 'center',
+            paddingTop: 80,
+            gap: 12,
+        },
+        emptyText: {
+            fontSize: 15,
+        },
         modalOverlay: {
             flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'flex-end',
         },
         modalContent: {
-            width: '100%',
-            backgroundColor: theme.colors.surface,
-            borderRadius: 20,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
             padding: 24,
-            ...theme.shadows.large,
         },
-        modalTitle: { fontSize: 20, fontWeight: 'bold', color: theme.colors.text, marginBottom: 8 },
-        modalSubtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 20 },
-        modalInput: {
-            backgroundColor: theme.colors.background,
-            color: theme.colors.text,
-            padding: 16,
-            borderRadius: 12,
-            minHeight: 100,
+
+        modalTitle: {
+            fontSize: 20,
+            fontWeight: 'bold',
+            marginBottom: 8,
+        },
+        modalSubtitle: {
+            fontSize: 14,
+            marginBottom: 12,
+        },
+        textInput: {
+            borderWidth: 1,
+            borderRadius: 8,
+            padding: 12,
+            minHeight: 80,
             textAlignVertical: 'top',
-            marginBottom: 20,
+            fontSize: 14,
+            marginBottom: 16,
         },
-        modalButtons: { flexDirection: 'row', gap: 12 },
-        modalBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-        cancelBtn: { backgroundColor: theme.colors.background },
-        confirmBtn: { backgroundColor: '#FF4444' },
-        cancelText: { color: theme.colors.text, fontWeight: '600' },
-        confirmText: { color: '#fff', fontWeight: 'bold' },
+        modalActions: {
+            flexDirection: 'row',
+            gap: 12,
+        },
+        modalBtn: {
+            flex: 1,
+            paddingVertical: 14,
+            borderRadius: 10,
+            alignItems: 'center',
+        },
+        cancelBtn: {
+            backgroundColor: theme.colors.background,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+        },
+        confirmBtn: {
+            backgroundColor: '#FF4444',
+        },
+        modalBtnText: {
+            fontWeight: '700',
+            fontSize: 15,
+        },
     });

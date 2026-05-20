@@ -121,6 +121,7 @@ Whether it's a department seminar, cultural fest, hackathon, or club meetup — 
 | **Event Moderation** | Suspend or reinstate events that violate community guidelines |
 | **Platform Analytics** | Track engagement, user growth, and event activity metrics |
 | **Bulk Operations** | Efficiently manage multiple events simultaneously |
+| **Campus Heatmap** | Visual map of venue popularity with date filters and ranked venue analytics |
  
 ---
  

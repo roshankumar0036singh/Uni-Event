@@ -15,14 +15,22 @@
         "assetBundlePatterns": ["**/*"],
         "ios": {
             "supportsTablet": true,
-            "bundleIdentifier": "com.hack2skill.eventloop"
+            "bundleIdentifier": "com.hack2skill.eventloop",
+            "config": {
+                "googleMapsApiKey": "YOUR_GOOGLE_MAPS_IOS_API_KEY"
+            }
         },
         "android": {
             "adaptiveIcon": {
                 "foregroundImage": "./assets/UniEvent.png",
                 "backgroundColor": "#ffffff"
             },
-            "package": "com.hack2skill.eventloop"
+            "package": "com.hack2skill.eventloop",
+            "config": {
+                "googleMaps": {
+                    "apiKey": "YOUR_GOOGLE_MAPS_ANDROID_API_KEY"
+                }
+            }
         },
         "web": {
             "favicon": "./assets/UniEvent.png",
