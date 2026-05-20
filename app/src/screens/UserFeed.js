@@ -81,6 +81,8 @@ export default function UserFeed({ navigation, headerContent }) {
     useEffect(() => {
         if (!user) return;
 
+        let unsubRsvps = null;
+
         const unsubscribe = onSnapshot(
             collection(db, 'users', user.uid, 'following'),
             async snapshot => {
@@ -88,20 +90,19 @@ export default function UserFeed({ navigation, headerContent }) {
 
                 if (followingIds.length === 0) {
                     setFriendEvents([]);
+                    if (unsubRsvps) unsubRsvps();
                     return;
                 }
+
+                // Clean up previous RSVP subscription before creating new one
+                if (unsubRsvps) unsubRsvps()
 
                 const q = query(
                     collection(db, 'rsvps'),
                     where('userId', 'in', followingIds.slice(0, 10))
                 );
 
-                const unsubRsvps = onSnapshot(q, rsvpSnap => {
-                    const friendData = rsvpSnap.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data(),
-                    }));
-
+                unsubRsvps = onSnapshot(q, rsvpSnap => {
                     const grouped = {};
 
                     rsvpSnap.forEach(doc => {
@@ -124,11 +125,14 @@ export default function UserFeed({ navigation, headerContent }) {
                     setFriendEvents(Object.values(grouped));
                 });
 
-                return () => unsubRsvps();
+
             }
         );
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            if (unsubRsvps) unsubRsvps();
+        };
     }, [user]);
 
     useEffect(() => {
@@ -421,7 +425,8 @@ export default function UserFeed({ navigation, headerContent }) {
                     >
                         {friendEvents.map(event => (
                             <View
-                                key={event.id}
+                                key={event.eventId}
+
                                 style={{
                                     width: 280,
                                     marginRight: 15,
@@ -437,7 +442,7 @@ export default function UserFeed({ navigation, headerContent }) {
                                         fontSize: 16,
                                     }}
                                 >
-                                    {event.username}
+                                    {event.friends.map(f => f.username).join(', ')}
                                 </Text>
 
                                 <Text
@@ -446,7 +451,7 @@ export default function UserFeed({ navigation, headerContent }) {
                                         marginTop: 6,
                                     }}
                                 >
-                                    is going to
+                                    {event.friends.map(f => f.username).join(', ')}
                                 </Text>
 
                                 <Text

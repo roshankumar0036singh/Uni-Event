@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 // import { Picker } from '@react-native-picker/picker'; // Removed native picker
 import { LinearGradient } from 'expo-linear-gradient';
 import { updateProfile } from 'firebase/auth';
-import { addDoc, collection, doc, getCountFromServer, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getCountFromServer, getDoc, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import {
     Alert,
@@ -115,6 +115,9 @@ export default function ProfileScreen({ navigation }) {
                     );
                     setFollowingCount(followingSnap.data().count);
                 }
+                // Check if current user is following this profile
+                const followDoc = await getDoc(doc(db, 'users', user.uid, 'following', targetUserId));
+                setIsFollowing(followDoc.exists());
             }
 
             // Fetch Participated Events Count
@@ -217,7 +220,10 @@ export default function ProfileScreen({ navigation }) {
 
 
     const handleFollowToggle = async targetUserId => {
+        if (targetUserId === user.uid) return; // Prevent self-follow
+
         try {
+            const batch = writeBatch(db);
             const followRef = doc(
                 db,
                 'users',
@@ -235,18 +241,15 @@ export default function ProfileScreen({ navigation }) {
             );
 
             if (isFollowing) {
-                await deleteDoc(followRef);
-                await deleteDoc(followerRef);
+                batch.delete(followRef);
+                batch.delete(followerRef);
+                await batch.commit();
                 setIsFollowing(false);
                 setFollowingCount(prev => prev - 1);
             } else {
-                await setDoc(followRef, {
-                    createdAt: new Date(),
-                });
-
-                await setDoc(followerRef, {
-                    createdAt: new Date(),
-                });
+                batch.set(followRef, { createdAt: new Date() });
+                batch.set(followerRef, { createdAt: new Date() });
+                await batch.commit();
 
                 setIsFollowing(true);
                 setFollowingCount(prev => prev + 1);
@@ -311,20 +314,7 @@ export default function ProfileScreen({ navigation }) {
                             </Text>
                         </TouchableOpacity>
                     )}
-                    <TouchableOpacity
-                        style={{
-                            backgroundColor: theme.colors.primary,
-                            paddingHorizontal: 20,
-                            paddingVertical: 10,
-                            borderRadius: 20,
-                            marginTop: 15,
-                        }}
-                        onPress={() => handleFollowToggle(user.uid)}
-                    >
-                        <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-                            {isFollowing ? 'Following' : 'Follow'}
-                        </Text>
-                    </TouchableOpacity>
+
                 </View>
 
                 {/* Stats Row */}
