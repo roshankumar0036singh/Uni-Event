@@ -127,14 +127,19 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
             // F. Schedule Reminder
             await scheduleEventReminder(event);
 
+            setShowConfetti(true);
             Alert.alert(
                 'Registered! 🎉',
                 earlyBird
                     ? 'You earned +10 Points and the 🐦 Early Bird badge for being one of the first to sign up!'
                     : 'You earned +10 Points for registering.',
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => navigation.popToTop(),
+                    },
+                ],
             );
-            setShowConfetti(true);
-            setTimeout(() => navigation.popToTop(), 1200);
         } catch (e) {
             console.error(e);
             Alert.alert('Error', 'Failed to register.');

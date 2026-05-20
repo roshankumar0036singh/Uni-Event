@@ -28,7 +28,6 @@ import {
     Text,
     TouchableOpacity,
     View,
-    Share,
 } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import FeedbackModal from '../components/FeedbackModal';
@@ -440,30 +439,6 @@ export default function EventDetail({ route, navigation }) {
 
     const openLink = url => {
         if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link'));
-    };
-
-    const handleExportReviews = async () => {
-        try {
-            const feedbackRef = collection(db, `events/${eventId}/feedback`);
-            const snapshot = await getDocs(feedbackRef);
-
-            if (snapshot.empty) {
-                Alert.alert('No Reviews', 'This event has no feedback yet.');
-                return;
-            }
-
-            let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
-            snapshot.forEach(doc => {
-                const d = doc.data();
-                const line = `\"${d.userName || 'Anonymous'}\",\"${d.eventRating || '-'}\",\"${d.clubRating || '-'}\",\"${(d.feedback || '').replace(/\"/g, '""')}\",${d.createdAt}\n`;
-                csv += line;
-            });
-
-            await Share.share({ message: csv, title: `Reviews - ${event.title}` });
-        } catch (error) {
-            console.error('Export Error: ', error);
-            Alert.alert('Error', 'Failed to export reviews.');
-        }
     };
 
     const sendCertificates = async () => {
