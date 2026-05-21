@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import EventCard from '../components/EventCard';
 import FeedbackModal from '../components/FeedbackModal';
-import { EventListSkeleton } from '../components/SkeletonLoader';
+import SkeletonLoader from '../components/SkeletonLoader';
 import { useAuth } from '../lib/AuthContext';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
@@ -86,30 +86,40 @@ export default function UserFeed() {
             return;
         }
 
-        // Fetching events. ideally separate query.
-        const q = query(collection(db, 'events'));
+        try {
+            setLoading(true);
 
-        const unsubscribe = onSnapshot(
-            q,
-            snapshot => {
-                const list = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.status === 'suspended') return;
-                    list.push({ id: doc.id, ...data });
-                });
-                setEvents(list);
-                setLoading(false);
-                setRefreshing(false);
-            },
-            error => {
-                console.log('Error fetching events: ', error);
-                setLoading(false);
-                setRefreshing(false);
-            },
-        );
+            // Fetching events. ideally separate query.
+            const q = query(collection(db, 'events'));
 
-        return () => unsubscribe();
+            const unsubscribe = onSnapshot(
+                q,
+                snapshot => {
+                    try {
+                        const list = [];
+                        snapshot.forEach(doc => {
+                            const data = doc.data();
+                            if (data.status === 'suspended') return;
+                            list.push({ id: doc.id, ...data });
+                        });
+                        setEvents(list);
+                    } finally {
+                        setLoading(false);
+                        setRefreshing(false);
+                    }
+                },
+                error => {
+                    console.log('Error fetching events: ', error);
+                    setLoading(false);
+                    setRefreshing(false);
+                },
+            );
+
+            return () => unsubscribe();
+        } catch (error) {
+            console.log('Error setting up listener: ', error);
+            setLoading(false);
+        }
     }, [role, user, refreshNonce]);
 
     // Recommendation Logic: Views + User History + Freshness
@@ -391,7 +401,7 @@ export default function UserFeed() {
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {loading ? (
                 <View style={{ paddingTop: 20 }}>
-                    <EventListSkeleton />
+                    <SkeletonLoader />
                 </View>
             ) : (
                 <Animated.SectionList
