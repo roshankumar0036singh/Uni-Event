@@ -11,6 +11,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo } 
 import { Platform, Alert } from 'react-native';
 import { auth, db } from './firebaseConfig';
 import PropTypes from 'prop-types';
+import { getUserLevel, getUserLevelProgress } from './userLevels';
 
 const AuthContext = createContext({});
 
@@ -212,11 +213,17 @@ export const AuthProvider = ({ children }) => {
         return firebaseSignOut(auth);
     }, []);
 
-    const value = useMemo(
-        () => ({
+    const value = useMemo(() => {
+        const points = userData?.points ?? 0;
+        const userLevel = getUserLevel(points);
+        const levelProgress = getUserLevelProgress(points);
+
+        return {
             user,
             userData,
             role,
+            userLevel,
+            levelProgress,
             loading,
             signIn,
             signUp,
@@ -225,21 +232,20 @@ export const AuthProvider = ({ children }) => {
             switchAccount,
             removeSavedAccount,
             saveGoogleAccountCredentials: u => saveAccount(u, 'google'),
-        }),
-        [
-            user,
-            userData,
-            role,
-            loading,
-            signIn,
-            signUp,
-            signOut,
-            savedAccounts,
-            switchAccount,
-            removeSavedAccount,
-            saveAccount,
-        ],
-    );
+        };
+    }, [
+        user,
+        userData,
+        role,
+        loading,
+        signIn,
+        signUp,
+        signOut,
+        savedAccounts,
+        switchAccount,
+        removeSavedAccount,
+        saveAccount,
+    ]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
