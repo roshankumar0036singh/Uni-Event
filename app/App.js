@@ -45,6 +45,21 @@ import UserFeed from './src/screens/UserFeed';
 import WalletScreen from './src/screens/WalletScreen';
 import WrappedScreen from './src/screens/WrappedScreen';
 
+import * as NavigationBar from 'expo-navigation-bar';
+
+import EventAnalytics from './src/screens/EventAnalytics';
+
+import CustomTabBar from './src/components/CustomTabBar';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
+
+import * as Notifications from 'expo-notifications';
+import { doc, updateDoc } from 'firebase/firestore';
+import { useRef } from 'react';
+import { db } from './src/lib/firebaseConfig';
+import { registerForPushNotificationsAsync } from './src/lib/notificationService';
+
+import PWAInstallPrompt from './src/components/PWAInstallPrompt';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
