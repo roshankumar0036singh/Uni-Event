@@ -31,8 +31,8 @@ import {
 } from 'react-native';
 import FeedbackModal from '../components/FeedbackModal';
 import AppealModal from '../components/AppealModal';
-import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
 import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { submitFeedback } from '../lib/feedbackService';
@@ -291,7 +291,6 @@ export default function EventDetail({ route, navigation }) {
                 ]);
             } else {
                 // For mobile (React Native Share)
-                const { Share } = require('react-native');
                 await Share.share({
                     message: shareMessage,
                     url: eventUrl,
@@ -398,6 +397,7 @@ export default function EventDetail({ route, navigation }) {
                     branch: userData.branch || 'Unknown',
                     year: userData.year || 'Unknown',
                     joinedAt: new Date().toISOString(),
+                    pushToken: userData.pushToken ?? null
                 });
                 await setDoc(userRef, { eventId: eventId, joinedAt: new Date().toISOString() });
 
@@ -1342,9 +1342,9 @@ export default function EventDetail({ route, navigation }) {
                                 <View style={[styles.priceBadge, { backgroundColor: '#F59E0B' }]}>
                                     <Ionicons name="cash" size={14} color="#fff" />
                                     <Text style={styles.priceText}>
-                                        ₹{getEarlyBirdInfo(event).currentPrice}
-                                        {getEarlyBirdInfo(event).isEligible &&
-                                            getEarlyBirdInfo(event).isExplicit && (
+                                        ₹{ebInfo.currentPrice}
+                                        {ebInfo.isEligible &&
+                                            ebInfo.isExplicit && (
                                                 <Text style={{ fontSize: 10, opacity: 0.8 }}>
                                                     {' '}
                                                     (Early Bird)
