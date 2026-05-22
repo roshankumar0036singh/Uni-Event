@@ -25,7 +25,43 @@ import { auth, db } from '../lib/firebaseConfig';
 WebBrowser.maybeCompleteAuthSession();
 
 const MIN_PASSWORD_LENGTH = 6;
-const ERR_PASSWORD_SHORT = 'Password must be at least 6 characters';
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const FIREBASE_ERROR_MESSAGES = {
+    'auth/email-already-in-use': 'An account with this email already exists.',
+    'auth/email-already-exists': 'An account with this email already exists.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/user-not-found': 'No account found with this email.',
+    'auth/wrong-password': 'Incorrect password. Please try again.',
+    'auth/invalid-credential': 'Incorrect email or password. Please try again.',
+    'auth/too-many-requests': 'Too many failed attempts. Please try again later.',
+    'auth/network-request-failed': 'Network error. Please check your connection.',
+    'auth/user-disabled': 'This account has been disabled.',
+    'auth/operation-not-allowed': 'This sign-in method is not enabled.',
+};
+
+function getFirebaseErrorMessage(error) {
+    return FIREBASE_ERROR_MESSAGES[error.code] || error.message || 'An unexpected error occurred.';
+}
+
+function validateEmail(value) {
+    if (!value.trim()) return 'Email is required.';
+    if (!EMAIL_REGEX.test(value.trim())) return 'Enter a valid email address.';
+    return '';
+}
+
+function validatePassword(value, isLogin) {
+    if (!value) return 'Password is required.';
+    if (!isLogin && value.length < MIN_PASSWORD_LENGTH)
+        return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+    return '';
+}
+
+function validateName(value) {
+    if (!value.trim()) return 'Full name is required.';
+    return '';
+}
 
 export default function AuthScreen() {
     const { theme } = useTheme();
@@ -34,7 +70,12 @@ export default function AuthScreen() {
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);
+
+    const [emailError, setEmailError] = useState('');
     const [passwordError, setPasswordError] = useState('');
+    const [nameError, setNameError] = useState('');
+
+    const [touched, setTouched] = useState({ email: false, password: false, name: false });
 
     const { signIn, signUp, saveGoogleAccountCredentials } = useAuth();
 
@@ -49,7 +90,10 @@ export default function AuthScreen() {
     });
 
     useEffect(() => {
+        setEmailError('');
         setPasswordError('');
+        setNameError('');
+        setTouched({ email: false, password: false, name: false });
     }, [isLogin]);
 
     useEffect(() => {
@@ -66,20 +110,15 @@ export default function AuthScreen() {
 
             setLoading(true);
 
-            // --- EMULATOR HYBRID FLOW ---
             if (process.env.EXPO_PUBLIC_USE_EMULATORS === 'true') {
-                // 1. Fetch real Google Profile using the valid Access Token
                 fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
                     headers: { Authorization: `Bearer ${accessToken}` },
                 })
                     .then(res => res.json())
                     .then(async googleUser => {
-                        // 2. "Sign In" to Emulator using this email
-                        // We use a dummy password because we trust the Google Token verification step above
                         try {
                             await signIn(googleUser.email, 'google-emulator-pass');
                         } catch (e) {
-                            // If user doesn't exist in Emulator, create them
                             if (
                                 e.code === 'auth/user-not-found' ||
                                 e.code === 'auth/invalid-credential'
@@ -87,7 +126,7 @@ export default function AuthScreen() {
                                 await signUp(googleUser.email, 'google-emulator-pass', {
                                     displayName: googleUser.name,
                                     photoURL: googleUser.picture,
-                                    provider: 'google', // Mark as google provider
+                                    provider: 'google',
                                 });
                             } else {
                                 throw e;
@@ -99,10 +138,9 @@ export default function AuthScreen() {
                     })
                     .finally(() => setLoading(false));
 
-                return; // Stop here for Emulator
+                return;
             }
 
-            // --- PRODUCTION FLOW ---
             const credential = GoogleAuthProvider.credential(id_token || null, accessToken || null);
             signInWithCredential(auth, credential)
                 .then(async userCredential => {
@@ -130,30 +168,80 @@ export default function AuthScreen() {
         }
     }, [response, saveGoogleAccountCredentials, signIn, signUp]);
 
+    const handleEmailChange = text => {
+        setEmail(text);
+        if (touched.email) {
+            setEmailError(validateEmail(text));
+        }
+    };
+
+    const handlePasswordChange = text => {
+        setPassword(text);
+        if (touched.password) {
+            setPasswordError(validatePassword(text, isLogin));
+        }
+    };
+
+    const handleNameChange = text => {
+        setName(text);
+        if (touched.name) {
+            setNameError(validateName(text));
+        }
+    };
+
+    const handleEmailBlur = () => {
+        setTouched(prev => ({ ...prev, email: true }));
+        setEmailError(validateEmail(email));
+    };
+
+    const handlePasswordBlur = () => {
+        setTouched(prev => ({ ...prev, password: true }));
+        setPasswordError(validatePassword(password, isLogin));
+    };
+
+    const handleNameBlur = () => {
+        setTouched(prev => ({ ...prev, name: true }));
+        setNameError(validateName(name));
+    };
+
     const handleAuth = async () => {
-        if (!email || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
-            return;
-        }
+        setTouched({ email: true, password: true, name: true });
 
-        if (!isLogin && password.length < MIN_PASSWORD_LENGTH) {
-            setPasswordError(ERR_PASSWORD_SHORT);
-            return;
-        }
+        const eErr = validateEmail(email);
+        const pErr = validatePassword(password, isLogin);
+        const nErr = !isLogin ? validateName(name) : '';
 
-        setPasswordError('');
+        setEmailError(eErr);
+        setPasswordError(pErr);
+        setNameError(nErr);
+
+        if (eErr || pErr || nErr) return;
+
         setLoading(true);
         try {
             if (isLogin) {
-                await signIn(email, password);
+                await signIn(email.trim(), password);
             } else {
-                await signUp(email, password, { displayName: name });
+                await signUp(email.trim(), password, { displayName: name.trim() });
             }
         } catch (error) {
-            if (error.code === 'auth/weak-password') {
-                setPasswordError(ERR_PASSWORD_SHORT);
+            const msg = getFirebaseErrorMessage(error);
+
+            if (
+                error.code === 'auth/invalid-email' ||
+                error.code === 'auth/email-already-in-use' ||
+                error.code === 'auth/email-already-exists' ||
+                error.code === 'auth/user-not-found'
+            ) {
+                setEmailError(msg);
+            } else if (
+                error.code === 'auth/weak-password' ||
+                error.code === 'auth/wrong-password' ||
+                error.code === 'auth/invalid-credential'
+            ) {
+                setPasswordError(msg);
             } else {
-                Alert.alert('Error', error.message);
+                Alert.alert('Error', msg);
             }
         } finally {
             setLoading(false);
@@ -202,35 +290,43 @@ export default function AuthScreen() {
 
                     <View style={styles.form}>
                         {!isLogin && (
-                            <View
-                                style={[
-                                    styles.inputContainer,
-                                    {
-                                        backgroundColor: theme.colors.surface,
-                                        borderColor: theme.colors.border,
-                                    },
-                                ]}
-                            >
-                                <Ionicons
-                                    name="person-outline"
-                                    size={20}
-                                    color={theme.colors.textSecondary}
-                                    style={styles.inputIcon}
-                                />
-                                <TextInput
+                            <>
+                                <View
                                     style={[
-                                        styles.input,
+                                        styles.inputContainer,
                                         {
-                                            color: theme.colors.text,
-                                            backgroundColor: 'transparent',
+                                            backgroundColor: theme.colors.surface,
+                                            borderColor: nameError
+                                                ? 'red'
+                                                : theme.colors.border,
                                         },
                                     ]}
-                                    placeholder="Full Name"
-                                    placeholderTextColor={theme.colors.textSecondary}
-                                    value={name}
-                                    onChangeText={setName}
-                                />
-                            </View>
+                                >
+                                    <Ionicons
+                                        name="person-outline"
+                                        size={20}
+                                        color={theme.colors.textSecondary}
+                                        style={styles.inputIcon}
+                                    />
+                                    <TextInput
+                                        style={[
+                                            styles.input,
+                                            {
+                                                color: theme.colors.text,
+                                                backgroundColor: 'transparent',
+                                            },
+                                        ]}
+                                        placeholder="Full Name"
+                                        placeholderTextColor={theme.colors.textSecondary}
+                                        value={name}
+                                        onChangeText={handleNameChange}
+                                        onBlur={handleNameBlur}
+                                    />
+                                </View>
+                                {nameError ? (
+                                    <Text style={styles.errorText}>{nameError}</Text>
+                                ) : null}
+                            </>
                         )}
 
                         <View
@@ -238,7 +334,7 @@ export default function AuthScreen() {
                                 styles.inputContainer,
                                 {
                                     backgroundColor: theme.colors.surface,
-                                    borderColor: theme.colors.border,
+                                    borderColor: emailError ? 'red' : theme.colors.border,
                                 },
                             ]}
                         >
@@ -256,18 +352,22 @@ export default function AuthScreen() {
                                 placeholder="Email Address"
                                 placeholderTextColor={theme.colors.textSecondary}
                                 value={email}
-                                onChangeText={setEmail}
+                                onChangeText={handleEmailChange}
+                                onBlur={handleEmailBlur}
                                 autoCapitalize="none"
                                 keyboardType="email-address"
                             />
                         </View>
+                        {emailError ? (
+                            <Text style={styles.errorText}>{emailError}</Text>
+                        ) : null}
 
                         <View
                             style={[
                                 styles.inputContainer,
                                 {
                                     backgroundColor: theme.colors.surface,
-                                    borderColor: theme.colors.border,
+                                    borderColor: passwordError ? 'red' : theme.colors.border,
                                 },
                             ]}
                         >
@@ -285,14 +385,12 @@ export default function AuthScreen() {
                                 placeholder="Password"
                                 placeholderTextColor={theme.colors.textSecondary}
                                 value={password}
-                                onChangeText={text => {
-                                    setPassword(text);
-                                    if (passwordError) setPasswordError('');
-                                }}
+                                onChangeText={handlePasswordChange}
+                                onBlur={handlePasswordBlur}
                                 secureTextEntry
                             />
                         </View>
-                        {!isLogin && passwordError ? (
+                        {passwordError ? (
                             <Text style={styles.errorText}>{passwordError}</Text>
                         ) : null}
 
