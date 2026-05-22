@@ -103,12 +103,7 @@ const getLocation = async () => {
                 }
             );
         });
-    } catch (_error) {
-        return {
-            latitude: null,
-            longitude: null,
-        };
-    }
+    } 
 };
 
 /**
