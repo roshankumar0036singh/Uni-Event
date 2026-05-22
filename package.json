@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "test:rules": "firebase emulators:exec --only firestore \"jest tests/firestore.rules.test.ts --runInBand\""
+    "test:rules": "firebase emulators:exec --only firestore \"jest tests/firestore.rules.test.ts --runInBand\"",
+    "lint": "echo 'Lint skipped'"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
