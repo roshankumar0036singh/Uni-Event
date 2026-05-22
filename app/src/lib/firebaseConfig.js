@@ -13,7 +13,6 @@ import { getStorage, connectStorageEmulator } from 'firebase/storage';
 import { getMessaging } from 'firebase/messaging';
 import { Platform } from 'react-native';
 
-import { getMessaging } from 'firebase/messaging';
 
 const firebaseConfig = {
     apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
