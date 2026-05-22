@@ -1,12 +1,15 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
-
-// Assumes admin.initializeApp() is called in index.ts
+import { checkRateLimit, RATE_LIMITS } from "./middleware/rateLimiter";
 
 /**
  * Sets the role for a user.
  * Restricted to admins.
  * Payload: { uid: string, role: 'admin' | 'club' | 'student' }
+ * 
+ * Note: Rate limiting is applied to this function as part of a phased rollout.
+ * Other callable functions (calculateReputation, getTopContributors, sendDailyDigest)
+ * will have rate limiting added in future updates as needed.
  */
 export const setRole = functions.https.onCall(async (data, context) => {
   // Check if caller is authenticated
@@ -16,6 +19,8 @@ export const setRole = functions.https.onCall(async (data, context) => {
       "The function must be called while authenticated."
     );
   }
+
+  await checkRateLimit(context.auth.uid, "setRole", RATE_LIMITS.ADMIN_WRITE);
 
   // Check if caller is admin
   // Note: For initial bootstrap, this check might need to be bypassed temporarily or the first admin set manually.
