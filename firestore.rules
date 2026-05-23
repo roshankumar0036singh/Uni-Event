@@ -17,10 +17,9 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && (request.auth.token.admin == true || request.auth.uid == resource.data.ownerId);
 
       match /participants/{participantId} {
-        allow read: if request.auth != null;
-        allow create, delete: if request.auth != null;
-        allow update: if request.auth != null && request.auth.uid == participantId;
-      }
+    allow read: if request.auth != null;
+    allow create, delete, update: if request.auth != null && request.auth.uid == participantId;
+    }
 
       match /feedback/{feedbackId} {
         allow read: if request.auth != null;
