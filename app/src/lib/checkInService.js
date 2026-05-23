@@ -79,7 +79,7 @@ export const validateTicket = async (ticketId, eventId) => {
  */
 const getLocation = async () => {
     try {
-        return await new Promise(resolve => {
+         return await new Promise(resolve => {
             navigator.geolocation.getCurrentPosition(
                 position => {
                     resolve({
