@@ -242,4 +242,174 @@ describe("Firestore Security Rules", () => {
       getDoc(doc(db, "admin/config"))
     );
   });
+  // ---------------- EVENT PARTICIPANTS ----------------
+
+test("Authenticated user reads participant -> allowed", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), "events/event1/participants/student1"),
+      { joined: true }
+    );
+  });
+
+  const db = testEnv.authenticatedContext("student2").firestore();
+
+  await assertSucceeds(
+    getDoc(doc(db, "events/event1/participants/student1"))
+  );
 });
+
+test("Unauthenticated user reads participant -> denied", async () => {
+  const db = testEnv.unauthenticatedContext().firestore();
+
+  await assertFails(
+    getDoc(doc(db, "events/event1/participants/student1"))
+  );
+});
+
+test("Authenticated user creates participant -> allowed", async () => {
+  const db = testEnv.authenticatedContext("student1").firestore();
+
+  await assertSucceeds(
+    setDoc(
+      doc(db, "events/event1/participants/student1"),
+      { joined: true }
+    )
+  );
+});
+
+test("Participant updates own record -> allowed", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), "events/event1/participants/student1"),
+      { joined: true }
+    );
+  });
+
+  const db = testEnv.authenticatedContext("student1").firestore();
+
+  await assertSucceeds(
+    setDoc(
+      doc(db, "events/event1/participants/student1"),
+      { joined: false },
+      { merge: true }
+    )
+  );
+});
+
+test("Participant updates another user's record -> denied", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), "events/event1/participants/student1"),
+      { joined: true }
+    );
+  });
+
+  const db = testEnv.authenticatedContext("student2").firestore();
+
+  await assertFails(
+    setDoc(
+      doc(db, "events/event1/participants/student1"),
+      { joined: false },
+      { merge: true }
+    )
+  );
+});
+
+
+// ---------------- EVENT FEEDBACK ----------------
+
+test("Authenticated user reads event feedback -> allowed", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), "events/event1/feedback/student1"),
+      { rating: 5 }
+    );
+  });
+
+  const db = testEnv.authenticatedContext("student2").firestore();
+
+  await assertSucceeds(
+    getDoc(doc(db, "events/event1/feedback/student1"))
+  );
+});
+
+test("Unauthenticated user reads event feedback -> denied", async () => {
+  const db = testEnv.unauthenticatedContext().firestore();
+
+  await assertFails(
+    getDoc(doc(db, "events/event1/feedback/student1"))
+  );
+});
+
+test("User creates own feedback -> allowed", async () => {
+  const db = testEnv.authenticatedContext("student1").firestore();
+
+  await assertSucceeds(
+    setDoc(
+      doc(db, "events/event1/feedback/student1"),
+      { rating: 5 }
+    )
+  );
+});
+
+test("User creates feedback for another user -> denied", async () => {
+  const db = testEnv.authenticatedContext("student1").firestore();
+
+  await assertFails(
+    setDoc(
+      doc(db, "events/event1/feedback/student2"),
+      { rating: 5 }
+    )
+  );
+});
+
+
+// ---------------- EVENT MESSAGES ----------------
+
+test("Authenticated user reads event message -> allowed", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), "events/event1/messages/msg1"),
+      { text: "Hello" }
+    );
+  });
+
+  const db = testEnv.authenticatedContext("student1").firestore();
+
+  await assertSucceeds(
+    getDoc(doc(db, "events/event1/messages/msg1"))
+  );
+});
+
+test("Unauthenticated user reads event message -> denied", async () => {
+  const db = testEnv.unauthenticatedContext().firestore();
+
+  await assertFails(
+    getDoc(doc(db, "events/event1/messages/msg1"))
+  );
+});
+
+test("Authenticated user creates event message -> allowed", async () => {
+  const db = testEnv.authenticatedContext("student1").firestore();
+
+  await assertSucceeds(
+    setDoc(
+      doc(db, "events/event1/messages/msg1"),
+      { text: "Hello" }
+    )
+  );
+});
+
+test("Unauthenticated user creates event message -> denied", async () => {
+  const db = testEnv.unauthenticatedContext().firestore();
+
+  await assertFails(
+    setDoc(
+      doc(db, "events/event1/messages/msg1"),
+      { text: "Hello" }
+    )
+  );
+});
+});
+
