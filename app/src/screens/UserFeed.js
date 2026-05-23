@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
     Animated,
     Platform,
+    RefreshControl,
     ScrollView,
     Share,
     StyleSheet,
@@ -20,11 +21,10 @@ import { useAuth } from '../lib/AuthContext';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
-import PropTypes from 'prop-types';
 
 const FILTERS = ['Upcoming', 'Past', 'Cultural', 'Sports', 'Tech', 'Workshop', 'Seminar'];
 
-export default function UserFeed({ navigation, headerContent }) {
+export default function UserFeed() {
     const { user, userData, role } = useAuth();
     const { theme } = useTheme();
     const [events, setEvents] = useState([]);
@@ -32,6 +32,8 @@ export default function UserFeed({ navigation, headerContent }) {
     const [activeFilter, setActiveFilter] = useState('Upcoming');
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [refreshNonce, setRefreshNonce] = useState(0);
 
     // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -98,15 +100,17 @@ export default function UserFeed({ navigation, headerContent }) {
                 });
                 setEvents(list);
                 setLoading(false);
+                setRefreshing(false);
             },
             error => {
                 console.log('Error fetching events: ', error);
                 setLoading(false);
+                setRefreshing(false);
             },
         );
 
         return () => unsubscribe();
-    }, [role, user]);
+    }, [role, user, refreshNonce]);
 
     // Recommendation Logic: Views + User History + Freshness
     const getRecommendedEvents = () => {
@@ -199,8 +203,6 @@ export default function UserFeed({ navigation, headerContent }) {
         }
 
         // 2. Tab/Category Filtering
-        // Common Date Threshold
-        // 2. Tab/Category Filtering
 
         if (activeFilter === 'Upcoming') {
             // Show events that ends in the future (includes ongoing)
@@ -238,6 +240,11 @@ export default function UserFeed({ navigation, headerContent }) {
     };
 
     const displayList = getFilteredEvents();
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        setRefreshNonce(n => n + 1);
+    };
 
     const StickyHeader = () => (
         <View style={{ backgroundColor: theme.colors.background, paddingBottom: 10 }}>
@@ -394,6 +401,14 @@ export default function UserFeed({ navigation, headerContent }) {
                     renderSectionHeader={StickyHeader}
                     ListHeaderComponent={renderHeader}
                     stickySectionHeadersEnabled={true}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={[theme.colors.primary]}
+                            tintColor={theme.colors.primary}
+                        />
+                    }
                     onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
                         useNativeDriver: true,
                     })}
@@ -493,8 +508,3 @@ const styles = StyleSheet.create({
     emptyContainer: { alignItems: 'center', marginTop: 50, padding: 20 },
     emptyText: { marginTop: 10, fontSize: 16 },
 });
-
-UserFeed.propTypes = {
-    navigation: PropTypes.object,
-    headerContent: PropTypes.object,
-};

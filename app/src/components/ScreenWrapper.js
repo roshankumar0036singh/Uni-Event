@@ -1,8 +1,11 @@
-import { StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../lib/ThemeContext';
+import { darkTheme, lightTheme } from '../lib/theme';
 import UniEventLogo from './UniEventLogo';
 import PropTypes from 'prop-types';
+
+const AnimatedSafeAreaView = Animated.createAnimatedComponent(SafeAreaView);
 
 export default function ScreenWrapper({
     children,
@@ -10,13 +13,17 @@ export default function ScreenWrapper({
     edges = ['top', 'left', 'right', 'bottom'],
     showLogo = true,
 }) {
-    const { theme } = useTheme();
+    const { theme, interpolateThemeColor } = useTheme();
+
+    const backgroundStyle = {
+        backgroundColor: interpolateThemeColor(
+            lightTheme.colors.background,
+            darkTheme.colors.background,
+        ),
+    };
 
     return (
-        <SafeAreaView
-            style={[styles.safeArea, { backgroundColor: theme.colors.background }]}
-            edges={edges}
-        >
+        <AnimatedSafeAreaView style={[styles.safeArea, backgroundStyle]} edges={edges}>
             <View style={[styles.container, { paddingHorizontal: theme.spacing.m }, style]}>
                 {showLogo && (
                     <View style={styles.logoContainer}>
@@ -25,7 +32,7 @@ export default function ScreenWrapper({
                 )}
                 {children}
             </View>
-        </SafeAreaView>
+        </AnimatedSafeAreaView>
     );
 }
 
