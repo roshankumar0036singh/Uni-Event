@@ -3,7 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
@@ -90,16 +90,6 @@ export default function EventCard({
                         ]}
                     />
                 )}
-                /*<Image
-                    source={{
-                        uri:
-                            event.bannerUrl ||
-                            'https://dummyimage.com/800x400/cccccc/000000.png&text=No+Image',
-                    }}
-                    style={[styles.bannerImage, isRecommended && { height: 140 }]} // Compact height for recommended
-                    resizeMode="cover"
-                    onLoadEnd={() => setBannerLoaded(true)}
-                />*/
                 <Animated.Image
                     source={{
                         uri:
@@ -159,13 +149,6 @@ export default function EventCard({
                     {!flyerLoaded && (
                         <ShimmerItem style={[styles.flyerImage, StyleSheet.absoluteFill]} />
                     )}
-                    /*<Image
-                        source={{ uri: flyerUrl }}
-                        style={styles.flyerImage}
-                        resizeMode="cover"
-                        onLoadEnd={() => setFlyerLoaded(true)}
-                    />*/
-
                     <Animated.Image
                         source={{ uri: flyerUrl }}
                         style={styles.flyerImage}

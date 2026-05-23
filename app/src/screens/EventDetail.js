@@ -20,7 +20,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    ImageBackground,
     Linking,
     Platform,
     ScrollView,
@@ -1219,24 +1218,17 @@ export default function EventDetail({ route, navigation }) {
         <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
             <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
                 {/* Immersive Header Image */}
-                /*<ImageBackground
-                    source={{
-                        uri:
-                            event.bannerUrl ||
-                            'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image',
-                    }}
-                    style={styles.headerImage}
-                >*/
-                <Animated.ImageBackground
-                    source={{
-                        uri:
-                            event.bannerUrl ||
-                            'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image',
-                    }}
-                    style={styles.headerImage}
-                    sharedTransitionTag={`banner-${event.id}`}
-                ></Animated.ImageBackground>
-
+                <View style={styles.headerImage}>
+                    <Animated.Image
+                        source={{
+                            uri:
+                                event.bannerUrl ||
+                                'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image',
+                        }}
+                        style={styles.headerImageBackdrop}
+                        resizeMode="cover"
+                        sharedTransitionTag={`banner-${event.id}`}
+                    />
                     <LinearGradient
                         colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.8)']}
                         style={styles.headerGradient}
@@ -1276,7 +1268,7 @@ export default function EventDetail({ route, navigation }) {
                                 </View>
                             )}
                     </LinearGradient>
-                </ImageBackground>
+                </View>
 
                 {/* Content Sheet */}
                 <View style={styles.contentSheet}>
@@ -1975,7 +1967,8 @@ export default function EventDetail({ route, navigation }) {
 const getStyles = theme =>
     StyleSheet.create({
         // Header
-        headerImage: { height: 350, width: '100%' },
+        headerImage: { height: 350, width: '100%', position: 'relative' },
+        headerImageBackdrop: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
         headerGradient: { flex: 1, paddingTop: 40, paddingHorizontal: 20 },
         headerSafe: { flexDirection: 'row', justifyContent: 'space-between' },
         backButton: {
