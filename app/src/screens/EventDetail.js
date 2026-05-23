@@ -28,6 +28,7 @@ import {
     TouchableOpacity,
     View,
     Share,
+    Switch,
 } from 'react-native';
 import FeedbackModal from '../components/FeedbackModal';
 import AppealModal from '../components/AppealModal';
@@ -37,7 +38,7 @@ import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
-import { cancelScheduledNotification, scheduleEventReminder } from '../lib/notificationService';
+import { cancelScheduledNotification, scheduleEventReminder,triggerBuddyMatchNotification } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
 import { getEarlyBirdInfo, getTimestampMs } from '../lib/earlyBird';
@@ -60,6 +61,7 @@ export default function EventDetail({ route, navigation }) {
     const [sendingCertificates, setSendingCertificates] = useState(false);
     const [rsvpStatus, setRsvpStatus] = useState(null);
     const [participantCount, setParticipantCount] = useState(0);
+    const [participants, setParticipants] = useState([]);
     const [hasGivenFeedback, setHasGivenFeedback] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [showAppealModal, setShowAppealModal] = useState(false);
@@ -96,6 +98,26 @@ export default function EventDetail({ route, navigation }) {
             setSendingAppeal(false);
         }
     };
+        const handleToggleBuddyDetail = async (value) => {
+        if (!user || !eventId) return;
+        try {
+            const participantRef = doc(db, 'events', eventId, 'participants', user.uid);
+            await updateDoc(participantRef, {
+                lookingForBuddy: value
+            });
+
+            if (value) {
+                const otherBuddies = participants.filter(p => p.id !== user.uid && p.lookingForBuddy === true);
+                if (otherBuddies.length > 0) {
+                    await triggerBuddyMatchNotification(event, otherBuddies.length);
+                }
+            }
+        } catch (error) {
+            console.error('Error toggling buddy preference:', error);
+            Alert.alert('Error', 'Failed to update buddy preference');
+        }
+    };
+
     const [hostName, setHostName] = useState('Organizer');
     const [reminderId, setReminderId] = useState(null); // Firestore Doc ID if set
     const [isBookmarked, setIsBookmarked] = useState(false);
@@ -175,8 +197,10 @@ export default function EventDetail({ route, navigation }) {
             collection(db, `events/${eventId}/participants`),
             snapshot => {
                 setParticipantCount(snapshot.size);
+                const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setParticipants(list);
                 if (user) {
-                    const myDoc = snapshot.docs.find(d => d.id === user.uid);
+                    const myDoc = list.find(d => d.id === user.uid);
                     if (myDoc) setRsvpStatus('going');
                     else setRsvpStatus(null);
                 }
@@ -1500,6 +1524,96 @@ export default function EventDetail({ route, navigation }) {
                             </Text>
                         </TouchableOpacity>
                     </View>
+                    {rsvpStatus === 'going' && !isOwner && !isSuspended && (
+                        <View style={[styles.buddyCard, { backgroundColor: theme.colors.surface, ...theme.shadows.small }]}>
+                            <View style={styles.buddyHeader}>
+                                <View style={styles.buddyHeaderTitleRow}>
+                                    <Ionicons name="people" size={24} color={theme.colors.primary} />
+                                    <Text style={[styles.buddyCardTitle, { color: theme.colors.text }]}>
+                                        Buddy Matching
+                                    </Text>
+                                </View>
+                                <Switch
+                                    value={participants.find(p => p.id === user?.uid)?.lookingForBuddy || false}
+                                    onValueChange={handleToggleBuddyDetail}
+                                    trackColor={{ false: theme.colors.border, true: theme.colors.primary + '80' }}
+                                    thumbColor={
+                                        (participants.find(p => p.id === user?.uid)?.lookingForBuddy || false)
+                                            ? theme.colors.primary
+                                            : '#999'
+                                    }
+                                />
+                            </View>
+
+                            {(participants.find(p => p.id === user?.uid)?.lookingForBuddy || false) ? (
+                                <View style={styles.buddyContent}>
+                                    {participants.filter(p => p.id !== user?.uid && p.lookingForBuddy === true).length > 0 ? (
+                                        <View>
+                                            <Text style={[styles.buddyMatchHeading, { color: theme.colors.success }]}>
+                                                Buddy Matches Found!
+                                            </Text>
+                                            <Text style={[styles.buddyMeetupSpot, { color: theme.colors.text }]}>
+                                                {event.eventMode === 'online'
+                                                    ? "Meetup Spot: We suggest connecting in the event chat room!"
+                                                    : `Meetup Spot: Near the Main Entrance Lobby / Registration Desk of ${event.location || 'the venue'}. Look for the 'Buddy Meetup' sign!`}
+                                            </Text>
+                                            <Text style={[styles.buddyListLabel, { color: theme.colors.textSecondary }]}>
+                                                Other students looking for buddies:
+                                            </Text>
+                                            <View style={styles.buddyList}>
+                                                {participants
+                                                    .filter(p => p.id !== user?.uid && p.lookingForBuddy === true)
+                                                    .map(buddy => (
+                                                        <View key={buddy.id} style={[styles.buddyItem, { borderColor: theme.colors.border }]}>
+                                                            <View style={[styles.buddyAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
+                                                                <Text style={[styles.buddyAvatarText, { color: theme.colors.primary }]}>
+                                                                    {buddy.name?.[0]?.toUpperCase() || 'B'}
+                                                                </Text>
+                                                            </View>
+                                                            <View style={styles.buddyInfo}>
+                                                                <Text style={[styles.buddyName, { color: theme.colors.text }]}>
+                                                                    {buddy.name || 'Anonymous'}
+                                                                </Text>
+                                                                <Text style={[styles.buddyDetails, { color: theme.colors.textSecondary }]}>
+                                                                    {buddy.branch || 'Unknown Branch'} • Year {buddy.year || 'Unknown'}
+                                                                </Text>
+                                                            </View>
+                                                        </View>
+                                                    ))}
+                                            </View>
+                                            <TouchableOpacity
+                                                style={[styles.buddyChatBtn, { backgroundColor: theme.colors.primary }]}
+                                                onPress={() =>
+                                                    navigation.navigate('EventChat', {
+                                                        eventId: event.id,
+                                                        title: event.title,
+                                                    })
+                                                }
+                                            >
+                                                <Ionicons name="chatbubbles" size={18} color="#fff" />
+                                                <Text style={styles.buddyChatBtnText}>Say Hello in Event Chat</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    ) : (
+                                        <View style={styles.buddyWaiting}>
+                                            <Text style={[styles.buddyStatusHeading, { color: theme.colors.primary }]}>
+                                                Looking for a Buddy... 🔍
+                                            </Text>
+                                            <Text style={[styles.buddyWaitingText, { color: theme.colors.textSecondary }]}>
+                                                We&apos;ll notify you as soon as someone else toggles this! In the meantime, the designated Meetup Spot is near the Main Lobby.
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                            ) : (
+                                <View style={styles.buddyPromo}>
+                                    <Text style={[styles.buddyPromoText, { color: theme.colors.textSecondary }]}>
+                                        Going alone? Toggle buddy matching to find other students to meet before the event!
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    )}
 
                     {/* Event Details Card */}
                     <View style={[styles.detailsCard, { backgroundColor: theme.colors.surface }]}>
@@ -2354,7 +2468,116 @@ const getStyles = theme =>
             fontSize: 28,
             fontWeight: '800',
         },
+        buddyCard: {
+            padding: 20,
+            borderRadius: 20,
+            marginBottom: 20,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+        },
+        buddyHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 10,
+        },
+        buddyHeaderTitleRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+        },
+        buddyCardTitle: {
+            fontSize: 18,
+            fontWeight: '700',
+        },
+        buddyContent: {
+            marginTop: 10,
+        },
+        buddyMatchHeading: {
+            fontSize: 16,
+            fontWeight: '700',
+            marginBottom: 8,
+        },
+        buddyMeetupSpot: {
+            fontSize: 14,
+            fontWeight: '600',
+            lineHeight: 20,
+            marginBottom: 12,
+        },
+        buddyListLabel: {
+            fontSize: 13,
+            fontWeight: '600',
+            marginBottom: 8,
+        },
+        buddyList: {
+            gap: 10,
+            marginBottom: 16,
+        },
+        buddyItem: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            padding: 10,
+            borderRadius: 12,
+            borderWidth: 1,
+        },
+        buddyAvatar: {
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        buddyAvatarText: {
+            fontSize: 16,
+            fontWeight: '700',
+        },
+        buddyInfo: {
+            flex: 1,
+        },
+        buddyName: {
+            fontSize: 14,
+            fontWeight: '600',
+        },
+        buddyDetails: {
+            fontSize: 12,
+        },
+        buddyChatBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            paddingVertical: 12,
+            borderRadius: 12,
+            marginTop: 4,
+        },
+        buddyChatBtnText: {
+            color: '#fff',
+            fontWeight: '700',
+            fontSize: 14,
+        },
+        buddyWaiting: {
+            paddingVertical: 10,
+        },
+        buddyStatusHeading: {
+            fontSize: 15,
+            fontWeight: '700',
+            marginBottom: 6,
+        },
+        buddyWaitingText: {
+            fontSize: 13,
+            lineHeight: 18,
+        },
+        buddyPromo: {
+            paddingTop: 4,
+        },
+        buddyPromoText: {
+            fontSize: 13,
+            lineHeight: 18,
+        },
     });
+
+
 
 EventDetail.propTypes = {
     route: PropTypes.object,

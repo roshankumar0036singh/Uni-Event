@@ -1,14 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, Switch, Platform } from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
 import { getEarlyBirdInfo } from '../lib/earlyBird';
 import { ShimmerItem } from './SkeletonLoader';
+import { useAuth } from '../lib/AuthContext';
+import { triggerBuddyMatchNotification } from '../lib/notificationService';
 import PropTypes from 'prop-types';
 
 export default function EventCard({
@@ -23,9 +25,45 @@ export default function EventCard({
 }) {
     const navigation = useNavigation();
     const { theme } = useTheme();
+    const { user } = useAuth();
     const [hostName, setHostName] = useState(event?.organization || 'Club Name');
     const [bannerLoaded, setBannerLoaded] = useState(false);
     const [flyerLoaded, setFlyerLoaded] = useState(false);
+    const [lookingForBuddy, setLookingForBuddy] = useState(false);
+        useEffect(() => {
+        if (!isRegistered || !user || !event?.id) return;
+
+        const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
+        const unsubscribe = onSnapshot(participantRef, docSnap => {
+            if (docSnap.exists()) {
+                setLookingForBuddy(docSnap.data().lookingForBuddy || false);
+            }
+        });
+
+        return () => unsubscribe();
+    }, [isRegistered, user, event?.id]);
+
+    const handleToggleBuddy = async (value) => {
+        if (!user || !event?.id) return;
+        try {
+            const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
+            await updateDoc(participantRef, {
+                lookingForBuddy: value,
+            });
+
+            if (value) {
+                const participantsRef = collection(db, 'events', event.id, 'participants');
+                const q = query(participantsRef, where('lookingForBuddy', '==', true));
+                const snapshot = await getDocs(q);
+                const otherBuddies = snapshot.docs.filter(d => d.id !== user.uid);
+                if (otherBuddies.length > 0) {
+                    await triggerBuddyMatchNotification(event, otherBuddies.length);
+                }
+            }
+        } catch (error) {
+            console.error('Error updating buddy preference:', error);
+        }
+    };
 
     useEffect(() => {
         setBannerLoaded(false);
@@ -269,19 +307,33 @@ export default function EventCard({
                 {/* FOOTER ACTION */}
                 {showRegisterButton &&
                     (isRegistered ? (
-                        <View
-                            style={[
-                                styles.registerBtn,
-                                { backgroundColor: theme.colors.success, ...theme.shadows.default },
-                            ]}
-                        >
-                            <Ionicons
-                                name="checkmark-circle"
-                                size={16}
-                                color="#fff"
-                                style={{ marginRight: 4 }}
-                            />
-                            <Text style={styles.registerText}>REGISTERED</Text>
+                        <View style={styles.registeredRow}>
+                            <View
+                                style={[
+                                    styles.registerBtnCompact,
+                                    { backgroundColor: theme.colors.success, ...theme.shadows.small },
+                                ]}
+                            >
+                                <Ionicons
+                                    name="checkmark-circle"
+                                    size={14}
+                                    color="#fff"
+                                    style={{ marginRight: 4 }}
+                                />
+                                <Text style={styles.registerTextCompact}>REGISTERED</Text>
+                            </View>
+                            <View style={styles.buddyToggleContainer}>
+                                <Text style={[styles.buddyToggleLabel, { color: theme.colors.text }]}>
+                                    Find A Buddy!
+                                </Text>
+                                <Switch
+                                    value={lookingForBuddy}
+                                    onValueChange={handleToggleBuddy}
+                                    trackColor={{ false: theme.colors.border, true: theme.colors.primary + '80' }}
+                                    thumbColor={lookingForBuddy ? theme.colors.primary : '#999'}
+                                    style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
+                                />
+                            </View>
                         </View>
                     ) : (
                         <TouchableOpacity
@@ -433,6 +485,28 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         width: '100%',
     },
+        registeredRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        width: '100%',
+        paddingVertical: 4,
+    },
+    registerBtnCompact: {
+        flexDirection: 'row',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    registerTextCompact: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 11,
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+    },
     registerText: {
         color: '#fff',
         fontWeight: '800',
@@ -440,6 +514,16 @@ const styles = StyleSheet.create({
         letterSpacing: 0.8,
         textTransform: 'uppercase',
     },
+    buddyToggleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    buddyToggleLabel: {
+        fontSize: 12,
+        fontWeight: '700',
+    },
+
 });
 
 EventCard.propTypes = {

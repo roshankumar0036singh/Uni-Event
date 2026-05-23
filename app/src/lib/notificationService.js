@@ -181,3 +181,38 @@ export async function cancelScheduledNotification(id) {
     await Notifications.cancelScheduledNotificationAsync(id);
     console.log('Cancelled notification:', id);
 }
+export async function triggerBuddyMatchNotification(event, matchCount) {
+    if (!event) return;
+
+    const title = 'Buddy Match Found!';
+    const body =
+        matchCount === 1
+            ? `1 student is also looking for a buddy at "${event.title}"!`
+            : `${matchCount} students are also looking for buddies at "${event.title}"!`;
+
+    if (Platform.OS === 'web') {
+        console.log('Buddy match notification (simulated on web):', { title, body });
+        // Use browser Notification API if permission was granted
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            new Notification(title, { body });
+        }
+        return 'web-buddy-' + event.id;
+    }
+
+    try {
+        const id = await Notifications.scheduleNotificationAsync({
+            content: {
+                title,
+                body,
+                data: { eventId: event.id, type: 'buddy_match' },
+                sound: true,
+            },
+            trigger: null,
+        });
+        console.log('Buddy match notification sent:', id);
+        return id;
+    } catch (error) {
+        console.error('Error sending buddy match notification:', error);
+        return null;
+    }
+}
