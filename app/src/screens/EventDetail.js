@@ -1,3 +1,4 @@
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -1218,14 +1219,24 @@ export default function EventDetail({ route, navigation }) {
         <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
             <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
                 {/* Immersive Header Image */}
-                <ImageBackground
+                /*<ImageBackground
                     source={{
                         uri:
                             event.bannerUrl ||
                             'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image',
                     }}
                     style={styles.headerImage}
-                >
+                >*/
+                <Animated.ImageBackground
+                    source={{
+                        uri:
+                            event.bannerUrl ||
+                            'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image',
+                    }}
+                    style={styles.headerImage}
+                    sharedTransitionTag={`banner-${event.id}`}
+                ></Animated.ImageBackground>
+
                     <LinearGradient
                         colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.8)']}
                         style={styles.headerGradient}

@@ -10,6 +10,7 @@ import { useTheme } from '../lib/ThemeContext';
 import { getEarlyBirdInfo } from '../lib/earlyBird';
 import { ShimmerItem } from './SkeletonLoader';
 import PropTypes from 'prop-types';
+import Animated from 'react-native-reanimated';
 
 export default function EventCard({
     event,
@@ -89,7 +90,7 @@ export default function EventCard({
                         ]}
                     />
                 )}
-                <Image
+                /*<Image
                     source={{
                         uri:
                             event.bannerUrl ||
@@ -98,7 +99,19 @@ export default function EventCard({
                     style={[styles.bannerImage, isRecommended && { height: 140 }]} // Compact height for recommended
                     resizeMode="cover"
                     onLoadEnd={() => setBannerLoaded(true)}
+                />*/
+                <Animated.Image
+                    source={{
+                        uri:
+                            event.bannerUrl ||
+                            'https://dummyimage.com/800x400/cccccc/000000.png&text=No+Image',
+                    }}
+                    style={[styles.bannerImage, isRecommended && { height: 140 }]}
+                    resizeMode="cover"
+                    onLoadEnd={() => setBannerLoaded(true)}
+                    sharedTransitionTag={`banner-${event.id}`}
                 />
+
                 <LinearGradient
                     colors={['transparent', 'rgba(0,0,0,0.4)']}
                     style={StyleSheet.absoluteFillObject}
@@ -146,11 +159,19 @@ export default function EventCard({
                     {!flyerLoaded && (
                         <ShimmerItem style={[styles.flyerImage, StyleSheet.absoluteFill]} />
                     )}
-                    <Image
+                    /*<Image
                         source={{ uri: flyerUrl }}
                         style={styles.flyerImage}
                         resizeMode="cover"
                         onLoadEnd={() => setFlyerLoaded(true)}
+                    />*/
+
+                    <Animated.Image
+                        source={{ uri: flyerUrl }}
+                        style={styles.flyerImage}
+                        resizeMode="cover"
+                        onLoadEnd={() => setFlyerLoaded(true)}
+                        sharedTransitionTag={`flyer-${event.id}`}
                     />
                 </View>
 
