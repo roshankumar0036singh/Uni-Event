@@ -522,6 +522,56 @@ export default function UserFeed() {
                                 marginBottom: 10,
                             }}
                         >
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    backgroundColor: theme.colors.surface,
+                                    borderRadius: 20,
+                                    overflow: 'hidden',
+                                }}
+                            >
+                                <TouchableOpacity
+                                    onPress={() => setViewMode('list')}
+                                    style={{
+                                        paddingHorizontal: 15,
+                                        paddingVertical: 8,
+                                        backgroundColor:
+                                            viewMode === 'list'
+                                                ? theme.colors.primary
+                                                : 'transparent',
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="list"
+                                        size={20}
+                                        color={
+                                            viewMode === 'list'
+                                                ? '#fff'
+                                                : theme.colors.textSecondary
+                                        }
+                                    />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => setViewMode('map')}
+                                    style={{
+                                        paddingHorizontal: 15,
+                                        paddingVertical: 8,
+                                        backgroundColor:
+                                            viewMode === 'map'
+                                                ? theme.colors.primary
+                                                : 'transparent',
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="map"
+                                        size={20}
+                                        color={
+                                            viewMode === 'map' ? '#fff' : theme.colors.textSecondary
+                                        }
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
 
                         <View
                             style={{
