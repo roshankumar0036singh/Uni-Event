@@ -50,26 +50,31 @@ export default function AuthScreen() {
     });
 
     // Suppress the native browser password-reveal eye icon on web
-    useEffect(() => {
-        if (Platform.OS === 'web') {
-            const style = document.createElement('style');
-            style.id = 'hide-password-reveal';
-            style.textContent = `
-                input[type="password"]::-ms-reveal,
-                input[type="password"]::-ms-clear,
-                input[type="password"]::-webkit-credentials-auto-fill-button,
-                input[type="password"]::-webkit-textfield-decoration-container,
-                input[type="password"]::-webkit-password-reveal-button {
-                    display: none !important;
-                }
-            `;
-            document.head.appendChild(style);
-            return () => {
-                const existing = document.getElementById('hide-password-reveal');
-                if (existing) existing.remove();
-            };
+useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    // Avoid duplicate creation and track ownership
+    if (document.getElementById('hide-password-reveal')) return;
+    const style = document.createElement('style');
+    style.id = 'hide-password-reveal';
+    style.textContent = `
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear,
+        input[type="password"]::-webkit-credentials-auto-fill-button,
+        input[type="password"]::-webkit-textfield-decoration-container,
+        input[type="password"]::-webkit-password-reveal-button {
+            display: none !important;
+        }`;
+    document.head.appendChild(style);
+    // Flag indicating we created the style element
+    const createdStyle = true;
+    // Cleanup only if we created the style element
+    return () => {
+        if (createdStyle) {
+            const existing = document.getElementById('hide-password-reveal');
+            if (existing) existing.remove();
         }
-    }, []);
+    };
+}, []);
 
     useEffect(() => {
         setPasswordError('');
@@ -313,7 +318,7 @@ export default function AuthScreen() {
                                     if (passwordError) setPasswordError('');
                                 }}
                                 secureTextEntry={!showPassword}
-                                autoComplete="new-password"
+                                autoComplete={isLogin ? "current-password" : "new-password"}
                                 importantForAutofill="no"
                                 autoCorrect={false}
                                 textContentType="none"
@@ -333,7 +338,7 @@ export default function AuthScreen() {
                                 accessibilityLabel={showPassword ? "Hide password" : "Show password"}
                             >
                                 <Ionicons
-                                    name={showPassword ? "eye-outline" : "eye-off-outline"}
+                                    name={showPassword ? "eye-off-outline" : "eye-outline"}
                                     size={20}
                                     color={theme.colors.textSecondary}
                                 />
