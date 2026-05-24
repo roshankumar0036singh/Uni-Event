@@ -1,5 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { collection, deleteDoc, doc, query, where, getDoc, getDocs, onSnapshot } from 'firebase/firestore';
+import {
+    collection,
+    deleteDoc,
+    doc,
+    query,
+    where,
+    getDoc,
+    getDocs,
+    onSnapshot,
+} from 'firebase/firestore';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import {
     ActivityIndicator,
@@ -35,7 +44,7 @@ export default function RemindersScreen({ navigation }) {
         };
     }, []);
 
-    const processRemindersSnapshot = async (snapshot) => {
+    const processRemindersSnapshot = async snapshot => {
         const list = [];
         await Promise.all(
             snapshot.docs.map(async docSnap => {
