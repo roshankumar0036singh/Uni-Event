@@ -530,7 +530,13 @@ export default function UserFeed() {
                             }}
                         >
                             {displayList
-                                .filter(e => e.coordinates)
+                                .filter(
+                                    e =>
+                                        e.coordinates &&
+                                        typeof e.coordinates === 'object' &&
+                                        Number.isFinite(e.coordinates.latitude) &&
+                                        Number.isFinite(e.coordinates.longitude),
+                                )
                                 .map(event => (
                                     <Marker key={event.id} coordinate={event.coordinates}>
                                         <Callout

@@ -55,7 +55,7 @@ export default function CreateEvent({ navigation, route }) {
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('');
     const [location, setLocation] = useState('');
-    const [coordinates, setCoordinates] = useState({ latitude: 28.7041, longitude: 77.1025 });
+    const [coordinates, setCoordinates] = useState(null);
 
     // Target
     const [targetBranches, setTargetBranches] = useState(['All']);
@@ -222,7 +222,7 @@ export default function CreateEvent({ navigation, route }) {
                 title,
                 description,
                 location: eventMode === 'online' ? 'Google Meet' : location,
-                coordinates: eventMode === 'offline' ? coordinates : null,
+                coordinates: eventMode === 'offline' && coordinates ? coordinates : null,
                 category,
                 eventMode,
                 meetLink: eventMode === 'online' ? generatedMeetLink : null,
@@ -555,15 +555,24 @@ export default function CreateEvent({ navigation, route }) {
                                         <MapView
                                             style={{ flex: 1 }}
                                             initialRegion={{
-                                                latitude: coordinates.latitude,
-                                                longitude: coordinates.longitude,
+                                                latitude: coordinates
+                                                    ? coordinates.latitude
+                                                    : 28.7041,
+                                                longitude: coordinates
+                                                    ? coordinates.longitude
+                                                    : 77.1025,
                                                 latitudeDelta: 0.005,
                                                 longitudeDelta: 0.005,
                                             }}
                                         >
                                             <Marker
                                                 draggable
-                                                coordinate={coordinates}
+                                                coordinate={
+                                                    coordinates || {
+                                                        latitude: 28.7041,
+                                                        longitude: 77.1025,
+                                                    }
+                                                }
                                                 onDragEnd={e =>
                                                     setCoordinates(e.nativeEvent.coordinate)
                                                 }
