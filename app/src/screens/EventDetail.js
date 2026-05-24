@@ -450,7 +450,6 @@ export default function EventDetail({ route, navigation }) {
         if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link'));
     };
 
-
     const sendCertificates = async () => {
         if (!isOwner && user?.role !== 'admin') {
             Alert.alert('Unauthorized', 'Only the event owner can send certificates.');
