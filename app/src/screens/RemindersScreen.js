@@ -35,6 +35,45 @@ export default function RemindersScreen({ navigation }) {
         };
     }, []);
 
+    const processRemindersSnapshot = async (snapshot) => {
+        const list = [];
+        await Promise.all(
+            snapshot.docs.map(async docSnap => {
+                const data = docSnap.data();
+                let eventTitle = 'Event';
+                let eventLocation = '';
+                let bannerUrl = null;
+                try {
+                    const eventDoc = await getDoc(doc(db, 'events', data.eventId));
+                    if (eventDoc.exists()) {
+                        const ed = eventDoc.data();
+                        eventTitle = ed.title;
+                        eventLocation = ed.location;
+                        bannerUrl = ed.bannerUrl;
+                    }
+                } catch (e) {
+                    console.error('Error fetching event details for reminder:', e);
+                }
+
+                list.push({
+                    id: docSnap.id,
+                    eventTitle,
+                    eventLocation,
+                    bannerUrl,
+                    ...data,
+                });
+            }),
+        );
+
+        list.sort((a, b) => {
+            const da = a.remindAt?.toDate ? a.remindAt.toDate() : new Date(a.remindAt);
+            const db = b.remindAt?.toDate ? b.remindAt.toDate() : new Date(b.remindAt);
+            return da - db;
+        });
+
+        return list;
+    };
+
     useEffect(() => {
         if (!user) return;
 
@@ -44,44 +83,7 @@ export default function RemindersScreen({ navigation }) {
         const unsubscribe = onSnapshot(
             q,
             async snapshot => {
-                const list = [];
-                // Parallel fetch for speed
-                await Promise.all(
-                    snapshot.docs.map(async docSnap => {
-                        const data = docSnap.data();
-                        let eventTitle = 'Event';
-                        let eventLocation = '';
-                        let bannerUrl = null;
-                        try {
-                            // We could cache this or use a separate listener but for now this is fine
-                            const eventDoc = await getDoc(doc(db, 'events', data.eventId));
-                            if (eventDoc.exists()) {
-                                const ed = eventDoc.data();
-                                eventTitle = ed.title;
-                                eventLocation = ed.location;
-                                bannerUrl = ed.bannerUrl;
-                            }
-                        } catch (e) {
-                            console.log(e);
-                        }
-
-                        list.push({
-                            id: docSnap.id,
-                            eventTitle,
-                            eventLocation,
-                            bannerUrl,
-                            ...data,
-                        });
-                    }),
-                );
-
-                // Sort by remindAt
-                list.sort((a, b) => {
-                    const da = a.remindAt?.toDate ? a.remindAt.toDate() : new Date(a.remindAt);
-                    const db = b.remindAt?.toDate ? b.remindAt.toDate() : new Date(b.remindAt);
-                    return da - db;
-                });
-
+                const list = await processRemindersSnapshot(snapshot);
                 if (isMounted.current) {
                     setReminders(list);
                     setLoading(false);
@@ -105,42 +107,7 @@ export default function RemindersScreen({ navigation }) {
         try {
             const q = query(collection(db, 'reminders'), where('userId', '==', user.uid));
             const snapshot = await getDocs(q);
-            const list = [];
-            // Parallel fetch for speed
-            await Promise.all(
-                snapshot.docs.map(async docSnap => {
-                    const data = docSnap.data();
-                    let eventTitle = 'Event';
-                    let eventLocation = '';
-                    let bannerUrl = null;
-                    try {
-                        const eventDoc = await getDoc(doc(db, 'events', data.eventId));
-                        if (eventDoc.exists()) {
-                            const ed = eventDoc.data();
-                            eventTitle = ed.title;
-                            eventLocation = ed.location;
-                            bannerUrl = ed.bannerUrl;
-                        }
-                    } catch (e) {
-                        console.log(e);
-                    }
-
-                    list.push({
-                        id: docSnap.id,
-                        eventTitle,
-                        eventLocation,
-                        bannerUrl,
-                        ...data,
-                    });
-                }),
-            );
-
-            // Sort by remindAt
-            list.sort((a, b) => {
-                const da = a.remindAt?.toDate ? a.remindAt.toDate() : new Date(a.remindAt);
-                const db = b.remindAt?.toDate ? b.remindAt.toDate() : new Date(b.remindAt);
-                return da - db;
-            });
+            const list = await processRemindersSnapshot(snapshot);
 
             if (isMounted.current) {
                 setReminders(list);
