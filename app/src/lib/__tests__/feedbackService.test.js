@@ -1,17 +1,11 @@
 import { submitFeedback, calculateAverageRating } from '../feedbackService';
-
-import { getDoc, writeBatch } from 'firebase/firestore';
+import { runTransaction } from 'firebase/firestore';
 
 jest.mock('firebase/firestore', () => ({
     doc: jest.fn(),
-
-    getDoc: jest.fn(),
-
     increment: jest.fn(value => value),
-
     serverTimestamp: jest.fn(() => 'mock-timestamp'),
-
-    writeBatch: jest.fn(),
+    runTransaction: jest.fn(),
 }));
 
 jest.mock('../firebaseConfig', () => ({
@@ -19,19 +13,20 @@ jest.mock('../firebaseConfig', () => ({
 }));
 
 describe('feedbackService', () => {
-    let mockBatch;
+    let mockTransaction;
 
     beforeEach(() => {
-        mockBatch = {
+        mockTransaction = {
+            get: jest.fn(),
             set: jest.fn(),
             update: jest.fn(),
-            commit: jest.fn().mockResolvedValue(),
         };
 
-        writeBatch.mockReturnValue(mockBatch);
+        runTransaction.mockImplementation(async (db, callback) => {
+            return await callback(mockTransaction);
+        });
 
         jest.spyOn(console, 'error').mockImplementation(() => {});
-
         jest.spyOn(console, 'log').mockImplementation(() => {});
     });
 
@@ -40,9 +35,9 @@ describe('feedbackService', () => {
     });
 
     test('submits attended feedback successfully', async () => {
-        getDoc.mockResolvedValueOnce({
-            exists: () => true,
-        });
+        mockTransaction.get
+            .mockResolvedValueOnce({ exists: () => false }) // feedbackDoc
+            .mockResolvedValueOnce({ exists: () => true }); // clubDoc
 
         const result = await submitFeedback({
             feedbackRequestId: 'req1',
@@ -55,16 +50,14 @@ describe('feedbackService', () => {
             feedback: 'Great event',
         });
 
-        expect(mockBatch.update).toHaveBeenCalled();
-
-        expect(mockBatch.commit).toHaveBeenCalled();
-
-        expect(result).toEqual({
-            success: true,
-        });
+        expect(mockTransaction.set).toHaveBeenCalled();
+        expect(mockTransaction.update).toHaveBeenCalled();
+        expect(result).toEqual({ success: true });
     });
 
     test('handles no-show attendee feedback', async () => {
+        mockTransaction.get.mockResolvedValueOnce({ exists: () => false }); // feedbackDoc
+
         const result = await submitFeedback({
             feedbackRequestId: 'req1',
             eventId: 'event1',
@@ -74,19 +67,14 @@ describe('feedbackService', () => {
             feedback: '',
         });
 
-        expect(mockBatch.set).toHaveBeenCalled();
-
-        expect(mockBatch.commit).toHaveBeenCalled();
-
-        expect(result).toEqual({
-            success: true,
-        });
+        expect(mockTransaction.set).toHaveBeenCalled();
+        expect(result).toEqual({ success: true });
     });
 
     test('creates reputation if club document does not exist', async () => {
-        getDoc.mockResolvedValueOnce({
-            exists: () => false,
-        });
+        mockTransaction.get
+            .mockResolvedValueOnce({ exists: () => false }) // feedbackDoc
+            .mockResolvedValueOnce({ exists: () => false }); // clubDoc
 
         await submitFeedback({
             feedbackRequestId: 'req1',
@@ -99,15 +87,11 @@ describe('feedbackService', () => {
             feedback: 'Nice',
         });
 
-        expect(mockBatch.set).toHaveBeenCalled();
+        expect(mockTransaction.set).toHaveBeenCalled(); // Should call set for club doc
     });
 
-    test('throws error if batch commit fails', async () => {
-        getDoc.mockResolvedValueOnce({
-            exists: () => true,
-        });
-
-        mockBatch.commit.mockRejectedValueOnce(new Error('Commit failed'));
+    test('throws error if transaction fails', async () => {
+        runTransaction.mockRejectedValueOnce(new Error('Transaction failed'));
 
         await expect(
             submitFeedback({
@@ -120,7 +104,24 @@ describe('feedbackService', () => {
                 clubRating: 4,
                 feedback: 'Nice',
             }),
-        ).rejects.toThrow('Commit failed');
+        ).rejects.toThrow('Transaction failed');
+    });
+
+    test('throws error if feedback already exists', async () => {
+        mockTransaction.get.mockResolvedValueOnce({ exists: () => true }); // feedbackDoc
+
+        await expect(
+            submitFeedback({
+                feedbackRequestId: 'req1',
+                eventId: 'event1',
+                clubId: 'club1',
+                userId: 'user1',
+                attended: true,
+                eventRating: 5,
+                clubRating: 4,
+                feedback: 'Nice',
+            }),
+        ).rejects.toThrow('Feedback already submitted for this event.');
     });
 
     test('calculates average rating correctly', () => {
