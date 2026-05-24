@@ -122,6 +122,7 @@ export default function ProfileScreen({ navigation }) {
             setEventsCount(snapshot.data().count);
         } catch (e) {
             console.error(e);
+            Alert.alert('Network Error', 'Failed to load profile statistics.');
         }
     }, [user?.uid, user?.displayName, role]);
 
