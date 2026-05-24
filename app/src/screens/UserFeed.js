@@ -653,6 +653,7 @@ export default function UserFeed() {
                                     ))}
                             </MapView>
                         </View>
+                    </View>
                 )
             )}
 
