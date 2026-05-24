@@ -4,6 +4,7 @@ import { collection, limit, onSnapshot, query, where } from 'firebase/firestore'
 import { useEffect, useRef, useState } from 'react';
 import {
     Animated,
+    Alert,
     Platform,
     RefreshControl,
     ScrollView,
@@ -353,7 +354,8 @@ export default function UserFeed() {
                             message: `Check out this event: ${item.title} at ${item.location}!`,
                         });
                     } catch (e) {
-                        console.log(e);
+                        console.error('Share Error:', e);
+                        Alert.alert('Error', 'Failed to share the event.');
                     }
                 }}
             />
