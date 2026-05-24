@@ -28,8 +28,14 @@ export async function registerForPushNotificationsAsync() {
 
     if (Platform.OS === 'web') {
         try {
-            const { messaging, VAPID_KEY } = require('./firebaseConfig');
+            const { getWebMessaging, VAPID_KEY } = require('./firebaseConfig');
             const { getToken } = require('firebase/messaging');
+            const messaging = await getWebMessaging();
+
+            if (!messaging) {
+                console.log('Firebase Messaging is not supported in this browser.');
+                return token;
+            }
 
             // Request permission specifically for Web
             const permission = await Notification.requestPermission();
