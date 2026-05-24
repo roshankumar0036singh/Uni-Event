@@ -52,21 +52,31 @@ describe('feedbackService', () => {
 
         expect(mockTransaction.get).toHaveBeenCalledTimes(2); // feedback + club
         expect(mockTransaction.set).toHaveBeenCalledTimes(2); // feedback + event
-        expect(mockTransaction.set).toHaveBeenCalledWith(undefined, expect.objectContaining({
-            userId: 'user1',
-            attended: true,
-            eventRating: 5,
-            clubRating: 4,
-            feedback: 'Great event'
-        }));
-        expect(mockTransaction.set).toHaveBeenCalledWith(undefined, expect.objectContaining({
-            stats: expect.objectContaining({ feedbackCount: 1, totalAttendees: 1 })
-        }), { merge: true });
-        
+        expect(mockTransaction.set).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+                userId: 'user1',
+                attended: true,
+                eventRating: 5,
+                clubRating: 4,
+                feedback: 'Great event',
+            }),
+        );
+        expect(mockTransaction.set).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+                stats: expect.objectContaining({ feedbackCount: 1, totalAttendees: 1 }),
+            }),
+            { merge: true },
+        );
+
         expect(mockTransaction.update).toHaveBeenCalledTimes(3); // club + user points + request
-        expect(mockTransaction.update).toHaveBeenCalledWith(undefined, expect.objectContaining({
-            'reputation.totalPoints': 4
-        }));
+        expect(mockTransaction.update).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+                'reputation.totalPoints': 4,
+            }),
+        );
         expect(result).toEqual({ success: true });
     });
 
@@ -84,19 +94,29 @@ describe('feedbackService', () => {
 
         expect(mockTransaction.get).toHaveBeenCalledTimes(1); // feedback only
         expect(mockTransaction.set).toHaveBeenCalledTimes(2); // feedback + event
-        expect(mockTransaction.set).toHaveBeenCalledWith(undefined, expect.objectContaining({
-            userId: 'user1',
-            attended: false,
-            feedback: null
-        }));
-        expect(mockTransaction.set).toHaveBeenCalledWith(undefined, expect.objectContaining({
-            stats: expect.objectContaining({ feedbackCount: 1, totalNoShows: 1 })
-        }), { merge: true });
+        expect(mockTransaction.set).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+                userId: 'user1',
+                attended: false,
+                feedback: null,
+            }),
+        );
+        expect(mockTransaction.set).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+                stats: expect.objectContaining({ feedbackCount: 1, totalNoShows: 1 }),
+            }),
+            { merge: true },
+        );
 
         expect(mockTransaction.update).toHaveBeenCalledTimes(1); // request only
-        expect(mockTransaction.update).toHaveBeenCalledWith(undefined, expect.objectContaining({
-            status: 'completed'
-        }));
+        expect(mockTransaction.update).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+                status: 'completed',
+            }),
+        );
         expect(result).toEqual({ success: true });
     });
 
@@ -118,9 +138,13 @@ describe('feedbackService', () => {
 
         expect(mockTransaction.get).toHaveBeenCalledTimes(2); // feedback + club
         expect(mockTransaction.set).toHaveBeenCalledTimes(3); // feedback + event + club(reputation create)
-        expect(mockTransaction.set).toHaveBeenCalledWith(undefined, expect.objectContaining({
-            reputation: expect.objectContaining({ totalPoints: 4, totalRatings: 1 })
-        }), { merge: true });
+        expect(mockTransaction.set).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({
+                reputation: expect.objectContaining({ totalPoints: 4, totalRatings: 1 }),
+            }),
+            { merge: true },
+        );
 
         expect(mockTransaction.update).toHaveBeenCalledTimes(2); // user points + request
     });

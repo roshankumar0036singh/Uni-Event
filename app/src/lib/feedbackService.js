@@ -15,7 +15,7 @@ export const submitFeedback = async ({
     feedback,
 }) => {
     try {
-        await runTransaction(db, async (transaction) => {
+        await runTransaction(db, async transaction => {
             // 1. Read before writing to ensure feedback doesn't already exist
             const feedbackRef = doc(db, 'events', eventId, 'feedback', userId);
             const feedbackDoc = await transaction.get(feedbackRef);
@@ -58,7 +58,7 @@ export const submitFeedback = async ({
             if (attended && clubRating) {
                 const clubRef = doc(db, 'users', clubId);
                 const clubDoc = await transaction.get(clubRef);
-                
+
                 if (clubDoc.exists()) {
                     transaction.update(clubRef, {
                         'reputation.totalPoints': increment(clubRating),
