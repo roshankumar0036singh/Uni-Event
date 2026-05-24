@@ -1,7 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, limit, onSnapshot, query, where, getDocs } from 'firebase/firestore';
-import { useEffect, useRef, useState } from 'react';
+import {
+    collection,
+    limit,
+    onSnapshot,
+    query,
+    where,
+    getDocs,
+    startAfter,
+    orderBy,
+} from 'firebase/firestore';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
     Animated,
     Alert,
@@ -48,6 +57,13 @@ export default function UserFeed() {
     const [viewMode, setViewMode] = useState('list');
     const navigation = useNavigation();
 
+    // Pagination and Recommendation State
+    const [upcomingPool, setUpcomingPool] = useState([]);
+    const [lastVisible, setLastVisible] = useState(null);
+    const [isFetchingMore, setIsFetchingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const PAGE_SIZE = 20;
+
     // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [currentFeedbackRequest, setCurrentFeedbackRequest] = useState(null);
@@ -93,46 +109,123 @@ export default function UserFeed() {
         return () => unsubscribe();
     }, [user]);
 
+    // Fetch a pool of upcoming events for recommendations
     useEffect(() => {
-        if (!user) {
-            setLoading(false);
-            return;
-        }
-
-        // Fetching events. ideally separate query.
-        const q = query(collection(db, 'events'));
-
-        const unsubscribe = onSnapshot(
-            q,
-            snapshot => {
+        if (!user) return;
+        const fetchPool = async () => {
+            try {
+                const now = new Date().toISOString();
+                const q = query(
+                    collection(db, 'events'),
+                    where('startAt', '>=', now),
+                    orderBy('startAt', 'asc'),
+                    limit(50),
+                );
+                const snapshot = await getDocs(q);
                 const list = [];
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    if (data.status === 'suspended') return;
-                    list.push({ id: doc.id, ...data });
+                    if (data.status !== 'suspended') list.push({ id: doc.id, ...data });
                 });
-                setEvents(list);
-                setLoading(false);
-            },
-            error => {
-                console.error('Error fetching events: ', error);
-                setLoading(false);
-            },
-        );
+                setUpcomingPool(list);
+            } catch (error) {
+                console.error('Error fetching recommendation pool: ', error);
+            }
+        };
+        fetchPool();
+    }, [user]);
 
-        return () => unsubscribe();
-    }, [role, user]);
+    const fetchEvents = async (loadMore = false) => {
+        if (!user) return;
+        if (loadMore && (!hasMore || isFetchingMore)) return;
+
+        if (loadMore) {
+            setIsFetchingMore(true);
+        } else {
+            setLoading(true);
+            setEvents([]);
+            setLastVisible(null);
+        }
+
+        try {
+            const now = new Date().toISOString();
+            let qConstraints = [];
+
+            if (activeFilter === 'Upcoming') {
+                qConstraints = [where('startAt', '>=', now), orderBy('startAt', 'asc')];
+            } else if (activeFilter === 'Past') {
+                qConstraints = [where('startAt', '<', now), orderBy('startAt', 'desc')];
+            } else {
+                // For categories, without composite index, we might just query upcoming
+                // and filter locally, OR assume composite index exists.
+                // Assuming composite index exists for category + startAt
+                qConstraints = [
+                    where('category', '==', activeFilter),
+                    where('startAt', '>=', now),
+                    orderBy('startAt', 'asc'),
+                ];
+            }
+
+            if (loadMore && lastVisible) {
+                qConstraints.push(startAfter(lastVisible));
+            }
+
+            const q = query(collection(db, 'events'), ...qConstraints, limit(PAGE_SIZE));
+
+            const snapshot = await getDocs(q);
+            const list = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.status !== 'suspended') list.push({ id: doc.id, ...data });
+            });
+
+            if (loadMore) {
+                setEvents(prev => {
+                    // Prevent duplicates
+                    const existingIds = new Set(prev.map(e => e.id));
+                    const newEvents = list.filter(e => !existingIds.has(e.id));
+                    return [...prev, ...newEvents];
+                });
+            } else {
+                setEvents(list);
+            }
+
+            if (snapshot.docs.length > 0) {
+                setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+            } else {
+                if (!loadMore) setLastVisible(null);
+            }
+            setHasMore(snapshot.docs.length === PAGE_SIZE);
+        } catch (error) {
+            console.error('Error fetching paginated events: ', error);
+            // Fallback if composite index is missing for categories
+            if (error.message?.includes('index')) {
+                Alert.alert(
+                    'Database Index Required',
+                    'Please create the required Firestore composite index found in the console logs.',
+                );
+            }
+        } finally {
+            setLoading(false);
+            setIsFetchingMore(false);
+            setRefreshing(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchEvents(false);
+    }, [user, activeFilter]);
 
     // Recommendation Logic: Views + User History + Freshness
     const getRecommendedEvents = () => {
         const now = new Date();
-        const upcomingEvents = events.filter(e => new Date(e.startAt) >= now);
+        const upcomingEvents = upcomingPool.filter(e => new Date(e.startAt) >= now);
 
         if (upcomingEvents.length === 0) return [];
 
         // 1. Analyze User History (Favorite Categories)
         const categoryCounts = {};
-        events
+        upcomingPool
             .filter(e => participatingIds.includes(e.id))
             .forEach(e => {
                 if (e.category) {
@@ -176,7 +269,6 @@ export default function UserFeed() {
     };
 
     const getFilteredEvents = () => {
-        const now = new Date();
         let filtered = events;
 
         // 0. Search Query Filtering
@@ -192,60 +284,24 @@ export default function UserFeed() {
 
         // 1. Strict Profile Filtering (Department & Year)
         if (role === 'student' && userData && userData.branch && userData.year) {
-            // Only filter if we have complete user data
             filtered = filtered.filter(e => {
-                // Check Department
                 const targetDepts = e.target?.departments || [];
                 const userDept = userData.branch || 'Unknown';
-                // If no specific departments listed, assume Open to All
                 const deptMatch =
                     targetDepts.length === 0 ||
                     targetDepts.includes('All') ||
                     targetDepts.includes(userDept);
 
-                // Check Year
                 const targetYears = e.target?.years || [];
                 const userYear = parseInt(userData.year || 0);
-                // If targetYears is empty/undefined, assume open to all.
                 const yearMatch = targetYears.length === 0 || targetYears.includes(userYear);
 
                 return deptMatch && yearMatch;
             });
         }
 
-        // 2. Tab/Category Filtering
-
-        if (activeFilter === 'Upcoming') {
-            // Show events that ends in the future (includes ongoing)
-            filtered = filtered.filter(e => {
-                const end = e.endAt
-                    ? new Date(e.endAt)
-                    : new Date(new Date(e.startAt).getTime() + 24 * 60 * 60 * 1000); // Fallback to 24h if no endAt
-                return end >= now;
-            });
-            // Sort: Closest upcoming first
-            filtered.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
-        } else if (activeFilter === 'Past') {
-            // Show events that have ended
-            filtered = filtered.filter(e => {
-                const end = e.endAt
-                    ? new Date(e.endAt)
-                    : new Date(new Date(e.startAt).getTime() + 24 * 60 * 60 * 1000);
-                return end < now;
-            });
-            // Sort: Most recent past first
-            filtered.sort((a, b) => new Date(b.startAt) - new Date(a.startAt));
-        } else {
-            // Category filters - HIDE ENDED EVENTS
-            filtered = filtered.filter(e => {
-                const end = e.endAt
-                    ? new Date(e.endAt)
-                    : new Date(new Date(e.startAt).getTime() + 24 * 60 * 60 * 1000);
-                return e.category === activeFilter && end >= now;
-            });
-            // Sort: Closest upcoming first for categories too
-            filtered.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
-        }
+        // We no longer need to filter by Upcoming/Past/Category manually
+        // because the backend query (fetchEvents) already handles it!
 
         return filtered;
     };
@@ -255,22 +311,7 @@ export default function UserFeed() {
     const onRefresh = async () => {
         if (!user) return;
         setRefreshing(true);
-        try {
-            const q = query(collection(db, 'events'));
-            const snapshot = await getDocs(q);
-            const list = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                if (data.status === 'suspended') return;
-                list.push({ id: doc.id, ...data });
-            });
-            setEvents(list);
-        } catch (error) {
-            console.error('Refresh error:', error);
-            Alert.alert('Error', 'Failed to refresh events.');
-        } finally {
-            setRefreshing(false);
-        }
+        await fetchEvents(false);
     };
 
     const StickyHeader = () => (
@@ -488,6 +529,12 @@ export default function UserFeed() {
                             tintColor={theme.colors.primary}
                         />
                     }
+                    onEndReached={() => {
+                        if (hasMore && !isFetchingMore) {
+                            fetchEvents(true);
+                        }
+                    }}
+                    onEndReachedThreshold={0.5}
                     onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
                         useNativeDriver: true,
                     })}
@@ -506,6 +553,15 @@ export default function UserFeed() {
                                     : 'No events found.'}
                             </Text>
                         </View>
+                    }
+                    ListFooterComponent={
+                        isFetchingMore ? (
+                            <View style={{ padding: 20, alignItems: 'center' }}>
+                                <Text style={{ color: theme.colors.textSecondary }}>
+                                    Loading more...
+                                </Text>
+                            </View>
+                        ) : null
                     }
                 />
             ) : (
