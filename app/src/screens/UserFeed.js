@@ -514,7 +514,14 @@ export default function UserFeed() {
                         <View style={{ paddingTop: 10 }}>
                             <StickyHeader />
                         </View>
-                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, marginBottom: 10 }}>
+                        <View
+                            style={{
+                                flexDirection: 'row',
+                                justifyContent: 'flex-end',
+                                paddingHorizontal: 20,
+                                marginBottom: 10,
+                            }}
+                        >
                             <View
                                 style={{
                                     flexDirection: 'row',
@@ -528,20 +535,40 @@ export default function UserFeed() {
                                     style={{
                                         paddingHorizontal: 15,
                                         paddingVertical: 8,
-                                        backgroundColor: viewMode === 'list' ? theme.colors.primary : 'transparent',
+                                        backgroundColor:
+                                            viewMode === 'list'
+                                                ? theme.colors.primary
+                                                : 'transparent',
                                     }}
                                 >
-                                    <Ionicons name="list" size={20} color={viewMode === 'list' ? '#fff' : theme.colors.textSecondary} />
+                                    <Ionicons
+                                        name="list"
+                                        size={20}
+                                        color={
+                                            viewMode === 'list'
+                                                ? '#fff'
+                                                : theme.colors.textSecondary
+                                        }
+                                    />
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={() => setViewMode('map')}
                                     style={{
                                         paddingHorizontal: 15,
                                         paddingVertical: 8,
-                                        backgroundColor: viewMode === 'map' ? theme.colors.primary : 'transparent',
+                                        backgroundColor:
+                                            viewMode === 'map'
+                                                ? theme.colors.primary
+                                                : 'transparent',
                                     }}
                                 >
-                                    <Ionicons name="map" size={20} color={viewMode === 'map' ? '#fff' : theme.colors.textSecondary} />
+                                    <Ionicons
+                                        name="map"
+                                        size={20}
+                                        color={
+                                            viewMode === 'map' ? '#fff' : theme.colors.textSecondary
+                                        }
+                                    />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -556,75 +583,76 @@ export default function UserFeed() {
                                 borderColor: theme.colors.border,
                             }}
                         >
-                        <MapView
-                            style={{ flex: 1 }}
-                            initialRegion={{
-                                latitude: 28.7041,
-                                longitude: 77.1025,
-                                latitudeDelta: 0.01,
-                                longitudeDelta: 0.01,
-                            }}
-                        >
-                            {displayList
-                                .filter(
-                                    e =>
-                                        e.coordinates &&
-                                        typeof e.coordinates === 'object' &&
-                                        Number.isFinite(e.coordinates.latitude) &&
-                                        Number.isFinite(e.coordinates.longitude),
-                                )
-                                .map(event => (
-                                    <Marker key={event.id} coordinate={event.coordinates}>
-                                        <Callout
-                                            onPress={() =>
-                                                navigation.navigate('EventDetail', {
-                                                    eventId: event.id,
-                                                    action: 'view',
-                                                })
-                                            }
-                                        >
-                                            <View style={{ width: 200, padding: 5 }}>
-                                                <Text
-                                                    style={{
-                                                        fontWeight: 'bold',
-                                                        fontSize: 16,
-                                                        marginBottom: 5,
-                                                    }}
-                                                >
-                                                    {event.title}
-                                                </Text>
-                                                <Text
-                                                    style={{
-                                                        color: '#666',
-                                                        fontSize: 12,
-                                                        marginBottom: 10,
-                                                    }}
-                                                    numberOfLines={2}
-                                                >
-                                                    {event.description}
-                                                </Text>
-                                                <TouchableOpacity
-                                                    style={{
-                                                        backgroundColor: theme.colors.primary,
-                                                        padding: 8,
-                                                        borderRadius: 8,
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
+                            <MapView
+                                style={{ flex: 1 }}
+                                initialRegion={{
+                                    latitude: 28.7041,
+                                    longitude: 77.1025,
+                                    latitudeDelta: 0.01,
+                                    longitudeDelta: 0.01,
+                                }}
+                            >
+                                {displayList
+                                    .filter(
+                                        e =>
+                                            e.coordinates &&
+                                            typeof e.coordinates === 'object' &&
+                                            Number.isFinite(e.coordinates.latitude) &&
+                                            Number.isFinite(e.coordinates.longitude),
+                                    )
+                                    .map(event => (
+                                        <Marker key={event.id} coordinate={event.coordinates}>
+                                            <Callout
+                                                onPress={() =>
+                                                    navigation.navigate('EventDetail', {
+                                                        eventId: event.id,
+                                                        action: 'view',
+                                                    })
+                                                }
+                                            >
+                                                <View style={{ width: 200, padding: 5 }}>
                                                     <Text
                                                         style={{
-                                                            color: '#fff',
                                                             fontWeight: 'bold',
+                                                            fontSize: 16,
+                                                            marginBottom: 5,
                                                         }}
                                                     >
-                                                        View Details
+                                                        {event.title}
                                                     </Text>
-                                                </TouchableOpacity>
-                                            </View>
-                                        </Callout>
-                                    </Marker>
-                                ))}
-                        </MapView>
+                                                    <Text
+                                                        style={{
+                                                            color: '#666',
+                                                            fontSize: 12,
+                                                            marginBottom: 10,
+                                                        }}
+                                                        numberOfLines={2}
+                                                    >
+                                                        {event.description}
+                                                    </Text>
+                                                    <TouchableOpacity
+                                                        style={{
+                                                            backgroundColor: theme.colors.primary,
+                                                            padding: 8,
+                                                            borderRadius: 8,
+                                                            alignItems: 'center',
+                                                        }}
+                                                    >
+                                                        <Text
+                                                            style={{
+                                                                color: '#fff',
+                                                                fontWeight: 'bold',
+                                                            }}
+                                                        >
+                                                            View Details
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </Callout>
+                                        </Marker>
+                                    ))}
+                            </MapView>
+                        </View>
                     </View>
                 )
             )}
