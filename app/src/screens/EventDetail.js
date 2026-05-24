@@ -379,7 +379,7 @@ export default function EventDetail({ route, navigation }) {
         const userProfileRef = doc(db, 'users', user.uid);
 
         try {
-            await runTransaction(db, async (transaction) => {
+            await runTransaction(db, async transaction => {
                 const participantDoc = await transaction.get(ref);
                 const userDoc = await transaction.get(userProfileRef);
                 const userData = userDoc.exists() ? userDoc.data() : {};
@@ -399,7 +399,10 @@ export default function EventDetail({ route, navigation }) {
                         year: userData.year || 'Unknown',
                         joinedAt: new Date().toISOString(),
                     });
-                    transaction.set(userRef, { eventId: eventId, joinedAt: new Date().toISOString() });
+                    transaction.set(userRef, {
+                        eventId: eventId,
+                        joinedAt: new Date().toISOString(),
+                    });
 
                     const earlyBird = ebInfo?.isEligible;
                     const userUpdate = { points: increment(RSVP_POINTS_CHANGE) };
@@ -446,7 +449,6 @@ export default function EventDetail({ route, navigation }) {
     const openLink = url => {
         if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link'));
     };
-
 
     const sendCertificates = async () => {
         setSendingCertificates(true);
