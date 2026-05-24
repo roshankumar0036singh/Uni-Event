@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, limit, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, limit, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { useEffect, useRef, useState } from 'react';
 import {
     Animated,
@@ -34,7 +34,6 @@ export default function UserFeed() {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [refreshNonce, setRefreshNonce] = useState(0);
 
     // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -87,41 +86,29 @@ export default function UserFeed() {
             return;
         }
 
-        try {
-            setLoading(true);
+        // Fetching events. ideally separate query.
+        const q = query(collection(db, 'events'));
 
-            // Fetching events. ideally separate query.
-            const q = query(collection(db, 'events'));
+        const unsubscribe = onSnapshot(
+            q,
+            snapshot => {
+                const list = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.status === 'suspended') return;
+                    list.push({ id: doc.id, ...data });
+                });
+                setEvents(list);
+                setLoading(false);
+            },
+            error => {
+                console.error('Error fetching events: ', error);
+                setLoading(false);
+            },
+        );
 
-            const unsubscribe = onSnapshot(
-                q,
-                snapshot => {
-                    try {
-                        const list = [];
-                        snapshot.forEach(doc => {
-                            const data = doc.data();
-                            if (data.status === 'suspended') return;
-                            list.push({ id: doc.id, ...data });
-                        });
-                        setEvents(list);
-                    } finally {
-                        setLoading(false);
-                        setRefreshing(false);
-                    }
-                },
-                error => {
-                    console.log('Error fetching events: ', error);
-                    setLoading(false);
-                    setRefreshing(false);
-                },
-            );
-
-            return () => unsubscribe();
-        } catch (error) {
-            console.log('Error setting up listener: ', error);
-            setLoading(false);
-        }
-    }, [role, user, refreshNonce]);
+        return () => unsubscribe();
+    }, [role, user]);
 
     // Recommendation Logic: Views + User History + Freshness
     const getRecommendedEvents = () => {
@@ -252,9 +239,25 @@ export default function UserFeed() {
 
     const displayList = getFilteredEvents();
 
-    const onRefresh = () => {
+    const onRefresh = async () => {
+        if (!user) return;
         setRefreshing(true);
-        setRefreshNonce(n => n + 1);
+        try {
+            const q = query(collection(db, 'events'));
+            const snapshot = await getDocs(q);
+            const list = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.status === 'suspended') return;
+                list.push({ id: doc.id, ...data });
+            });
+            setEvents(list);
+        } catch (error) {
+            console.error('Refresh error:', error);
+            Alert.alert('Error', 'Failed to refresh events.');
+        } finally {
+            setRefreshing(false);
+        }
     };
 
     const StickyHeader = () => (
