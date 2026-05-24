@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, deleteDoc, doc, query, where, getDoc, onSnapshot } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -27,6 +27,13 @@ export default function RemindersScreen({ navigation }) {
     const [reminders, setReminders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    const isMounted = useRef(true);
+    useEffect(() => {
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
 
     useEffect(() => {
         if (!user) return;
@@ -75,12 +82,16 @@ export default function RemindersScreen({ navigation }) {
                     return da - db;
                 });
 
-                setReminders(list);
-                setLoading(false);
+                if (isMounted.current) {
+                    setReminders(list);
+                    setLoading(false);
+                }
             },
             error => {
                 console.error('Reminders listener Error:', error);
-                setLoading(false);
+                if (isMounted.current) {
+                    setLoading(false);
+                }
             },
         );
 
