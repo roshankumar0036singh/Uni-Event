@@ -14,6 +14,7 @@ import {
     updateDoc,
     where,
     arrayUnion,
+    runTransaction,
 } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -27,7 +28,6 @@ import {
     Text,
     TouchableOpacity,
     View,
-    Share,
 } from 'react-native';
 import FeedbackModal from '../components/FeedbackModal';
 import AppealModal from '../components/AppealModal';
@@ -379,35 +379,48 @@ export default function EventDetail({ route, navigation }) {
         const userProfileRef = doc(db, 'users', user.uid);
 
         try {
+            await runTransaction(db, async transaction => {
+                const participantDoc = await transaction.get(ref);
+                const userDoc = await transaction.get(userProfileRef);
+                const userData = userDoc.exists() ? userDoc.data() : {};
+
+                if (participantDoc.exists()) {
+                    // Withdraw RSVP
+                    transaction.delete(ref);
+                    transaction.delete(userRef);
+                    transaction.update(userProfileRef, { points: increment(-RSVP_POINTS_CHANGE) });
+                } else {
+                    // Add RSVP
+                    transaction.set(ref, {
+                        userId: user.uid,
+                        email: user.email,
+                        name: user.displayName || 'Anonymous',
+                        branch: userData.branch || 'Unknown',
+                        year: userData.year || 'Unknown',
+                        joinedAt: new Date().toISOString(),
+                    });
+                    transaction.set(userRef, {
+                        eventId: eventId,
+                        joinedAt: new Date().toISOString(),
+                    });
+
+                    const earlyBird = ebInfo?.isEligible;
+                    const userUpdate = { points: increment(RSVP_POINTS_CHANGE) };
+                    if (earlyBird) {
+                        userUpdate.badges = arrayUnion(`early_bird_${eventId}`);
+                    }
+                    transaction.update(userProfileRef, userUpdate);
+                }
+            });
+
+            // Post-transaction effects
             if (rsvpStatus === 'going') {
-                await deleteDoc(ref);
-                await deleteDoc(userRef);
-                await updateDoc(userProfileRef, { points: increment(-RSVP_POINTS_CHANGE) });
                 Alert.alert(
                     'Withdrawn',
                     `You are no longer registered. (-${RSVP_POINTS_CHANGE} Points)`,
                 );
             } else {
-                const userDoc = await getDoc(userProfileRef);
-                const userData = userDoc.exists() ? userDoc.data() : {};
-
-                await setDoc(ref, {
-                    userId: user.uid,
-                    email: user.email,
-                    name: user.displayName || 'Anonymous',
-                    branch: userData.branch || 'Unknown',
-                    year: userData.year || 'Unknown',
-                    joinedAt: new Date().toISOString(),
-                });
-                await setDoc(userRef, { eventId: eventId, joinedAt: new Date().toISOString() });
-
                 const earlyBird = ebInfo?.isEligible;
-                const userUpdate = { points: increment(RSVP_POINTS_CHANGE) };
-                if (earlyBird) {
-                    userUpdate.badges = arrayUnion(`early_bird_${eventId}`);
-                }
-                await updateDoc(userProfileRef, userUpdate);
-
                 await scheduleEventReminder(event);
                 Alert.alert(
                     'Registered! 🎉',
@@ -437,31 +450,12 @@ export default function EventDetail({ route, navigation }) {
         if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link'));
     };
 
-    const handleExportReviews = async () => {
-        try {
-            const feedbackRef = collection(db, `events/${eventId}/feedback`);
-            const snapshot = await getDocs(feedbackRef);
-
-            if (snapshot.empty) {
-                Alert.alert('No Reviews', 'This event has no feedback yet.');
-                return;
-            }
-
-            let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
-            snapshot.forEach(doc => {
-                const d = doc.data();
-                const line = `\"${d.userName || 'Anonymous'}\",\"${d.eventRating || '-'}\",\"${d.clubRating || '-'}\",\"${(d.feedback || '').replace(/\"/g, '""')}\",${d.createdAt}\n`;
-                csv += line;
-            });
-
-            await Share.share({ message: csv, title: `Reviews - ${event.title}` });
-        } catch (error) {
-            console.error('Export Error: ', error);
-            Alert.alert('Error', 'Failed to export reviews.');
-        }
-    };
-
     const sendCertificates = async () => {
+        if (!isOwner && user?.role !== 'admin') {
+            Alert.alert('Unauthorized', 'Only the event owner can send certificates.');
+            return;
+        }
+
         setSendingCertificates(true);
         try {
             // Fetch Participants

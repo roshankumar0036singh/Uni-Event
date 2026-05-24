@@ -2,9 +2,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId} {
-      allow create: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId && !("role" in request.resource.data);
       allow read: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth.token.admin == true;
+      allow update: if request.auth != null && (
+        request.auth.token.admin == true || 
+        (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+      );
     }
     match /clubs/{clubId} {
       allow read: if true;
@@ -13,8 +16,9 @@ service cloud.firestore {
     }
     match /events/{eventId} {
       allow read: if true;
-      allow create: if request.auth != null && (request.auth.token.admin == true || request.auth.token.club == true);
-      allow update, delete: if request.auth != null && (request.auth.token.admin == true || request.auth.uid == resource.data.ownerId);
+      allow create: if request.auth != null && (request.auth.token.admin == true || (request.auth.token.club == true && request.resource.data.ownerId == request.auth.uid));
+      allow update: if request.auth != null && (request.auth.token.admin == true || (request.auth.uid == resource.data.ownerId && request.resource.data.ownerId == resource.data.ownerId));
+      allow delete: if request.auth != null && (request.auth.token.admin == true || request.auth.uid == resource.data.ownerId);
     }
     match /reminders/{rid} {
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
