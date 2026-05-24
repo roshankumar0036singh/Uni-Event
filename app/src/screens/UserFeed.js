@@ -510,16 +510,52 @@ export default function UserFeed() {
                 />
             ) : (
                 MapView && (
-                    <View
-                        style={{
-                            flex: 1,
-                            margin: 20,
-                            borderRadius: 16,
-                            overflow: 'hidden',
-                            borderWidth: 1,
-                            borderColor: theme.colors.border,
-                        }}
-                    >
+                    <View style={{ flex: 1 }}>
+                        <View style={{ paddingTop: 10 }}>
+                            <StickyHeader />
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, marginBottom: 10 }}>
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    backgroundColor: theme.colors.surface,
+                                    borderRadius: 20,
+                                    overflow: 'hidden',
+                                }}
+                            >
+                                <TouchableOpacity
+                                    onPress={() => setViewMode('list')}
+                                    style={{
+                                        paddingHorizontal: 15,
+                                        paddingVertical: 8,
+                                        backgroundColor: viewMode === 'list' ? theme.colors.primary : 'transparent',
+                                    }}
+                                >
+                                    <Ionicons name="list" size={20} color={viewMode === 'list' ? '#fff' : theme.colors.textSecondary} />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => setViewMode('map')}
+                                    style={{
+                                        paddingHorizontal: 15,
+                                        paddingVertical: 8,
+                                        backgroundColor: viewMode === 'map' ? theme.colors.primary : 'transparent',
+                                    }}
+                                >
+                                    <Ionicons name="map" size={20} color={viewMode === 'map' ? '#fff' : theme.colors.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                        <View
+                            style={{
+                                flex: 1,
+                                marginHorizontal: 20,
+                                marginBottom: 20,
+                                borderRadius: 16,
+                                overflow: 'hidden',
+                                borderWidth: 1,
+                                borderColor: theme.colors.border,
+                            }}
+                        >
                         <MapView
                             style={{ flex: 1 }}
                             initialRegion={{
