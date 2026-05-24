@@ -462,6 +462,11 @@ export default function EventDetail({ route, navigation }) {
     };
 
     const sendCertificates = async () => {
+        if (!isOwner && user?.role !== 'admin') {
+            Alert.alert('Unauthorized', 'Only the event owner can send certificates.');
+            return;
+        }
+
         setSendingCertificates(true);
         try {
             // Fetch Participants
