@@ -1,4 +1,4 @@
-import { doc, getDoc, increment, serverTimestamp, runTransaction } from 'firebase/firestore';
+import { doc, increment, serverTimestamp, runTransaction } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 
 /**
