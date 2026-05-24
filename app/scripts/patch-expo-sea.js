@@ -1,7 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 
-const filePath = path.join(__dirname, '..', 'node_modules', '@expo', 'cli', 'build', 'src', 'start', 'server', 'metro', 'externals.js');
+const filePath = path.join(
+    __dirname,
+    '..',
+    'node_modules',
+    '@expo',
+    'cli',
+    'build',
+    'src',
+    'start',
+    'server',
+    'metro',
+    'externals.js',
+);
 
 try {
     if (!fs.existsSync(filePath)) {
