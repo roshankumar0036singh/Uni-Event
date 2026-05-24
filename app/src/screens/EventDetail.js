@@ -28,6 +28,9 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Share,
+    TextInput,
+    Modal,
 } from 'react-native';
 import FeedbackModal from '../components/FeedbackModal';
 import AppealModal from '../components/AppealModal';
@@ -67,6 +70,11 @@ export default function EventDetail({ route, navigation }) {
     const [sendingAppeal, setSendingAppeal] = useState(false);
     const [activeTab, setActiveTab] = useState('about');
     const [expandedBenefits, setExpandedBenefits] = useState(new Set());
+
+    const [teamRequests, setTeamRequests] = useState([]);
+    const [showTeamModal, setShowTeamModal] = useState(false);
+    const [teamDescription, setTeamDescription] = useState('');
+    const [postingTeamRequest, setPostingTeamRequest] = useState(false);
 
     const toggleBenefits = idx => {
         setExpandedBenefits(prev => {
@@ -124,6 +132,70 @@ export default function EventDetail({ route, navigation }) {
     }, [event]);
 
     // Increment View Count (Unique per User)
+    useEffect(() => {
+        if (!eventId) return;
+        const q = query(collection(db, 'events', eventId, 'team_requests'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const requests = [];
+            snapshot.forEach((docSnap) => {
+                requests.push({ id: docSnap.id, ...docSnap.data() });
+            });
+            requests.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            setTeamRequests(requests);
+        });
+        return unsubscribe;
+    }, [eventId]);
+
+    const handlePostTeamRequest = async () => {
+        if (!user) {
+            Alert.alert('Sign In', 'Please sign in to find a buddy.');
+            return;
+        }
+        if (rsvpStatus !== 'going') {
+            Alert.alert('Registration Required', 'You must register for this event before looking for a team.');
+            return;
+        }
+        if (!teamDescription.trim()) {
+            Alert.alert('Required', 'Please add a brief description of what you are looking for.');
+            return;
+        }
+
+        setPostingTeamRequest(true);
+        try {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            const userData = userDoc.exists() ? userDoc.data() : {};
+
+            await setDoc(doc(db, 'events', eventId, 'team_requests', user.uid), {
+                userId: user.uid,
+                name: user.displayName || 'Anonymous',
+                email: user.email,
+                branch: userData.branch || 'Unknown',
+                year: userData.year || 'Unknown',
+                description: teamDescription.trim(),
+                timestamp: new Date().toISOString()
+            });
+
+            setTeamDescription('');
+            setShowTeamModal(false);
+            Alert.alert('Success', 'Your request has been posted!');
+        } catch (error) {
+            console.error('Error posting team request:', error);
+            Alert.alert('Error', 'Failed to post request.');
+        } finally {
+            setPostingTeamRequest(false);
+        }
+    };
+
+    const handleRemoveTeamRequest = async () => {
+        try {
+            await deleteDoc(doc(db, 'events', eventId, 'team_requests', user.uid));
+            Alert.alert('Removed', 'Your team request has been removed.');
+        } catch (error) {
+            console.error('Error removing team request:', error);
+            Alert.alert('Error', 'Failed to remove request.');
+        }
+    };
+
     useEffect(() => {
         const recordView = async () => {
             if (!user || !eventId) return;
@@ -1579,6 +1651,7 @@ export default function EventDetail({ route, navigation }) {
                             { key: 'about', label: 'About' },
                             { key: 'tickets', label: 'Tickets' },
                             { key: 'speakers', label: 'Event Speakers' },
+                            { key: 'team', label: 'Find a Buddy' },
                         ].map(tab => (
                             <TouchableOpacity
                                 key={tab.key}
@@ -1642,18 +1715,50 @@ export default function EventDetail({ route, navigation }) {
                             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
                                 EVENT SPEAKERS
                             </Text>
-                            <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-                                <Text style={{ fontSize: 40, marginBottom: 12 }}>🎭</Text>
-                                <Text
-                                    style={{
-                                        color: theme.colors.textSecondary,
-                                        fontSize: 15,
-                                        textAlign: 'center',
-                                    }}
-                                >
-                                    Speaker info has not been added yet.
+                            <Text style={{ color: theme.colors.textSecondary, marginTop: 10 }}>
+                                Speaker details will be announced soon.
+                            </Text>
+                        </View>
+                    )}
+
+                    {/* Team Tab Content */}
+                    {activeTab === 'team' && (
+                        <View style={styles.aboutSection}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                                <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 0 }]}>
+                                    FIND A BUDDY
                                 </Text>
+                                {user && teamRequests.some(r => r.userId === user.uid) ? (
+                                    <TouchableOpacity onPress={handleRemoveTeamRequest} style={{ backgroundColor: theme.colors.error || '#EF4444', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+                                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Remove My Request</Text>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <TouchableOpacity onPress={() => setShowTeamModal(true)} style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+                                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Looking for Team?</Text>
+                                    </TouchableOpacity>
+                                )}
                             </View>
+
+                            {teamRequests.length === 0 ? (
+                                <Text style={{ color: theme.colors.textSecondary, textAlign: 'center', marginTop: 20 }}>No one is looking for a team yet. Be the first!</Text>
+                            ) : (
+                                teamRequests.map(req => (
+                                    <View key={req.id} style={{ backgroundColor: theme.colors.surface, padding: 15, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: theme.colors.border }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: 'bold' }}>{req.name}</Text>
+                                                <Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginBottom: 8 }}>{req.branch} • Year {req.year}</Text>
+                                                <Text style={{ color: theme.colors.text, fontSize: 14 }}>{req.description}</Text>
+                                            </View>
+                                            {(!user || req.userId !== user.uid) && (
+                                                <TouchableOpacity onPress={() => Linking.openURL(`mailto:${req.email}?subject=Regarding Team Formation for ${event.title}`)} style={{ backgroundColor: theme.colors.primary + '20', padding: 8, borderRadius: 20, marginLeft: 10 }}>
+                                                    <Ionicons name="mail" size={20} color={theme.colors.primary} />
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    </View>
+                                ))
+                            )}
                         </View>
                     )}
 
@@ -1934,6 +2039,41 @@ export default function EventDetail({ route, navigation }) {
                     </TouchableOpacity>
                 </View>
             )}
+
+            <Modal visible={showTeamModal} transparent animationType="slide" onRequestClose={() => setShowTeamModal(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Find a Buddy</Text>
+                            <TouchableOpacity onPress={() => setShowTeamModal(false)}>
+                                <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                        <Text style={{ color: theme.colors.textSecondary, marginBottom: 15 }}>
+                            Briefly describe your skills or what kind of team members you are looking for.
+                        </Text>
+                        <TextInput
+                            style={[styles.textInput, { color: theme.colors.text, borderColor: theme.colors.border, backgroundColor: theme.colors.surface, height: 100, textAlignVertical: 'top' }]}
+                            placeholder="e.g. I'm a React Native dev looking for a UI/UX designer..."
+                            placeholderTextColor={theme.colors.textSecondary}
+                            multiline
+                            value={teamDescription}
+                            onChangeText={setTeamDescription}
+                        />
+                        <TouchableOpacity
+                            style={[styles.primaryBtn, { marginTop: 20, opacity: postingTeamRequest ? 0.7 : 1 }]}
+                            onPress={handlePostTeamRequest}
+                            disabled={postingTeamRequest}
+                        >
+                            {postingTeamRequest ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.primaryBtnText}>Post Request</Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
 
             <FeedbackModal
                 visible={showFeedbackModal}
@@ -2295,6 +2435,12 @@ const getStyles = theme =>
         },
         primaryBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
         secondaryBtnText: { color: theme.colors.primary },
+
+        modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+        modalContent: { borderRadius: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 },
+        modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+        modalTitle: { fontSize: 20, fontWeight: 'bold' },
+        textInput: { borderWidth: 1, borderRadius: 12, padding: 15, fontSize: 16 },
 
         // Pass Card Styles
         passCard: {
