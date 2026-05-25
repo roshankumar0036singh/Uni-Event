@@ -145,7 +145,7 @@ export default function UserFeed() {
         fetchPool();
     }, [user]);
 
-    const checkAudienceEligibility = (event) => {
+    const checkAudienceEligibility = event => {
         if (role === 'student' && userData && userData.branch && userData.year) {
             const targetDepts = event.target?.departments || [];
             const userDept = userData.branch || 'Unknown';
@@ -163,81 +163,84 @@ export default function UserFeed() {
         return true;
     };
 
-    const fetchEvents = useCallback(async (loadMore = false) => {
-        if (!user) return;
-        if (loadMore && (!hasMore || isFetchingMore)) return;
-
-        if (loadMore) {
-            setIsFetchingMore(true);
-        } else {
-            setLoading(true);
-            setEvents([]);
-            setLastVisible(null);
-        }
-
-        try {
-            const now = new Date().toISOString();
-            const qConstraints = [where('status', '==', 'active')];
-
-            if (activeFilter === 'Upcoming') {
-                qConstraints.push(where('startAt', '>=', now), orderBy('startAt', 'asc'));
-            } else if (activeFilter === 'Past') {
-                qConstraints.push(where('startAt', '<', now), orderBy('startAt', 'desc'));
-            } else {
-                // For categories, without composite index, we might just query upcoming
-                // and filter locally, OR assume composite index exists.
-                // Assuming composite index exists for category + startAt
-                qConstraints.push(
-                    where('category', '==', activeFilter),
-                    where('startAt', '>=', now),
-                    orderBy('startAt', 'asc'),
-                );
-            }
-
-            if (loadMore && lastVisible) {
-                qConstraints.push(startAfter(lastVisible));
-            }
-            const q = query(collection(db, 'events'), ...qConstraints, limit(PAGE_SIZE));
-
-            const snapshot = await getDocs(q);
-            const list = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                list.push({ id: doc.id, ...data });
-            });
+    const fetchEvents = useCallback(
+        async (loadMore = false) => {
+            if (!user) return;
+            if (loadMore && (!hasMore || isFetchingMore)) return;
 
             if (loadMore) {
-                setEvents(prev => {
-                    // Prevent duplicates
-                    const existingIds = new Set(prev.map(e => e.id));
-                    const newEvents = list.filter(e => !existingIds.has(e.id));
-                    return [...prev, ...newEvents];
-                });
+                setIsFetchingMore(true);
             } else {
-                setEvents(list);
+                setLoading(true);
+                setEvents([]);
+                setLastVisible(null);
             }
 
-            if (snapshot.docs.length > 0) {
-                setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
-            } else {
-                if (!loadMore) setLastVisible(null);
+            try {
+                const now = new Date().toISOString();
+                const qConstraints = [where('status', '==', 'active')];
+
+                if (activeFilter === 'Upcoming') {
+                    qConstraints.push(where('startAt', '>=', now), orderBy('startAt', 'asc'));
+                } else if (activeFilter === 'Past') {
+                    qConstraints.push(where('startAt', '<', now), orderBy('startAt', 'desc'));
+                } else {
+                    // For categories, without composite index, we might just query upcoming
+                    // and filter locally, OR assume composite index exists.
+                    // Assuming composite index exists for category + startAt
+                    qConstraints.push(
+                        where('category', '==', activeFilter),
+                        where('startAt', '>=', now),
+                        orderBy('startAt', 'asc'),
+                    );
+                }
+
+                if (loadMore && lastVisible) {
+                    qConstraints.push(startAfter(lastVisible));
+                }
+                const q = query(collection(db, 'events'), ...qConstraints, limit(PAGE_SIZE));
+
+                const snapshot = await getDocs(q);
+                const list = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    list.push({ id: doc.id, ...data });
+                });
+
+                if (loadMore) {
+                    setEvents(prev => {
+                        // Prevent duplicates
+                        const existingIds = new Set(prev.map(e => e.id));
+                        const newEvents = list.filter(e => !existingIds.has(e.id));
+                        return [...prev, ...newEvents];
+                    });
+                } else {
+                    setEvents(list);
+                }
+
+                if (snapshot.docs.length > 0) {
+                    setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+                } else {
+                    if (!loadMore) setLastVisible(null);
+                }
+                setHasMore(snapshot.docs.length === PAGE_SIZE);
+            } catch (error) {
+                console.error('Error fetching paginated events: ', error);
+                // Fallback if composite index is missing for categories
+                if (error.message?.includes('index')) {
+                    Alert.alert(
+                        'Database Index Required',
+                        'Please create the required Firestore composite index found in the console logs.',
+                    );
+                }
+            } finally {
+                setLoading(false);
+                setIsFetchingMore(false);
+                setRefreshing(false);
             }
-            setHasMore(snapshot.docs.length === PAGE_SIZE);
-        } catch (error) {
-            console.error('Error fetching paginated events: ', error);
-            // Fallback if composite index is missing for categories
-            if (error.message?.includes('index')) {
-                Alert.alert(
-                    'Database Index Required',
-                    'Please create the required Firestore composite index found in the console logs.',
-                );
-            }
-        } finally {
-            setLoading(false);
-            setIsFetchingMore(false);
-            setRefreshing(false);
-        }
-    }, [user, activeFilter, debouncedSearchQuery, hasMore, isFetchingMore, lastVisible]);
+        },
+        [user, activeFilter, debouncedSearchQuery, hasMore, isFetchingMore, lastVisible],
+    );
 
     useEffect(() => {
         fetchEvents(false);
