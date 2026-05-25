@@ -14,7 +14,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useTheme } from '../lib/ThemeContext';
 import PremiumInput from '../components/PremiumInput';
-import { collection, doc, increment, getDoc, arrayUnion, writeBatch } from 'firebase/firestore';
+import { collection, doc, increment, getDoc, arrayUnion, runTransaction } from 'firebase/firestore';
 import { db } from '../lib/firebaseConfig';
 import { useAuth } from '../lib/AuthContext';
 import { scheduleEventReminder } from '../lib/notificationService';
@@ -78,50 +78,78 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             const userData = userDoc.exists() ? userDoc.data() : {};
 
-            const batch = writeBatch(db);
+            let finalEarlyBird = false;
 
-            // B. Save Custom Form Responses
-            const newRegistrationRef = doc(collection(db, 'registrations'));
-            batch.set(newRegistrationRef, {
-                eventId: event.id,
-                eventId_userId: `${event.id}_${user.uid}`,
-                userId: user.uid,
-                userEmail: user.email,
-                userName: user.displayName,
-                responses: responses,
-                schemaAtSubmission: event.customFormSchema,
-                timestamp: new Date().toISOString(),
-                status: 'confirmed',
+            await runTransaction(db, async (transaction) => {
+                // Read the fresh event document securely
+                const eventRef = doc(db, 'events', event.id);
+                const eventSnap = await transaction.get(eventRef);
+                
+                if (!eventSnap.exists()) {
+                    throw new Error('Event not found');
+                }
+                
+                const freshEvent = { id: eventSnap.id, ...eventSnap.data() };
+                
+                // Determine early bird eligibility based on the real-time data
+                let { isEligible: earlyBird } = getEarlyBirdInfo(freshEvent);
+                
+                // Enforce capacity limit if the event defines one
+                if (earlyBird && freshEvent.earlyBirdCapacity) {
+                    const currentEarlyBirds = freshEvent.stats?.earlyBirdRegistrations || 0;
+                    if (currentEarlyBirds >= freshEvent.earlyBirdCapacity) {
+                        earlyBird = false;
+                    }
+                }
+                
+                finalEarlyBird = earlyBird;
+
+                // B. Save Custom Form Responses
+                const newRegistrationRef = doc(collection(db, 'registrations'));
+                transaction.set(newRegistrationRef, {
+                    eventId: event.id,
+                    eventId_userId: `${event.id}_${user.uid}`,
+                    userId: user.uid,
+                    userEmail: user.email,
+                    userName: user.displayName,
+                    responses: responses,
+                    schemaAtSubmission: event.customFormSchema,
+                    timestamp: new Date().toISOString(),
+                    status: 'confirmed',
+                });
+
+                // C. Add to Event Participants
+                const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
+                transaction.set(participantRef, {
+                    userId: user.uid,
+                    name: user.displayName || 'Anonymous',
+                    email: user.email,
+                    branch: userData.branch || 'Unknown',
+                    year: userData.year || 'Unknown',
+                    joinedAt: new Date().toISOString(),
+                });
+
+                // D. Add to User's Participating List
+                const participatingRef = doc(db, 'users', user.uid, 'participating', event.id);
+                transaction.set(participatingRef, {
+                    eventId: event.id,
+                    joinedAt: new Date().toISOString(),
+                });
+
+                // E. Award Points & Early Bird Badge
+                const userUpdate = { points: increment(10) };
+                if (earlyBird) {
+                    userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
+                    
+                    // Increment early bird stats to enforce limits on concurrent requests
+                    transaction.update(eventRef, {
+                        'stats.earlyBirdRegistrations': increment(1)
+                    });
+                }
+                
+                const userRef = doc(db, 'users', user.uid);
+                transaction.update(userRef, userUpdate);
             });
-
-            // C. Add to Event Participants
-            const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
-            batch.set(participantRef, {
-                userId: user.uid,
-                name: user.displayName || 'Anonymous',
-                email: user.email,
-                branch: userData.branch || 'Unknown',
-                year: userData.year || 'Unknown',
-                joinedAt: new Date().toISOString(),
-            });
-
-            // D. Add to User's Participating List
-            const participatingRef = doc(db, 'users', user.uid, 'participating', event.id);
-            batch.set(participatingRef, {
-                eventId: event.id,
-                joinedAt: new Date().toISOString(),
-            });
-
-            // E. Award Points & Early Bird Badge
-            const { isEligible: earlyBird } = getEarlyBirdInfo(event);
-            const userUpdate = { points: increment(10) };
-            if (earlyBird) {
-                userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
-            }
-            const userRef = doc(db, 'users', user.uid);
-            batch.update(userRef, userUpdate);
-
-            await batch.commit();
 
             // F. Schedule Reminder
             await scheduleEventReminder(event);
@@ -129,7 +157,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
             setShowConfetti(true);
             Alert.alert(
                 'Registered! 🎉',
-                earlyBird
+                finalEarlyBird
                     ? 'You earned +10 Points and the 🐦 Early Bird badge for being one of the first to sign up!'
                     : 'You earned +10 Points for registering.',
                 [
@@ -141,7 +169,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
             );
         } catch (e) {
             console.error(e);
-            Alert.alert('Error', 'Failed to register.');
+            Alert.alert('Error', e.message || 'Failed to register.');
         } finally {
             setLoading(false);
         }
