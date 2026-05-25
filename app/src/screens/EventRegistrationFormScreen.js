@@ -14,14 +14,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useTheme } from '../lib/ThemeContext';
 import PremiumInput from '../components/PremiumInput';
-import {
-    collection,
-    doc,
-    increment,
-    getDoc,
-    arrayUnion,
-    writeBatch,
-} from 'firebase/firestore';
+import { collection, doc, increment, getDoc, arrayUnion, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebaseConfig';
 import { useAuth } from '../lib/AuthContext';
 import { scheduleEventReminder } from '../lib/notificationService';
