@@ -10,7 +10,6 @@ import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 import * as Clipboard from 'expo-clipboard';
-import { platform } from 'node:os';
 
 const { width } = Dimensions.get('window');
 

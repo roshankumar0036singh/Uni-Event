@@ -141,13 +141,14 @@ export const getTopContributors = functions.https.onCall(async data => {
         };
     });
 
-    const lastContributor = contributors.length > 0 ? contributors[contributors.length - 1] : null;
+     const lastContributor = contributors.length > 0 ? contributors[contributors.length - 1] : null;
+     const hasMore = usersSnapshot.docs.length > limit;
 
     return {
         success: true,
         contributors,
-        hasMore: usersSnapshot.docs.length > limit,
-        nextCursor: lastContributor
+        hasMore,
+        nextCursor: hasMore && lastContributor
             ? {
                 lastPoints: lastContributor.points,
                 lastUserId: lastContributor.userId,
