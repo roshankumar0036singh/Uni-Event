@@ -50,13 +50,13 @@ export default function AuthScreen() {
     });
 
     // Suppress the native browser password-reveal eye icon on web
-useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    // Avoid duplicate creation and track ownership
-    if (document.getElementById('hide-password-reveal')) return;
-    const style = document.createElement('style');
-    style.id = 'hide-password-reveal';
-    style.textContent = `
+    useEffect(() => {
+        if (Platform.OS !== 'web') return;
+        // Avoid duplicate creation and track ownership
+        if (document.getElementById('hide-password-reveal')) return;
+        const style = document.createElement('style');
+        style.id = 'hide-password-reveal';
+        style.textContent = `
         input[type="password"]::-ms-reveal,
         input[type="password"]::-ms-clear,
         input[type="password"]::-webkit-credentials-auto-fill-button,
@@ -64,17 +64,17 @@ useEffect(() => {
         input[type="password"]::-webkit-password-reveal-button {
             display: none !important;
         }`;
-    document.head.appendChild(style);
-    // Flag indicating we created the style element
-    const createdStyle = true;
-    // Cleanup only if we created the style element
-    return () => {
-        if (createdStyle) {
-            const existing = document.getElementById('hide-password-reveal');
-            if (existing) existing.remove();
-        }
-    };
-}, []);
+        document.head.appendChild(style);
+        // Flag indicating we created the style element
+        const createdStyle = true;
+        // Cleanup only if we created the style element
+        return () => {
+            if (createdStyle) {
+                const existing = document.getElementById('hide-password-reveal');
+                if (existing) existing.remove();
+            }
+        };
+    }, []);
 
     useEffect(() => {
         setPasswordError('');
@@ -308,7 +308,11 @@ useEffect(() => {
                             <TextInput
                                 style={[
                                     styles.input,
-                                    { color: theme.colors.text, backgroundColor: 'transparent', paddingRight: 40 },
+                                    {
+                                        color: theme.colors.text,
+                                        backgroundColor: 'transparent',
+                                        paddingRight: 40,
+                                    },
                                 ]}
                                 placeholder="Password"
                                 placeholderTextColor={theme.colors.textSecondary}
@@ -318,7 +322,7 @@ useEffect(() => {
                                     if (passwordError) setPasswordError('');
                                 }}
                                 secureTextEntry={!showPassword}
-                                autoComplete={isLogin ? "current-password" : "new-password"}
+                                autoComplete={isLogin ? 'current-password' : 'new-password'}
                                 importantForAutofill="no"
                                 autoCorrect={false}
                                 textContentType="none"
@@ -335,10 +339,12 @@ useEffect(() => {
                                     zIndex: 10,
                                 }}
                                 accessibilityRole="button"
-                                accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                                accessibilityLabel={
+                                    showPassword ? 'Hide password' : 'Show password'
+                                }
                             >
                                 <Ionicons
-                                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                                     size={20}
                                     color={theme.colors.textSecondary}
                                 />
