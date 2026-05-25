@@ -10,7 +10,7 @@ import {
     startAfter,
     orderBy,
 } from 'firebase/firestore';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Animated,
     Alert,
@@ -163,7 +163,7 @@ export default function UserFeed() {
         return true;
     };
 
-    const fetchEvents = async (loadMore = false) => {
+    const fetchEvents = useCallback(async (loadMore = false) => {
         if (!user) return;
         if (loadMore && (!hasMore || isFetchingMore)) return;
 
@@ -237,11 +237,11 @@ export default function UserFeed() {
             setIsFetchingMore(false);
             setRefreshing(false);
         }
-    };
+    }, [user, activeFilter, debouncedSearchQuery, hasMore, isFetchingMore, lastVisible]);
 
     useEffect(() => {
         fetchEvents(false);
-    }, [user, activeFilter, debouncedSearchQuery]);
+    }, [fetchEvents]);
 
     // Recommendation Logic: Views + User History + Freshness
     const getRecommendedEvents = () => {
