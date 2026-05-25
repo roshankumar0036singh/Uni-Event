@@ -10,7 +10,7 @@ import {
     startAfter,
     orderBy,
 } from 'firebase/firestore';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     Animated,
     Alert,
