@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, serverTimestamp, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, updateDoc, increment, writeBatch } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 
 /**
@@ -75,9 +75,11 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
         const ticketId = ticketData.id;
         const userId = ticketData.userId;
 
+        const batch = writeBatch(db);
+
         // Create check-in record
         const checkInRef = doc(db, 'events', eventId, 'checkIns', userId);
-        await setDoc(checkInRef, {
+        batch.set(checkInRef, {
             userId,
             userName: ticketData.userName || 'Guest',
             userEmail: ticketData.userEmail || '',
@@ -92,7 +94,7 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
 
         // Update ticket status
         const ticketRef = doc(db, 'tickets', ticketId);
-        await updateDoc(ticketRef, {
+        batch.update(ticketRef, {
             checkInStatus: 'checked-in',
             checkedInAt: serverTimestamp(),
             checkedInBy: organizerId,
@@ -101,7 +103,7 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
         // Update event stats
         const eventRef = doc(db, 'events', eventId);
 
-        await updateDoc(eventRef, {
+        batch.update(eventRef, {
             'stats.totalCheckedIn': increment(1),
             'stats.lastCheckInAt': serverTimestamp(),
         });
@@ -109,13 +111,15 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
         // Update user activity
         const userRef = doc(db, 'users', userId);
 
-        await setDoc(
+        batch.set(
             userRef,
             {
                 lastActive: serverTimestamp(),
             },
             { merge: true },
         );
+
+        await batch.commit();
 
         return {
             success: true,
