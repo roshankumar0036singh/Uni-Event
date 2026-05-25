@@ -58,6 +58,7 @@ export default function UserFeed() {
     const navigation = useNavigation();
 
     // Pagination and Recommendation State
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [upcomingPool, setUpcomingPool] = useState([]);
     const [lastVisible, setLastVisible] = useState(null);
     const [isFetchingMore, setIsFetchingMore] = useState(false);
@@ -79,6 +80,14 @@ export default function UserFeed() {
         });
         return unsub;
     }, [user]);
+
+    // Debounce search query to prevent excessive Firestore reads
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     // Listen for pending feedback requests
     useEffect(() => {
@@ -117,6 +126,7 @@ export default function UserFeed() {
                 const now = new Date().toISOString();
                 const q = query(
                     collection(db, 'events'),
+                    where('status', '==', 'active'),
                     where('startAt', '>=', now),
                     orderBy('startAt', 'asc'),
                     limit(50),
@@ -125,7 +135,7 @@ export default function UserFeed() {
                 const list = [];
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    if (data.status !== 'suspended') list.push({ id: doc.id, ...data });
+                    list.push({ id: doc.id, ...data });
                 });
                 setUpcomingPool(list);
             } catch (error) {
@@ -149,34 +159,38 @@ export default function UserFeed() {
 
         try {
             const now = new Date().toISOString();
-            let qConstraints = [];
+            const qConstraints = [where('status', '==', 'active')];
 
             if (activeFilter === 'Upcoming') {
-                qConstraints = [where('startAt', '>=', now), orderBy('startAt', 'asc')];
+                qConstraints.push(where('startAt', '>=', now), orderBy('startAt', 'asc'));
             } else if (activeFilter === 'Past') {
-                qConstraints = [where('startAt', '<', now), orderBy('startAt', 'desc')];
+                qConstraints.push(where('startAt', '<', now), orderBy('startAt', 'desc'));
             } else {
                 // For categories, without composite index, we might just query upcoming
                 // and filter locally, OR assume composite index exists.
                 // Assuming composite index exists for category + startAt
-                qConstraints = [
+                qConstraints.push(
                     where('category', '==', activeFilter),
                     where('startAt', '>=', now),
                     orderBy('startAt', 'asc'),
-                ];
+                );
             }
 
-            if (loadMore && lastVisible) {
-                qConstraints.push(startAfter(lastVisible));
+            let q;
+            if (debouncedSearchQuery.trim()) {
+                q = query(collection(db, 'events'), ...qConstraints);
+            } else {
+                if (loadMore && lastVisible) {
+                    qConstraints.push(startAfter(lastVisible));
+                }
+                q = query(collection(db, 'events'), ...qConstraints, limit(PAGE_SIZE));
             }
-
-            const q = query(collection(db, 'events'), ...qConstraints, limit(PAGE_SIZE));
 
             const snapshot = await getDocs(q);
             const list = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
-                if (data.status !== 'suspended') list.push({ id: doc.id, ...data });
+                list.push({ id: doc.id, ...data });
             });
 
             if (loadMore) {
@@ -195,7 +209,7 @@ export default function UserFeed() {
             } else {
                 if (!loadMore) setLastVisible(null);
             }
-            setHasMore(snapshot.docs.length === PAGE_SIZE);
+            setHasMore(debouncedSearchQuery.trim() ? false : snapshot.docs.length === PAGE_SIZE);
         } catch (error) {
             console.error('Error fetching paginated events: ', error);
             // Fallback if composite index is missing for categories
@@ -214,7 +228,7 @@ export default function UserFeed() {
 
     useEffect(() => {
         fetchEvents(false);
-    }, [user, activeFilter]);
+    }, [user, activeFilter, debouncedSearchQuery]);
 
     // Recommendation Logic: Views + User History + Freshness
     const getRecommendedEvents = () => {
@@ -272,8 +286,8 @@ export default function UserFeed() {
         let filtered = events;
 
         // 0. Search Query Filtering
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
+        if (debouncedSearchQuery.trim()) {
+            const query = debouncedSearchQuery.toLowerCase();
             filtered = filtered.filter(
                 e =>
                     e.title?.toLowerCase().includes(query) ||
