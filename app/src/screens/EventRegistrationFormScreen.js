@@ -15,11 +15,8 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { useTheme } from '../lib/ThemeContext';
 import PremiumInput from '../components/PremiumInput';
 import {
-    addDoc,
     collection,
-    setDoc,
     doc,
-    updateDoc,
     increment,
     getDoc,
     arrayUnion,
