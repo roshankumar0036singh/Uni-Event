@@ -145,6 +145,24 @@ export default function UserFeed() {
         fetchPool();
     }, [user]);
 
+    const checkAudienceEligibility = (event) => {
+        if (role === 'student' && userData && userData.branch && userData.year) {
+            const targetDepts = event.target?.departments || [];
+            const userDept = userData.branch || 'Unknown';
+            const deptMatch =
+                targetDepts.length === 0 ||
+                targetDepts.includes('All') ||
+                targetDepts.includes(userDept);
+
+            const targetYears = event.target?.years || [];
+            const userYear = parseInt(userData.year || 0);
+            const yearMatch = targetYears.length === 0 || targetYears.includes(userYear);
+
+            return deptMatch && yearMatch;
+        }
+        return true;
+    };
+
     const fetchEvents = async (loadMore = false) => {
         if (!user) return;
         if (loadMore && (!hasMore || isFetchingMore)) return;
@@ -176,15 +194,10 @@ export default function UserFeed() {
                 );
             }
 
-            let q;
-            if (debouncedSearchQuery.trim()) {
-                q = query(collection(db, 'events'), ...qConstraints);
-            } else {
-                if (loadMore && lastVisible) {
-                    qConstraints.push(startAfter(lastVisible));
-                }
-                q = query(collection(db, 'events'), ...qConstraints, limit(PAGE_SIZE));
+            if (loadMore && lastVisible) {
+                qConstraints.push(startAfter(lastVisible));
             }
+            const q = query(collection(db, 'events'), ...qConstraints, limit(PAGE_SIZE));
 
             const snapshot = await getDocs(q);
             const list = [];
@@ -209,7 +222,7 @@ export default function UserFeed() {
             } else {
                 if (!loadMore) setLastVisible(null);
             }
-            setHasMore(debouncedSearchQuery.trim() ? false : snapshot.docs.length === PAGE_SIZE);
+            setHasMore(snapshot.docs.length === PAGE_SIZE);
         } catch (error) {
             console.error('Error fetching paginated events: ', error);
             // Fallback if composite index is missing for categories
@@ -233,7 +246,8 @@ export default function UserFeed() {
     // Recommendation Logic: Views + User History + Freshness
     const getRecommendedEvents = () => {
         const now = new Date();
-        const upcomingEvents = upcomingPool.filter(e => new Date(e.startAt) >= now);
+        const eligiblePool = upcomingPool.filter(checkAudienceEligibility);
+        const upcomingEvents = eligiblePool.filter(e => new Date(e.startAt) >= now);
 
         if (upcomingEvents.length === 0) return [];
 
@@ -297,22 +311,7 @@ export default function UserFeed() {
         }
 
         // 1. Strict Profile Filtering (Department & Year)
-        if (role === 'student' && userData && userData.branch && userData.year) {
-            filtered = filtered.filter(e => {
-                const targetDepts = e.target?.departments || [];
-                const userDept = userData.branch || 'Unknown';
-                const deptMatch =
-                    targetDepts.length === 0 ||
-                    targetDepts.includes('All') ||
-                    targetDepts.includes(userDept);
-
-                const targetYears = e.target?.years || [];
-                const userYear = parseInt(userData.year || 0);
-                const yearMatch = targetYears.length === 0 || targetYears.includes(userYear);
-
-                return deptMatch && yearMatch;
-            });
-        }
+        filtered = filtered.filter(checkAudienceEligibility);
 
         // We no longer need to filter by Upcoming/Past/Category manually
         // because the backend query (fetchEvents) already handles it!
