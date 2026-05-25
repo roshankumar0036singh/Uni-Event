@@ -79,6 +79,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
             const userData = userDoc.exists() ? userDoc.data() : {};
 
             let finalEarlyBird = false;
+            let freshEvent = null;
 
             await runTransaction(db, async (transaction) => {
                 // Read the fresh event document securely
@@ -89,13 +90,13 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                     throw new Error('Event not found');
                 }
                 
-                const freshEvent = { id: eventSnap.id, ...eventSnap.data() };
+                freshEvent = { id: eventSnap.id, ...eventSnap.data() };
                 
                 // Determine early bird eligibility based on the real-time data
                 let { isEligible: earlyBird } = getEarlyBirdInfo(freshEvent);
                 
                 // Enforce capacity limit if the event defines one
-                if (earlyBird && freshEvent.earlyBirdCapacity) {
+                if (earlyBird && freshEvent.earlyBirdCapacity != null) {
                     const currentEarlyBirds = freshEvent.stats?.earlyBirdRegistrations || 0;
                     if (currentEarlyBirds >= freshEvent.earlyBirdCapacity) {
                         earlyBird = false;
@@ -148,11 +149,11 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 }
                 
                 const userRef = doc(db, 'users', user.uid);
-                transaction.update(userRef, userUpdate);
+                transaction.set(userRef, userUpdate, { merge: true });
             });
 
             // F. Schedule Reminder
-            await scheduleEventReminder(event);
+            await scheduleEventReminder(freshEvent || event);
 
             setShowConfetti(true);
             Alert.alert(
