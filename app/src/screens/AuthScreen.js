@@ -32,6 +32,7 @@ export default function AuthScreen() {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);
     const [passwordError, setPasswordError] = useState('');
@@ -47,6 +48,33 @@ export default function AuthScreen() {
                 ? window.location.origin || process.env.EXPO_PUBLIC_REDIRECT_URI
                 : process.env.EXPO_PUBLIC_REDIRECT_URI || makeRedirectUri({ useProxy: true }),
     });
+
+    // Suppress the native browser password-reveal eye icon on web
+    useEffect(() => {
+        if (Platform.OS !== 'web') return;
+        // Avoid duplicate creation and track ownership
+        if (document.getElementById('hide-password-reveal')) return;
+        const style = document.createElement('style');
+        style.id = 'hide-password-reveal';
+        style.textContent = `
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear,
+        input[type="password"]::-webkit-credentials-auto-fill-button,
+        input[type="password"]::-webkit-textfield-decoration-container,
+        input[type="password"]::-webkit-password-reveal-button {
+            display: none !important;
+        }`;
+        document.head.appendChild(style);
+        // Flag indicating we created the style element
+        const createdStyle = true;
+        // Cleanup only if we created the style element
+        return () => {
+            if (createdStyle) {
+                const existing = document.getElementById('hide-password-reveal');
+                if (existing) existing.remove();
+            }
+        };
+    }, []);
 
     useEffect(() => {
         setPasswordError('');
@@ -280,7 +308,11 @@ export default function AuthScreen() {
                             <TextInput
                                 style={[
                                     styles.input,
-                                    { color: theme.colors.text, backgroundColor: 'transparent' },
+                                    {
+                                        color: theme.colors.text,
+                                        backgroundColor: 'transparent',
+                                        paddingRight: 40,
+                                    },
                                 ]}
                                 placeholder="Password"
                                 placeholderTextColor={theme.colors.textSecondary}
@@ -289,8 +321,34 @@ export default function AuthScreen() {
                                     setPassword(text);
                                     if (passwordError) setPasswordError('');
                                 }}
-                                secureTextEntry
+                                secureTextEntry={!showPassword}
+                                autoComplete={isLogin ? 'current-password' : 'new-password'}
+                                importantForAutofill="no"
+                                autoCorrect={false}
+                                textContentType="none"
                             />
+                            <TouchableOpacity
+                                onPress={() => setShowPassword(!showPassword)}
+                                style={{
+                                    position: 'absolute',
+                                    right: 10,
+                                    top: 12,
+                                    backgroundColor: theme.colors.surface,
+                                    borderRadius: 12,
+                                    padding: 4,
+                                    zIndex: 10,
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel={
+                                    showPassword ? 'Hide password' : 'Show password'
+                                }
+                            >
+                                <Ionicons
+                                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                                    size={20}
+                                    color={theme.colors.textSecondary}
+                                />
+                            </TouchableOpacity>
                         </View>
                         {!isLogin && passwordError ? (
                             <Text style={styles.errorText}>{passwordError}</Text>

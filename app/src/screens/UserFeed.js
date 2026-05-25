@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, limit, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, limit, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { useEffect, useRef, useState } from 'react';
 import {
     Animated,
+    Alert,
     Platform,
     RefreshControl,
     ScrollView,
@@ -16,11 +17,22 @@ import {
 } from 'react-native';
 import EventCard from '../components/EventCard';
 import FeedbackModal from '../components/FeedbackModal';
-import { EventListSkeleton } from '../components/SkeletonLoader';
+import SkeletonLoader from '../components/SkeletonLoader';
 import { useAuth } from '../lib/AuthContext';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import { useNavigation } from '@react-navigation/native';
+
+let MapView = null;
+let Marker = null;
+let Callout = null;
+if (Platform.OS !== 'web') {
+    const Maps = require('react-native-maps');
+    MapView = Maps.default;
+    Marker = Maps.Marker;
+    Callout = Maps.Callout;
+}
 
 const FILTERS = ['Upcoming', 'Past', 'Cultural', 'Sports', 'Tech', 'Workshop', 'Seminar'];
 
@@ -33,7 +45,8 @@ export default function UserFeed() {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [refreshNonce, setRefreshNonce] = useState(0);
+    const [viewMode, setViewMode] = useState('list');
+    const navigation = useNavigation();
 
     // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -100,17 +113,15 @@ export default function UserFeed() {
                 });
                 setEvents(list);
                 setLoading(false);
-                setRefreshing(false);
             },
             error => {
-                console.log('Error fetching events: ', error);
+                console.error('Error fetching events: ', error);
                 setLoading(false);
-                setRefreshing(false);
             },
         );
 
         return () => unsubscribe();
-    }, [role, user, refreshNonce]);
+    }, [role, user]);
 
     // Recommendation Logic: Views + User History + Freshness
     const getRecommendedEvents = () => {
@@ -241,9 +252,25 @@ export default function UserFeed() {
 
     const displayList = getFilteredEvents();
 
-    const onRefresh = () => {
+    const onRefresh = async () => {
+        if (!user) return;
         setRefreshing(true);
-        setRefreshNonce(n => n + 1);
+        try {
+            const q = query(collection(db, 'events'));
+            const snapshot = await getDocs(q);
+            const list = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.status === 'suspended') return;
+                list.push({ id: doc.id, ...data });
+            });
+            setEvents(list);
+        } catch (error) {
+            console.error('Refresh error:', error);
+            Alert.alert('Error', 'Failed to refresh events.');
+        } finally {
+            setRefreshing(false);
+        }
     };
 
     const StickyHeader = () => (
@@ -343,7 +370,8 @@ export default function UserFeed() {
                             message: `Check out this event: ${item.title} at ${item.location}!`,
                         });
                     } catch (e) {
-                        console.log(e);
+                        console.error('Share Error:', e);
+                        Alert.alert('Error', 'Failed to share the event.');
                     }
                 }}
             />
@@ -358,9 +386,60 @@ export default function UserFeed() {
 
     const renderHeader = () => (
         <Animated.View style={{ transform: [{ translateY: headerTranslateY }] }}>
+            <View
+                style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginHorizontal: 20,
+                    marginBottom: 15,
+                }}
+            >
+                <Text style={styles.sectionTitle}>RECOMMENDED FOR YOU</Text>
+                {MapView && (
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            backgroundColor: theme.colors.surface,
+                            borderRadius: 20,
+                            overflow: 'hidden',
+                        }}
+                    >
+                        <TouchableOpacity
+                            onPress={() => setViewMode('list')}
+                            style={{
+                                paddingHorizontal: 15,
+                                paddingVertical: 8,
+                                backgroundColor:
+                                    viewMode === 'list' ? theme.colors.primary : 'transparent',
+                            }}
+                        >
+                            <Ionicons
+                                name="list"
+                                size={20}
+                                color={viewMode === 'list' ? '#fff' : theme.colors.textSecondary}
+                            />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => setViewMode('map')}
+                            style={{
+                                paddingHorizontal: 15,
+                                paddingVertical: 8,
+                                backgroundColor:
+                                    viewMode === 'map' ? theme.colors.primary : 'transparent',
+                            }}
+                        >
+                            <Ionicons
+                                name="map"
+                                size={20}
+                                color={viewMode === 'map' ? '#fff' : theme.colors.textSecondary}
+                            />
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
             {/* Recommendations Rail */}
             <View style={{ marginBottom: 20 }}>
-                <Text style={styles.sectionTitle}>RECOMMENDED FOR YOU</Text>
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -391,9 +470,9 @@ export default function UserFeed() {
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {loading ? (
                 <View style={{ paddingTop: 20 }}>
-                    <EventListSkeleton />
+                    <SkeletonLoader />
                 </View>
-            ) : (
+            ) : viewMode === 'list' ? (
                 <Animated.SectionList
                     sections={[{ data: displayList }]}
                     keyExtractor={item => item.id}
@@ -429,6 +508,153 @@ export default function UserFeed() {
                         </View>
                     }
                 />
+            ) : (
+                MapView && (
+                    <View style={{ flex: 1 }}>
+                        <View style={{ paddingTop: 10 }}>
+                            <StickyHeader />
+                        </View>
+                        <View
+                            style={{
+                                flexDirection: 'row',
+                                justifyContent: 'flex-end',
+                                paddingHorizontal: 20,
+                                marginBottom: 10,
+                            }}
+                        >
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    backgroundColor: theme.colors.surface,
+                                    borderRadius: 20,
+                                    overflow: 'hidden',
+                                }}
+                            >
+                                <TouchableOpacity
+                                    onPress={() => setViewMode('list')}
+                                    style={{
+                                        paddingHorizontal: 15,
+                                        paddingVertical: 8,
+                                        backgroundColor:
+                                            viewMode === 'list'
+                                                ? theme.colors.primary
+                                                : 'transparent',
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="list"
+                                        size={20}
+                                        color={
+                                            viewMode === 'list'
+                                                ? '#fff'
+                                                : theme.colors.textSecondary
+                                        }
+                                    />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => setViewMode('map')}
+                                    style={{
+                                        paddingHorizontal: 15,
+                                        paddingVertical: 8,
+                                        backgroundColor:
+                                            viewMode === 'map'
+                                                ? theme.colors.primary
+                                                : 'transparent',
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="map"
+                                        size={20}
+                                        color={
+                                            viewMode === 'map' ? '#fff' : theme.colors.textSecondary
+                                        }
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                        <View
+                            style={{
+                                flex: 1,
+                                marginHorizontal: 20,
+                                marginBottom: 20,
+                                borderRadius: 16,
+                                overflow: 'hidden',
+                                borderWidth: 1,
+                                borderColor: theme.colors.border,
+                            }}
+                        >
+                            <MapView
+                                style={{ flex: 1 }}
+                                initialRegion={{
+                                    latitude: 28.7041,
+                                    longitude: 77.1025,
+                                    latitudeDelta: 0.01,
+                                    longitudeDelta: 0.01,
+                                }}
+                            >
+                                {displayList
+                                    .filter(
+                                        e =>
+                                            e.coordinates &&
+                                            typeof e.coordinates === 'object' &&
+                                            Number.isFinite(e.coordinates.latitude) &&
+                                            Number.isFinite(e.coordinates.longitude),
+                                    )
+                                    .map(event => (
+                                        <Marker key={event.id} coordinate={event.coordinates}>
+                                            <Callout
+                                                onPress={() =>
+                                                    navigation.navigate('EventDetail', {
+                                                        eventId: event.id,
+                                                        action: 'view',
+                                                    })
+                                                }
+                                            >
+                                                <View style={{ width: 200, padding: 5 }}>
+                                                    <Text
+                                                        style={{
+                                                            fontWeight: 'bold',
+                                                            fontSize: 16,
+                                                            marginBottom: 5,
+                                                        }}
+                                                    >
+                                                        {event.title}
+                                                    </Text>
+                                                    <Text
+                                                        style={{
+                                                            color: '#666',
+                                                            fontSize: 12,
+                                                            marginBottom: 10,
+                                                        }}
+                                                        numberOfLines={2}
+                                                    >
+                                                        {event.description}
+                                                    </Text>
+                                                    <TouchableOpacity
+                                                        style={{
+                                                            backgroundColor: theme.colors.primary,
+                                                            padding: 8,
+                                                            borderRadius: 8,
+                                                            alignItems: 'center',
+                                                        }}
+                                                    >
+                                                        <Text
+                                                            style={{
+                                                                color: '#fff',
+                                                                fontWeight: 'bold',
+                                                            }}
+                                                        >
+                                                            View Details
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </Callout>
+                                        </Marker>
+                                    ))}
+                            </MapView>
+                        </View>
+                    </View>
+                )
             )}
 
             {/* Feedback Modal */}

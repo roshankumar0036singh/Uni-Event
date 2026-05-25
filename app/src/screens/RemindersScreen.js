@@ -1,6 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { collection, deleteDoc, doc, query, where, getDoc, onSnapshot } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import {
+    collection,
+    deleteDoc,
+    doc,
+    query,
+    where,
+    getDoc,
+    getDocs,
+    onSnapshot,
+} from 'firebase/firestore';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -28,6 +37,52 @@ export default function RemindersScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
+    const isMounted = useRef(true);
+    useEffect(() => {
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
+    const processRemindersSnapshot = async snapshot => {
+        const list = [];
+        await Promise.all(
+            snapshot.docs.map(async docSnap => {
+                const data = docSnap.data();
+                let eventTitle = 'Event';
+                let eventLocation = '';
+                let bannerUrl = null;
+                try {
+                    const eventDoc = await getDoc(doc(db, 'events', data.eventId));
+                    if (eventDoc.exists()) {
+                        const ed = eventDoc.data();
+                        eventTitle = ed.title;
+                        eventLocation = ed.location;
+                        bannerUrl = ed.bannerUrl;
+                    }
+                } catch (e) {
+                    console.error('Error fetching event details for reminder:', e);
+                }
+
+                list.push({
+                    id: docSnap.id,
+                    eventTitle,
+                    eventLocation,
+                    bannerUrl,
+                    ...data,
+                });
+            }),
+        );
+
+        list.sort((a, b) => {
+            const da = a.remindAt?.toDate ? a.remindAt.toDate() : new Date(a.remindAt);
+            const db = b.remindAt?.toDate ? b.remindAt.toDate() : new Date(b.remindAt);
+            return da - db;
+        });
+
+        return list;
+    };
+
     useEffect(() => {
         if (!user) return;
 
@@ -37,61 +92,43 @@ export default function RemindersScreen({ navigation }) {
         const unsubscribe = onSnapshot(
             q,
             async snapshot => {
-                const list = [];
-                // Parallel fetch for speed
-                await Promise.all(
-                    snapshot.docs.map(async docSnap => {
-                        const data = docSnap.data();
-                        let eventTitle = 'Event';
-                        let eventLocation = '';
-                        let bannerUrl = null;
-                        try {
-                            // We could cache this or use a separate listener but for now this is fine
-                            const eventDoc = await getDoc(doc(db, 'events', data.eventId));
-                            if (eventDoc.exists()) {
-                                const ed = eventDoc.data();
-                                eventTitle = ed.title;
-                                eventLocation = ed.location;
-                                bannerUrl = ed.bannerUrl;
-                            }
-                        } catch (e) {
-                            console.log(e);
-                        }
-
-                        list.push({
-                            id: docSnap.id,
-                            eventTitle,
-                            eventLocation,
-                            bannerUrl,
-                            ...data,
-                        });
-                    }),
-                );
-
-                // Sort by remindAt
-                list.sort((a, b) => {
-                    const da = a.remindAt?.toDate ? a.remindAt.toDate() : new Date(a.remindAt);
-                    const db = b.remindAt?.toDate ? b.remindAt.toDate() : new Date(b.remindAt);
-                    return da - db;
-                });
-
-                setReminders(list);
-                setLoading(false);
+                const list = await processRemindersSnapshot(snapshot);
+                if (isMounted.current) {
+                    setReminders(list);
+                    setLoading(false);
+                }
             },
             error => {
                 console.error('Reminders listener Error:', error);
-                setLoading(false);
+                if (isMounted.current) {
+                    setLoading(false);
+                }
             },
         );
 
         return () => unsubscribe();
     }, [user]);
 
-    // Manual refresh is now less critical but we can keep it for network retry
-    const handleRefresh = () => {
-        // onSnapshot auto-reconnects, but if we want to force re-render or check connectivity
+    // Manual refresh allows the user to explicitly retry fetching data if network is unstable
+    const handleRefresh = async () => {
+        if (!user) return;
         setRefreshing(true);
-        setTimeout(() => setRefreshing(false), 1000);
+        try {
+            const q = query(collection(db, 'reminders'), where('userId', '==', user.uid));
+            const snapshot = await getDocs(q);
+            const list = await processRemindersSnapshot(snapshot);
+
+            if (isMounted.current) {
+                setReminders(list);
+            }
+        } catch (error) {
+            console.error('Refresh error:', error);
+            Alert.alert('Error', 'Failed to refresh reminders.');
+        } finally {
+            if (isMounted.current) {
+                setRefreshing(false);
+            }
+        }
     };
 
     const handleDelete = async item => {

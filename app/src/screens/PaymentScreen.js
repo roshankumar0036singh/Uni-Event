@@ -13,6 +13,7 @@ import { useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Dimensions,
     Linking,
     SafeAreaView,
     ScrollView,
@@ -23,6 +24,7 @@ import {
     View,
 } from 'react-native';
 import PaymentSuccessAnimation from '../components/PaymentSuccessAnimation';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
@@ -40,6 +42,8 @@ export default function PaymentScreen({ route, navigation }) {
     const [utr, setUtr] = useState('');
     const [showUtrInput, setShowUtrInput] = useState(false);
     const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+    const [showConfetti, setShowConfetti] = useState(false);
+    const { width: screenWidth } = Dimensions.get('window');
 
     const handlePay = async () => {
         if (!selectedMethod) {
@@ -177,6 +181,7 @@ export default function PaymentScreen({ route, navigation }) {
 
                 // Show success animation (badge info surfaced via ticketData so TicketScreen can display it)
                 setShowSuccessAnimation(true);
+                setShowConfetti(true);
 
                 // Navigate to ticket after animation completes
                 setTimeout(() => {
@@ -340,6 +345,18 @@ export default function PaymentScreen({ route, navigation }) {
                 </View>
             </SafeAreaView>
 
+            {showConfetti && (
+                <View pointerEvents="none" style={styles.confettiOverlay}>
+                    <ConfettiCannon
+                        count={120}
+                        origin={{ x: screenWidth / 2, y: 0 }}
+                        fadeOut
+                        autoStart
+                        onAnimationEnd={() => setShowConfetti(false)}
+                    />
+                </View>
+            )}
+
             {/* Success Animation */}
             <PaymentSuccessAnimation
                 visible={showSuccessAnimation}
@@ -427,6 +444,15 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     payButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+    confettiOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 999,
+        elevation: 999,
+    },
 });
 
 PaymentScreen.propTypes = {

@@ -162,3 +162,5 @@ const styles = StyleSheet.create({
 ShimmerItem.propTypes = {
     style: PropTypes.any,
 };
+
+export default EventListSkeleton;
