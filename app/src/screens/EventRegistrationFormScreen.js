@@ -15,14 +15,12 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { useTheme } from '../lib/ThemeContext';
 import PremiumInput from '../components/PremiumInput';
 import {
-    addDoc,
     collection,
-    setDoc,
     doc,
-    updateDoc,
     increment,
     getDoc,
     arrayUnion,
+    writeBatch,
 } from 'firebase/firestore';
 import { db } from '../lib/firebaseConfig';
 import { useAuth } from '../lib/AuthContext';
@@ -87,8 +85,11 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             const userData = userDoc.exists() ? userDoc.data() : {};
 
+            const batch = writeBatch(db);
+
             // B. Save Custom Form Responses
-            await addDoc(collection(db, 'registrations'), {
+            const newRegistrationRef = doc(collection(db, 'registrations'));
+            batch.set(newRegistrationRef, {
                 eventId: event.id,
                 eventId_userId: `${event.id}_${user.uid}`,
                 userId: user.uid,
@@ -101,7 +102,8 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
             });
 
             // C. Add to Event Participants
-            await setDoc(doc(db, 'events', event.id, 'participants', user.uid), {
+            const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
+            batch.set(participantRef, {
                 userId: user.uid,
                 name: user.displayName || 'Anonymous',
                 email: user.email,
@@ -111,7 +113,8 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
             });
 
             // D. Add to User's Participating List
-            await setDoc(doc(db, 'users', user.uid, 'participating', event.id), {
+            const participatingRef = doc(db, 'users', user.uid, 'participating', event.id);
+            batch.set(participatingRef, {
                 eventId: event.id,
                 joinedAt: new Date().toISOString(),
             });
@@ -122,7 +125,10 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
             if (earlyBird) {
                 userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
             }
-            await updateDoc(doc(db, 'users', user.uid), userUpdate);
+            const userRef = doc(db, 'users', user.uid);
+            batch.update(userRef, userUpdate);
+
+            await batch.commit();
 
             // F. Schedule Reminder
             await scheduleEventReminder(event);
