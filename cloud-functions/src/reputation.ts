@@ -26,12 +26,12 @@ export const calculateReputation = functions.https.onCall(async (_data, context)
         const userData = userDoc.data();
 
         const attendanceCount =
-            userData.reputation?.attendanceCount || userData.attendanceCount || 0;
+            userData.reputation?.attendanceCount ?? userData.attendanceCount ?? 0;
 
         const registrationCount =
-            userData.reputation?.registrationCount || userData.registrationCount || 0;
+            userData.reputation?.registrationCount ?? userData.registrationCount ?? 0;
 
-        const remindersSet = userData.reputation?.remindersSet || userData.remindersSet || 0;
+        const remindersSet = userData.reputation?.remindersSet ?? userData.remindersSet ?? 0;
 
         const points = attendanceCount * 10 + registrationCount * 2 + remindersSet;
 
@@ -102,7 +102,12 @@ export const refreshTopContributorsLeaderboard = functions.pubsub
  * lastPoints, lastUserId, and startRank.
  */
 export const getTopContributors = functions.https.onCall(async data => {
-    const limit = Math.min(data?.limit || 10, 25);
+    const requestedLimit = data === null || data === void 0 ? void 0 : data.limit;
+    if (requestedLimit !== undefined &&
+        (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 25)) {
+        throw new functions.https.HttpsError('invalid-argument', 'limit must be an integer between 1 and 25.');
+    }
+    const limit = requestedLimit ?? 10;
     const lastPoints = data?.lastPoints;
     const lastUserId = data?.lastUserId;
     const startRank = data?.startRank || 1;
@@ -111,7 +116,7 @@ export const getTopContributors = functions.https.onCall(async data => {
         .collection('users')
         .orderBy('reputation.points', 'desc')
         .orderBy(admin.firestore.FieldPath.documentId())
-        .limit(limit);
+        .limit(limit+1);
 
     if (typeof lastPoints === 'number' && typeof lastUserId === 'string') {
         query = query.startAfter(lastPoints, lastUserId);
@@ -119,7 +124,8 @@ export const getTopContributors = functions.https.onCall(async data => {
 
     const usersSnapshot = await query.get();
 
-    const contributors = usersSnapshot.docs.map((doc, index) => {
+    const pageDocs = usersSnapshot.docs.slice(0, limit);
+    const contributors = pageDocs.map((doc, index) => {
         const userData = doc.data();
 
         return {
@@ -140,13 +146,13 @@ export const getTopContributors = functions.https.onCall(async data => {
     return {
         success: true,
         contributors,
-        hasMore: contributors.length === limit,
+        hasMore: usersSnapshot.docs.length > limit,
         nextCursor: lastContributor
             ? {
-                  lastPoints: lastContributor.points,
-                  lastUserId: lastContributor.userId,
-                  startRank: startRank + contributors.length,
-              }
+                lastPoints: lastContributor.points,
+                lastUserId: lastContributor.userId,
+                startRank: startRank + contributors.length,
+            }
             : null,
     };
 });

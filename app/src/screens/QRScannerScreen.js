@@ -10,6 +10,7 @@ import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 import * as Clipboard from 'expo-clipboard';
+import { platform } from 'node:os';
 
 const { width } = Dimensions.get('window');
 
@@ -17,11 +18,11 @@ export default function QRScannerScreen({ navigation, route }) {
     const { eventId, eventTitle } = route.params;
     const { user } = useAuth();
     const { theme } = useTheme();
-    const eventUrl= `https://unievent-ez2w.onrender.com/event/${eventId}`;
+    const eventUrl = `https://unievent-ez2w.onrender.com/event/${eventId}`;
     const [hasPermission, setHasPermission] = useState(null);
     const [scanned, setScanned] = useState(false);
     const [scanResult, setScanResult] = useState(null); // { status: 'success' | 'error', message: '' }
-    const [copied, setCopied]= useState(false);
+    const [copied, setCopied] = useState(false);
     useEffect(() => {
         if (Platform.OS !== 'web') {
             (async () => {
@@ -105,28 +106,55 @@ export default function QRScannerScreen({ navigation, route }) {
     };
 
     const handleCopyLink = async () => {
-        try{
+        try {
             await Clipboard.setStringAsync(eventUrl);
             setCopied(true);
 
-            setTimeout(()=>{
+            setTimeout(() => {
                 setCopied(false);
-            },2000);
+            }, 2000);
 
-        }catch(error){
-            console.log(error);
+        } catch (error) {
+            Alert.alert(
+                'Copy Failed',
+                error?.message || 'Unable to copy event link.'
+            );
         }
     }
 
-    const handleShare = async ()=> {
-        try{
+    const handleShare = async () => {
+        const message = `Join ${eventTitle}\n${eventUrl}`;
+        try {
+            if (Platform.OS === "web") {
+                if (navigator.share) {
+                    await navigator.share({
+                        title: eventTitle,
+                        text: message,
+                        url: eventUrl,
+                    })
+                }
+                else {
+                    await Clipboard.setStringAsync(message);
+
+                    Alert.alert(
+                        'Copied!',
+                        'Event link copied to clipboard. You can now share it manually.'
+                    );
+                }
+
+                return;
+            }
+
             await Share.share({
-                message: `Join ${eventTitle}\n${eventUrl}`,
+                message,
                 url: eventUrl,
-                title: eventTitle
+                title: eventTitle,
             });
-        }catch(error){
-            console.log(error);
+        } catch (error) {
+            Alert.alert(
+                'Share Failed',
+                error?.message || 'Unable to share event link.'
+            );
         }
     }
 
@@ -175,9 +203,9 @@ export default function QRScannerScreen({ navigation, route }) {
             <View style={styles.shareContainer}>
                 <TouchableOpacity
                     style={[
-    styles.shareButton,
-    copied && { backgroundColor: '#0bdd43' }
-]}
+                        styles.shareButton,
+                        copied && { backgroundColor: '#0bdd43' }
+                    ]}
                     onPress={handleCopyLink}
                 >
                     <Ionicons name="copy-outline" size={20} color="#fff" />
@@ -237,7 +265,7 @@ export default function QRScannerScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    cameraContainer: { flex: 1, position: 'relative'},
+    cameraContainer: { flex: 1, position: 'relative' },
     camera: { flex: 1, width: "100%" },
     overlayHeader: {
         position: 'absolute',

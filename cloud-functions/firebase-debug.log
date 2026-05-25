@@ -662,3 +662,470 @@ Issues? Report them at https://github.com/firebase/firebase-tools/issues and att
 
 [debug] [2026-05-25T12:20:16.025Z] Got response from /__/functions.yaml {"endpoints":{"sendDailyDigest":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"sendDailyDigest"},"checkUpcomingEvents":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkUpcomingEvents"},"onEventCreate":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"eventTrigger":{"eventType":"providers/cloud.firestore/eventTypes/document.create","eventFilters":{"resource":"projects/uni-event-66a81/databases/(default)/documents/events/{eventId}"},"retry":false},"labels":{},"entryPoint":"onEventCreate"},"checkReminders":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkReminders"},"calculateReputation":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"calculateReputation"},"refreshTopContributorsLeaderboard":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"refreshTopContributorsLeaderboard"},"getTopContributors":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"getTopContributors"},"setRole":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"setRole"},"detectInactiveUsers":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":"UTC"},"labels":{},"entryPoint":"detectInactiveUsers"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}]}
 [info] +  functions: Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers."}}
+[debug] [2026-05-25T13:07:04.817Z] File C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\tsconfig.json changed, reloading triggers {"metadata":{"emulator":{"name":"functions"},"message":"File C:\\Users\\ASUS\\Desktop\\projects\\Learn\\UniEvent\\Uni-Event\\cloud-functions\\tsconfig.json changed, reloading triggers"}}
+[debug] [2026-05-25T13:07:05.826Z] Validating nodejs source
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-05-25T13:07:06.524Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "node lib/server.js",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": "18"
+  },
+  "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roshankumar0036singh/Uni-Event.git"
+  },
+  "author": "Roshan Kumar Singh",
+  "license": "MIT",
+  "dependencies": {
+    "@types/dotenv": "^6.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "expo-server-sdk": "^4.0.0",
+    "express": "^5.2.1",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "~4.9.0",
+    "pdf-lib": "^1.17.1",
+    "resend": "^6.6.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.0",
+    "@types/express": "^4.17.0",
+    "firebase-functions-test": "^3.1.0",
+    "firebase-tools": "^15.4.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-google": "^0.14.0",
+    "prettier": "^3.0.0"
+  },
+  "private": true
+}
+[debug] [2026-05-25T13:07:06.524Z] Building nodejs source
+[debug] [2026-05-25T13:07:06.524Z] Failed to find version of module node: reached end of search path C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules
+[warn] !  functions: Your requested "node" version "18" doesn't match your global version "22". Using node@22 from host. 
+[info] i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly 
+[debug] [2026-05-25T13:07:06.526Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-05-25T13:07:06.531Z] Found firebase-functions binary at 'C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8035
+
+[debug] [2026-05-25T13:07:06.981Z] Got response from /__/functions.yaml {"endpoints":{"sendDailyDigest":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"sendDailyDigest"},"checkUpcomingEvents":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkUpcomingEvents"},"onEventCreate":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"eventTrigger":{"eventType":"providers/cloud.firestore/eventTypes/document.create","eventFilters":{"resource":"projects/uni-event-66a81/databases/(default)/documents/events/{eventId}"},"retry":false},"labels":{},"entryPoint":"onEventCreate"},"checkReminders":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkReminders"},"calculateReputation":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"calculateReputation"},"refreshTopContributorsLeaderboard":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"refreshTopContributorsLeaderboard"},"getTopContributors":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"getTopContributors"},"setRole":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"setRole"},"detectInactiveUsers":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":"UTC"},"labels":{},"entryPoint":"detectInactiveUsers"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}]}
+[info] +  functions: Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers."}}
+[debug] [2026-05-25T13:18:40.313Z] File C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\src\reputation.ts changed, reloading triggers {"metadata":{"emulator":{"name":"functions"},"message":"File C:\\Users\\ASUS\\Desktop\\projects\\Learn\\UniEvent\\Uni-Event\\cloud-functions\\src\\reputation.ts changed, reloading triggers"}}
+[debug] [2026-05-25T13:18:41.325Z] Validating nodejs source
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-05-25T13:18:42.104Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "node lib/server.js",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": "18"
+  },
+  "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roshankumar0036singh/Uni-Event.git"
+  },
+  "author": "Roshan Kumar Singh",
+  "license": "MIT",
+  "dependencies": {
+    "@types/dotenv": "^6.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "expo-server-sdk": "^4.0.0",
+    "express": "^5.2.1",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "~4.9.0",
+    "pdf-lib": "^1.17.1",
+    "resend": "^6.6.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.0",
+    "@types/express": "^4.17.0",
+    "firebase-functions-test": "^3.1.0",
+    "firebase-tools": "^15.4.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-google": "^0.14.0",
+    "prettier": "^3.0.0"
+  },
+  "private": true
+}
+[debug] [2026-05-25T13:18:42.104Z] Building nodejs source
+[debug] [2026-05-25T13:18:42.104Z] Failed to find version of module node: reached end of search path C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules
+[warn] !  functions: Your requested "node" version "18" doesn't match your global version "22". Using node@22 from host. 
+[info] i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly 
+[debug] [2026-05-25T13:18:42.105Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-05-25T13:18:42.108Z] Found firebase-functions binary at 'C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8155
+
+[debug] [2026-05-25T13:18:42.357Z] File C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\src\reputation.ts changed, reloading triggers {"metadata":{"emulator":{"name":"functions"},"message":"File C:\\Users\\ASUS\\Desktop\\projects\\Learn\\UniEvent\\Uni-Event\\cloud-functions\\src\\reputation.ts changed, reloading triggers"}}
+[debug] [2026-05-25T13:18:42.527Z] Got response from /__/functions.yaml {"endpoints":{"sendDailyDigest":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"sendDailyDigest"},"checkUpcomingEvents":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkUpcomingEvents"},"onEventCreate":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"eventTrigger":{"eventType":"providers/cloud.firestore/eventTypes/document.create","eventFilters":{"resource":"projects/uni-event-66a81/databases/(default)/documents/events/{eventId}"},"retry":false},"labels":{},"entryPoint":"onEventCreate"},"checkReminders":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkReminders"},"calculateReputation":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"calculateReputation"},"refreshTopContributorsLeaderboard":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"refreshTopContributorsLeaderboard"},"getTopContributors":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"getTopContributors"},"setRole":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"setRole"},"detectInactiveUsers":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":"UTC"},"labels":{},"entryPoint":"detectInactiveUsers"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}]}
+[debug] [2026-05-25T13:18:43.365Z] Validating nodejs source
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-05-25T13:18:44.343Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "node lib/server.js",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": "18"
+  },
+  "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roshankumar0036singh/Uni-Event.git"
+  },
+  "author": "Roshan Kumar Singh",
+  "license": "MIT",
+  "dependencies": {
+    "@types/dotenv": "^6.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "expo-server-sdk": "^4.0.0",
+    "express": "^5.2.1",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "~4.9.0",
+    "pdf-lib": "^1.17.1",
+    "resend": "^6.6.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.0",
+    "@types/express": "^4.17.0",
+    "firebase-functions-test": "^3.1.0",
+    "firebase-tools": "^15.4.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-google": "^0.14.0",
+    "prettier": "^3.0.0"
+  },
+  "private": true
+}
+[debug] [2026-05-25T13:18:44.343Z] Building nodejs source
+[debug] [2026-05-25T13:18:44.343Z] Failed to find version of module node: reached end of search path C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules
+[warn] !  functions: Your requested "node" version "18" doesn't match your global version "22". Using node@22 from host. 
+[info] i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly 
+[debug] [2026-05-25T13:18:44.344Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-05-25T13:18:44.347Z] Found firebase-functions binary at 'C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8409
+
+[debug] [2026-05-25T13:18:44.739Z] Got response from /__/functions.yaml {"endpoints":{"sendDailyDigest":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"sendDailyDigest"},"checkUpcomingEvents":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkUpcomingEvents"},"onEventCreate":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"eventTrigger":{"eventType":"providers/cloud.firestore/eventTypes/document.create","eventFilters":{"resource":"projects/uni-event-66a81/databases/(default)/documents/events/{eventId}"},"retry":false},"labels":{},"entryPoint":"onEventCreate"},"checkReminders":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkReminders"},"calculateReputation":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"calculateReputation"},"refreshTopContributorsLeaderboard":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"refreshTopContributorsLeaderboard"},"getTopContributors":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"getTopContributors"},"setRole":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"setRole"},"detectInactiveUsers":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":"UTC"},"labels":{},"entryPoint":"detectInactiveUsers"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}]}
+[info] +  functions: Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers."}}
+[info] +  functions: Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers."}}
+[debug] [2026-05-25T13:19:37.123Z] File C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\src\reputation.ts changed, reloading triggers {"metadata":{"emulator":{"name":"functions"},"message":"File C:\\Users\\ASUS\\Desktop\\projects\\Learn\\UniEvent\\Uni-Event\\cloud-functions\\src\\reputation.ts changed, reloading triggers"}}
+[debug] [2026-05-25T13:19:38.130Z] Validating nodejs source
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-05-25T13:19:38.844Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "node lib/server.js",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": "18"
+  },
+  "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roshankumar0036singh/Uni-Event.git"
+  },
+  "author": "Roshan Kumar Singh",
+  "license": "MIT",
+  "dependencies": {
+    "@types/dotenv": "^6.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "expo-server-sdk": "^4.0.0",
+    "express": "^5.2.1",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "~4.9.0",
+    "pdf-lib": "^1.17.1",
+    "resend": "^6.6.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.0",
+    "@types/express": "^4.17.0",
+    "firebase-functions-test": "^3.1.0",
+    "firebase-tools": "^15.4.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-google": "^0.14.0",
+    "prettier": "^3.0.0"
+  },
+  "private": true
+}
+[debug] [2026-05-25T13:19:38.844Z] Building nodejs source
+[debug] [2026-05-25T13:19:38.845Z] Failed to find version of module node: reached end of search path C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules
+[warn] !  functions: Your requested "node" version "18" doesn't match your global version "22". Using node@22 from host. 
+[info] i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly 
+[debug] [2026-05-25T13:19:38.845Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-05-25T13:19:38.849Z] Found firebase-functions binary at 'C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8513
+
+[debug] [2026-05-25T13:19:39.238Z] Got response from /__/functions.yaml {"endpoints":{"sendDailyDigest":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"sendDailyDigest"},"checkUpcomingEvents":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkUpcomingEvents"},"onEventCreate":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"eventTrigger":{"eventType":"providers/cloud.firestore/eventTypes/document.create","eventFilters":{"resource":"projects/uni-event-66a81/databases/(default)/documents/events/{eventId}"},"retry":false},"labels":{},"entryPoint":"onEventCreate"},"checkReminders":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkReminders"},"calculateReputation":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"calculateReputation"},"refreshTopContributorsLeaderboard":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"refreshTopContributorsLeaderboard"},"getTopContributors":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"getTopContributors"},"setRole":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"setRole"},"detectInactiveUsers":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":"UTC"},"labels":{},"entryPoint":"detectInactiveUsers"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}]}
+[debug] [2026-05-25T13:19:40.804Z] File C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\src\reputation.ts changed, reloading triggers {"metadata":{"emulator":{"name":"functions"},"message":"File C:\\Users\\ASUS\\Desktop\\projects\\Learn\\UniEvent\\Uni-Event\\cloud-functions\\src\\reputation.ts changed, reloading triggers"}}
+[debug] [2026-05-25T13:19:41.808Z] Validating nodejs source
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-05-25T13:19:42.664Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "node lib/server.js",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": "18"
+  },
+  "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roshankumar0036singh/Uni-Event.git"
+  },
+  "author": "Roshan Kumar Singh",
+  "license": "MIT",
+  "dependencies": {
+    "@types/dotenv": "^6.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "expo-server-sdk": "^4.0.0",
+    "express": "^5.2.1",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "~4.9.0",
+    "pdf-lib": "^1.17.1",
+    "resend": "^6.6.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.0",
+    "@types/express": "^4.17.0",
+    "firebase-functions-test": "^3.1.0",
+    "firebase-tools": "^15.4.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-google": "^0.14.0",
+    "prettier": "^3.0.0"
+  },
+  "private": true
+}
+[debug] [2026-05-25T13:19:42.664Z] Building nodejs source
+[debug] [2026-05-25T13:19:42.664Z] Failed to find version of module node: reached end of search path C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules
+[warn] !  functions: Your requested "node" version "18" doesn't match your global version "22". Using node@22 from host. 
+[info] i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly 
+[debug] [2026-05-25T13:19:42.665Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-05-25T13:19:42.669Z] Found firebase-functions binary at 'C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8234
+
+[debug] [2026-05-25T13:19:43.069Z] Got response from /__/functions.yaml {"endpoints":{"sendDailyDigest":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"sendDailyDigest"},"checkUpcomingEvents":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkUpcomingEvents"},"onEventCreate":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"eventTrigger":{"eventType":"providers/cloud.firestore/eventTypes/document.create","eventFilters":{"resource":"projects/uni-event-66a81/databases/(default)/documents/events/{eventId}"},"retry":false},"labels":{},"entryPoint":"onEventCreate"},"checkReminders":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkReminders"},"calculateReputation":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"calculateReputation"},"refreshTopContributorsLeaderboard":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"refreshTopContributorsLeaderboard"},"getTopContributors":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"getTopContributors"},"setRole":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"setRole"},"detectInactiveUsers":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":"UTC"},"labels":{},"entryPoint":"detectInactiveUsers"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}]}
+[info] +  functions: Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers."}}
+[debug] [2026-05-25T13:19:46.220Z] File C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\src\reputation.ts changed, reloading triggers {"metadata":{"emulator":{"name":"functions"},"message":"File C:\\Users\\ASUS\\Desktop\\projects\\Learn\\UniEvent\\Uni-Event\\cloud-functions\\src\\reputation.ts changed, reloading triggers"}}
+[info] +  functions: Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers."}}
+[debug] [2026-05-25T13:19:47.224Z] Validating nodejs source
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-05-25T13:19:47.894Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "node lib/server.js",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": "18"
+  },
+  "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roshankumar0036singh/Uni-Event.git"
+  },
+  "author": "Roshan Kumar Singh",
+  "license": "MIT",
+  "dependencies": {
+    "@types/dotenv": "^6.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "expo-server-sdk": "^4.0.0",
+    "express": "^5.2.1",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "~4.9.0",
+    "pdf-lib": "^1.17.1",
+    "resend": "^6.6.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.0",
+    "@types/express": "^4.17.0",
+    "firebase-functions-test": "^3.1.0",
+    "firebase-tools": "^15.4.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-google": "^0.14.0",
+    "prettier": "^3.0.0"
+  },
+  "private": true
+}
+[debug] [2026-05-25T13:19:47.894Z] Building nodejs source
+[debug] [2026-05-25T13:19:47.894Z] Failed to find version of module node: reached end of search path C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules
+[warn] !  functions: Your requested "node" version "18" doesn't match your global version "22". Using node@22 from host. 
+[info] i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly 
+[debug] [2026-05-25T13:19:47.901Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-05-25T13:19:47.908Z] Found firebase-functions binary at 'C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8821
+
+[debug] [2026-05-25T13:19:48.334Z] Got response from /__/functions.yaml {"endpoints":{"sendDailyDigest":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"sendDailyDigest"},"checkUpcomingEvents":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkUpcomingEvents"},"onEventCreate":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"eventTrigger":{"eventType":"providers/cloud.firestore/eventTypes/document.create","eventFilters":{"resource":"projects/uni-event-66a81/databases/(default)/documents/events/{eventId}"},"retry":false},"labels":{},"entryPoint":"onEventCreate"},"checkReminders":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkReminders"},"calculateReputation":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"calculateReputation"},"refreshTopContributorsLeaderboard":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"refreshTopContributorsLeaderboard"},"getTopContributors":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"getTopContributors"},"setRole":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"setRole"},"detectInactiveUsers":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":"UTC"},"labels":{},"entryPoint":"detectInactiveUsers"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}]}
+[debug] [2026-05-25T13:19:48.588Z] File C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\src\reputation.ts changed, reloading triggers {"metadata":{"emulator":{"name":"functions"},"message":"File C:\\Users\\ASUS\\Desktop\\projects\\Learn\\UniEvent\\Uni-Event\\cloud-functions\\src\\reputation.ts changed, reloading triggers"}}
+[debug] [2026-05-25T13:19:49.592Z] Validating nodejs source
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-05-25T13:19:50.574Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "node lib/server.js",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": "18"
+  },
+  "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roshankumar0036singh/Uni-Event.git"
+  },
+  "author": "Roshan Kumar Singh",
+  "license": "MIT",
+  "dependencies": {
+    "@types/dotenv": "^6.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "expo-server-sdk": "^4.0.0",
+    "express": "^5.2.1",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "~4.9.0",
+    "pdf-lib": "^1.17.1",
+    "resend": "^6.6.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.0",
+    "@types/express": "^4.17.0",
+    "firebase-functions-test": "^3.1.0",
+    "firebase-tools": "^15.4.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-google": "^0.14.0",
+    "prettier": "^3.0.0"
+  },
+  "private": true
+}
+[debug] [2026-05-25T13:19:50.574Z] Building nodejs source
+[debug] [2026-05-25T13:19:50.574Z] Failed to find version of module node: reached end of search path C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules
+[warn] !  functions: Your requested "node" version "18" doesn't match your global version "22". Using node@22 from host. 
+[info] i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly 
+[debug] [2026-05-25T13:19:50.577Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-05-25T13:19:50.590Z] Found firebase-functions binary at 'C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8486
+
+[debug] [2026-05-25T13:19:51.025Z] Got response from /__/functions.yaml {"endpoints":{"sendDailyDigest":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"sendDailyDigest"},"checkUpcomingEvents":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkUpcomingEvents"},"onEventCreate":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"eventTrigger":{"eventType":"providers/cloud.firestore/eventTypes/document.create","eventFilters":{"resource":"projects/uni-event-66a81/databases/(default)/documents/events/{eventId}"},"retry":false},"labels":{},"entryPoint":"onEventCreate"},"checkReminders":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 minutes","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"checkReminders"},"calculateReputation":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"calculateReputation"},"refreshTopContributorsLeaderboard":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"refreshTopContributorsLeaderboard"},"getTopContributors":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"getTopContributors"},"setRole":{"platform":"gcfv1","labels":{},"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"callableTrigger":{},"entryPoint":"setRole"},"detectInactiveUsers":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 24 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":"UTC"},"labels":{},"entryPoint":"detectInactiveUsers"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}]}
+[info] +  functions: Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers. {"metadata":{"emulator":{"name":"functions"},"message":"Loaded functions definitions from source: sendDailyDigest, checkUpcomingEvents, onEventCreate, checkReminders, calculateReputation, refreshTopContributorsLeaderboard, getTopContributors, setRole, detectInactiveUsers."}}
+[debug] [2026-05-25T13:19:52.555Z] File C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\src\reputation.ts changed, reloading triggers {"metadata":{"emulator":{"name":"functions"},"message":"File C:\\Users\\ASUS\\Desktop\\projects\\Learn\\UniEvent\\Uni-Event\\cloud-functions\\src\\reputation.ts changed, reloading triggers"}}
+[debug] [2026-05-25T13:19:53.565Z] Validating nodejs source
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-05-25T13:19:54.227Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "node lib/server.js",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": "18"
+  },
+  "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roshankumar0036singh/Uni-Event.git"
+  },
+  "author": "Roshan Kumar Singh",
+  "license": "MIT",
+  "dependencies": {
+    "@types/dotenv": "^6.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "expo-server-sdk": "^4.0.0",
+    "express": "^5.2.1",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "~4.9.0",
+    "pdf-lib": "^1.17.1",
+    "resend": "^6.6.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.0",
+    "@types/express": "^4.17.0",
+    "firebase-functions-test": "^3.1.0",
+    "firebase-tools": "^15.4.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-google": "^0.14.0",
+    "prettier": "^3.0.0"
+  },
+  "private": true
+}
+[debug] [2026-05-25T13:19:54.228Z] Building nodejs source
+[debug] [2026-05-25T13:19:54.228Z] Failed to find version of module node: reached end of search path C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules
+[warn] !  functions: Your requested "node" version "18" doesn't match your global version "22". Using node@22 from host. 
+[info] i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly 
+[debug] [2026-05-25T13:19:54.228Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-05-25T13:19:54.232Z] Found firebase-functions binary at 'C:\Users\ASUS\Desktop\projects\Learn\UniEvent\Uni-Event\cloud-functions\node_modules\.bin\firebase-functions'
