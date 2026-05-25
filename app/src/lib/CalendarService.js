@@ -22,7 +22,10 @@ export const useCalendarAuth = () => {
     useEffect(() => {
         if (Platform.OS === 'web' && window.location.hostname !== 'localhost') {
             if (process.env.EXPO_PUBLIC_DEBUG_MODE === 'true') {
-                console.warn('Mobile Web Calendar Debug', `Generated Redirect URI:\n${redirectUri}\n\nPlease add EXACTLY this to Google Console.`);
+                console.warn(
+                    'Mobile Web Calendar Debug',
+                    `Generated Redirect URI:\n${redirectUri}\n\nPlease add EXACTLY this to Google Console.`,
+                );
             }
         }
     }, [redirectUri]);
