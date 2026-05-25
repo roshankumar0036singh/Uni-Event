@@ -1,4 +1,4 @@
-import { doc, getDoc, serverTimestamp, increment, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, increment, runTransaction } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 
 /**
@@ -75,51 +75,58 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
         const ticketId = ticketData.id;
         const userId = ticketData.userId;
 
-        const batch = writeBatch(db);
+        await runTransaction(db, async transaction => {
+            const ticketRef = doc(db, 'tickets', ticketId);
+            const ticketSnap = await transaction.get(ticketRef);
 
-        // Create check-in record
-        const checkInRef = doc(db, 'events', eventId, 'checkIns', userId);
-        batch.set(checkInRef, {
-            userId,
-            userName: ticketData.userName || 'Guest',
-            userEmail: ticketData.userEmail || '',
-            userYear: ticketData.userYear || 'N/A',
-            userBranch: ticketData.userBranch || 'N/A',
-            ticketId,
-            checkedInAt: serverTimestamp(),
-            checkedInBy: organizerId,
-            checkedInByName: organizerName,
-            status: 'checked-in',
+            if (!ticketSnap.exists()) {
+                throw new Error('Ticket not found');
+            }
+
+            const freshTicket = ticketSnap.data();
+            if (freshTicket.eventId !== eventId || freshTicket.status !== 'paid') {
+                throw new Error('Ticket is no longer eligible for check-in');
+            }
+            if (freshTicket.checkInStatus === 'checked-in') {
+                throw new Error('Ticket already checked in');
+            }
+
+            const checkInRef = doc(db, 'events', eventId, 'checkIns', userId);
+            const eventRef = doc(db, 'events', eventId);
+            const userRef = doc(db, 'users', userId);
+
+            transaction.set(checkInRef, {
+                userId,
+                userName: ticketData.userName || 'Guest',
+                userEmail: ticketData.userEmail || '',
+                userYear: ticketData.userYear || 'N/A',
+                userBranch: ticketData.userBranch || 'N/A',
+                ticketId,
+                checkedInAt: serverTimestamp(),
+                checkedInBy: organizerId,
+                checkedInByName: organizerName,
+                status: 'checked-in',
+            });
+
+            transaction.update(ticketRef, {
+                checkInStatus: 'checked-in',
+                checkedInAt: serverTimestamp(),
+                checkedInBy: organizerId,
+            });
+
+            transaction.update(eventRef, {
+                'stats.totalCheckedIn': increment(1),
+                'stats.lastCheckInAt': serverTimestamp(),
+            });
+
+            transaction.set(
+                userRef,
+                {
+                    lastActive: serverTimestamp(),
+                },
+                { merge: true },
+            );
         });
-
-        // Update ticket status
-        const ticketRef = doc(db, 'tickets', ticketId);
-        batch.update(ticketRef, {
-            checkInStatus: 'checked-in',
-            checkedInAt: serverTimestamp(),
-            checkedInBy: organizerId,
-        });
-
-        // Update event stats
-        const eventRef = doc(db, 'events', eventId);
-
-        batch.update(eventRef, {
-            'stats.totalCheckedIn': increment(1),
-            'stats.lastCheckInAt': serverTimestamp(),
-        });
-
-        // Update user activity
-        const userRef = doc(db, 'users', userId);
-
-        batch.set(
-            userRef,
-            {
-                lastActive: serverTimestamp(),
-            },
-            { merge: true },
-        );
-
-        await batch.commit();
 
         return {
             success: true,
