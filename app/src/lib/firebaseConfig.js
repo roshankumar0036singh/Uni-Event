@@ -10,7 +10,6 @@ import {
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
-import { getMessaging } from 'firebase/messaging';
 import { Platform } from 'react-native';
 
 const firebaseConfig = {
@@ -49,7 +48,26 @@ export { auth };
 export const db = getFirestore(app);
 export const functions = getFunctions(app);
 export const storage = getStorage(app);
-export const messaging = getMessaging(app);
+let messagingInstance = null;
+
+export async function getWebMessaging() {
+    if (Platform.OS !== 'web') {
+        return null;
+    }
+
+    if (messagingInstance) {
+        return messagingInstance;
+    }
+
+    const { getMessaging, isSupported } = await import('firebase/messaging');
+
+    if (!(await isSupported())) {
+        return null;
+    }
+
+    messagingInstance = getMessaging(app);
+    return messagingInstance;
+}
 
 // Connect to Emulators if configured
 if (process.env.EXPO_PUBLIC_USE_EMULATORS === 'true') {

@@ -24,6 +24,7 @@ import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import TopContributors from '../components/TopContributors';
 import PropTypes from 'prop-types';
+import { getUserLevel, getUserLevelProgress } from '../lib/userLevels';
 
 // Helper to get ordinal year labels
 const getYearLabel = y => {
@@ -61,6 +62,58 @@ const StatCard = ({ label, value, icon, theme, styles }) => (
     </View>
 );
 
+const LevelProgressCard = ({ levelInfo, progressInfo, points, theme, styles }) => (
+    <View style={[styles.levelCard, { backgroundColor: theme.colors.surface }]}>
+        <View style={styles.levelHeader}>
+            <View style={[styles.levelIcon, { backgroundColor: theme.colors.primary + '20' }]}>
+                <Ionicons name={levelInfo.icon} size={22} color={theme.colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.levelTitle}>{levelInfo.title}</Text>
+                <Text style={styles.levelSubtitle}>Level {levelInfo.level}</Text>
+            </View>
+            <Text style={styles.levelPoints}>{points} pts</Text>
+        </View>
+
+        <View style={styles.progressTrack}>
+            <View
+                style={[
+                    styles.progressFill,
+                    {
+                        backgroundColor: theme.colors.primary,
+                        width: `${Math.min(progressInfo.progress * 100, 100)}%`,
+                    },
+                ]}
+            />
+        </View>
+
+        <Text style={styles.levelHint}>
+            {progressInfo.isMaxLevel
+                ? 'Max level reached'
+                : `${progressInfo.remainingPoints} points to ${progressInfo.nextLevel.title}`}
+        </Text>
+    </View>
+);
+
+LevelProgressCard.propTypes = {
+    levelInfo: PropTypes.shape({
+        icon: PropTypes.string,
+        level: PropTypes.number,
+        title: PropTypes.string,
+    }),
+    progressInfo: PropTypes.shape({
+        isMaxLevel: PropTypes.bool,
+        nextLevel: PropTypes.shape({
+            title: PropTypes.string,
+        }),
+        progress: PropTypes.number,
+        remainingPoints: PropTypes.number,
+    }),
+    points: PropTypes.number,
+    theme: PropTypes.object,
+    styles: PropTypes.object,
+};
+
 const BRANCHES = ['CSE', 'ETC', 'EE', 'ME', 'Civil'];
 const YEARS = ['1', '2', '3', '4']; // Changed to string array for consistency
 
@@ -85,6 +138,8 @@ export default function ProfileScreen({ navigation }) {
     const [requestSubject, setRequestSubject] = useState('Request Club Access');
     const [requestMessage, setRequestMessage] = useState('');
     const [loading, setLoading] = useState(false);
+    const levelInfo = useMemo(() => getUserLevel(points), [points]);
+    const progressInfo = useMemo(() => getUserLevelProgress(points), [points]);
 
     const fetchUserData = useCallback(async () => {
         if (!user?.uid) return;
@@ -284,57 +339,66 @@ export default function ProfileScreen({ navigation }) {
 
                 {/* Stats Row */}
                 {!isEditing && (
-                    <View style={styles.statsRow}>
-                        {role === 'club' || role === 'admin' ? (
-                            <>
-                                <StatCard
-                                    label="Rating"
-                                    value={rating && rating > 0 ? rating : '-'}
-                                    icon="star-outline"
-                                    theme={theme}
-                                    styles={styles}
-                                />
-                                <StatCard
-                                    label="Points"
-                                    value={points}
-                                    icon="trophy-outline"
-                                    theme={theme}
-                                    styles={styles}
-                                />
-                                <StatCard
-                                    label="Events"
-                                    value={eventsCount}
-                                    icon="calendar-outline"
-                                    theme={theme}
-                                    styles={styles}
-                                />
-                            </>
-                        ) : (
-                            <>
-                                <StatCard
-                                    label="Year"
-                                    value={year || '-'}
-                                    icon="school-outline"
-                                    theme={theme}
-                                    styles={styles}
-                                />
-                                <StatCard
-                                    label="Points"
-                                    value={points}
-                                    icon="trophy-outline"
-                                    theme={theme}
-                                    styles={styles}
-                                />
-                                <StatCard
-                                    label="Events"
-                                    value={eventsCount}
-                                    icon="calendar-outline"
-                                    theme={theme}
-                                    styles={styles}
-                                />
-                            </>
-                        )}
-                    </View>
+                    <>
+                        <View style={styles.statsRow}>
+                            {role === 'club' || role === 'admin' ? (
+                                <>
+                                    <StatCard
+                                        label="Rating"
+                                        value={rating && rating > 0 ? rating : '-'}
+                                        icon="star-outline"
+                                        theme={theme}
+                                        styles={styles}
+                                    />
+                                    <StatCard
+                                        label="Points"
+                                        value={points}
+                                        icon="trophy-outline"
+                                        theme={theme}
+                                        styles={styles}
+                                    />
+                                    <StatCard
+                                        label="Events"
+                                        value={eventsCount}
+                                        icon="calendar-outline"
+                                        theme={theme}
+                                        styles={styles}
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <StatCard
+                                        label="Year"
+                                        value={year || '-'}
+                                        icon="school-outline"
+                                        theme={theme}
+                                        styles={styles}
+                                    />
+                                    <StatCard
+                                        label="Points"
+                                        value={points}
+                                        icon="trophy-outline"
+                                        theme={theme}
+                                        styles={styles}
+                                    />
+                                    <StatCard
+                                        label="Events"
+                                        value={eventsCount}
+                                        icon="calendar-outline"
+                                        theme={theme}
+                                        styles={styles}
+                                    />
+                                </>
+                            )}
+                        </View>
+                        <LevelProgressCard
+                            levelInfo={levelInfo}
+                            progressInfo={progressInfo}
+                            points={points}
+                            theme={theme}
+                            styles={styles}
+                        />
+                    </>
                 )}
 
                 {/* Badges Section */}
@@ -1049,6 +1113,56 @@ const getStyles = theme =>
         statLabel: {
             fontSize: 12,
             color: theme.colors.textSecondary,
+        },
+        levelCard: {
+            marginHorizontal: theme.spacing.m,
+            marginBottom: 20,
+            padding: 16,
+            borderRadius: 16,
+            ...theme.shadows.small,
+        },
+        levelHeader: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 12,
+        },
+        levelIcon: {
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 12,
+        },
+        levelTitle: {
+            color: theme.colors.text,
+            fontSize: 17,
+            fontWeight: '800',
+        },
+        levelSubtitle: {
+            color: theme.colors.textSecondary,
+            fontSize: 12,
+            marginTop: 2,
+        },
+        levelPoints: {
+            color: theme.colors.primary,
+            fontSize: 14,
+            fontWeight: '800',
+        },
+        progressTrack: {
+            height: 8,
+            borderRadius: 8,
+            backgroundColor: theme.colors.border,
+            overflow: 'hidden',
+        },
+        progressFill: {
+            height: '100%',
+            borderRadius: 8,
+        },
+        levelHint: {
+            color: theme.colors.textSecondary,
+            fontSize: 12,
+            marginTop: 8,
         },
         menuContainer: {
             paddingHorizontal: theme.spacing.m,

@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Dimensions,
     ImageBackground,
     Linking,
     Platform,
@@ -29,6 +30,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import FeedbackModal from '../components/FeedbackModal';
 import AppealModal from '../components/AppealModal';
 import * as Print from 'expo-print';
@@ -67,6 +69,8 @@ export default function EventDetail({ route, navigation }) {
     const [sendingAppeal, setSendingAppeal] = useState(false);
     const [activeTab, setActiveTab] = useState('about');
     const [expandedBenefits, setExpandedBenefits] = useState(new Set());
+    const [showConfetti, setShowConfetti] = useState(false);
+    const { width: screenWidth } = Dimensions.get('window');
 
     const toggleBenefits = idx => {
         setExpandedBenefits(prev => {
@@ -422,6 +426,7 @@ export default function EventDetail({ route, navigation }) {
             } else {
                 const earlyBird = ebInfo?.isEligible;
                 await scheduleEventReminder(event);
+                setShowConfetti(true);
                 Alert.alert(
                     'Registered! 🎉',
                     earlyBird
@@ -1210,6 +1215,17 @@ export default function EventDetail({ route, navigation }) {
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+            {showConfetti && (
+                <View pointerEvents="none" style={styles.confettiOverlay}>
+                    <ConfettiCannon
+                        count={120}
+                        origin={{ x: screenWidth / 2, y: 0 }}
+                        fadeOut
+                        autoStart
+                        onAnimationEnd={() => setShowConfetti(false)}
+                    />
+                </View>
+            )}
             <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
                 {/* Immersive Header Image */}
                 <ImageBackground
@@ -2001,6 +2017,15 @@ const getStyles = theme =>
             backgroundColor: theme.colors.background,
             paddingHorizontal: 24,
             paddingTop: 32,
+        },
+        confettiOverlay: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 999,
+            elevation: 999,
         },
 
         // Header Section
