@@ -54,7 +54,10 @@ export default function QRScannerScreen({ navigation, route }) {
         });
 
         if (!queued) {
-            setScanResult({ status: 'error', message: 'Offline — failed to save check-in locally.' });
+            setScanResult({
+                status: 'error',
+                message: 'Offline — failed to save check-in locally.',
+            });
             return;
         }
 
@@ -78,7 +81,10 @@ export default function QRScannerScreen({ navigation, route }) {
                 scannedUserId = ticketData.userId;
 
                 if (ticketData.eventId !== eventId) {
-                    setScanResult({ status: 'error', message: 'This ticket is for a different event!' });
+                    setScanResult({
+                        status: 'error',
+                        message: 'This ticket is for a different event!',
+                    });
                     return;
                 }
             } catch (err) {
@@ -99,7 +105,11 @@ export default function QRScannerScreen({ navigation, route }) {
                     return;
                 }
             } catch (err) {
-                if (err.code === 'unavailable' || err.message?.includes('offline') || err.message?.includes('network')) {
+                if (
+                    err.code === 'unavailable' ||
+                    err.message?.includes('offline') ||
+                    err.message?.includes('network')
+                ) {
                     await handleOfflineCheckIn(eventId, scannedUserId, ticketData, null);
                     return;
                 }
@@ -119,20 +129,34 @@ export default function QRScannerScreen({ navigation, route }) {
                     receiverId: scannedUserId,
                 };
 
-                const result = await checkInAttendee(ticketPayload, eventId, user.uid, userData.name || 'Organizer');
+                const result = await checkInAttendee(
+                    ticketPayload,
+                    eventId,
+                    user.uid,
+                    userData.name || 'Organizer',
+                );
 
                 if (!result.success) {
-                    setScanResult({ status: 'error', message: result.message || 'Check-in failed.' });
+                    setScanResult({
+                        status: 'error',
+                        message: result.message || 'Check-in failed.',
+                    });
                     return;
                 }
 
                 setScanResult({
                     status: 'success',
-                    message: result.message || `Checked in ${userData.name || ticketData?.attendeeName}!`,
+                    message:
+                        result.message ||
+                        `Checked in ${userData.name || ticketData?.attendeeName}!`,
                     user: userData,
                 });
             } catch (err) {
-                if (err.code === 'unavailable' || err.message?.includes('offline') || err.message?.includes('network')) {
+                if (
+                    err.code === 'unavailable' ||
+                    err.message?.includes('offline') ||
+                    err.message?.includes('network')
+                ) {
                     await handleOfflineCheckIn(eventId, scannedUserId, ticketData, userData);
                     return;
                 }
