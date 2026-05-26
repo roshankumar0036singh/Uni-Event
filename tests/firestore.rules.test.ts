@@ -5,9 +5,10 @@ import {
     initializeTestEnvironment,
     assertSucceeds,
     assertFails,
+    type TokenOptions,
 } from '@firebase/rules-unit-testing';
 
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
 
 let testEnv: Awaited<ReturnType<typeof initializeTestEnvironment>>;
 
@@ -37,10 +38,9 @@ const seedDocument = async (path: string, data: object) => {
     });
 };
 
-const getFirestoreContext = (userId?: string, claims?: object) => {
+const getFirestoreContext = (userId?: string, claims?: TokenOptions) => {
     return userId
-        ? // cast claims to any / TokenOptions to satisfy TS signature
-          testEnv.authenticatedContext(userId, claims as any).firestore()
+        ? testEnv.authenticatedContext(userId, claims).firestore()
         : testEnv.unauthenticatedContext().firestore();
 };
 
@@ -97,6 +97,13 @@ describe('Firestore Security Rules', () => {
         await assertFails(getDoc(doc(db, 'users/student2')));
     });
 
+    test("Club user cannot self-assign admin role -> denied", async () => {
+        await seedDocument("users/club1", { name: "Club User", role: "club" });
+
+        const db = getFirestoreContext("club1", { club: true });
+        await assertFails(setDoc(doc(db, "users/club1"), { role: "admin" }, { merge: true }));
+    });
+
     // ---------------- CLUBS ----------------
 
     test('Non-admin creates club -> denied', async () => {
@@ -146,8 +153,16 @@ describe('Firestore Security Rules', () => {
 
     // ---------------- EVENT PARTICIPANTS ----------------
 
-    test('Authenticated user reads participant -> allowed', async () => {
+    test('Non-participant user reads participant -> denied', async () => {
         await seedDocument('events/event1/participants/student1', { joined: true });
+
+        const db = getFirestoreContext('student2');
+        await assertFails(getDoc(doc(db, 'events/event1/participants/student1')));
+    });
+
+    test('Participant user reads another participant -> allowed', async () => {
+        await seedDocument('events/event1/participants/student1', { joined: true });
+        await seedDocument('events/event1/participants/student2', { joined: true }); // Seed membership
 
         const db = getFirestoreContext('student2');
         await assertSucceeds(getDoc(doc(db, 'events/event1/participants/student1')));
@@ -166,28 +181,63 @@ describe('Firestore Security Rules', () => {
     });
 
     test('Participant updates own record -> allowed', async () => {
-        await seedDocument('events/event1/participants/student1', { joined: true });
+        await seedDocument('events/event1/participants/student1', { status: 'attending' });
 
         const db = getFirestoreContext('student1');
         await assertSucceeds(
             setDoc(
                 doc(db, 'events/event1/participants/student1'),
-                { joined: false },
+                { status: 'cancelled' },
                 { merge: true },
             ),
         );
     });
 
     test("Participant updates another user's record -> denied", async () => {
-        await seedDocument('events/event1/participants/student1', { joined: true });
+        await seedDocument('events/event1/participants/student1', { status: 'attending' });
 
         const db = getFirestoreContext('student2');
         await assertFails(
             setDoc(
                 doc(db, 'events/event1/participants/student1'),
-                { joined: false },
+                { status: 'cancelled' },
                 { merge: true },
             ),
+        );
+    });
+
+    test("Student deletes another user's participant record -> denied", async () => {
+        await seedDocument("events/event1/participants/student2", { joined: true });
+
+        const db = getFirestoreContext("student1");
+        await assertFails(deleteDoc(doc(db, "events/event1/participants/student2")));
+    });
+
+    // ---------------- EVENT CHECK-INS ----------------
+
+    test("Club user writes event check-in -> allowed", async () => {
+        await seedDocument("events/event1", { title: "Tech Fest", ownerId: "clubOwner1" });
+
+        const db = getFirestoreContext("club1", { club: true });
+        await assertSucceeds(
+            setDoc(doc(db, "events/event1/checkIns/student1"), {
+                userId: "student1",
+                checkedInBy: "club1",
+                status: "checked-in",
+            }),
+        );
+    });
+
+    test("Student writes event check-in -> denied", async () => {
+        await seedDocument("events/event1", { title: "Tech Fest", ownerId: "clubOwner1" });
+
+        const db = getFirestoreContext("student1");
+        await assertFails(
+            setDoc(doc(db, "events/event1/checkIns/student1"), {
+                userId: "student1",
+                checkedInBy: "student1",
+                status: "checked-in",
+            }),
         );
     });
 
@@ -217,8 +267,9 @@ describe('Firestore Security Rules', () => {
 
     // ---------------- EVENT MESSAGES ----------------
 
-    test('Authenticated user reads event message -> allowed', async () => {
+    test('Authenticated participant reads event message -> allowed', async () => {
         await seedDocument('events/event1/messages/msg1', { text: 'Hello' });
+        await seedDocument('events/event1/participants/student1', { joined: true }); // Make student1 a participant
 
         const db = getFirestoreContext('student1');
         await assertSucceeds(getDoc(doc(db, 'events/event1/messages/msg1')));
@@ -229,7 +280,9 @@ describe('Firestore Security Rules', () => {
         await assertFails(getDoc(doc(db, 'events/event1/messages/msg1')));
     });
 
-    test('Authenticated user creates event message -> allowed', async () => {
+    test('Authenticated participant creates event message -> allowed', async () => {
+        await seedDocument('events/event1/participants/student1', { joined: true }); // Make student1 a participant
+        
         const db = getFirestoreContext('student1');
         await assertSucceeds(setDoc(doc(db, 'events/event1/messages/msg1'), { text: 'Hello' }));
     });

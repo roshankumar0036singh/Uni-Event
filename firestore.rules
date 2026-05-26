@@ -26,9 +26,29 @@ service cloud.firestore {
           request.auth.token.admin == true ||
           request.auth.token.club == true
         );
-        allow create, delete: if request.auth != null && request.auth.uid == participantId;
+        allow create: if request.auth != null &&
+          request.auth.uid == participantId &&
+          !request.resource.data.keys().hasAny([
+            'isPaid', 'paymentStatus', 'paymentId', 'role', 'approved'
+          ]);
+        allow delete: if request.auth != null && request.auth.uid == participantId;
         allow update: if request.auth != null && request.auth.uid == participantId &&
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isPaid', 'paymentStatus', 'paymentId', 'role', 'approved']);
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buddyPreference', 'updatedAt']);
+      }
+
+      match /checkIns/{checkInId} {
+        allow read: if request.auth != null && (
+          request.auth.token.admin == true ||
+          request.auth.token.club == true ||
+          request.auth.uid == resource.data.userId ||
+          request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId
+        );
+        allow create, update, delete: if request.auth != null &&
+          exists(/databases/$(database)/documents/events/$(eventId)) && (
+          request.auth.token.admin == true ||
+          request.auth.token.club == true ||
+          request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId
+        );
       }
 
       match /feedback/{feedbackId} {
