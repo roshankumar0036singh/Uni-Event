@@ -113,28 +113,38 @@ export default function EventDetail({ route, navigation }) {
     }, [action, event, loading, rsvpStatus, hasGivenFeedback]);
 
     useEffect(() => {
-        if (event?.ownerId) {
-            getDoc(doc(db, 'users', event.ownerId)).then(snap => {
-                if (snap.exists()) {
-                    const userData = snap.data();
+  if (event?.ownerId) {
+    getDoc(doc(db, 'users', event.ownerId))
+      .then((snap) => {
+        if (snap.exists()) {
+          const userData = snap.data();
 
-setHostName(
-    userData.displayName || event.organizerName || 'Organizer'
-);
+          setHostName(
+            userData.displayName ||
+            event.organizerName ||
+            'Organizer'
+          );
 
-setIsVerifiedOrganizer(
-    userData.verificationStatus === 'verified'
-);
-                } else {
-  setHostName(event.organizerName || 'Organizer');
-  setIsVerifiedOrganizer(false);
-}
-            });
-        } else if (event?.organizerName) {
-            setHostName(event.organizerName);
-            setIsVerifiedOrganizer(false);
+          setIsVerifiedOrganizer(
+            userData.verificationStatus === 'verified'
+          );
+        } else {
+          setHostName(event.organizerName || 'Organizer');
+          setIsVerifiedOrganizer(false);
         }
-    }, [event]);
+      })
+      .catch(() => {
+        setHostName(event.organizerName || 'Organizer');
+        setIsVerifiedOrganizer(false);
+      });
+  } else if (event?.organizerName) {
+    setHostName(event.organizerName);
+    setIsVerifiedOrganizer(false);
+  } else {
+    setHostName('Organizer');
+    setIsVerifiedOrganizer(false);
+  }
+}, [event]);
 
     // Increment View Count (Unique per User)
     useEffect(() => {
