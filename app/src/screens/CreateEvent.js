@@ -24,6 +24,14 @@ import { db, storage } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
+let MapView = null;
+let Marker = null;
+if (Platform.OS !== 'web') {
+    const Maps = require('react-native-maps');
+    MapView = Maps.default;
+    Marker = Maps.Marker;
+}
+
 const DEFAULT_BANNERS = [
     'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1000&q=80',
     'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=1000&q=80',
@@ -47,6 +55,7 @@ export default function CreateEvent({ navigation, route }) {
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('');
     const [location, setLocation] = useState('');
+    const [coordinates, setCoordinates] = useState(null);
 
     // Target
     const [targetBranches, setTargetBranches] = useState(['All']);
@@ -152,6 +161,7 @@ export default function CreateEvent({ navigation, route }) {
             setDescription(event.description);
             setCategory(event.category);
             setLocation(event.location || '');
+            if (event.coordinates) setCoordinates(event.coordinates);
             setTargetBranches(event.target?.departments || ['All']);
             setTargetYears(event.target?.years || []);
             setStartDate(new Date(event.startAt));
@@ -212,6 +222,7 @@ export default function CreateEvent({ navigation, route }) {
                 title,
                 description,
                 location: eventMode === 'online' ? 'Google Meet' : location,
+                coordinates: eventMode === 'offline' && coordinates ? coordinates : null,
                 category,
                 eventMode,
                 meetLink: eventMode === 'online' ? generatedMeetLink : null,
@@ -236,6 +247,10 @@ export default function CreateEvent({ navigation, route }) {
             } else {
                 await addDoc(collection(db, 'events'), {
                     ...eventData,
+                    participantCount: 0,
+                    branchCounts: {},
+                    yearCounts: {},
+                    participantsPreview: [],
                     ownerId: user.uid,
                     ownerEmail: user.email,
                     organizerName: user.displayName || 'Club Admin',
@@ -519,6 +534,57 @@ export default function CreateEvent({ navigation, route }) {
                                     />
                                 }
                             />
+                            {MapView && (
+                                <View style={{ marginTop: 15 }}>
+                                    <Text style={[styles.label, { color: theme.colors.text }]}>
+                                        Pinpoint Exact Location
+                                    </Text>
+                                    <Text
+                                        style={{
+                                            color: theme.colors.textSecondary,
+                                            marginBottom: 10,
+                                            fontSize: 12,
+                                        }}
+                                    >
+                                        Drag the map marker to set the exact coordinates for the
+                                        venue.
+                                    </Text>
+                                    <View
+                                        style={{
+                                            height: 200,
+                                            borderRadius: 12,
+                                            overflow: 'hidden',
+                                        }}
+                                    >
+                                        <MapView
+                                            style={{ flex: 1 }}
+                                            initialRegion={{
+                                                latitude: coordinates
+                                                    ? coordinates.latitude
+                                                    : 28.7041,
+                                                longitude: coordinates
+                                                    ? coordinates.longitude
+                                                    : 77.1025,
+                                                latitudeDelta: 0.005,
+                                                longitudeDelta: 0.005,
+                                            }}
+                                        >
+                                            <Marker
+                                                draggable
+                                                coordinate={
+                                                    coordinates || {
+                                                        latitude: 28.7041,
+                                                        longitude: 77.1025,
+                                                    }
+                                                }
+                                                onDragEnd={e =>
+                                                    setCoordinates(e.nativeEvent.coordinate)
+                                                }
+                                            />
+                                        </MapView>
+                                    </View>
+                                </View>
+                            )}
                         </View>
                     )}
                 </View>
