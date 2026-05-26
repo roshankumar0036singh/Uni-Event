@@ -67,6 +67,14 @@ export default function UserFeed() {
     const [hasMore, setHasMore] = useState(true);
     const PAGE_SIZE = 20;
 
+    const hasMoreRef = useRef(hasMore);
+    const isFetchingMoreRef = useRef(isFetchingMore);
+    const lastVisibleRef = useRef(lastVisible);
+
+    useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+    useEffect(() => { isFetchingMoreRef.current = isFetchingMore; }, [isFetchingMore]);
+    useEffect(() => { lastVisibleRef.current = lastVisible; }, [lastVisible]);
+
     // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [currentFeedbackRequest, setCurrentFeedbackRequest] = useState(null);
@@ -168,7 +176,7 @@ export default function UserFeed() {
     const fetchEvents = useCallback(
         async (loadMore = false) => {
             if (!user) return;
-            if (loadMore && (!hasMore || isFetchingMore)) return;
+            if (loadMore && (!hasMoreRef.current || isFetchingMoreRef.current)) return;
 
             if (loadMore) {
                 setIsFetchingMore(true);
@@ -197,8 +205,8 @@ export default function UserFeed() {
                     );
                 }
 
-                if (loadMore && lastVisible) {
-                    qConstraints.push(startAfter(lastVisible));
+                if (loadMore && lastVisibleRef.current) {
+                    qConstraints.push(startAfter(lastVisibleRef.current));
                 }
                 const q = query(
                     collection(db, COLLECTIONS.EVENTS),
@@ -245,7 +253,7 @@ export default function UserFeed() {
                 setRefreshing(false);
             }
         },
-        [user, activeFilter, hasMore, isFetchingMore, lastVisible],
+        [user, activeFilter],
     );
 
     useEffect(() => {
