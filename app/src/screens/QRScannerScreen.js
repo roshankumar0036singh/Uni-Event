@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Camera } from 'expo-camera';
+import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import WebQRScanner from '../components/WebQRScanner';
 import { useAuth } from '../lib/AuthContext';
+import { db } from '../lib/firebaseConfig';
 import { queueOfflineCheckIn, checkInAttendee } from '../lib/checkInService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
