@@ -1,3 +1,7 @@
+import React from 'react';
+import { render } from '@testing-library/react-native';
+import AuthScreen from '../AuthScreen';
+
 jest.mock('@expo/vector-icons', () => {
     const React = require('react');
     return {
@@ -67,10 +71,6 @@ jest.mock('../../lib/ThemeContext', () => ({
         },
     }),
 }));
-
-import React from 'react';
-import { render } from '@testing-library/react-native';
-import AuthScreen from '../AuthScreen';
 
 describe('AuthScreen', () => {
     it('renders login screen', () => {

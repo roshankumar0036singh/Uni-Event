@@ -1,3 +1,8 @@
+import React from 'react';
+import { Platform } from 'react-native';
+import { render, waitFor } from '@testing-library/react-native';
+import QRScannerScreen from '../QRScannerScreen';
+
 jest.mock('../../lib/checkInService', () => ({
     queueOfflineCheckIn: jest.fn(),
     checkInAttendee: jest.fn(),
@@ -8,7 +13,7 @@ jest.mock('expo-camera', () => ({
         requestCameraPermissionsAsync: jest.fn(() =>
             Promise.resolve({
                 status: 'denied',
-            })
+            }),
         ),
     },
 }));
@@ -43,14 +48,7 @@ jest.mock('../../lib/ThemeContext', () => ({
     }),
 }));
 
-import React from 'react';
-import { Platform } from 'react-native';
-import { render, waitFor } from '@testing-library/react-native';
-import QRScannerScreen from '../QRScannerScreen';
-
-beforeAll(() => {
-    jest.spyOn(Platform, 'OS', 'get').mockReturnValue('android');
-});
+Platform.OS = 'android';
 
 describe('QRScannerScreen', () => {
     it('shows no camera access message when permission denied', async () => {
@@ -65,9 +63,7 @@ describe('QRScannerScreen', () => {
             goBack: jest.fn(),
         };
 
-        const { getByText } = render(
-            <QRScannerScreen navigation={navigation} route={route} />
-        );
+        const { getByText } = render(<QRScannerScreen navigation={navigation} route={route} />);
 
         await waitFor(() => {
             expect(getByText(/no access to camera/i)).toBeTruthy();

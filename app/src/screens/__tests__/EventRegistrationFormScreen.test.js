@@ -1,5 +1,8 @@
+/* eslint-disable import/first */
+
 jest.mock('@expo/vector-icons', () => {
     const React = require('react');
+
     return {
         Ionicons: () => React.createElement('Icon'),
         MaterialIcons: () => React.createElement('Icon'),
@@ -14,9 +17,20 @@ jest.mock('expo-font', () => ({
 
 jest.mock('../../components/ScreenWrapper', () => {
     const React = require('react');
+    const PropTypes = require('prop-types');
     const { View } = require('react-native');
 
-    return ({ children }) => <View>{children}</View>;
+    function MockScreenWrapper({ children }) {
+        return <View>{children}</View>;
+    }
+
+    MockScreenWrapper.propTypes = {
+        children: PropTypes.node,
+    };
+
+    MockScreenWrapper.displayName = 'MockScreenWrapper';
+
+    return MockScreenWrapper;
 });
 
 jest.mock('react-native-confetti-cannon', () => 'ConfettiCannon');
@@ -35,7 +49,7 @@ jest.mock('firebase/firestore', () => ({
         Promise.resolve({
             exists: () => true,
             data: () => ({}),
-        })
+        }),
     ),
     arrayUnion: jest.fn(),
     runTransaction: jest.fn(),
@@ -90,7 +104,7 @@ describe('EventRegistrationFormScreen', () => {
         };
 
         const { getByText } = render(
-            <EventRegistrationFormScreen navigation={navigation} route={route} />
+            <EventRegistrationFormScreen navigation={navigation} route={route} />,
         );
 
         expect(getByText('Registration')).toBeTruthy();
