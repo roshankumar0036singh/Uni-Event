@@ -29,7 +29,6 @@ import {
     Text,
     TouchableOpacity,
     View,
-    Share,
     Switch,
 } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
