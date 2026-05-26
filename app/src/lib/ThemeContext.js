@@ -1,4 +1,4 @@
-import logger from "./logger";
+import logger from './logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { Platform, useColorScheme, Animated } from 'react-native';

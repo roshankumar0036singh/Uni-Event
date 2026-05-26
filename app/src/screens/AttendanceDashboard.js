@@ -36,6 +36,7 @@ import participantService from '../lib/participantService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkAnnouncement, sendBulkFeedbackRequest } from '../lib/EmailService';
 import PropTypes from 'prop-types';
+import { COLLECTIONS, getEventCheckInsPath, getEventFeedbackPath } from '../lib/firestorePaths';
 
 export default function AttendanceDashboard({ route, navigation }) {
     const { width: screenWidth } = useWindowDimensions();
@@ -87,7 +88,7 @@ export default function AttendanceDashboard({ route, navigation }) {
             const count = await sendBulkFeedbackRequest(participants, eventTitle, eventId);
 
             // Update event to mark feedback as sent
-            await updateDoc(doc(db, 'events', eventId), {
+            await updateDoc(doc(db, COLLECTIONS.EVENTS, eventId), {
                 feedbackRequestSent: true,
                 feedbackRequestSentAt: new Date().toISOString(),
             });
@@ -149,7 +150,7 @@ export default function AttendanceDashboard({ route, navigation }) {
 
     // Fetch Event Data to check for Custom Form
     useEffect(() => {
-        getDoc(doc(db, 'events', eventId)).then(snap => {
+        getDoc(doc(db, COLLECTIONS.EVENTS, eventId)).then(snap => {
             if (snap.exists()) setEventData(snap.data());
         });
     }, [eventId]);
@@ -210,7 +211,7 @@ export default function AttendanceDashboard({ route, navigation }) {
     // Real-time check-ins listener
     useEffect(() => {
         const q = query(
-            collection(db, 'events', eventId, 'checkIns'),
+            collection(db, getEventCheckInsPath(eventId)),
             orderBy('checkedInAt', 'desc'),
         );
 
@@ -365,7 +366,7 @@ export default function AttendanceDashboard({ route, navigation }) {
     const handleExportReviews = async () => {
         setExporting(true);
         try {
-            const feedbackRef = collection(db, `events/${eventId}/feedback`);
+            const feedbackRef = collection(db, getEventFeedbackPath(eventId));
             const snapshot = await getDocs(feedbackRef);
 
             if (snapshot.empty) {
@@ -398,7 +399,10 @@ export default function AttendanceDashboard({ route, navigation }) {
     const handleExportFormResponses = async () => {
         setExporting(true);
         try {
-            const q = query(collection(db, 'registrations'), where('eventId', '==', eventId));
+            const q = query(
+                collection(db, COLLECTIONS.REGISTRATIONS),
+                where('eventId', '==', eventId),
+            );
             const snapshot = await getDocs(q);
 
             if (snapshot.empty) {
