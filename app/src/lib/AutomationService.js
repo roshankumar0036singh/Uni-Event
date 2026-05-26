@@ -37,14 +37,14 @@ export const checkAndTriggerAutomations = async userId => {
             if (now > endAt) {
                 console.log(`[Automation] Processing Event: ${eventData.title} (Ended)`);
 
-                // 1. Fetch Participants
-                const participantsRef = collection(db, `events/${eventDoc.id}/participants`);
-                const participantsSnap = await getDocs(participantsRef);
-                const participants = participantsSnap.docs
-                    .map(p => ({
-                        name: p.data().name,
-                        email: p.data().email,
-                    }))
+                // 1. Fetch Participants (use shared helper)
+                const participantService = await import('./participantService');
+                const participantsSnap = await participantService.default.fetchParticipantsOnce(
+                    db,
+                    eventDoc.id,
+                );
+                const participants = (participantsSnap || [])
+                    .map(p => ({ name: p.name, email: p.email }))
                     .filter(p => p.email && p.email !== '-');
 
                 let emailCount = 0;
