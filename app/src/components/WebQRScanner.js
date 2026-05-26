@@ -53,8 +53,17 @@ export default function WebQRScanner({ onScan, style }) {
 
     return (
         <View style={[styles.container, style]}>
-            <div id="reader" style={{ width: '100%', height: '100%' }}></div>
-            <Text style={{ textAlign: 'center', marginTop: 10, color: '#666' }}>
+            <section
+                id="reader"
+                aria-label="QR code scanner"
+                style={{ width: '100%', height: '100%' }}
+            />
+            <Text
+                accessible={true}
+                accessibilityRole="text"
+                accessibilityLabel="Allow camera access to scan"
+                style={{ textAlign: 'center', marginTop: 10, color: '#666' }}
+            >
                 Allow camera access to scan
             </Text>
         </View>

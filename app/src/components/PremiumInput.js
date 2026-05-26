@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
@@ -46,11 +46,7 @@ export default function PremiumInput({
                 {icon && <View style={styles.iconContainer}>{icon}</View>}
 
                 <TextInput
-                    style={[
-                        styles.input,
-                        { color: theme.colors.text },
-                        Platform.select({ web: { outlineStyle: 'none' } }), // REMOVE WEB OUTLINE
-                    ]}
+                    style={[styles.input, { color: theme.colors.text }]}
                     value={value}
                     onChangeText={onChangeText}
                     placeholder={placeholder}
@@ -60,12 +56,19 @@ export default function PremiumInput({
                     autoCapitalize={autoCapitalize}
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
+                    accessible={true}
+                    accessibilityRole="textbox"
+                    accessibilityLabel={label ? String(label).replace(/ \*$/, '') : 'input'}
                 />
 
                 {secureTextEntry && (
                     <TouchableOpacity
                         onPress={() => setIsPasswordVisible(!isPasswordVisible)}
                         style={styles.eyeIcon}
+                        accessibilityRole="button"
+                        accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
+                        accessibilityHint="Toggles password visibility"
+                        accessibilityState={{ checked: isPasswordVisible }}
                     >
                         <Ionicons
                             name={isPasswordVisible ? 'eye-off' : 'eye'}

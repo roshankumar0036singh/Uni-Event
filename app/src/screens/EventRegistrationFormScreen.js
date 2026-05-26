@@ -222,6 +222,9 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                                         responses[field.id] === opt && styles.chipActive,
                                     ]}
                                     onPress={() => handleChange(field.id, opt)}
+                                    accessible={true}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`${field.label} option ${opt}`}
                                 >
                                     <Text
                                         style={[
@@ -248,6 +251,9 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                         <TouchableOpacity
                             style={styles.dateBtn}
                             onPress={() => setDatePickers({ ...datePickers, [field.id]: true })}
+                            accessible={true}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${field.label} date`}
                         >
                             <Ionicons name="calendar-outline" size={20} color={theme.colors.text} />
                             <Text style={styles.dateText}>
@@ -289,7 +295,13 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 </View>
             )}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                <TouchableOpacity
+                    onPress={() => navigation.goBack()}
+                    style={styles.backBtn}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel="Back"
+                >
                     <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Registration</Text>
@@ -305,6 +317,9 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                     style={[styles.submitBtn, loading && { opacity: 0.7 }]}
                     onPress={handleSubmit}
                     disabled={loading}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel="Submit Registration"
                 >
                     {loading ? (
                         <ActivityIndicator color="#fff" />
