@@ -7,7 +7,7 @@ const TTL_MS = 60 * 1000; // 1 minute cache for one-off fetches
 
 export async function fetchParticipantsOnce(db, eventId) {
     const key = String(eventId);
-    const entry = registry.get(key) || {};
+    const entry = registry.get(key);
     const now = Date.now();
 
     if (entry.data && entry.lastFetched && now - entry.lastFetched < TTL_MS) {
@@ -17,12 +17,14 @@ export async function fetchParticipantsOnce(db, eventId) {
     const snap = await getDocs(collection(db, `events/${eventId}/participants`));
     const arr = snap.docs.map(d => ({ id: d.id, ...(d.data() || {}) }));
 
-    registry.set(key, {
-        ...(entry || {}),
-        data: arr,
-        lastFetched: Date.now(),
-        subscribers: entry.subscribers,
-    });
+    registry.set(
+        key,
+        Object.assign({}, entry || {}, {
+            data: arr,
+            lastFetched: Date.now(),
+            subscribers: entry && entry.subscribers,
+        }),
+    );
     return arr;
 }
 

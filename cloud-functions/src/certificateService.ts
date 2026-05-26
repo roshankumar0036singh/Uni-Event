@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { Resend } from 'resend';
-import { getParticipantContacts } from './lib/participants';
+import { getParticipantContacts, Participant } from './lib/participants';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -18,7 +18,7 @@ export async function sendCertificatesForEvent(eventId: string, ownerId: string)
     }
 
     // 2. Fetch Participants (use shared helper)
-    const participants = await getParticipantContacts(admin.firestore(), eventId);
+    const participants: Participant[] = await getParticipantContacts(admin.firestore(), eventId);
     if (!participants || participants.length === 0)
         throw new Error('No participants registered for this event.');
 
