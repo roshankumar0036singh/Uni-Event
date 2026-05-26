@@ -14,7 +14,7 @@ import {
 import React, { useEffect, useState, memo } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View, Switch, Platform } from 'react-native';
 import { db } from '../lib/firebaseConfig';
-import { theme } from '../lib/theme';
+import { theme as globalTheme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
 import { getEarlyBirdInfo } from '../lib/earlyBird';
 import { ShimmerItem } from './SkeletonLoader';
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 20, // Pill
-        ...theme.shadows.small,
+        ...globalTheme.shadows.small,
     },
     categoryText: {
         fontWeight: '900',
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
-        ...theme.shadows.small,
+        ...globalTheme.shadows.small,
     },
     onlineText: {
         color: '#fff',
