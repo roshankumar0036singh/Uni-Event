@@ -473,7 +473,7 @@ export default function EventDetail({ route, navigation }) {
             let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
             snapshot.forEach(doc => {
                 const d = doc.data();
-                const line = `\"${d.userName || 'Anonymous'}\",\"${d.eventRating || '-'}\",\"${d.clubRating || '-'}\",\"${(d.feedback || '').replace(/\"/g, '""')}\",${d.createdAt}\n`;
+                const line = `"${d.userName || 'Anonymous'}","${d.eventRating || '-'}","${d.clubRating || '-'}","${(d.feedback || '').replaceAll(/"/g, '""')}",${d.createdAt}\n`;
                 csv += line;
             });
 
