@@ -185,10 +185,12 @@ export default function UserFeed() {
             if (loadMore && (!hasMoreRef.current || isFetchingMoreRef.current)) return;
 
             if (loadMore) {
+                isFetchingMoreRef.current = true;
                 setIsFetchingMore(true);
             } else {
                 setLoading(true);
                 setEvents([]);
+                lastVisibleRef.current = null;
                 setLastVisible(null);
             }
 
@@ -239,11 +241,18 @@ export default function UserFeed() {
                 }
 
                 if (snapshot.docs.length > 0) {
-                    setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+                    const nextCursor = snapshot.docs[snapshot.docs.length - 1];
+                    lastVisibleRef.current = nextCursor;
+                    setLastVisible(nextCursor);
                 } else {
-                    if (!loadMore) setLastVisible(null);
+                    if (!loadMore) {
+                        lastVisibleRef.current = null;
+                        setLastVisible(null);
+                    }
                 }
-                setHasMore(snapshot.docs.length === PAGE_SIZE);
+                const nextHasMore = snapshot.docs.length === PAGE_SIZE;
+                hasMoreRef.current = nextHasMore;
+                setHasMore(nextHasMore);
             } catch (error) {
                 logger.error('Error fetching paginated events: ', error);
                 // Fallback if composite index is missing for categories
@@ -255,6 +264,7 @@ export default function UserFeed() {
                 }
             } finally {
                 setLoading(false);
+                isFetchingMoreRef.current = false;
                 setIsFetchingMore(false);
                 setRefreshing(false);
             }
