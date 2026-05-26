@@ -1,6 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
-const { Expo } = require('expo-server-sdk');
+import Expo from 'expo-server-sdk';
 const expo = new Expo();
 
 export const sendDailyDigest = functions.https.onCall(async (data, context) => {
