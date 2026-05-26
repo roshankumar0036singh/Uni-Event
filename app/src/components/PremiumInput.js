@@ -46,11 +46,7 @@ export default function PremiumInput({
                 {icon && <View style={styles.iconContainer}>{icon}</View>}
 
                 <TextInput
-                    style={[
-                        styles.input,
-                        { color: theme.colors.text },
-                        Platform.select({ web: { outlineStyle: 'none' } }), // REMOVE WEB OUTLINE
-                    ]}
+                    style={[styles.input, { color: theme.colors.text }]}
                     value={value}
                     onChangeText={onChangeText}
                     placeholder={placeholder}
@@ -60,6 +56,9 @@ export default function PremiumInput({
                     autoCapitalize={autoCapitalize}
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
+                    accessible={true}
+                    accessibilityRole="textbox"
+                    accessibilityLabel={label ? String(label).replace(/ \*$/, '') : 'input'}
                 />
 
                 {secureTextEntry && (

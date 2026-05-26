@@ -346,6 +346,9 @@ export default function UserFeed() {
                     placeholderTextColor={theme.colors.textSecondary}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
+                    accessible={true}
+                    accessibilityRole="search"
+                    accessibilityLabel="Search events"
                 />
                 {searchQuery.length > 0 && (
                     <TouchableOpacity onPress={() => setSearchQuery('')}>
@@ -375,6 +378,9 @@ export default function UserFeed() {
                                     borderRadius: 25,
                                     ...theme.shadows.small,
                                 }}
+                                accessible={true}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${f} filter`}
                             >
                                 {isActive ? (
                                     <LinearGradient
@@ -404,7 +410,7 @@ export default function UserFeed() {
                                             ]}
                                         >
                                             {f}
-                                        </Text>
+                                        {MapView && (
                                     </View>
                                 )}
                             </TouchableOpacity>
@@ -421,6 +427,9 @@ export default function UserFeed() {
                 event={item}
                 isRegistered={participatingIds.includes(item.id)}
                 onLike={() => {}}
+                                                    accessible={true}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel="List view"
                 onShare={async () => {
                     try {
                         await Share.share({
@@ -436,6 +445,9 @@ export default function UserFeed() {
     );
 
     const headerTranslateY = scrollY.interpolate({
+                                                    accessible={true}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel="Map view"
         inputRange: [0, 100],
         outputRange: [0, -50],
         extrapolate: 'clamp',
