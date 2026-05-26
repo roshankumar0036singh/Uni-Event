@@ -2,6 +2,7 @@ import { collection, getDocs, query, where, updateDoc, doc } from 'firebase/fire
 import { db } from './firebaseConfig';
 import { sendBulkFeedbackRequest } from './EmailService';
 import participantService from './participantService';
+import { COLLECTIONS } from './firestorePaths';
 
 /**
  * Checks for all events owned by the user that have ended and need feedback requests sent.
@@ -13,7 +14,7 @@ export const checkAndTriggerAutomations = async userId => {
 
     try {
         const now = new Date();
-        const eventsRef = collection(db, 'events');
+        const eventsRef = collection(db, COLLECTIONS.EVENTS);
 
         // Query: Owner is user, feedback NOT sent
         const q = query(
@@ -63,7 +64,7 @@ export const checkAndTriggerAutomations = async userId => {
                 }
 
                 // 3. Update Flag (Even if 0 participants, mark done to stop checking)
-                await updateDoc(doc(db, 'events', eventDoc.id), {
+                await updateDoc(doc(db, COLLECTIONS.EVENTS, eventDoc.id), {
                     feedbackRequestSent: true,
                     feedbackRequestSentAt: new Date().toISOString(),
                 });

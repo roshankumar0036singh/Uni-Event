@@ -32,6 +32,7 @@ import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
+import { COLLECTIONS, getUserParticipatingPath } from '../lib/firestorePaths';
 
 let MapView = null;
 let Marker = null;
@@ -74,7 +75,7 @@ export default function UserFeed() {
     // Listen for my registrations
     useEffect(() => {
         if (!user) return;
-        const q = collection(db, 'users', user.uid, 'participating');
+        const q = collection(db, getUserParticipatingPath(user.uid));
         const unsub = onSnapshot(q, snap => {
             setParticipatingIds(snap.docs.map(d => d.id));
         });
@@ -94,7 +95,7 @@ export default function UserFeed() {
         if (!user) return;
 
         const feedbackQuery = query(
-            collection(db, 'feedbackRequests'),
+            collection(db, COLLECTIONS.FEEDBACK_REQUESTS),
             where('userId', '==', user.uid),
             where('status', '==', 'pending'),
             limit(1), // Show one at a time
@@ -125,7 +126,7 @@ export default function UserFeed() {
             try {
                 const now = new Date().toISOString();
                 const q = query(
-                    collection(db, 'events'),
+                    collection(db, COLLECTIONS.EVENTS),
                     where('status', '==', 'active'),
                     where('startAt', '>=', now),
                     orderBy('startAt', 'asc'),
@@ -198,7 +199,7 @@ export default function UserFeed() {
                 if (loadMore && lastVisible) {
                     qConstraints.push(startAfter(lastVisible));
                 }
-                const q = query(collection(db, 'events'), ...qConstraints, limit(PAGE_SIZE));
+                const q = query(collection(db, COLLECTIONS.EVENTS), ...qConstraints, limit(PAGE_SIZE));
 
                 const snapshot = await getDocs(q);
                 const list = [];
