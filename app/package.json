@@ -39,16 +39,10 @@
         "@expo-google-fonts/outfit": "^0.2.3",
         "@expo/vector-icons": "~14.0.4",
         "@expo/webpack-config": "^19.0.0",
-<<<<<<< HEAD
-        "@react-native-async-storage/async-storage": "1.23.1",
-        "@react-native-community/datetimepicker": "8.2.0",
-        "@react-native-picker/picker": "2.11.4",
-=======
         "@react-native-async-storage/async-storage": "1.18.2",
         "@react-native-community/datetimepicker": "7.2.0",
         "@react-native-community/netinfo": "^12.0.1",
         "@react-native-picker/picker": "2.4.10",
->>>>>>> 2827e93 (fix: add missing map components and netinfo dependency)
         "@react-navigation/bottom-tabs": "^6.0.0",
         "@react-navigation/native": "^6.0.0",
         "@react-navigation/stack": "^6.0.0",
