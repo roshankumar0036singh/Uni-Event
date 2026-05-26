@@ -60,7 +60,7 @@ export default function PaymentScreen({ route, navigation }) {
 
         if (selectedMethod === 'upi') {
             let paymentEvent = event;
-            let paymentPrice = price;
+            let paymentPrice;
 
             try {
                 paymentEvent = await fetchFreshEvent();

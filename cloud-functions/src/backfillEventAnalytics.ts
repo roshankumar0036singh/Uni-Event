@@ -2,7 +2,9 @@ import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 
 const normalizeCounterKey = (value: unknown) => {
-  const raw = String(value ?? "Unknown").trim();
+  if (value == null) return "Unknown";
+  if (typeof value !== "string" && typeof value !== "number") return "Unknown";
+  const raw = String(value).trim();
   if (!raw) return "Unknown";
   return raw.replace(/[./#[\]$]/g, "_");
 };
