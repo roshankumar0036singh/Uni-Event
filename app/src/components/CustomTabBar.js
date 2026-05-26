@@ -51,9 +51,12 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
                         return (
                             <TouchableOpacity
                                 key={index}
+                                accessible={true}
                                 accessibilityRole="button"
                                 accessibilityState={isFocused ? { selected: true } : {}}
-                                accessibilityLabel={options.tabBarAccessibilityLabel}
+                                accessibilityLabel={
+                                    options.tabBarAccessibilityLabel || `${route.name} tab`
+                                }
                                 testID={options.tabBarTestID}
                                 onPress={onPress}
                                 style={styles.tabItem}
