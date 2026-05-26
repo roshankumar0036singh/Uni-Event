@@ -3,9 +3,6 @@ jest.mock('../../lib/checkInService', () => ({
   checkInAttendee: jest.fn(),
 }));
 
-import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
-
 jest.mock('expo-camera', () => ({
     Camera: {
         requestCameraPermissionsAsync: jest.fn(() =>
@@ -46,6 +43,8 @@ jest.mock('../../lib/ThemeContext', () => ({
     }),
 }));
 
+import React from 'react';
+import { render, waitFor } from '@testing-library/react-native';
 import QRScannerScreen from '../QRScannerScreen';
 
 describe('QRScannerScreen', () => {
