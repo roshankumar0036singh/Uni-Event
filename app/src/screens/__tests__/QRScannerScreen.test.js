@@ -48,7 +48,15 @@ jest.mock('../../lib/ThemeContext', () => ({
     }),
 }));
 
-Platform.OS = 'android';
+const originalPlatform = Platform.OS;
+
+beforeAll(() => {
+    Platform.OS = 'android';
+});
+
+afterAll(() => {
+    Platform.OS = originalPlatform;
+});
 
 describe('QRScannerScreen', () => {
     it('shows no camera access message when permission denied', async () => {
