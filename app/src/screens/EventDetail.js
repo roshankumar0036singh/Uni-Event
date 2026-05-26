@@ -41,7 +41,11 @@ import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
-import { cancelScheduledNotification, scheduleEventReminder,triggerBuddyMatchNotification } from '../lib/notificationService';
+import {
+    cancelScheduledNotification,
+    scheduleEventReminder,
+    triggerBuddyMatchNotification,
+} from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
 import { getEarlyBirdInfo, getTimestampMs } from '../lib/earlyBird';
@@ -104,16 +108,18 @@ export default function EventDetail({ route, navigation }) {
             setSendingAppeal(false);
         }
     };
-        const handleToggleBuddyDetail = async (value) => {
+    const handleToggleBuddyDetail = async value => {
         if (!user || !eventId) return;
         try {
             const participantRef = doc(db, 'events', eventId, 'participants', user.uid);
             await updateDoc(participantRef, {
-                lookingForBuddy: value
+                lookingForBuddy: value,
             });
 
             if (value) {
-                const otherBuddies = participants.filter(p => p.id !== user.uid && p.lookingForBuddy === true);
+                const otherBuddies = participants.filter(
+                    p => p.id !== user.uid && p.lookingForBuddy === true,
+                );
                 if (otherBuddies.length > 0) {
                     await triggerBuddyMatchNotification(event, otherBuddies.length);
                 }
@@ -1581,64 +1587,155 @@ export default function EventDetail({ route, navigation }) {
                         </TouchableOpacity>
                     </View>
                     {rsvpStatus === 'going' && !isOwner && !isSuspended && (
-                        <View style={[styles.buddyCard, { backgroundColor: theme.colors.surface, ...theme.shadows.small }]}>
+                        <View
+                            style={[
+                                styles.buddyCard,
+                                { backgroundColor: theme.colors.surface, ...theme.shadows.small },
+                            ]}
+                        >
                             <View style={styles.buddyHeader}>
                                 <View style={styles.buddyHeaderTitleRow}>
-                                    <Ionicons name="people" size={24} color={theme.colors.primary} />
-                                    <Text style={[styles.buddyCardTitle, { color: theme.colors.text }]}>
+                                    <Ionicons
+                                        name="people"
+                                        size={24}
+                                        color={theme.colors.primary}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.buddyCardTitle,
+                                            { color: theme.colors.text },
+                                        ]}
+                                    >
                                         Buddy Matching
                                     </Text>
                                 </View>
                                 <Switch
-                                    value={participants.find(p => p.id === user?.uid)?.lookingForBuddy || false}
+                                    value={
+                                        participants.find(p => p.id === user?.uid)
+                                            ?.lookingForBuddy || false
+                                    }
                                     onValueChange={handleToggleBuddyDetail}
-                                    trackColor={{ false: theme.colors.border, true: theme.colors.primary + '80' }}
+                                    trackColor={{
+                                        false: theme.colors.border,
+                                        true: theme.colors.primary + '80',
+                                    }}
                                     thumbColor={
-                                        (participants.find(p => p.id === user?.uid)?.lookingForBuddy || false)
+                                        participants.find(p => p.id === user?.uid)
+                                            ?.lookingForBuddy || false
                                             ? theme.colors.primary
                                             : '#999'
                                     }
                                 />
                             </View>
 
-                            {(participants.find(p => p.id === user?.uid)?.lookingForBuddy || false) ? (
+                            {participants.find(p => p.id === user?.uid)?.lookingForBuddy ||
+                            false ? (
                                 <View style={styles.buddyContent}>
-                                    {participants.filter(p => p.id !== user?.uid && p.lookingForBuddy === true).length > 0 ? (
+                                    {participants.filter(
+                                        p => p.id !== user?.uid && p.lookingForBuddy === true,
+                                    ).length > 0 ? (
                                         <View>
-                                            <Text style={[styles.buddyMatchHeading, { color: theme.colors.success }]}>
+                                            <Text
+                                                style={[
+                                                    styles.buddyMatchHeading,
+                                                    { color: theme.colors.success },
+                                                ]}
+                                            >
                                                 Buddy Matches Found!
                                             </Text>
-                                            <Text style={[styles.buddyMeetupSpot, { color: theme.colors.text }]}>
+                                            <Text
+                                                style={[
+                                                    styles.buddyMeetupSpot,
+                                                    { color: theme.colors.text },
+                                                ]}
+                                            >
                                                 {event.eventMode === 'online'
-                                                    ? "Meetup Spot: We suggest connecting in the event chat room!"
+                                                    ? 'Meetup Spot: We suggest connecting in the event chat room!'
                                                     : `Meetup Spot: Near the Main Entrance Lobby / Registration Desk of ${event.location || 'the venue'}. Look for the 'Buddy Meetup' sign!`}
                                             </Text>
-                                            <Text style={[styles.buddyListLabel, { color: theme.colors.textSecondary }]}>
+                                            <Text
+                                                style={[
+                                                    styles.buddyListLabel,
+                                                    { color: theme.colors.textSecondary },
+                                                ]}
+                                            >
                                                 Other students looking for buddies:
                                             </Text>
                                             <View style={styles.buddyList}>
                                                 {participants
-                                                    .filter(p => p.id !== user?.uid && p.lookingForBuddy === true)
+                                                    .filter(
+                                                        p =>
+                                                            p.id !== user?.uid &&
+                                                            p.lookingForBuddy === true,
+                                                    )
                                                     .map(buddy => (
-                                                        <View key={buddy.id} style={[styles.buddyItem, { borderColor: theme.colors.border }]}>
-                                                            <View style={[styles.buddyAvatar, { backgroundColor: theme.colors.primary + '20' }]}>
-                                                                <Text style={[styles.buddyAvatarText, { color: theme.colors.primary }]}>
-                                                                    {buddy.name?.[0]?.toUpperCase() || 'B'}
+                                                        <View
+                                                            key={buddy.id}
+                                                            style={[
+                                                                styles.buddyItem,
+                                                                {
+                                                                    borderColor:
+                                                                        theme.colors.border,
+                                                                },
+                                                            ]}
+                                                        >
+                                                            <View
+                                                                style={[
+                                                                    styles.buddyAvatar,
+                                                                    {
+                                                                        backgroundColor:
+                                                                            theme.colors.primary +
+                                                                            '20',
+                                                                    },
+                                                                ]}
+                                                            >
+                                                                <Text
+                                                                    style={[
+                                                                        styles.buddyAvatarText,
+                                                                        {
+                                                                            color: theme.colors
+                                                                                .primary,
+                                                                        },
+                                                                    ]}
+                                                                >
+                                                                    {buddy.name?.[0]?.toUpperCase() ||
+                                                                        'B'}
                                                                 </Text>
                                                             </View>
                                                             <View style={styles.buddyInfo}>
-                                                                <Text style={[styles.buddyName, { color: theme.colors.text }]}>
+                                                                <Text
+                                                                    style={[
+                                                                        styles.buddyName,
+                                                                        {
+                                                                            color: theme.colors
+                                                                                .text,
+                                                                        },
+                                                                    ]}
+                                                                >
                                                                     {buddy.name || 'Anonymous'}
                                                                 </Text>
-                                                                <Text style={[styles.buddyDetails, { color: theme.colors.textSecondary }]}>
-                                                                    {buddy.branch || 'Unknown Branch'} • Year {buddy.year || 'Unknown'}
+                                                                <Text
+                                                                    style={[
+                                                                        styles.buddyDetails,
+                                                                        {
+                                                                            color: theme.colors
+                                                                                .textSecondary,
+                                                                        },
+                                                                    ]}
+                                                                >
+                                                                    {buddy.branch ||
+                                                                        'Unknown Branch'}{' '}
+                                                                    • Year {buddy.year || 'Unknown'}
                                                                 </Text>
                                                             </View>
                                                         </View>
                                                     ))}
                                             </View>
                                             <TouchableOpacity
-                                                style={[styles.buddyChatBtn, { backgroundColor: theme.colors.primary }]}
+                                                style={[
+                                                    styles.buddyChatBtn,
+                                                    { backgroundColor: theme.colors.primary },
+                                                ]}
                                                 onPress={() =>
                                                     navigation.navigate('EventChat', {
                                                         eventId: event.id,
@@ -1646,25 +1743,49 @@ export default function EventDetail({ route, navigation }) {
                                                     })
                                                 }
                                             >
-                                                <Ionicons name="chatbubbles" size={18} color="#fff" />
-                                                <Text style={styles.buddyChatBtnText}>Say Hello in Event Chat</Text>
+                                                <Ionicons
+                                                    name="chatbubbles"
+                                                    size={18}
+                                                    color="#fff"
+                                                />
+                                                <Text style={styles.buddyChatBtnText}>
+                                                    Say Hello in Event Chat
+                                                </Text>
                                             </TouchableOpacity>
                                         </View>
                                     ) : (
                                         <View style={styles.buddyWaiting}>
-                                            <Text style={[styles.buddyStatusHeading, { color: theme.colors.primary }]}>
+                                            <Text
+                                                style={[
+                                                    styles.buddyStatusHeading,
+                                                    { color: theme.colors.primary },
+                                                ]}
+                                            >
                                                 Looking for a Buddy... 🔍
                                             </Text>
-                                            <Text style={[styles.buddyWaitingText, { color: theme.colors.textSecondary }]}>
-                                                We&apos;ll notify you as soon as someone else toggles this! In the meantime, the designated Meetup Spot is near the Main Lobby.
+                                            <Text
+                                                style={[
+                                                    styles.buddyWaitingText,
+                                                    { color: theme.colors.textSecondary },
+                                                ]}
+                                            >
+                                                We&apos;ll notify you as soon as someone else
+                                                toggles this! In the meantime, the designated Meetup
+                                                Spot is near the Main Lobby.
                                             </Text>
                                         </View>
                                     )}
                                 </View>
                             ) : (
                                 <View style={styles.buddyPromo}>
-                                    <Text style={[styles.buddyPromoText, { color: theme.colors.textSecondary }]}>
-                                        Going alone? Toggle buddy matching to find other students to meet before the event!
+                                    <Text
+                                        style={[
+                                            styles.buddyPromoText,
+                                            { color: theme.colors.textSecondary },
+                                        ]}
+                                    >
+                                        Going alone? Toggle buddy matching to find other students to
+                                        meet before the event!
                                     </Text>
                                 </View>
                             )}
@@ -2641,8 +2762,6 @@ const getStyles = theme =>
             lineHeight: 18,
         },
     });
-
-
 
 EventDetail.propTypes = {
     route: PropTypes.object,
