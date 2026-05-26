@@ -231,7 +231,7 @@ export default function UserFeed() {
                 if (error.message?.includes('index')) {
                     Alert.alert(
                         'Database Index Required',
-                        'Please create the required Firestore composite index found in the logger.debugs.',
+                        'Please create the required Firestore composite index found in the debug logs.',
                     );
                 }
             } finally {

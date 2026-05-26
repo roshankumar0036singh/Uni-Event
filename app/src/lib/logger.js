@@ -3,19 +3,22 @@
  * Filters logs based on the environment to reduce noise in production.
  */
 
+// Safe guard for __DEV__ global variable
+const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
+
 const logger = {
     debug: (...args) => {
-        if (__DEV__) {
+        if (isDev) {
             console.log('[DEBUG]', ...args);
         }
     },
     info: (...args) => {
-        if (__DEV__) {
+        if (isDev) {
             console.log('[INFO]', ...args);
         }
     },
     warn: (...args) => {
-        if (__DEV__) {
+        if (isDev) {
             console.warn('[WARN]', ...args);
         }
     },

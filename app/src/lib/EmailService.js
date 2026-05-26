@@ -41,7 +41,7 @@ export const sendEmail = async (
         });
 
         if (response.ok) {
-            logger.debug('Email sent successfully to:', toEmail);
+            logger.debug('Email sent successfully');
             return true;
         } else {
             const errorText = await response.text();

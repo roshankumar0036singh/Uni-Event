@@ -504,7 +504,6 @@ export default function EventDetail({ route, navigation }) {
             const participants = snapshot.docs
                 .map(doc => {
                     const data = doc.data();
-                    logger.debug(`Participant: ${data.name}, Email: ${data.email}`);
                     return {
                         name: data.name,
                         email: data.email,
