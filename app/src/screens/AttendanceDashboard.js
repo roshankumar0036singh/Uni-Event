@@ -11,7 +11,9 @@ import {
     where,
     updateDoc,
 } from 'firebase/firestore';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { getOfflineCheckInCount, syncOfflineCheckIns } from '../lib/checkInService';
 import {
     ActivityIndicator,
     Alert,
@@ -45,6 +47,12 @@ export default function AttendanceDashboard({ route, navigation }) {
     const [departmentStats, setDepartmentStats] = useState({});
     const [yearStats, setYearStats] = useState({});
     const [eventData, setEventData] = useState(null);
+
+    const { user } = useAuth();
+
+    // Offline Sync State
+    const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
+    const [syncingOffline, setSyncingOffline] = useState(false);
 
     // Announcement State
     const [announcementModalVisible, setAnnouncementModalVisible] = useState(false);
@@ -152,6 +160,29 @@ export default function AttendanceDashboard({ route, navigation }) {
             if (snap.exists()) setEventData(snap.data());
         });
     }, [eventId]);
+
+    useFocusEffect(
+        useCallback(() => {
+            getOfflineCheckInCount(eventId).then(count => setPendingOfflineCount(count));
+        }, [eventId])
+    );
+
+    const handleSyncOffline = async () => {
+        setSyncingOffline(true);
+        try {
+            const result = await syncOfflineCheckIns(eventId, user?.uid || 'Unknown Organizer');
+            if (result.success) {
+                Alert.alert('Success', `Synced ${result.syncedCount} check-ins.`);
+            } else {
+                Alert.alert('Partial Sync', `Synced ${result.syncedCount} check-ins. ${result.remainingCount} remaining.`);
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to sync offline check-ins.');
+        }
+        const count = await getOfflineCheckInCount(eventId);
+        setPendingOfflineCount(count);
+        setSyncingOffline(false);
+    };
 
     // Live Participant Count
     const [totalRegistrations, setTotalRegistrations] = useState(0);
@@ -447,6 +478,17 @@ export default function AttendanceDashboard({ route, navigation }) {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
+                {pendingOfflineCount > 0 && (
+                    <View style={[styles.offlineBanner, { backgroundColor: theme.colors.warning + '20', borderColor: theme.colors.warning }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.offlineBannerTitle, { color: theme.colors.text }]}>Offline Sync Pending</Text>
+                            <Text style={[styles.offlineBannerText, { color: theme.colors.textSecondary }]}>{pendingOfflineCount} check-ins waiting for network</Text>
+                        </View>
+                        <TouchableOpacity style={[styles.syncBtn, { backgroundColor: theme.colors.warning }]} onPress={handleSyncOffline} disabled={syncingOffline}>
+                            {syncingOffline ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.syncBtnText}>Sync Now</Text>}
+                        </TouchableOpacity>
+                    </View>
+                )}
                 <View style={styles.statsContainer}>
                     {/* Updated Stat Cards to use Primary Theme */}
                     <StatCard
@@ -1174,6 +1216,32 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
     },
     modalButtonText: { fontSize: 15, fontWeight: '700' },
+    offlineBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 20,
+        marginTop: 20,
+        padding: 15,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    offlineBannerTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    offlineBannerText: {
+        fontSize: 13,
+    },
+    syncBtn: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    syncBtnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
 });
 
 AttendanceDashboard.propTypes = {

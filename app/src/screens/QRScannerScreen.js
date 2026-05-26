@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Camera } from 'expo-camera';
-import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import WebQRScanner from '../components/WebQRScanner';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
+import { queueOfflineCheckIn } from '../lib/checkInService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
@@ -63,40 +64,80 @@ export default function QRScannerScreen({ navigation, route }) {
             console.log(`Scanned user: ${scannedUserId} for event: ${eventId}`);
 
             // 1. Verify User
-            const userRef = doc(db, 'users', scannedUserId);
-            const userSnap = await getDoc(userRef);
+            let userSnap;
+            try {
+                const userRef = doc(db, 'users', scannedUserId);
+                userSnap = await getDoc(userRef);
 
-            if (!userSnap.exists()) {
-                setScanResult({ status: 'error', message: 'Invalid User QR Code' });
-                return;
+                if (!userSnap.exists()) {
+                    setScanResult({ status: 'error', message: 'Invalid User QR Code' });
+                    return;
+                }
+            } catch (err) {
+                if (err.code === 'unavailable' || err.message?.includes('offline') || err.message?.includes('network')) {
+                    await queueOfflineCheckIn(eventId, {
+                        userId: scannedUserId,
+                        userName: ticketData?.attendeeName || 'Guest',
+                        userBranch: ticketData?.branch || 'N/A',
+                        userYear: ticketData?.year || 'N/A',
+                        ticketId: ticketData?.ticketId || null
+                    });
+                    
+                    setScanResult({
+                        status: 'success',
+                        message: `Queued offline check-in for ${ticketData?.attendeeName || 'Guest'}.`,
+                        user: { name: ticketData?.attendeeName || 'Guest' },
+                    });
+                    return;
+                }
+                throw err;
             }
 
             const userData = userSnap.data();
 
             // 2. CheckIn Logic
-            const checkInRef = collection(db, 'events', eventId, 'checkIns');
-            await addDoc(checkInRef, {
-                userId: scannedUserId,
-                userName: userData.name || ticketData?.attendeeName,
-                userBranch: userData.branch || ticketData?.branch,
-                userYear: userData.year || ticketData?.year,
-                checkedInAt: serverTimestamp(),
-                checkedBy: user.uid,
-                ticketId: ticketData?.ticketId || null,
-            });
+            try {
+                const checkInRef = doc(db, 'events', eventId, 'checkIns', scannedUserId);
+                await setDoc(checkInRef, {
+                    userId: scannedUserId,
+                    userName: userData.name || ticketData?.attendeeName,
+                    userBranch: userData.branch || ticketData?.branch,
+                    userYear: userData.year || ticketData?.year,
+                    checkedInAt: serverTimestamp(),
+                    checkedBy: user.uid,
+                    ticketId: ticketData?.ticketId || null,
+                });
 
-            // 3. Mark registration as attended (optional, if separate collection)
-            const registrationRef = doc(db, 'events', eventId, 'registrations', scannedUserId);
-            // Check if registration exists first or just set merge
-            await updateDoc(registrationRef, { status: 'attended' }).catch(err =>
-                console.log('No reg doc, skipping update'),
-            );
+                // 3. Mark registration as attended (optional, if separate collection)
+                const registrationRef = doc(db, 'events', eventId, 'registrations', scannedUserId);
+                // Check if registration exists first or just set merge
+                await updateDoc(registrationRef, { status: 'attended' }).catch(err =>
+                    console.log('No reg doc, skipping update'),
+                );
 
-            setScanResult({
-                status: 'success',
-                message: `Checked in ${userData.name || ticketData?.attendeeName}!`,
-                user: userData,
-            });
+                setScanResult({
+                    status: 'success',
+                    message: `Checked in ${userData.name || ticketData?.attendeeName}!`,
+                    user: userData,
+                });
+            } catch (err) {
+                if (err.code === 'unavailable' || err.message?.includes('offline') || err.message?.includes('network')) {
+                    await queueOfflineCheckIn(eventId, {
+                        userId: scannedUserId,
+                        userName: userData.name || ticketData?.attendeeName || 'Guest',
+                        userBranch: userData.branch || ticketData?.branch || 'N/A',
+                        userYear: userData.year || ticketData?.year || 'N/A',
+                        ticketId: ticketData?.ticketId || null
+                    });
+                    setScanResult({
+                        status: 'success',
+                        message: `Queued offline check-in for ${userData.name || ticketData?.attendeeName || 'Guest'}.`,
+                        user: userData,
+                    });
+                    return;
+                }
+                throw err;
+            }
         } catch (error) {
             console.error(error);
             setScanResult({ status: 'error', message: 'Check-in failed. Try again.' });

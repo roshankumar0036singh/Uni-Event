@@ -1,7 +1,6 @@
-import { doc, getDoc, serverTimestamp, increment, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, increment, runTransaction, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
-
-/**
+import AsyncStorage from '@react-native-async-storage/async-storage';
  * Validate a ticket for check-in
  */
 export const validateTicket = async (ticketId, eventId) => {
@@ -205,5 +204,92 @@ export const parseQRCode = qrData => {
             valid: false,
             error: 'Unable to parse QR code',
         };
+    }
+};
+
+const getOfflineQueueKey = (eventId) => `@offline_checkins_${eventId}`;
+
+export const queueOfflineCheckIn = async (eventId, checkInData) => {
+    try {
+        const key = getOfflineQueueKey(eventId);
+        const existingQueueStr = await AsyncStorage.getItem(key);
+        const queue = existingQueueStr ? JSON.parse(existingQueueStr) : [];
+        
+        if (!queue.find(item => item.userId === checkInData.userId)) {
+            queue.push({
+                ...checkInData,
+                queuedAt: new Date().toISOString()
+            });
+            await AsyncStorage.setItem(key, JSON.stringify(queue));
+        }
+        return true;
+    } catch (e) {
+        console.error('Failed to queue offline check-in', e);
+        return false;
+    }
+};
+
+export const getOfflineCheckInCount = async (eventId) => {
+    try {
+        const key = getOfflineQueueKey(eventId);
+        const existingQueueStr = await AsyncStorage.getItem(key);
+        if (!existingQueueStr) return 0;
+        const queue = JSON.parse(existingQueueStr);
+        return queue.length;
+    } catch (e) {
+        return 0;
+    }
+};
+
+export const syncOfflineCheckIns = async (eventId, organizerId) => {
+    try {
+        const key = getOfflineQueueKey(eventId);
+        const existingQueueStr = await AsyncStorage.getItem(key);
+        if (!existingQueueStr) return { success: true, syncedCount: 0 };
+        
+        const queue = JSON.parse(existingQueueStr);
+        if (queue.length === 0) return { success: true, syncedCount: 0 };
+        
+        let syncedCount = 0;
+        let failedQueue = [];
+
+        for (const item of queue) {
+            try {
+                const checkInRef = doc(db, 'events', eventId, 'checkIns', item.userId);
+                
+                const checkInSnap = await getDoc(checkInRef);
+                if (!checkInSnap.exists()) {
+                    await setDoc(checkInRef, {
+                        userId: item.userId,
+                        userName: item.userName || 'Guest',
+                        userBranch: item.userBranch || 'N/A',
+                        userYear: item.userYear || 'N/A',
+                        checkedInAt: serverTimestamp(),
+                        checkedBy: organizerId,
+                        ticketId: item.ticketId || null,
+                        syncedOffline: true
+                    });
+                    
+                    const registrationRef = doc(db, 'events', eventId, 'registrations', item.userId);
+                    await updateDoc(registrationRef, { status: 'attended' }).catch(() => {});
+                }
+                
+                syncedCount++;
+            } catch (err) {
+                console.error('Failed to sync item', err);
+                failedQueue.push(item);
+            }
+        }
+
+        if (failedQueue.length > 0) {
+            await AsyncStorage.setItem(key, JSON.stringify(failedQueue));
+            return { success: false, syncedCount, remainingCount: failedQueue.length };
+        } else {
+            await AsyncStorage.removeItem(key);
+            return { success: true, syncedCount };
+        }
+    } catch (e) {
+        console.error('Sync error', e);
+        return { success: false, syncedCount: 0, error: e };
     }
 };
