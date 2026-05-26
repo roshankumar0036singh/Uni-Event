@@ -217,7 +217,7 @@ export const queueOfflineCheckIn = async (eventId, checkInData) => {
         const existingQueueStr = await AsyncStorage.getItem(key);
         const queue = existingQueueStr ? JSON.parse(existingQueueStr) : [];
         
-        if (!queue.find(item => item.userId === checkInData.userId)) {
+        if (!queue.some(item => item.userId === checkInData.userId)) {
             queue.push({
                 ...checkInData,
                 queuedAt: new Date().toISOString()
@@ -238,8 +238,49 @@ export const getOfflineCheckInCount = async (eventId) => {
         if (!existingQueueStr) return 0;
         const queue = JSON.parse(existingQueueStr);
         return queue.length;
-    } catch (e) {
+    } catch (err) {
+        console.error('Failed to get offline count:', err);
         return 0;
+    }
+};
+
+const syncOfflineCheckInItem = async (item, eventId, organizerId) => {
+    const checkInRef = doc(db, 'events', eventId, 'checkIns', item.userId);
+    const checkInSnap = await getDoc(checkInRef);
+    if (!checkInSnap.exists()) {
+        const offlineCheckedInAt = item.queuedAt
+            ? Timestamp.fromDate(new Date(item.queuedAt))
+            : serverTimestamp();
+
+        await setDoc(checkInRef, {
+            userId: item.userId,
+            userName: item.userName || 'Guest',
+            userEmail: item.userEmail || '',
+            userBranch: item.userBranch || 'N/A',
+            userYear: item.userYear || 'N/A',
+            checkedInAt: offlineCheckedInAt,
+            checkedInBy: organizerId,
+            checkedInByName: item.organizerName || organizerId,
+            ticketId: item.ticketId || null,
+            status: 'checked-in',
+            syncedOffline: true,
+        });
+
+        if (item.ticketId) {
+            await updateDoc(doc(db, 'tickets', item.ticketId), {
+                checkInStatus: 'checked-in',
+                checkedInAt: offlineCheckedInAt,
+                checkedInBy: organizerId,
+            }).catch(() => {});
+        }
+
+        await updateDoc(doc(db, 'events', eventId), {
+            'stats.totalCheckedIn': increment(1),
+            'stats.lastCheckInAt': serverTimestamp(),
+        }).catch(() => {});
+
+        const registrationRef = doc(db, 'events', eventId, 'registrations', item.userId);
+        await updateDoc(registrationRef, { status: 'attended' }).catch(() => {});
     }
 };
 
@@ -257,48 +298,7 @@ export const syncOfflineCheckIns = async (eventId, organizerId) => {
 
         for (const item of queue) {
             try {
-                const checkInRef = doc(db, 'events', eventId, 'checkIns', item.userId);
-
-                const checkInSnap = await getDoc(checkInRef);
-                if (!checkInSnap.exists()) {
-                    // Preserve original scan time; fall back to server time if missing
-                    const offlineCheckedInAt = item.queuedAt
-                        ? Timestamp.fromDate(new Date(item.queuedAt))
-                        : serverTimestamp();
-
-                    await setDoc(checkInRef, {
-                        userId: item.userId,
-                        userName: item.userName || 'Guest',
-                        userEmail: item.userEmail || '',
-                        userBranch: item.userBranch || 'N/A',
-                        userYear: item.userYear || 'N/A',
-                        checkedInAt: offlineCheckedInAt,
-                        checkedInBy: organizerId,
-                        checkedInByName: item.organizerName || organizerId,
-                        ticketId: item.ticketId || null,
-                        status: 'checked-in',
-                        syncedOffline: true,
-                    });
-
-                    // Mark the ticket as checked-in so validateTicket sees it used
-                    if (item.ticketId) {
-                        await updateDoc(doc(db, 'tickets', item.ticketId), {
-                            checkInStatus: 'checked-in',
-                            checkedInAt: offlineCheckedInAt,
-                            checkedInBy: organizerId,
-                        }).catch(() => {});
-                    }
-
-                    // Increment event stats to keep dashboard accurate
-                    await updateDoc(doc(db, 'events', eventId), {
-                        'stats.totalCheckedIn': increment(1),
-                        'stats.lastCheckInAt': serverTimestamp(),
-                    }).catch(() => {});
-
-                    const registrationRef = doc(db, 'events', eventId, 'registrations', item.userId);
-                    await updateDoc(registrationRef, { status: 'attended' }).catch(() => {});
-                }
-                
+                await syncOfflineCheckInItem(item, eventId, organizerId);
                 syncedCount++;
             } catch (err) {
                 console.error('Failed to sync item', err);

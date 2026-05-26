@@ -185,6 +185,7 @@ export default function AttendanceDashboard({ route, navigation }) {
                 Alert.alert('Sync Failed', `Could not sync offline check-ins: ${msg}`);
             }
         } catch (error) {
+            console.error('Failed to sync offline check-ins', error);
             Alert.alert('Error', 'Failed to sync offline check-ins.');
         }
         const count = await getOfflineCheckInCount(eventId);
