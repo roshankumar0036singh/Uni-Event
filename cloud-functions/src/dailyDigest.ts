@@ -3,6 +3,8 @@ import * as functions from "firebase-functions";
 import Expo from 'expo-server-sdk';
 const expo = new Expo();
 
+const PAGE_SIZE = 500;
+
 export const sendDailyDigest = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
@@ -17,7 +19,6 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // efficient query for "today's events"
     const eventsRef = db.collection('events');
     const snapshot = await eventsRef
         .where('startAt', '>=', today.toISOString())
@@ -27,51 +28,79 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
     const count = snapshot.size;
 
     if (count === 0) {
-        return { success: true, message: "No events today." };
+        return { success: true, message: "No events today.", count: 0, processed: 0 };
     }
 
-    // Broadcast
-    const usersSnapshot = await db.collection('users').get();
-    const messages: any[] = [];
-    const batch = db.batch();
+    let lastDoc: admin.firestore.DocumentSnapshot | null = null;
+    let processedCount = 0;
 
-    usersSnapshot.forEach(userDoc => {
-        const userData = userDoc.data();
-        const pushToken = userData.pushToken;
+    while (true) {
+        let query: admin.firestore.Query = db
+            .collection('users')
+            .orderBy(admin.firestore.FieldPath.documentId())
+            .limit(PAGE_SIZE);
 
-        // In-App
-        const notifRef = userDoc.ref.collection('notifications').doc();
-        batch.set(notifRef, {
-            title: 'Daily Digest 📅',
-            body: `There are ${count} events happening today!`,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            read: false
-        });
+        if (lastDoc) {
+            query = query.startAfter(lastDoc);
+        }
 
-        if (pushToken && Expo.isExpoPushToken(pushToken)) {
-            messages.push({
-                to: pushToken,
-                sound: 'default',
+        const usersSnapshot = await query.get();
+
+        if (usersSnapshot.empty) {
+            break;
+        }
+
+        const batch = db.batch();
+        const pageMessages: any[] = [];
+
+        usersSnapshot.forEach(userDoc => {
+            const userData = userDoc.data();
+
+            if (userData.digestOptIn === false) {
+                return;
+            }
+
+            const notifRef = userDoc.ref.collection('notifications').doc();
+            batch.set(notifRef, {
                 title: 'Daily Digest 📅',
                 body: `There are ${count} events happening today!`,
-                data: { url: '/home' }, // Deep link to home or events feed
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                read: false
             });
-        }
-    });
 
-    await batch.commit();
-
-    // Send Pushes
-    if (messages.length > 0) {
-        let chunks = expo.chunkPushNotifications(messages);
-        for (let chunk of chunks) {
-            try {
-                await expo.sendPushNotificationsAsync(chunk);
-            } catch (error) {
-                console.error("Error sending digest chunks", error);
+            const pushToken = userData.pushToken;
+            if (pushToken && Expo.isExpoPushToken(pushToken)) {
+                pageMessages.push({
+                    to: pushToken,
+                    sound: 'default',
+                    title: 'Daily Digest 📅',
+                    body: `There are ${count} events happening today!`,
+                    data: { url: '/home' },
+                });
             }
+        });
+
+        await batch.commit();
+
+        if (pageMessages.length > 0) {
+            let chunks = expo.chunkPushNotifications(pageMessages);
+            for (let chunk of chunks) {
+                try {
+                    await expo.sendPushNotificationsAsync(chunk);
+                } catch (error) {
+                    console.error("Error sending digest chunks", error);
+                }
+            }
+        }
+
+        processedCount += usersSnapshot.size;
+
+        lastDoc = usersSnapshot.docs[usersSnapshot.docs.length - 1];
+
+        if (usersSnapshot.size < PAGE_SIZE) {
+            break;
         }
     }
 
-    return { success: true, count };
+    return { success: true, count, processed: processedCount };
 });

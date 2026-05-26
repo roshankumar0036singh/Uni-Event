@@ -5,9 +5,10 @@ import {
     initializeTestEnvironment,
     assertSucceeds,
     assertFails,
+    type TokenOptions,
 } from '@firebase/rules-unit-testing';
 
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
 
 let testEnv: Awaited<ReturnType<typeof initializeTestEnvironment>>;
 
@@ -37,10 +38,9 @@ const seedDocument = async (path: string, data: object) => {
     });
 };
 
-const getFirestoreContext = (userId?: string, claims?: object) => {
+const getFirestoreContext = (userId?: string, claims?: TokenOptions) => {
     return userId
-        ? // cast claims to any / TokenOptions to satisfy TS signature
-          testEnv.authenticatedContext(userId, claims as any).firestore()
+        ? testEnv.authenticatedContext(userId, claims).firestore()
         : testEnv.unauthenticatedContext().firestore();
 };
 
@@ -95,6 +95,13 @@ describe('Firestore Security Rules', () => {
 
         const db = getFirestoreContext('student1');
         await assertFails(getDoc(doc(db, 'users/student2')));
+    });
+
+    test("Club user cannot self-assign admin role -> denied", async () => {
+        await seedDocument("users/club1", { name: "Club User", role: "club" });
+
+        const db = getFirestoreContext("club1", { club: true });
+        await assertFails(setDoc(doc(db, "users/club1"), { role: "admin" }, { merge: true }));
     });
 
     // ---------------- CLUBS ----------------
@@ -188,6 +195,41 @@ describe('Firestore Security Rules', () => {
                 { joined: false },
                 { merge: true },
             ),
+        );
+    });
+
+    test("Student deletes another user's participant record -> denied", async () => {
+        await seedDocument("events/event1/participants/student2", { joined: true });
+
+        const db = getFirestoreContext("student1");
+        await assertFails(deleteDoc(doc(db, "events/event1/participants/student2")));
+    });
+
+    // ---------------- EVENT CHECK-INS ----------------
+
+    test("Club user writes event check-in -> allowed", async () => {
+        await seedDocument("events/event1", { title: "Tech Fest", ownerId: "clubOwner1" });
+
+        const db = getFirestoreContext("club1", { club: true });
+        await assertSucceeds(
+            setDoc(doc(db, "events/event1/checkIns/student1"), {
+                userId: "student1",
+                checkedInBy: "club1",
+                status: "checked-in",
+            }),
+        );
+    });
+
+    test("Student writes event check-in -> denied", async () => {
+        await seedDocument("events/event1", { title: "Tech Fest", ownerId: "clubOwner1" });
+
+        const db = getFirestoreContext("student1");
+        await assertFails(
+            setDoc(doc(db, "events/event1/checkIns/student1"), {
+                userId: "student1",
+                checkedInBy: "student1",
+                status: "checked-in",
+            }),
         );
     });
 

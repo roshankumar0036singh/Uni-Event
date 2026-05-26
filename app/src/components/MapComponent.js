@@ -1,8 +1,8 @@
 import { Platform } from 'react-native';
 
 const mapComponents = Platform.select({
-  web: () => require('./MapComponent.web'),
-  default: () => require('./MapComponent.native'),
+    web: () => require('./MapComponent.web'),
+    default: () => require('./MapComponent.native'),
 });
 
 const { MapView, Marker, Callout } = mapComponents();

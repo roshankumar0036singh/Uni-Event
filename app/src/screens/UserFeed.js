@@ -62,6 +62,20 @@ export default function UserFeed() {
     const [hasMore, setHasMore] = useState(true);
     const PAGE_SIZE = 20;
 
+    const hasMoreRef = useRef(hasMore);
+    const isFetchingMoreRef = useRef(isFetchingMore);
+    const lastVisibleRef = useRef(lastVisible);
+
+    useEffect(() => {
+        hasMoreRef.current = hasMore;
+    }, [hasMore]);
+    useEffect(() => {
+        isFetchingMoreRef.current = isFetchingMore;
+    }, [isFetchingMore]);
+    useEffect(() => {
+        lastVisibleRef.current = lastVisible;
+    }, [lastVisible]);
+
     // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [currentFeedbackRequest, setCurrentFeedbackRequest] = useState(null);
@@ -201,13 +215,15 @@ export default function UserFeed() {
     const fetchEvents = useCallback(
         async (loadMore = false) => {
             if (!user) return;
-            if (loadMore && (!hasMore || isFetchingMore)) return;
+            if (loadMore && (!hasMoreRef.current || isFetchingMoreRef.current)) return;
 
             if (loadMore) {
+                isFetchingMoreRef.current = true;
                 setIsFetchingMore(true);
             } else {
                 setLoading(true);
                 setEvents([]);
+                lastVisibleRef.current = null;
                 setLastVisible(null);
             }
 
@@ -230,8 +246,8 @@ export default function UserFeed() {
                     );
                 }
 
-                if (loadMore && lastVisible) {
-                    qConstraints.push(startAfter(lastVisible));
+                if (loadMore && lastVisibleRef.current) {
+                    qConstraints.push(startAfter(lastVisibleRef.current));
                 }
                 const q = query(
                     collection(db, COLLECTIONS.EVENTS),
@@ -267,13 +283,18 @@ export default function UserFeed() {
                 }
 
                 if (snapshot.docs.length > 0) {
-                    setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+                    const nextCursor = snapshot.docs[snapshot.docs.length - 1];
+                    lastVisibleRef.current = nextCursor;
+                    setLastVisible(nextCursor);
                 } else {
-                    if (!loadMore) setLastVisible(null);
+                    if (!loadMore) {
+                        lastVisibleRef.current = null;
+                        setLastVisible(null);
+                    }
                 }
-                setHasMore(snapshot.docs.length === PAGE_SIZE);
-
-                // Cache write moved into setEvents logic above
+                const nextHasMore = snapshot.docs.length === PAGE_SIZE;
+                hasMoreRef.current = nextHasMore;
+                setHasMore(nextHasMore);
             } catch (error) {
                 console.error('Error fetching paginated events: ', error);
                 if (error.message?.includes('index')) {
@@ -284,11 +305,12 @@ export default function UserFeed() {
                 }
             } finally {
                 setLoading(false);
+                isFetchingMoreRef.current = false;
                 setIsFetchingMore(false);
                 setRefreshing(false);
             }
         },
-        [user, activeFilter, debouncedSearchQuery, hasMore, isFetchingMore, lastVisible],
+        [user, activeFilter],
     );
 
     useEffect(() => {
@@ -490,24 +512,27 @@ export default function UserFeed() {
         </View>
     );
 
-    const renderEvent = ({ item }) => (
-        <View style={{ paddingHorizontal: 20 }}>
-            <EventCard
-                event={item}
-                isRegistered={participatingIds.includes(item.id)}
-                onLike={() => {}}
-                onShare={async () => {
-                    try {
-                        await Share.share({
-                            message: `Check out this event: ${item.title} at ${item.location}!`,
-                        });
-                    } catch (e) {
-                        console.error('Share Error:', e);
-                        Alert.alert('Error', 'Failed to share the event.');
-                    }
-                }}
-            />
-        </View>
+    const renderEvent = useCallback(
+        ({ item }) => (
+            <View style={{ paddingHorizontal: 20 }}>
+                <EventCard
+                    event={item}
+                    isRegistered={participatingIds.includes(item.id)}
+                    onLike={() => {}}
+                    onShare={async () => {
+                        try {
+                            await Share.share({
+                                message: `Check out this event: ${item.title} at ${item.location}!`,
+                            });
+                        } catch (e) {
+                            logger.error('Share Error:', e);
+                            Alert.alert('Error', 'Failed to share the event.');
+                        }
+                    }}
+                />
+            </View>
+        ),
+        [participatingIds],
     );
 
     const headerTranslateY = scrollY.interpolate({
@@ -866,9 +891,6 @@ const styles = StyleSheet.create({
         marginLeft: 10,
         fontSize: 16,
         borderWidth: 0,
-        ...Platform.select({
-            web: { outlineStyle: 'none' },
-        }),
     },
     filterWrapper: {
         height: 60,
