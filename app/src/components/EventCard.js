@@ -116,6 +116,9 @@ const EventCard = memo(
 
         const { isEligible: isEarlyBird, currentPrice } = getEarlyBirdInfo(event);
 
+        const isLive = new Date() >= new Date(event.startAt) && new Date() <= new Date(event.endAt);
+        const isOnlineBadge = !isLive && event.eventMode === 'online';
+
         return (
             <TouchableOpacity
                 style={[
@@ -159,20 +162,20 @@ const EventCard = memo(
                     </View>
 
                     {/* Live / Online Badge */}
-                    {new Date() >= new Date(event.startAt) &&
-                    new Date() <= new Date(event.endAt) ? (
+                    {isLive && (
                         <View style={[styles.onlineBadge, { backgroundColor: theme.colors.error }]}>
                             <Ionicons name="radio-button-on" size={12} color="#fff" />
                             <Text style={styles.onlineText}>LIVE</Text>
                         </View>
-                    ) : event.eventMode === 'online' ? (
+                    )}
+                    {isOnlineBadge && (
                         <View
                             style={[styles.onlineBadge, { backgroundColor: theme.colors.primary }]}
                         >
                             <Ionicons name="videocam" size={12} color="#fff" />
                             <Text style={styles.onlineText}>ONLINE</Text>
                         </View>
-                    ) : null}
+                    )}
 
                     {/* SUSPENDED Badge */}
                     {event.status === 'suspended' && (

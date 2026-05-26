@@ -71,9 +71,15 @@ export default function UserFeed() {
     const isFetchingMoreRef = useRef(isFetchingMore);
     const lastVisibleRef = useRef(lastVisible);
 
-    useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
-    useEffect(() => { isFetchingMoreRef.current = isFetchingMore; }, [isFetchingMore]);
-    useEffect(() => { lastVisibleRef.current = lastVisible; }, [lastVisible]);
+    useEffect(() => {
+        hasMoreRef.current = hasMore;
+    }, [hasMore]);
+    useEffect(() => {
+        isFetchingMoreRef.current = isFetchingMore;
+    }, [isFetchingMore]);
+    useEffect(() => {
+        lastVisibleRef.current = lastVisible;
+    }, [lastVisible]);
 
     // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
