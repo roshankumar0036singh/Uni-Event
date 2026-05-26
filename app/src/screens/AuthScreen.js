@@ -460,7 +460,6 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         paddingVertical: 0,
-        outlineStyle: 'none',
         backgroundColor: 'transparent',
     },
     authButton: {
