@@ -41,6 +41,7 @@ import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
+import participantService from '../lib/participantService';
 import {
     cancelScheduledNotification,
     scheduleEventReminder,
@@ -49,6 +50,7 @@ import {
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
 import { getEarlyBirdInfo, getTimestampMs } from '../lib/earlyBird';
+import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
 import PropTypes from 'prop-types';
 import logger from '../lib/logger';
 
@@ -131,6 +133,7 @@ export default function EventDetail({ route, navigation }) {
     };
 
     const [hostName, setHostName] = useState('Organizer');
+    const [isVerifiedOrganizer, setIsVerifiedOrganizer] = useState(false);
     const [reminderId, setReminderId] = useState(null); // Firestore Doc ID if set
     const [isBookmarked, setIsBookmarked] = useState(false);
 
@@ -147,15 +150,31 @@ export default function EventDetail({ route, navigation }) {
 
     useEffect(() => {
         if (event?.ownerId) {
-            getDoc(doc(db, 'users', event.ownerId)).then(snap => {
-                if (snap.exists()) {
-                    setHostName(snap.data().displayName || event.organizerName || 'Organizer');
-                }
-            });
+            getDoc(doc(db, 'users', event.ownerId))
+                .then(snap => {
+                    if (snap.exists()) {
+                        const userData = snap.data();
+
+                        setHostName(userData.displayName || event.organizerName || 'Organizer');
+
+                        setIsVerifiedOrganizer(userData.verificationStatus === 'verified');
+                    } else {
+                        setHostName(event.organizerName || 'Organizer');
+                        setIsVerifiedOrganizer(false);
+                    }
+                })
+                .catch(() => {
+                    setHostName(event.organizerName || 'Organizer');
+                    setIsVerifiedOrganizer(false);
+                });
         } else if (event?.organizerName) {
             setHostName(event.organizerName);
+            setIsVerifiedOrganizer(false);
+        } else {
+            setHostName('Organizer');
+            setIsVerifiedOrganizer(false);
         }
-    }, [event]);
+    }, [event?.ownerId, event?.organizerName]);
 
     // Increment View Count (Unique per User)
     useEffect(() => {
@@ -205,19 +224,18 @@ export default function EventDetail({ route, navigation }) {
             setLoading(false);
         });
 
-        const unsubParticipants = onSnapshot(
-            collection(db, `events/${eventId}/participants`),
-            snapshot => {
-                setParticipantCount(snapshot.size);
-                const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setParticipants(list);
-                if (user) {
-                    const myDoc = list.find(d => d.id === user.uid);
-                    if (myDoc) setRsvpStatus('going');
-                    else setRsvpStatus(null);
-                }
-            },
-        );
+        const unsubParticipants = participantService.subscribeParticipants(db, eventId, data => {
+            const list = Array.isArray(data) ? data : [];
+            setParticipantCount(list.length);
+            setParticipants(list);
+            if (user) {
+                const myDoc = list.find(d => d.id === user.uid);
+                if (myDoc) setRsvpStatus('going');
+                else setRsvpStatus(null);
+            } else {
+                setRsvpStatus(null);
+            }
+        });
 
         if (user) {
             getDoc(doc(db, `events/${eventId}/feedback`, user.uid)).then(snap => {
@@ -413,28 +431,58 @@ export default function EventDetail({ route, navigation }) {
         const ref = doc(db, 'events', eventId, 'participants', user.uid);
         const userRef = doc(db, 'users', user.uid, 'participating', eventId);
         const userProfileRef = doc(db, 'users', user.uid);
+        const eventRef = doc(db, 'events', eventId);
 
         try {
             await runTransaction(db, async transaction => {
                 const participantDoc = await transaction.get(ref);
                 const userDoc = await transaction.get(userProfileRef);
+                const eventSnap = await transaction.get(eventRef);
                 const userData = userDoc.exists() ? userDoc.data() : {};
+                if (!eventSnap.exists()) {
+                    throw new Error('Event not found');
+                }
+
+                const eventData = eventSnap.data() || {};
 
                 if (participantDoc.exists()) {
+                    const participantData = participantDoc.data() || {};
+                    const nextPreview = buildPreviewUpdate({
+                        eventData,
+                        participant: {
+                            userId: user.uid,
+                            name: participantData.name || user.displayName || 'Anonymous',
+                            email: participantData.email || user.email,
+                            branch: participantData.branch || 'Unknown',
+                            year: participantData.year || 'Unknown',
+                        },
+                        delta: -1,
+                    });
+                    const eventUpdates = buildCounterUpdates({
+                        branch: participantData.branch || 'Unknown',
+                        year: participantData.year || 'Unknown',
+                        delta: -1,
+                        eventData,
+                    });
+                    eventUpdates.participantsPreview = nextPreview;
+
                     // Withdraw RSVP
                     transaction.delete(ref);
                     transaction.delete(userRef);
                     transaction.update(userProfileRef, { points: increment(-RSVP_POINTS_CHANGE) });
+                    transaction.update(eventRef, eventUpdates);
                 } else {
-                    // Add RSVP
-                    transaction.set(ref, {
+                    const participantPayload = {
                         userId: user.uid,
                         email: user.email,
                         name: user.displayName || 'Anonymous',
                         branch: userData.branch || 'Unknown',
                         year: userData.year || 'Unknown',
                         joinedAt: new Date().toISOString(),
-                    });
+                    };
+
+                    // Add RSVP
+                    transaction.set(ref, participantPayload);
                     transaction.set(userRef, {
                         eventId: eventId,
                         joinedAt: new Date().toISOString(),
@@ -446,6 +494,20 @@ export default function EventDetail({ route, navigation }) {
                         userUpdate.badges = arrayUnion(`early_bird_${eventId}`);
                     }
                     transaction.update(userProfileRef, userUpdate);
+
+                    const nextPreview = buildPreviewUpdate({
+                        eventData,
+                        participant: participantPayload,
+                        delta: 1,
+                    });
+                    const eventUpdates = buildCounterUpdates({
+                        branch: participantPayload.branch,
+                        year: participantPayload.year,
+                        delta: 1,
+                        eventData,
+                    });
+                    eventUpdates.participantsPreview = nextPreview;
+                    transaction.update(eventRef, eventUpdates);
                 }
             });
 
@@ -495,21 +557,15 @@ export default function EventDetail({ route, navigation }) {
 
         setSendingCertificates(true);
         try {
-            // Fetch Participants
+            // Fetch Participants via participantService
             logger.debug(`Fetching participants for event: ${event.id}`);
-            const participantsRef = collection(db, `events/${event.id}/participants`);
-            const snapshot = await getDocs(participantsRef);
-            logger.debug(`Snapshot size: ${snapshot.size}`);
-
-            const participants = snapshot.docs
-                .map(doc => {
-                    const data = doc.data();
-                    return {
-                        name: data.name,
-                        email: data.email,
-                    };
-                })
+            const snapshotData = await (
+                await import('../lib/participantService')
+            ).default.fetchParticipantsOnce(db, event.id);
+            const participants = (snapshotData || [])
+                .map(d => ({ name: d.name, email: d.email }))
                 .filter(p => p.email && p.email !== '-');
+            logger.debug(`Valid participants count: ${participants.length}`);
 
             logger.debug(`Valid participants count: ${participants.length}`);
 
@@ -1441,9 +1497,20 @@ export default function EventDetail({ route, navigation }) {
                                 >
                                     Hosted by
                                 </Text>
-                                <Text style={[styles.hostName, { color: theme.colors.text }]}>
-                                    {hostName}
-                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Text style={[styles.hostName, { color: theme.colors.text }]}>
+                                        {hostName}
+                                    </Text>
+
+                                    {isVerifiedOrganizer && (
+                                        <Ionicons
+                                            name="checkmark-circle"
+                                            size={18}
+                                            color="#3B82F6"
+                                            style={{ marginLeft: 6 }}
+                                        />
+                                    )}
+                                </View>
                             </View>
                             <Ionicons
                                 name="chevron-forward"

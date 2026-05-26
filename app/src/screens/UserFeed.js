@@ -347,6 +347,9 @@ export default function UserFeed() {
                     placeholderTextColor={theme.colors.textSecondary}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
+                    accessible={true}
+                    accessibilityRole="search"
+                    accessibilityLabel="Search events"
                 />
                 {searchQuery.length > 0 && (
                     <TouchableOpacity onPress={() => setSearchQuery('')}>
@@ -376,6 +379,9 @@ export default function UserFeed() {
                                     borderRadius: 25,
                                     ...theme.shadows.small,
                                 }}
+                                accessible={true}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${f} filter`}
                             >
                                 {isActive ? (
                                     <LinearGradient
@@ -471,6 +477,9 @@ export default function UserFeed() {
                                 backgroundColor:
                                     viewMode === 'list' ? theme.colors.primary : 'transparent',
                             }}
+                            accessible={true}
+                            accessibilityRole="button"
+                            accessibilityLabel="List view"
                         >
                             <Ionicons
                                 name="list"
@@ -486,6 +495,9 @@ export default function UserFeed() {
                                 backgroundColor:
                                     viewMode === 'map' ? theme.colors.primary : 'transparent',
                             }}
+                            accessible={true}
+                            accessibilityRole="button"
+                            accessibilityLabel="Map view"
                         >
                             <Ionicons
                                 name="map"
@@ -613,6 +625,9 @@ export default function UserFeed() {
                                                 ? theme.colors.primary
                                                 : 'transparent',
                                     }}
+                                    accessible={true}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="List view"
                                 >
                                     <Ionicons
                                         name="list"
@@ -634,6 +649,9 @@ export default function UserFeed() {
                                                 ? theme.colors.primary
                                                 : 'transparent',
                                     }}
+                                    accessible={true}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Map view"
                                 >
                                     <Ionicons
                                         name="map"
