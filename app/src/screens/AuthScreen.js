@@ -56,7 +56,8 @@ export default function AuthScreen() {
         if (document.getElementById('hide-password-reveal')) return;
         const style = document.createElement('style');
         style.id = 'hide-password-reveal';
-        style.textContent ='input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear, input[type="password"]::-webkit-credentials-auto-fill-button, input[type="password"]::-webkit-textfield-decoration-container, input[type="password"]::-webkit-password-reveal-button { display: none !important; }';
+        style.textContent =
+            'input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear, input[type="password"]::-webkit-credentials-auto-fill-button, input[type="password"]::-webkit-textfield-decoration-container, input[type="password"]::-webkit-password-reveal-button { display: none !important; }';
         document.head.appendChild(style);
         // Flag indicating we created the style element
         const createdStyle = true;
@@ -319,7 +320,7 @@ export default function AuthScreen() {
                                 importantForAutofill="no"
                                 autoCorrect={false}
                                 textContentType={isLogin ? 'password' : 'newPassword'}
-                                />
+                            />
                             <TouchableOpacity
                                 onPress={() => setShowPassword(!showPassword)}
                                 style={{
