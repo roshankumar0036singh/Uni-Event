@@ -269,11 +269,14 @@ export const syncOfflineCheckIns = async (eventId, organizerId) => {
                     await setDoc(checkInRef, {
                         userId: item.userId,
                         userName: item.userName || 'Guest',
+                        userEmail: item.userEmail || '',
                         userBranch: item.userBranch || 'N/A',
                         userYear: item.userYear || 'N/A',
                         checkedInAt: offlineCheckedInAt,
                         checkedInBy: organizerId,
+                        checkedInByName: item.organizerName || organizerId,
                         ticketId: item.ticketId || null,
+                        status: 'checked-in',
                         syncedOffline: true,
                     });
 

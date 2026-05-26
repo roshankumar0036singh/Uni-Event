@@ -5,7 +5,7 @@ import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from '
 import ScreenWrapper from '../components/ScreenWrapper';
 import WebQRScanner from '../components/WebQRScanner';
 import { useAuth } from '../lib/AuthContext';
-import { queueOfflineCheckIn, checkInAttendee, validateTicket } from '../lib/checkInService';
+import { queueOfflineCheckIn, checkInAttendee } from '../lib/checkInService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
@@ -77,6 +77,7 @@ export default function QRScannerScreen({ navigation, route }) {
                     const queued = await queueOfflineCheckIn(eventId, {
                         userId: scannedUserId,
                         userName: ticketData?.attendeeName || 'Guest',
+                        userEmail: ticketData?.attendeeEmail || '',
                         userBranch: ticketData?.branch || 'N/A',
                         userYear: ticketData?.year || 'N/A',
                         ticketId: ticketData?.ticketId || null,
@@ -130,6 +131,7 @@ export default function QRScannerScreen({ navigation, route }) {
                     const queued = await queueOfflineCheckIn(eventId, {
                         userId: scannedUserId,
                         userName: userData.name || ticketData?.attendeeName || 'Guest',
+                        userEmail: userData.email || ticketData?.attendeeEmail || '',
                         userBranch: userData.branch || ticketData?.branch || 'N/A',
                         userYear: userData.year || ticketData?.year || 'N/A',
                         ticketId: ticketData?.ticketId || null,
