@@ -1,8 +1,3 @@
-
-
-
-
-
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -165,7 +160,8 @@ export default function UserFeed() {
             setLoading(false);
             AsyncStorage.removeItem('@userfeed:events').catch(err => console.error('Cache clear on logout failed', err));
             return;
-        if (!user) return;
+        }
+
         const fetchPool = async () => {
             try {
                 const now = new Date().toISOString();
@@ -251,17 +247,9 @@ export default function UserFeed() {
                     const data = doc.data();
                     list.push({ id: doc.id, ...data });
                 });
-                setEvents(list);
-                // Cache events for offline fallback
-                AsyncStorage.setItem('@userfeed:events', JSON.stringify(list)).catch(err => console.error('Cache write failed', err));
-                setLoading(false);
-            },
-            error => {
-                console.error('Error fetching events: ', error);
 
                 if (loadMore) {
                     setEvents(prev => {
-                        // Prevent duplicates
                         const existingIds = new Set(prev.map(e => e.id));
                         const newEvents = list.filter(e => !existingIds.has(e.id));
                         return [...prev, ...newEvents];
@@ -276,9 +264,10 @@ export default function UserFeed() {
                     if (!loadMore) setLastVisible(null);
                 }
                 setHasMore(snapshot.docs.length === PAGE_SIZE);
+
+                AsyncStorage.setItem('@userfeed:events', JSON.stringify(list)).catch(err => console.error('Cache write failed', err));
             } catch (error) {
                 console.error('Error fetching paginated events: ', error);
-                // Fallback if composite index is missing for categories
                 if (error.message?.includes('index')) {
                     Alert.alert(
                         'Database Index Required',
