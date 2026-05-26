@@ -427,7 +427,7 @@ export default function UserFeed() {
         </View>
     );
 
-    const renderEvent = ({ item }) => (
+    const renderEvent = useCallback(({ item }) => (
         <View style={{ paddingHorizontal: 20 }}>
             <EventCard
                 event={item}
@@ -445,7 +445,7 @@ export default function UserFeed() {
                 }}
             />
         </View>
-    );
+    ), [participatingIds]);
 
     const headerTranslateY = scrollY.interpolate({
         inputRange: [0, 100],

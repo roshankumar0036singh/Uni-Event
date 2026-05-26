@@ -11,7 +11,7 @@ import {
     where,
     getDocs,
 } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View, Switch, Platform } from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme } from '../lib/theme';
@@ -22,7 +22,7 @@ import { useAuth } from '../lib/AuthContext';
 import { triggerBuddyMatchNotification } from '../lib/notificationService';
 import PropTypes from 'prop-types';
 
-export default function EventCard({
+const EventCard = memo(({
     event,
     onLike,
     onShare,
@@ -31,7 +31,7 @@ export default function EventCard({
     isRecommended = false,
     showRegisterButton = true,
     style,
-}) {
+}) => {
     const navigation = useNavigation();
     const { theme } = useTheme();
     const { user } = useAuth();
@@ -556,3 +556,5 @@ EventCard.propTypes = {
     showRegisterButton: PropTypes.any,
     style: PropTypes.any,
 };
+
+export default EventCard;
