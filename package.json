@@ -8,5 +8,8 @@
     "@types/node": "^25.8.0",
     "jest": "^30.4.2",
     "ts-jest": "^29.4.9"
+  },
+  "dependencies": {
+    "expo-clipboard": "^56.0.3"
   }
 }
