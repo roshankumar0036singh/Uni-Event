@@ -28,11 +28,10 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
     const count = snapshot.size;
 
     if (count === 0) {
-        return { success: true, message: "No events today." };
+        return { success: true, message: "No events today.", count: 0, processed: 0 };
     }
 
     let lastDoc: admin.firestore.DocumentSnapshot | null = null;
-    const allMessages: any[] = [];
     let processedCount = 0;
 
     while (true) {
@@ -82,24 +81,24 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
         });
 
         await batch.commit();
-        allMessages.push(...pageMessages);
+
+        if (pageMessages.length > 0) {
+            let chunks = expo.chunkPushNotifications(pageMessages);
+            for (let chunk of chunks) {
+                try {
+                    await expo.sendPushNotificationsAsync(chunk);
+                } catch (error) {
+                    console.error("Error sending digest chunks", error);
+                }
+            }
+        }
+
         processedCount += usersSnapshot.size;
 
         lastDoc = usersSnapshot.docs[usersSnapshot.docs.length - 1];
 
         if (usersSnapshot.size < PAGE_SIZE) {
             break;
-        }
-    }
-
-    if (allMessages.length > 0) {
-        let chunks = expo.chunkPushNotifications(allMessages);
-        for (let chunk of chunks) {
-            try {
-                await expo.sendPushNotificationsAsync(chunk);
-            } catch (error) {
-                console.error("Error sending digest chunks", error);
-            }
         }
     }
 
