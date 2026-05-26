@@ -1,7 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { doc, getDoc, updateDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+import {
+    doc,
+    getDoc,
+    updateDoc,
+    onSnapshot,
+    collection,
+    query,
+    where,
+    getDocs,
+} from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View, Switch, Platform } from 'react-native';
 import { db } from '../lib/firebaseConfig';
@@ -30,7 +39,7 @@ export default function EventCard({
     const [bannerLoaded, setBannerLoaded] = useState(false);
     const [flyerLoaded, setFlyerLoaded] = useState(false);
     const [lookingForBuddy, setLookingForBuddy] = useState(false);
-        useEffect(() => {
+    useEffect(() => {
         if (!isRegistered || !user || !event?.id) return;
 
         const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
@@ -43,7 +52,7 @@ export default function EventCard({
         return () => unsubscribe();
     }, [isRegistered, user, event?.id]);
 
-    const handleToggleBuddy = async (value) => {
+    const handleToggleBuddy = async value => {
         if (!user || !event?.id) return;
         try {
             const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
@@ -311,7 +320,10 @@ export default function EventCard({
                             <View
                                 style={[
                                     styles.registerBtnCompact,
-                                    { backgroundColor: theme.colors.success, ...theme.shadows.small },
+                                    {
+                                        backgroundColor: theme.colors.success,
+                                        ...theme.shadows.small,
+                                    },
                                 ]}
                             >
                                 <Ionicons
@@ -323,15 +335,24 @@ export default function EventCard({
                                 <Text style={styles.registerTextCompact}>REGISTERED</Text>
                             </View>
                             <View style={styles.buddyToggleContainer}>
-                                <Text style={[styles.buddyToggleLabel, { color: theme.colors.text }]}>
+                                <Text
+                                    style={[styles.buddyToggleLabel, { color: theme.colors.text }]}
+                                >
                                     Find A Buddy!
                                 </Text>
                                 <Switch
                                     value={lookingForBuddy}
                                     onValueChange={handleToggleBuddy}
-                                    trackColor={{ false: theme.colors.border, true: theme.colors.primary + '80' }}
+                                    trackColor={{
+                                        false: theme.colors.border,
+                                        true: theme.colors.primary + '80',
+                                    }}
                                     thumbColor={lookingForBuddy ? theme.colors.primary : '#999'}
-                                    style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] } : {}}
+                                    style={
+                                        Platform.OS === 'ios'
+                                            ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }
+                                            : {}
+                                    }
                                 />
                             </View>
                         </View>
@@ -485,7 +506,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         width: '100%',
     },
-        registeredRow: {
+    registeredRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -523,7 +544,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '700',
     },
-
 });
 
 EventCard.propTypes = {
