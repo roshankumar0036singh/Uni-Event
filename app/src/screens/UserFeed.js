@@ -1,4 +1,4 @@
-import logger from "../lib/logger";
+import logger from '../lib/logger';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
