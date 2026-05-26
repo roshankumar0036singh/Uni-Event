@@ -56,19 +56,7 @@ export default function AuthScreen() {
         if (document.getElementById('hide-password-reveal')) return;
         const style = document.createElement('style');
         style.id = 'hide-password-reveal';
-<<<<<<< HEAD
-        style.textContent = `
-        input[type="password"]::-ms-reveal,
-        input[type="password"]::-ms-clear,
-        input[type="password"]::-webkit-credentials-auto-fill-button,
-        input[type="password"]::-webkit-textfield-decoration-container,
-        input[type="password"]::-webkit-password-reveal-button {
-            display: none !important;
-        }`;
-=======
-        style.textContent =
-            'input["password"]::-ms-reveal, input["password"]::-ms-clear, input["password"]::-webkit-credentials-auto-fill-button, input["password"]::-webkit-textfield-decoration-container, input["password"]::-webkit-password-reveal-button { display: none !important; }';
->>>>>>> 64d325e (fix(calendar): code rabbit suggestions)
+        style.textContent ='input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear, input[type="password"]::-webkit-credentials-auto-fill-button, input[type="password"]::-webkit-textfield-decoration-container, input[type="password"]::-webkit-password-reveal-button { display: none !important; }';
         document.head.appendChild(style);
         // Flag indicating we created the style element
         const createdStyle = true;
@@ -328,15 +316,10 @@ export default function AuthScreen() {
                                 }}
                                 secureTextEntry={!showPassword}
                                 autoComplete={isLogin ? 'current-password' : 'new-password'}
-<<<<<<< HEAD
                                 importantForAutofill="no"
                                 autoCorrect={false}
-                                textContentType="none"
-=======
-                                autoCorrect={false}
                                 textContentType={isLogin ? 'password' : 'newPassword'}
->>>>>>> 64d325e (fix(calendar): code rabbit suggestions)
-                            />
+                                />
                             <TouchableOpacity
                                 onPress={() => setShowPassword(!showPassword)}
                                 style={{
