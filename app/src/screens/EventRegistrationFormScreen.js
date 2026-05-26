@@ -81,20 +81,20 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
             let finalEarlyBird = false;
             let freshEvent = null;
 
-            await runTransaction(db, async (transaction) => {
+            await runTransaction(db, async transaction => {
                 // Read the fresh event document securely
                 const eventRef = doc(db, 'events', event.id);
                 const eventSnap = await transaction.get(eventRef);
-                
+
                 if (!eventSnap.exists()) {
                     throw new Error('Event not found');
                 }
-                
+
                 freshEvent = { id: eventSnap.id, ...eventSnap.data() };
-                
+
                 // Determine early bird eligibility based on the real-time data
                 let { isEligible: earlyBird } = getEarlyBirdInfo(freshEvent);
-                
+
                 // Enforce capacity limit if the event defines one
                 if (earlyBird && freshEvent.earlyBirdCapacity != null) {
                     const currentEarlyBirds = freshEvent.stats?.earlyBirdRegistrations || 0;
@@ -102,7 +102,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                         earlyBird = false;
                     }
                 }
-                
+
                 finalEarlyBird = earlyBird;
 
                 // B. Save Custom Form Responses
@@ -141,13 +141,13 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 const userUpdate = { points: increment(10) };
                 if (earlyBird) {
                     userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
-                    
+
                     // Increment early bird stats to enforce limits on concurrent requests
                     transaction.update(eventRef, {
-                        'stats.earlyBirdRegistrations': increment(1)
+                        'stats.earlyBirdRegistrations': increment(1),
                     });
                 }
-                
+
                 const userRef = doc(db, 'users', user.uid);
                 transaction.set(userRef, userUpdate, { merge: true });
             });
