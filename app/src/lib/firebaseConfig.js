@@ -7,7 +7,12 @@ import {
     initializeAuth,
     connectAuthEmulator,
 } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { 
+    initializeFirestore, 
+    persistentLocalCache, 
+    persistentMultipleTabManager,
+    connectFirestoreEmulator 
+} from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
 import { Platform } from 'react-native';
@@ -21,16 +26,12 @@ const firebaseConfig = {
     appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Validate Config
 if (!firebaseConfig.apiKey) {
     console.error('Firebase Configuration Error: API Key is missing.');
-    console.error('Please ensure you have a .env file with EXPO_PUBLIC_FIREBASE_API_KEY defined.');
 }
 
-// Initialize App
 const app = initializeApp(firebaseConfig);
 
-// Initialize Auth with persistence
 let auth;
 if (Platform.OS === 'web') {
     auth = initializeAuth(app, {
@@ -44,37 +45,29 @@ if (Platform.OS === 'web') {
 
 export { auth };
 
-// Initialize other services
-export const db = getFirestore(app);
+// 🚀 This turns on local storage database caching for offline use
+export const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+    }),
+});
+
 export const functions = getFunctions(app);
 export const storage = getStorage(app);
 let messagingInstance = null;
 
 export async function getWebMessaging() {
-    if (Platform.OS !== 'web') {
-        return null;
-    }
-
-    if (messagingInstance) {
-        return messagingInstance;
-    }
-
+    if (Platform.OS !== 'web') return null;
+    if (messagingInstance) return messagingInstance;
     const { getMessaging, isSupported } = await import('firebase/messaging');
-
-    if (!(await isSupported())) {
-        return null;
-    }
-
+    if (!(await isSupported())) return null;
     messagingInstance = getMessaging(app);
     return messagingInstance;
 }
 
-// Connect to Emulators if configured
 if (process.env.EXPO_PUBLIC_USE_EMULATORS === 'true') {
     const { LogBox } = require('react-native');
     LogBox.ignoreLogs([/Running in emulator mode/, /emulator/i]);
-
-    console.log('Using Firebase Emulators...');
     const EMULATOR_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 
     connectAuthEmulator(auth, `http://${EMULATOR_HOST}:9099`, { disableWarnings: true });
@@ -84,5 +77,4 @@ if (process.env.EXPO_PUBLIC_USE_EMULATORS === 'true') {
 }
 
 export const VAPID_KEY = process.env.EXPO_PUBLIC_FCM_VAPID_KEY;
-
 export default app;

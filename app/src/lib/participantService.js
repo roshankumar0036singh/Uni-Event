@@ -1,4 +1,4 @@
-import { collection, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, doc, runTransaction, increment } from 'firebase/firestore';
 
 // In-memory listener registry to dedupe reads and subscriptions per event
 const registry = new Map(); // eventId -> { subscribers: Set(fn), unsubscribe: fn|null, data: any, lastFetched: number, fetchPromise: Promise<any>|null }
@@ -128,5 +128,34 @@ export function clearParticipantCache(eventId) {
         registry.clear();
     }
 }
+export const safeToggleEventAction = async (db, userId, eventId, isRegistering) => {
+    const eventRef = doc(db, 'events', eventId);
+    const participantRef = doc(db, `events/${eventId}/participants`, userId);
 
-export default { fetchParticipantsOnce, subscribeParticipants, clearParticipantCache };
+    try {
+        await runTransaction(db, async (transaction) => {
+            const eventDoc = await transaction.get(eventRef);
+            if (!eventDoc.exists()) {
+                throw new Error("Target event mapping does not exist upstream.");
+            }
+
+            // 1. Last-Write-Wins Rule: Set tracking state with a sync timestamp
+            transaction.set(participantRef, {
+                id: userId,
+                registered: isRegistering,
+                synchronizedAt: new Date().toISOString(),
+            }, { merge: true });
+
+            // 2. Delta Merge Rule: Use atomic field increments so counters don't overwrite blindly
+            transaction.update(eventRef, {
+                totalAttendees: increment(isRegistering ? 1 : -1)
+            });
+        });
+        console.log("Offline operation successfully synchronized and merged!");
+    } catch (error) {
+        console.error("Conflict engine rollback triggered:", error);
+        throw error;
+    }
+};
+
+export default { fetchParticipantsOnce, subscribeParticipants, clearParticipantCache, safeToggleEventAction };
