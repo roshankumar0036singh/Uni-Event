@@ -41,6 +41,7 @@ import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
+import participantService from '../lib/participantService';
 import {
     cancelScheduledNotification,
     scheduleEventReminder,
@@ -131,6 +132,7 @@ export default function EventDetail({ route, navigation }) {
     };
 
     const [hostName, setHostName] = useState('Organizer');
+    const [isVerifiedOrganizer, setIsVerifiedOrganizer] = useState(false);
     const [reminderId, setReminderId] = useState(null); // Firestore Doc ID if set
     const [isBookmarked, setIsBookmarked] = useState(false);
 
@@ -147,15 +149,31 @@ export default function EventDetail({ route, navigation }) {
 
     useEffect(() => {
         if (event?.ownerId) {
-            getDoc(doc(db, 'users', event.ownerId)).then(snap => {
-                if (snap.exists()) {
-                    setHostName(snap.data().displayName || event.organizerName || 'Organizer');
-                }
-            });
+            getDoc(doc(db, 'users', event.ownerId))
+                .then(snap => {
+                    if (snap.exists()) {
+                        const userData = snap.data();
+
+                        setHostName(userData.displayName || event.organizerName || 'Organizer');
+
+                        setIsVerifiedOrganizer(userData.verificationStatus === 'verified');
+                    } else {
+                        setHostName(event.organizerName || 'Organizer');
+                        setIsVerifiedOrganizer(false);
+                    }
+                })
+                .catch(() => {
+                    setHostName(event.organizerName || 'Organizer');
+                    setIsVerifiedOrganizer(false);
+                });
         } else if (event?.organizerName) {
             setHostName(event.organizerName);
+            setIsVerifiedOrganizer(false);
+        } else {
+            setHostName('Organizer');
+            setIsVerifiedOrganizer(false);
         }
-    }, [event]);
+    }, [event?.ownerId, event?.organizerName]);
 
     // Increment View Count (Unique per User)
     useEffect(() => {
@@ -205,19 +223,18 @@ export default function EventDetail({ route, navigation }) {
             setLoading(false);
         });
 
-        const unsubParticipants = onSnapshot(
-            collection(db, `events/${eventId}/participants`),
-            snapshot => {
-                setParticipantCount(snapshot.size);
-                const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setParticipants(list);
-                if (user) {
-                    const myDoc = list.find(d => d.id === user.uid);
-                    if (myDoc) setRsvpStatus('going');
-                    else setRsvpStatus(null);
-                }
-            },
-        );
+        const unsubParticipants = participantService.subscribeParticipants(db, eventId, data => {
+            const list = Array.isArray(data) ? data : [];
+            setParticipantCount(list.length);
+            setParticipants(list);
+            if (user) {
+                const myDoc = list.find(d => d.id === user.uid);
+                if (myDoc) setRsvpStatus('going');
+                else setRsvpStatus(null);
+            } else {
+                setRsvpStatus(null);
+            }
+        });
 
         if (user) {
             getDoc(doc(db, `events/${eventId}/feedback`, user.uid)).then(snap => {
@@ -539,22 +556,15 @@ export default function EventDetail({ route, navigation }) {
 
         setSendingCertificates(true);
         try {
-            // Fetch Participants
+            // Fetch Participants via participantService
             console.log(`Fetching participants for event: ${event.id}`);
-            const participantsRef = collection(db, `events/${event.id}/participants`);
-            const snapshot = await getDocs(participantsRef);
-            console.log(`Snapshot size: ${snapshot.size}`);
-
-            const participants = snapshot.docs
-                .map(doc => {
-                    const data = doc.data();
-                    console.log(`Participant: ${data.name}, Email: ${data.email}`);
-                    return {
-                        name: data.name,
-                        email: data.email,
-                    };
-                })
+            const snapshotData = await (
+                await import('../lib/participantService')
+            ).default.fetchParticipantsOnce(db, event.id);
+            const participants = (snapshotData || [])
+                .map(d => ({ name: d.name, email: d.email }))
                 .filter(p => p.email && p.email !== '-');
+            console.log(`Valid participants count: ${participants.length}`);
 
             console.log(`Valid participants count: ${participants.length}`);
 
@@ -1486,9 +1496,20 @@ export default function EventDetail({ route, navigation }) {
                                 >
                                     Hosted by
                                 </Text>
-                                <Text style={[styles.hostName, { color: theme.colors.text }]}>
-                                    {hostName}
-                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Text style={[styles.hostName, { color: theme.colors.text }]}>
+                                        {hostName}
+                                    </Text>
+
+                                    {isVerifiedOrganizer && (
+                                        <Ionicons
+                                            name="checkmark-circle"
+                                            size={18}
+                                            color="#3B82F6"
+                                            style={{ marginLeft: 6 }}
+                                        />
+                                    )}
+                                </View>
                             </View>
                             <Ionicons
                                 name="chevron-forward"

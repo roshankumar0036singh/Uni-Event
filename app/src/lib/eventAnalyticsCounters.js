@@ -19,14 +19,10 @@ export const buildCounterUpdates = ({ branch, year, delta, eventData }) => {
     const hasYearCount = eventData?.yearCounts?.[yearKey] != null;
 
     return {
-        participantCount:
-            isDecrement && !hasParticipantCount ? 0 : increment(delta),
-        'stats.totalRegistrations':
-            isDecrement && !hasTotalRegistrations ? 0 : increment(delta),
-        [`branchCounts.${branchKey}`]:
-            isDecrement && !hasBranchCount ? 0 : increment(delta),
-        [`yearCounts.${yearKey}`]:
-            isDecrement && !hasYearCount ? 0 : increment(delta),
+        participantCount: isDecrement && !hasParticipantCount ? 0 : increment(delta),
+        'stats.totalRegistrations': isDecrement && !hasTotalRegistrations ? 0 : increment(delta),
+        [`branchCounts.${branchKey}`]: isDecrement && !hasBranchCount ? 0 : increment(delta),
+        [`yearCounts.${yearKey}`]: isDecrement && !hasYearCount ? 0 : increment(delta),
     };
 };
 

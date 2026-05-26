@@ -1,6 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 // import { Picker } from '@react-native-picker/picker'; // Removed native picker
-import { LinearGradient } from 'expo-linear-gradient';
 import { updateProfile } from 'firebase/auth';
 import { addDoc, collection, doc, getCountFromServer, getDoc, updateDoc } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -22,8 +21,8 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
-import TopContributors from '../components/TopContributors';
 import PropTypes from 'prop-types';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getUserLevel, getUserLevelProgress } from '../lib/userLevels';
 
 // Helper to get ordinal year labels
@@ -41,24 +40,60 @@ const getYearLabel = y => {
 };
 
 // Helper for menu items
-const MenuItem = ({ icon, label, onPress, theme, styles, showChevron = true, rightElement }) => (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-        <View style={[styles.menuIconContainer, { backgroundColor: theme.colors.primary + '20' }]}>
-            <Ionicons name={icon} size={20} color={theme.colors.primary} />
+// eslint-disable-next-line prettier/prettier
+const MenuItem = ({
+    icon,
+    label,
+    description,
+    onPress,
+    theme,
+    styles,
+    width = '50%',
+    showChevron = true,
+    rightElement,
+}) => (
+    <TouchableOpacity onPress={onPress} style={[styles.bentoMenuItem, { width }]}>
+        <View style={styles.bentoTop}>
+            <View
+                style={[
+                    styles.menuIconContainer,
+                    {
+                        backgroundColor: theme.colors.primary + '20',
+                    },
+                ]}
+            >
+                <Ionicons name={icon} size={20} color={theme.colors.primary} />
+            </View>
+            <View style={styles.bentoContent}>
+                <Text style={styles.bentoLabel}>{label}</Text>
+            </View>
+            {rightElement}
         </View>
-        <Text style={styles.menuText}>{label}</Text>
-        {rightElement}
-        {showChevron && !rightElement && (
-            <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-        )}
+        <View>
+            {description && <Text style={styles.bentoDescription}>{description}</Text>}
+            {showChevron && (
+                <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                    style={styles.bentoChevron}
+                />
+            )}
+        </View>
     </TouchableOpacity>
 );
 
 const StatCard = ({ label, value, icon, theme, styles }) => (
     <View style={[styles.statCard, { backgroundColor: theme.colors.surface }]}>
-        <Ionicons name={icon} size={20} color={theme.colors.primary} style={{ marginBottom: 5 }} />
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
+        <View style={styles.statCardRow}>
+            <View style={[styles.statIconSection]}>
+                <Ionicons name={icon} size={20} color={theme.colors.primary} style={{}} />
+            </View>
+            <View style={styles.statContentSection}>
+                <Text style={styles.statValue}>{value}</Text>
+                <Text style={styles.statLabel}>{label}</Text>
+            </View>
+        </View>
     </View>
 );
 
@@ -288,54 +323,55 @@ export default function ProfileScreen({ navigation }) {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Header Profile Section */}
-                <View style={styles.header}>
-                    <View style={styles.avatarContainer}>
-                        <LinearGradient
-                            colors={[
-                                theme.colors.primary || '#6200ee',
-                                theme.colors.secondary || '#03dac6',
-                            ]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.avatarGradientBorder}
-                        >
-                            <View
-                                style={[
-                                    styles.avatarInner,
-                                    { backgroundColor: theme.colors.background },
-                                ]}
-                            >
-                                <Text style={styles.avatarText}>
-                                    {name?.[0]?.toUpperCase() ||
-                                        user?.email?.[0]?.toUpperCase() ||
-                                        'U'}
-                                </Text>
+                <LinearGradient
+                    colors={[
+                        theme.colors.surface + '15',
+                        'rgba(255, 183, 77, 0.10)',
+                        theme.colors.primary + '20',
+                    ]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0.57, y: 1 }}
+                    style={styles.header}
+                >
+                    <View style={styles.profileTopRow}>
+                        <View style={styles.profileLeft}>
+                            <View style={styles.avatarContainer}>
+                                <View style={styles.avatarInner}>
+                                    <Text style={styles.avatarText}>
+                                        {name?.[0]?.toUpperCase() ||
+                                            user?.email?.[0]?.toUpperCase() ||
+                                            'U'}
+                                    </Text>
+                                </View>
                             </View>
-                        </LinearGradient>
+                            <View style={styles.profileInfo}>
+                                <Text style={styles.profileName}>{name || 'User'}</Text>
+                                <Text style={styles.profileEmail}>{user?.email}</Text>
+                            </View>
+                        </View>
+                        {!isEditing && (
+                            <TouchableOpacity
+                                style={styles.editIconBtn}
+                                onPress={() => setIsEditing(true)}
+                            >
+                                <MaterialIcons name="edit" size={18} color="#fff" />
+                            </TouchableOpacity>
+                        )}
                     </View>
 
-                    <View style={{ alignItems: 'center', marginTop: 10 }}>
-                        <Text style={styles.profileName}>{name || 'User'}</Text>
+                    <View style={styles.profileContent}>
+                        {headline ? (
+                            <Text style={styles.profileHeadline} numberOfLines={3}>
+                                {headline}
+                            </Text>
+                        ) : null}
                         {bio ? (
                             <Text style={styles.profileBio} numberOfLines={3}>
                                 {bio}
                             </Text>
                         ) : null}
-                        <Text style={styles.profileEmail}>{user?.email}</Text>
                     </View>
-
-                    {!isEditing && (
-                        <TouchableOpacity
-                            style={styles.editIconBtn}
-                            onPress={() => setIsEditing(true)}
-                        >
-                            <Ionicons name="pencil" size={18} color="#fff" />
-                            <Text style={{ color: '#fff', fontWeight: 'bold', marginLeft: 4 }}>
-                                Edit
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
+                </LinearGradient>
 
                 {/* Stats Row */}
                 {!isEditing && (
@@ -700,80 +736,93 @@ export default function ProfileScreen({ navigation }) {
                         {/* Activity Section */}
                         <View style={styles.menuGroup}>
                             <Text style={styles.groupTitle}>Activity</Text>
-                            <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-                                {role === 'admin' && (
-                                    <>
+                            {role === 'admin' && (
+                                <>
+                                    <View style={styles.bentoRow}>
                                         <MenuItem
                                             icon="calendar-outline"
                                             label="My Created Events"
+                                            description="Manage your hosted events"
+                                            width="48%"
                                             onPress={() => navigation.navigate('MyEvents')}
                                             theme={theme}
                                             styles={styles}
                                         />
-                                        <View style={styles.divider} />
                                         <MenuItem
                                             icon="notifications-outline"
                                             label="Send Daily Update"
+                                            description="Notify users instantly"
+                                            width="48%"
                                             onPress={handleSendDailyDigest}
                                             theme={theme}
                                             styles={styles}
                                         />
-                                        <View style={styles.divider} />
-                                    </>
-                                )}
+                                    </View>
+                                </>
+                            )}
+                            <View style={styles.bentoRow}>
                                 <MenuItem
                                     icon="heart-outline"
                                     label="My Calendar"
+                                    description="Track upcoming events"
+                                    width="48%"
                                     onPress={() => navigation.navigate('MyRegisteredEvents')}
                                     theme={theme}
                                     styles={styles}
                                 />
-                                <View style={styles.divider} />
                                 <MenuItem
                                     icon="bookmark-outline"
                                     label="Saved Events"
+                                    description="Your bookmarked events"
+                                    width="48%"
                                     onPress={() => navigation.navigate('SavedEvents')}
                                     theme={theme}
                                     styles={styles}
                                 />
-                                <View style={styles.divider} />
+                            </View>
+                            <View style={styles.bentoRow}>
                                 <MenuItem
                                     icon="sparkles-outline"
                                     label="My Wrapped"
+                                    description="Your yearly event recap"
+                                    width="48%"
                                     onPress={() => navigation.navigate('Wrapped')}
                                     theme={theme}
                                     styles={styles}
                                 />
-                                <View style={styles.divider} />
                                 <MenuItem
                                     icon="wallet-outline"
                                     label="My Wallet"
+                                    description="Rewards and transactions"
+                                    width="48%"
                                     onPress={() => navigation.navigate('Wallet')}
                                     theme={theme}
                                     styles={styles}
                                 />
-                                {role !== 'club' && role !== 'admin' && (
-                                    <>
-                                        <View style={styles.divider} />
-                                        <MenuItem
-                                            icon="briefcase-outline"
-                                            label="Request Organizer Access"
-                                            onPress={() => setShowRequestModal(true)}
-                                            theme={theme}
-                                            styles={styles}
-                                        />
-                                    </>
-                                )}
                             </View>
+                            {role !== 'club' && role !== 'admin' && (
+                                <>
+                                    <MenuItem
+                                        icon="briefcase-outline"
+                                        label="Request Organizer Access"
+                                        description="Apply to create and manage events"
+                                        width="100%"
+                                        onPress={() => setShowRequestModal(true)}
+                                        theme={theme}
+                                        styles={styles}
+                                    />
+                                </>
+                            )}
                         </View>
 
                         {/* Settings Section */}
                         <View style={styles.menuGroup}>
                             <Text style={styles.groupTitle}>Settings</Text>
-                            <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+                            <View style={styles.bentoRow}>
                                 <MenuItem
                                     icon="moon-outline"
                                     label="Dark Mode"
+                                    width="100%"
                                     theme={theme}
                                     styles={styles}
                                     showChevron={false}
@@ -789,116 +838,114 @@ export default function ProfileScreen({ navigation }) {
                                         />
                                     }
                                 />
-                                {/* Account Switching Horizontal Scroll inside Menu */}
-                                <View style={styles.divider} />
-                                <View style={{ padding: 15 }}>
-                                    <Text style={[styles.label, { marginBottom: 10 }]}>
-                                        Switch Accounts
-                                    </Text>
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                        {/* Active Account */}
+                            </View>
+
+                            {/* Account Switching Horizontal Scroll inside Menu */}
+                            <View
+                                style={{
+                                    padding: 18,
+                                    backgroundColor: theme.colors.surface,
+                                    borderRadius: 20,
+                                    borderWidth: 1,
+                                    borderColor: theme.colors.border,
+                                }}
+                            >
+                                <Text style={[styles.switchAccountLabel, { marginBottom: 10 }]}>
+                                    Switch Accounts
+                                </Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                    {/* Active Account */}
+                                    <View
+                                        style={[
+                                            styles.accountAvatarSmall,
+                                            styles.activeAccountBorder,
+                                            { borderColor: theme.colors.primary },
+                                        ]}
+                                    >
+                                        <Text style={styles.accountAvatarText}>
+                                            {name?.[0]?.toUpperCase() || 'U'}
+                                        </Text>
+                                    </View>
+
+                                    {/* Saved Accounts */}
+                                    {savedAccounts
+                                        .filter(acc => acc.email !== user?.email)
+                                        .map((acc, i) => (
+                                            <TouchableOpacity
+                                                key={i}
+                                                onPress={() => switchAccount(acc.email)}
+                                                onLongPress={() => removeSavedAccount(acc.email)}
+                                                activeOpacity={0.7}
+                                            >
+                                                <View
+                                                    style={[
+                                                        styles.accountAvatarSmall,
+                                                        {
+                                                            backgroundColor:
+                                                                theme.colors.primary + '40',
+                                                            borderWidth: 1,
+                                                            borderColor:
+                                                                theme.colors.primary + '60',
+                                                        },
+                                                    ]}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.accountAvatarText,
+                                                            { color: theme.colors.primary },
+                                                        ]}
+                                                    >
+                                                        {acc.displayName?.[0]?.toUpperCase() ||
+                                                            acc.email?.[0]?.toUpperCase()}
+                                                    </Text>
+                                                </View>
+                                            </TouchableOpacity>
+                                        ))}
+
+                                    {/* Add Account Button */}
+                                    <TouchableOpacity onPress={() => signOut()} activeOpacity={0.7}>
                                         <View
                                             style={[
                                                 styles.accountAvatarSmall,
-                                                styles.activeAccountBorder,
-                                                { borderColor: theme.colors.primary },
+                                                {
+                                                    backgroundColor: 'transparent',
+                                                    borderWidth: 2,
+                                                    borderColor: theme.colors.textSecondary,
+                                                    borderStyle: 'dashed',
+                                                },
                                             ]}
                                         >
-                                            <Text style={styles.accountAvatarText}>
-                                                {name?.[0]?.toUpperCase() || 'U'}
-                                            </Text>
+                                            <Ionicons
+                                                name="add"
+                                                size={20}
+                                                color={theme.colors.textSecondary}
+                                            />
                                         </View>
-
-                                        {/* Saved Accounts */}
-                                        {savedAccounts
-                                            .filter(acc => acc.email !== user?.email)
-                                            .map((acc, i) => (
-                                                <TouchableOpacity
-                                                    key={i}
-                                                    onPress={() => switchAccount(acc.email)}
-                                                    onLongPress={() =>
-                                                        removeSavedAccount(acc.email)
-                                                    }
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <View
-                                                        style={[
-                                                            styles.accountAvatarSmall,
-                                                            {
-                                                                backgroundColor:
-                                                                    theme.colors.primary + '40',
-                                                                borderWidth: 1,
-                                                                borderColor:
-                                                                    theme.colors.primary + '60',
-                                                            },
-                                                        ]}
-                                                    >
-                                                        <Text
-                                                            style={[
-                                                                styles.accountAvatarText,
-                                                                { color: theme.colors.primary },
-                                                            ]}
-                                                        >
-                                                            {acc.displayName?.[0]?.toUpperCase() ||
-                                                                acc.email?.[0]?.toUpperCase()}
-                                                        </Text>
-                                                    </View>
-                                                </TouchableOpacity>
-                                            ))}
-
-                                        {/* Add Account Button */}
-                                        <TouchableOpacity
-                                            onPress={() => signOut()}
-                                            activeOpacity={0.7}
-                                        >
-                                            <View
-                                                style={[
-                                                    styles.accountAvatarSmall,
-                                                    {
-                                                        backgroundColor: 'transparent',
-                                                        borderWidth: 2,
-                                                        borderColor: theme.colors.textSecondary,
-                                                        borderStyle: 'dashed',
-                                                    },
-                                                ]}
-                                            >
-                                                <Ionicons
-                                                    name="add"
-                                                    size={20}
-                                                    color={theme.colors.textSecondary}
-                                                />
-                                            </View>
-                                        </TouchableOpacity>
-                                    </ScrollView>
-                                    <Text
-                                        style={[
-                                            styles.helperText,
-                                            { color: theme.colors.textSecondary, marginTop: 8 },
-                                        ]}
-                                    >
-                                        Tap to switch • Long press to remove
-                                    </Text>
-                                </View>
+                                    </TouchableOpacity>
+                                </ScrollView>
+                                <Text style={styles.helperText}>
+                                    Tap to switch • Long press to remove
+                                </Text>
                             </View>
                         </View>
 
                         {/* Support Section */}
                         <View style={styles.menuGroup}>
                             <Text style={styles.groupTitle}>Support</Text>
-                            <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-                                <MenuItem
-                                    icon="bug-outline"
-                                    label="Report a Bug"
-                                    onPress={() => navigation.navigate('ReportBug')}
-                                    theme={theme}
-                                    styles={styles}
-                                />
-                            </View>
+                            <MenuItem
+                                icon="bug-outline"
+                                label="Report a Bug"
+                                description="Report issues and share feedback"
+                                width="100%"
+                                onPress={() => navigation.navigate('ReportBug')}
+                                theme={theme}
+                                styles={styles}
+                            />
                         </View>
 
                         {/* Logout Button */}
                         <TouchableOpacity style={styles.logoutBtn} onPress={signOut}>
-                            <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
+                            <Ionicons name="log-out-outline" size={20} color={'#FF5A3C'} />
                             <Text style={styles.logoutText}>Sign Out</Text>
                         </TouchableOpacity>
 
@@ -912,10 +959,8 @@ export default function ProfileScreen({ navigation }) {
                         >
                             v1.0.0
                         </Text>
-                        <View style={{ height: 50 }} />
                     </View>
                 )}
-                <TopContributors />
             </ScrollView>
 
             <Modal visible={showRequestModal} transparent animationType="slide">
@@ -1020,75 +1065,93 @@ export default function ProfileScreen({ navigation }) {
 const getStyles = theme =>
     StyleSheet.create({
         header: {
+            marginTop: 10,
+            marginBottom: 20,
+            marginHorizontal: 16,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            borderRadius: 20,
+            padding: 18,
+        },
+        profileTopRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            width: '100%',
+        },
+        profileLeft: {
+            flexDirection: 'row',
             alignItems: 'center',
-            paddingVertical: 30,
-            marginBottom: 10,
+            flex: 1,
+            paddingRight: 12,
         },
         avatarContainer: {
-            marginBottom: 15,
-            ...theme.shadows.medium,
-        },
-        avatarGradientBorder: {
-            width: 100,
-            height: 100,
-            borderRadius: 50,
+            width: 70,
+            height: 70,
+            borderRadius: 40,
+            borderWidth: 2,
+            borderColor: 'rgba(255,255,255,0.06)',
             padding: 3,
+            flexDirection: 'row',
             justifyContent: 'center',
             alignItems: 'center',
+            marginRight: 15,
         },
         avatarInner: {
             width: '100%',
             height: '100%',
-            borderRadius: 50,
+            borderRadius: 40,
             justifyContent: 'center',
             alignItems: 'center',
+            backgroundColor: theme.colors.primary,
         },
         avatarText: {
-            fontSize: 36,
-            fontWeight: 'bold',
-            color: theme.colors.primary,
-        },
-        profileName: {
-            fontSize: 26,
+            fontSize: 32,
             fontWeight: 'bold',
             color: theme.colors.text,
-            marginBottom: 4,
+        },
+        profileInfo: {
+            flex: 1,
+            overflow: 'hidden',
+            paddingRight: 8,
+        },
+        profileName: {
+            fontSize: 22,
+            fontWeight: '700',
+            color: theme.colors.text,
+            marginBottom: 2,
         },
         profileEmail: {
-            fontSize: 13,
+            fontSize: 12,
             color: theme.colors.textSecondary,
             marginBottom: 10,
         },
-        profileBio: {
-            fontSize: 16,
-            textAlign: 'center',
-            color: theme.colors.primary, // Highlight bio
-            paddingHorizontal: 20,
+        profileContent: {
+            flex: 1,
+        },
+        profileHeadline: {
+            fontSize: 18,
+            textAlign: 'left',
+            color: theme.colors.primary,
             marginTop: 4,
             marginBottom: 4,
             lineHeight: 22,
-            fontWeight: '500',
+            fontWeight: '600',
         },
-        roleBadge: {
-            paddingHorizontal: 12,
-            paddingVertical: 4,
-            borderRadius: 20,
-        },
-        roleText: {
+        profileBio: {
             fontSize: 12,
-            fontWeight: 'bold',
+            textAlign: 'left',
+            color: theme.colors.textSecondary,
+            marginTop: 2,
         },
         editIconBtn: {
-            position: 'absolute',
-            top: 20,
-            right: 20,
-            backgroundColor: theme.colors.primary,
+            backgroundColor: theme.colors.primary + '20',
             flexDirection: 'row',
+            justifyContent: 'center',
             alignItems: 'center',
-            paddingVertical: 6,
-            paddingHorizontal: 12,
-            borderRadius: 20,
-            ...theme.shadows.default,
+            width: 38,
+            height: 38,
+            borderRadius: 40,
         },
         statsRow: {
             flexDirection: 'row',
@@ -1099,16 +1162,39 @@ const getStyles = theme =>
         },
         statCard: {
             flex: 1,
-            padding: 15,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
             borderRadius: 16,
             alignItems: 'center',
             ...theme.shadows.small,
+        },
+        statCardRow: {
+            width: '100%',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+        },
+        statIconSection: {
+            width: 40,
+            height: 40,
+            borderRadius: 14,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: theme.colors.primary + '20',
+        },
+        statContentSection: {
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
         },
         statValue: {
             fontSize: 18,
             fontWeight: 'bold',
             color: theme.colors.text,
             marginBottom: 2,
+            textAlign: 'center',
         },
         statLabel: {
             fontSize: 12,
@@ -1178,14 +1264,17 @@ const getStyles = theme =>
             marginLeft: 5,
             textTransform: 'uppercase',
         },
-        card: {
-            borderRadius: 16,
-            overflow: 'hidden',
+        bentoMenuItem: {
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            borderRadius: 20,
+            padding: 18,
+            backgroundColor: theme.colors.surface,
+            ...theme.shadows.small,
         },
-        menuItem: {
+        bentoTop: {
             flexDirection: 'row',
-            alignItems: 'center',
-            padding: 16,
+            alignItems: 'flex-start',
         },
         menuIconContainer: {
             width: 36,
@@ -1193,18 +1282,42 @@ const getStyles = theme =>
             borderRadius: 10,
             justifyContent: 'center',
             alignItems: 'center',
-            marginRight: 15,
         },
-        menuText: {
+        bentoContent: {
             flex: 1,
-            fontSize: 16,
-            color: theme.colors.text,
-            fontWeight: '500',
+            marginLeft: 18,
+            justifyContent: 'space-between',
+            height: '100%',
         },
-        divider: {
-            height: 1,
-            backgroundColor: theme.colors.border,
-            marginLeft: 60,
+        bentoLabel: {
+            fontSize: 16,
+            fontWeight: '700',
+            color: theme.colors.text,
+        },
+        bentoDescription: {
+            marginTop: 8,
+            fontSize: 12,
+            lineHeight: 18,
+            color: theme.colors.textSecondary,
+        },
+        bentoChevron: {
+            alignSelf: 'flex-end',
+            marginTop: 10,
+        },
+        bentoRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginBottom: 14,
+        },
+        switchAccountLabel: {
+            fontSize: 16,
+            fontWeight: '700',
+            color: theme.colors.text,
+            marginBottom: 12,
+        },
+        helperText: {
+            color: theme.colors.textSecondary,
+            marginTop: 10,
         },
         formContainer: {
             paddingHorizontal: theme.spacing.m,
@@ -1300,33 +1413,36 @@ const getStyles = theme =>
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 16,
-            borderRadius: 16,
-            backgroundColor: '#ffebee',
-            borderWidth: 1,
-            borderColor: '#ffcdd2',
+            paddingVertical: 18,
+            borderRadius: 20,
             marginBottom: 20,
+            backgroundColor: 'rgba(120, 20, 20, 0.18)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 90, 90, 0.15)',
+            gap: 10,
+            ...theme.shadows.small,
         },
         logoutText: {
-            color: theme.colors.error,
-            fontWeight: 'bold',
-            fontSize: 16,
-            marginLeft: 8,
+            color: '#FF5A3C',
+            fontWeight: '700',
+            fontSize: 17,
         },
     });
 
 MenuItem.propTypes = {
     icon: PropTypes.any,
     label: PropTypes.any,
+    description: PropTypes.any,
     onPress: PropTypes.any,
     theme: PropTypes.object,
     styles: PropTypes.object,
     showChevron: PropTypes.any,
     rightElement: PropTypes.object,
+    width: PropTypes.string,
 };
 StatCard.propTypes = {
     label: PropTypes.any,
-    value: PropTypes.number,
+    value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     icon: PropTypes.any,
     theme: PropTypes.object,
     styles: PropTypes.object,

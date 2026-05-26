@@ -1,12 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-    collection,
-    doc,
-    getDoc,
-    increment,
-    arrayUnion,
-    runTransaction,
-} from 'firebase/firestore';
+import { collection, doc, getDoc, increment, arrayUnion, runTransaction } from 'firebase/firestore';
 import { useState } from 'react';
 import {
     ActivityIndicator,
@@ -74,7 +67,7 @@ export default function PaymentScreen({ route, navigation }) {
                 paymentPrice =
                     earlyBird && paymentEvent.earlyBirdPrice != null
                         ? paymentEvent.earlyBirdPrice
-                        : paymentEvent.price ?? price ?? 0;
+                        : (paymentEvent.price ?? price ?? 0);
             } catch (error) {
                 Alert.alert('Error', error.message || 'Unable to fetch event details.');
                 return;
@@ -170,7 +163,7 @@ export default function PaymentScreen({ route, navigation }) {
                     const finalPrice =
                         earlyBird && freshEvent.earlyBirdPrice != null
                             ? freshEvent.earlyBirdPrice
-                            : freshEvent.price ?? price ?? 0;
+                            : (freshEvent.price ?? price ?? 0);
 
                     ticketData = {
                         eventId: freshEvent.id,
