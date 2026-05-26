@@ -423,7 +423,7 @@ export default function UserFeed() {
 
     const renderEvent = ({ item }) => (
         <View style={{ paddingHorizontal: 20 }}>
-                <EventCard
+            <EventCard
                 event={item}
                 isRegistered={participatingIds.includes(item.id)}
                 onLike={() => {}}
@@ -614,7 +614,6 @@ export default function UserFeed() {
                                     overflow: 'hidden',
                                 }}
                             >
-                                    </View>
                                 <TouchableOpacity
                                     onPress={() => setViewMode('list')}
                                     style={{
