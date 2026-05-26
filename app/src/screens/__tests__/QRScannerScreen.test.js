@@ -1,0 +1,72 @@
+jest.mock('../../lib/checkInService', () => ({
+  queueOfflineCheckIn: jest.fn(),
+  checkInAttendee: jest.fn(),
+}));
+
+import React from 'react';
+import { render, waitFor } from '@testing-library/react-native';
+
+jest.mock('expo-camera', () => ({
+    Camera: {
+        requestCameraPermissionsAsync: jest.fn(() =>
+            Promise.resolve({
+                status: 'denied',
+            })
+        ),
+    },
+}));
+
+jest.mock('firebase/firestore', () => ({
+    doc: jest.fn(),
+    getDoc: jest.fn(),
+}));
+
+jest.mock('../../lib/firebaseConfig', () => ({
+    db: {},
+}));
+
+jest.mock('../../lib/AuthContext', () => ({
+    useAuth: () => ({
+        user: {
+            uid: '123',
+        },
+    }),
+}));
+
+jest.mock('../../lib/ThemeContext', () => ({
+    useTheme: () => ({
+        theme: {
+            colors: {
+                surface: '#fff',
+                text: '#000',
+                textSecondary: '#666',
+                primary: '#000',
+            },
+        },
+    }),
+}));
+
+import QRScannerScreen from '../QRScannerScreen';
+
+describe('QRScannerScreen', () => {
+    it('shows no camera access message when permission denied', async () => {
+        const route = {
+            params: {
+                eventId: '1',
+                eventTitle: 'Test Event',
+            },
+        };
+
+        const navigation = {
+            goBack: jest.fn(),
+        };
+
+        const { getByText } = render(
+            <QRScannerScreen navigation={navigation} route={route} />
+        );
+
+        await waitFor(() => {
+            expect(getByText(/no access to camera/i)).toBeTruthy();
+        });
+    });
+});
