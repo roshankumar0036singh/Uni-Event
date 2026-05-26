@@ -53,13 +53,11 @@ export default function WebQRScanner({ onScan, style }) {
 
     return (
         <View style={[styles.container, style]}>
-            <div
+            <section
                 id="reader"
-                role="region"
                 aria-label="QR code scanner"
-                tabIndex={0}
                 style={{ width: '100%', height: '100%' }}
-            ></div>
+            />
             <Text
                 accessible={true}
                 accessibilityRole="text"

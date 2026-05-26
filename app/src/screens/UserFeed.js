@@ -410,9 +410,8 @@ export default function UserFeed() {
                                             ]}
                                         >
                                             {f}
-                                        {MapView && (
+                                        </Text>
                                     </View>
-                                )}
                             </TouchableOpacity>
                         );
                     })}
@@ -423,13 +422,10 @@ export default function UserFeed() {
 
     const renderEvent = ({ item }) => (
         <View style={{ paddingHorizontal: 20 }}>
-            <EventCard
+                <EventCard
                 event={item}
                 isRegistered={participatingIds.includes(item.id)}
                 onLike={() => {}}
-                                                    accessible={true}
-                                                    accessibilityRole="button"
-                                                    accessibilityLabel="List view"
                 onShare={async () => {
                     try {
                         await Share.share({
@@ -445,9 +441,6 @@ export default function UserFeed() {
     );
 
     const headerTranslateY = scrollY.interpolate({
-                                                    accessible={true}
-                                                    accessibilityRole="button"
-                                                    accessibilityLabel="Map view"
         inputRange: [0, 100],
         outputRange: [0, -50],
         extrapolate: 'clamp',
@@ -482,6 +475,9 @@ export default function UserFeed() {
                                 backgroundColor:
                                     viewMode === 'list' ? theme.colors.primary : 'transparent',
                             }}
+                            accessible={true}
+                            accessibilityRole="button"
+                            accessibilityLabel="List view"
                         >
                             <Ionicons
                                 name="list"
@@ -497,6 +493,9 @@ export default function UserFeed() {
                                 backgroundColor:
                                     viewMode === 'map' ? theme.colors.primary : 'transparent',
                             }}
+                            accessible={true}
+                            accessibilityRole="button"
+                            accessibilityLabel="Map view"
                         >
                             <Ionicons
                                 name="map"
@@ -624,6 +623,9 @@ export default function UserFeed() {
                                                 ? theme.colors.primary
                                                 : 'transparent',
                                     }}
+                                    accessible={true}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="List view"
                                 >
                                     <Ionicons
                                         name="list"
@@ -645,6 +647,9 @@ export default function UserFeed() {
                                                 ? theme.colors.primary
                                                 : 'transparent',
                                     }}
+                                    accessible={true}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Map view"
                                 >
                                     <Ionicons
                                         name="map"
