@@ -29,9 +29,13 @@ export const backfillEventAnalyticsCounters = functions.https.onCall(
 
     if (startAfterId) {
       const startSnap = await db.collection("events").doc(startAfterId).get();
-      if (startSnap.exists) {
-        query = query.startAfter(startSnap);
+      if (!startSnap.exists) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "startAfterId does not exist."
+        );
       }
+      query = query.startAfter(startSnap);
     }
 
     const eventSnap = await query.get();
