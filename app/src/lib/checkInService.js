@@ -1,3 +1,4 @@
+import logger from "./logger";
 import {
     doc,
     getDoc,
@@ -68,7 +69,7 @@ export const validateTicket = async (ticketId, eventId) => {
             },
         };
     } catch (error) {
-        console.error('Ticket validation error:', error);
+        logger.error('Ticket validation error:', error);
         return {
             valid: false,
             error: 'Validation failed',
@@ -143,7 +144,7 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
             message: `${ticketData.userName} checked in successfully!`,
         };
     } catch (error) {
-        console.error('Check-in error:', error);
+        logger.error('Check-in error:', error);
         return {
             success: false,
             error: 'Check-in failed',
@@ -180,7 +181,7 @@ export const getAttendanceStats = async eventId => {
             pending: totalRegistrations - totalCheckedIn,
         };
     } catch (error) {
-        console.error('Error fetching stats:', error);
+        logger.error('Error fetching stats:', error);
         return null;
     }
 };

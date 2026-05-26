@@ -1,3 +1,4 @@
+import logger from "./logger";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { Platform, useColorScheme, Animated } from 'react-native';
@@ -53,7 +54,7 @@ export const ThemeProvider = ({ children }) => {
             if (storedScale) setTextScale(parseFloat(storedScale));
             if (storedContrast) setIsHighContrast(storedContrast === 'true');
         } catch (e) {
-            console.log('Failed to load theme preferences', e);
+            logger.debug('Failed to load theme preferences', e);
         } finally {
             setLoading(false);
         }
@@ -65,7 +66,7 @@ export const ThemeProvider = ({ children }) => {
         try {
             await AsyncStorage.setItem('themePreference', newMode ? 'dark' : 'light');
         } catch (e) {
-            console.log('Failed to save theme preference', e);
+            logger.debug('Failed to save theme preference', e);
         }
     }, [isDarkMode]);
 
@@ -74,7 +75,7 @@ export const ThemeProvider = ({ children }) => {
         try {
             await AsyncStorage.setItem('textScalePreference', scale.toString());
         } catch (e) {
-            console.log('Failed to save text scale', e);
+            logger.debug('Failed to save text scale', e);
         }
     }, []);
 
@@ -84,7 +85,7 @@ export const ThemeProvider = ({ children }) => {
         try {
             await AsyncStorage.setItem('highContrastPreference', newContrast ? 'true' : 'false');
         } catch (e) {
-            console.log('Failed to save high contrast status', e);
+            logger.debug('Failed to save high contrast status', e);
         }
     }, [isHighContrast]);
 

@@ -4,10 +4,12 @@ const { Expo } = require('expo-server-sdk');
 const expo = new Expo();
 
 export const sendDailyDigest = functions.https.onCall(async (data, context) => {
-    // Only allow admin to trigger manual digest if needed, or open for now
-    // if (!context.auth || !context.auth.token.admin) {
-    //   throw new functions.https.HttpsError('permission-denied', 'Only admin');
-    // }
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+    if (!context.auth.token.admin) {
+        throw new functions.https.HttpsError('permission-denied', 'Only admins can trigger daily digest.');
+    }
 
     const db = admin.firestore();
     const today = new Date();

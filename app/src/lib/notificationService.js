@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import logger from './logger';
 
 // Configure how notifications behave when the app is in the foreground
 // Configure how notifications behave when the app is in the foreground
@@ -33,7 +34,7 @@ export async function registerForPushNotificationsAsync() {
             const messaging = await getWebMessaging();
 
             if (!messaging) {
-                console.log('Firebase Messaging is not supported in this browser.');
+                logger.info('Firebase Messaging is not supported in this browser.');
                 return token;
             }
 
@@ -49,13 +50,13 @@ export async function registerForPushNotificationsAsync() {
                         vapidKey: VAPID_KEY,
                         serviceWorkerRegistration: registration,
                     });
-                    console.log('Web Push Token:', token);
+                    logger.debug('Web Push Token:', token);
                 }
             } else {
-                console.log('Web Notification permission denied');
+                logger.info('Web Notification permission denied');
             }
         } catch (e) {
-            console.error('Error getting web push token:', e);
+            logger.error('Error getting web push token:', e);
         }
         return token;
     }
@@ -68,14 +69,14 @@ export async function registerForPushNotificationsAsync() {
             finalStatus = status;
         }
         if (finalStatus !== 'granted') {
-            console.log('Failed to get push token for push notification!');
+            logger.info('Failed to get push token for push notification!');
             return;
         }
 
         // Get the token using the project ID from app config
         const projectId = Constants.expoConfig?.extra?.eas?.projectId;
         if (!projectId) {
-            console.log(
+            logger.info(
                 'No EAS Project ID found. Push notifications will not work, but local reminders will.',
             );
         } else {
@@ -86,11 +87,11 @@ export async function registerForPushNotificationsAsync() {
                     })
                 ).data;
             } catch (e) {
-                console.error('Error getting push token:', e);
+                logger.error('Error getting push token:', e);
             }
         }
     } else {
-        console.log('Must use physical device for Push Notifications');
+        logger.info('Must use physical device for Push Notifications');
     }
 
     return token;
@@ -111,7 +112,7 @@ export async function scheduleEventReminder(event) {
         if (eventDate > now) {
             // Event is soon, trigger soon (e.g., 5 seconds from now)
             if (Platform.OS === 'web') {
-                console.log('Simulating immediate notification on web');
+                logger.debug('Simulating immediate notification on web');
                 return 'web-mock-id-immediate-' + event.id;
             }
             return await Notifications.scheduleNotificationAsync({
@@ -127,14 +128,14 @@ export async function scheduleEventReminder(event) {
     }
 
     if (isNaN(triggerDate.getTime())) {
-        console.error('Invalid event date:', event.startAt);
+        logger.error('Invalid event date:', event.startAt);
         return null;
     }
 
-    console.log(`Scheduling for: ${triggerDate.toLocaleString()} (Now: ${now.toLocaleString()})`);
+    logger.debug(`Scheduling for: ${triggerDate.toLocaleString()} (Now: ${now.toLocaleString()})`);
 
     if (Platform.OS === 'web') {
-        console.log('Local notifications scheduled (simulated on web):', {
+        logger.debug('Local notifications scheduled (simulated on web):', {
             title: `App Reminder: ${event.title}`,
             trigger: triggerDate,
         });
@@ -153,7 +154,7 @@ export async function scheduleEventReminder(event) {
         trigger: { date: triggerDate },
     });
 
-    console.log('Scheduled notification ID:', id);
+    logger.debug('Scheduled notification ID:', id);
     return id;
 }
 
@@ -171,21 +172,21 @@ export async function testNotification() {
 // Clear all pending notifications
 export async function cancelAllNotifications() {
     if (Platform.OS === 'web') {
-        console.log('Cancelled all notifications (simulated on web)');
+        logger.debug('Cancelled all notifications (simulated on web)');
         return;
     }
     await Notifications.cancelAllScheduledNotificationsAsync();
-    console.log('All scheduled notifications cancelled');
+    logger.debug('All scheduled notifications cancelled');
 }
 
 export async function cancelScheduledNotification(id) {
     if (!id) return;
     if (Platform.OS === 'web') {
-        console.log('Cancelled notification (simulated on web):', id);
+        logger.debug('Cancelled notification (simulated on web):', id);
         return;
     }
     await Notifications.cancelScheduledNotificationAsync(id);
-    console.log('Cancelled notification:', id);
+    logger.debug('Cancelled notification:', id);
 }
 export async function triggerBuddyMatchNotification(event, matchCount) {
     if (!event) return;
@@ -197,7 +198,7 @@ export async function triggerBuddyMatchNotification(event, matchCount) {
             : `${matchCount} students are also looking for buddies at "${event.title}"!`;
 
     if (Platform.OS === 'web') {
-        console.log('Buddy match notification (simulated on web):', { title, body });
+        logger.debug('Buddy match notification (simulated on web):', { title, body });
         // Use browser Notification API if permission was granted
         if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
             new Notification(title, { body });
@@ -215,10 +216,10 @@ export async function triggerBuddyMatchNotification(event, matchCount) {
             },
             trigger: null,
         });
-        console.log('Buddy match notification sent:', id);
+        logger.debug('Buddy match notification sent:', id);
         return id;
     } catch (error) {
-        console.error('Error sending buddy match notification:', error);
+        logger.error('Error sending buddy match notification:', error);
         return null;
     }
 }

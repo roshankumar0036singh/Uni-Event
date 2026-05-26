@@ -27,4 +27,18 @@ Please include the following details in your report:
 *   We will provide a status update every 5 days.
 *   We aim to fix critical vulnerabilities within 14 days.
 
+## Cloud Function Authorization
+
+All callable (`onCall`) Cloud Functions enforce authentication and role-based access:
+
+| Function | Auth Required | Claims Required |
+|----------|---------------|-----------------|
+| `setRole` | Yes | `admin` |
+| `calculateReputation` | Yes | `admin` |
+| `backfillEventAnalyticsCounters` | Yes | `admin` |
+| `sendDailyDigest` | Yes | `admin` |
+| `getTopContributors` | Yes | None (any authenticated user) |
+
+Express routes (`server.ts`) use a Firebase ID token verification middleware and enforce the same claim checks before processing requests.
+
 Thank you for helping keep the community safe!

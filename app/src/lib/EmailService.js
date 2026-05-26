@@ -1,3 +1,4 @@
+import logger from "./logger";
 // EmailJS Configuration
 // EmailJS Configuration
 const EMAILJS_SERVICE_ID = process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID;
@@ -40,15 +41,15 @@ export const sendEmail = async (
         });
 
         if (response.ok) {
-            console.log('Email sent successfully to:', toEmail);
+            logger.debug('Email sent successfully');
             return true;
         } else {
             const errorText = await response.text();
-            console.error('EmailJS Error:', errorText);
+            logger.error('EmailJS Error:', errorText);
             return false;
         }
     } catch (error) {
-        console.error('Network Error:', error);
+        logger.error('Network Error:', error);
         return false;
     }
 };

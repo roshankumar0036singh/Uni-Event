@@ -1,3 +1,4 @@
+import logger from "../lib/logger";
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -147,7 +148,7 @@ export default function UserFeed() {
                     setShowFeedbackModal(true);
                 }
             },
-            err => console.log('Feedback Listener Error', err),
+            err => logger.debug('Feedback Listener Error', err),
         );
 
         return () => unsubscribe();
@@ -180,7 +181,7 @@ export default function UserFeed() {
                 });
                 setUpcomingPool(list);
             } catch (error) {
-                console.error('Error fetching recommendation pool: ', error);
+                logger.error('Error fetching recommendation pool: ', error);
             }
         };
         fetchPool();
@@ -267,11 +268,12 @@ export default function UserFeed() {
 
                 AsyncStorage.setItem('@userfeed:events', JSON.stringify(list)).catch(err => console.error('Cache write failed', err));
             } catch (error) {
-                console.error('Error fetching paginated events: ', error);
+                logger.error('Error fetching paginated events: ', error);
+                // Fallback if composite index is missing for categories
                 if (error.message?.includes('index')) {
                     Alert.alert(
                         'Database Index Required',
-                        'Please create the required Firestore composite index found in the console logs.',
+                        'Please create the required Firestore composite index found in the debug logs.',
                     );
                 }
             } finally {
@@ -492,7 +494,7 @@ export default function UserFeed() {
                             message: `Check out this event: ${item.title} at ${item.location}!`,
                         });
                     } catch (e) {
-                        console.error('Share Error:', e);
+                        logger.error('Share Error:', e);
                         Alert.alert('Error', 'Failed to share the event.');
                     }
                 }}

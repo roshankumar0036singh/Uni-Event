@@ -111,7 +111,10 @@ export const refreshTopContributorsLeaderboard = functions.pubsub
  * Client can load the first 10 contributors and then request more using
  * lastPoints, lastUserId, and startRank.
  */
-export const getTopContributors = functions.https.onCall(async data => {
+export const getTopContributors = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
     const limit = Math.min(data?.limit || 10, 25);
     const lastPoints = data?.lastPoints;
     const lastUserId = data?.lastUserId;

@@ -29,7 +29,6 @@ import {
     Text,
     TouchableOpacity,
     View,
-    Share,
     Switch,
 } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
@@ -52,6 +51,7 @@ import { sendBulkCertificates } from '../lib/EmailService';
 import { getEarlyBirdInfo, getTimestampMs } from '../lib/earlyBird';
 import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
 import PropTypes from 'prop-types';
+import logger from '../lib/logger';
 
 // Constants to eliminate SonarQube Magic Numbers
 const RSVP_POINTS_CHANGE = 10;
@@ -103,7 +103,7 @@ export default function EventDetail({ route, navigation }) {
             setShowAppealModal(false);
             Alert.alert('Submitted', 'Appeal sent to admin for review.');
         } catch (_e) {
-            console.error('Error submitting appeal:', _e);
+            logger.error('Error submitting appeal:', _e);
             Alert.alert('Error', 'Failed to submit appeal');
         } finally {
             setSendingAppeal(false);
@@ -126,7 +126,7 @@ export default function EventDetail({ route, navigation }) {
                 }
             }
         } catch (error) {
-            console.error('Error toggling buddy preference:', error);
+            logger.error('Error toggling buddy preference:', error);
             Alert.alert('Error', 'Failed to update buddy preference');
         }
     };
@@ -198,7 +198,7 @@ export default function EventDetail({ route, navigation }) {
                     });
                 }
             } catch (error) {
-                console.log('Error recording view:', error);
+                logger.debug('Error recording view:', error);
             }
         };
 
@@ -280,16 +280,16 @@ export default function EventDetail({ route, navigation }) {
         }
 
         try {
-            console.log('Toggling bookmark for event:', eventId, 'Current state:', isBookmarked);
+            logger.debug('Toggling bookmark for event:', eventId, 'Current state:', isBookmarked);
             const bookmarkRef = doc(db, 'users', user.uid, 'savedEvents', eventId);
 
             if (isBookmarked) {
-                console.log('Removing bookmark...');
+                logger.debug('Removing bookmark...');
                 await deleteDoc(bookmarkRef);
                 setIsBookmarked(false);
                 Alert.alert('Removed', 'Event removed from saved events.');
             } else {
-                console.log('Adding bookmark...');
+                logger.debug('Adding bookmark...');
                 await setDoc(bookmarkRef, {
                     eventId: eventId,
                     savedAt: new Date().toISOString(),
@@ -297,9 +297,9 @@ export default function EventDetail({ route, navigation }) {
                 setIsBookmarked(true);
                 Alert.alert('Saved', 'Event saved for later!');
             }
-            console.log('Bookmark toggled successfully. New state:', !isBookmarked);
+            logger.debug('Bookmark toggled successfully. New state:', !isBookmarked);
         } catch (e) {
-            console.error('Bookmark error:', e);
+            logger.error('Bookmark error:', e);
             Alert.alert('Error', `Failed to save event: ${e.message}`);
         }
     };
@@ -352,7 +352,7 @@ export default function EventDetail({ route, navigation }) {
                 });
             }
         } catch (error) {
-            console.error('Error sharing:', error);
+            logger.error('Error sharing:', error);
         }
     };
 
@@ -388,7 +388,7 @@ export default function EventDetail({ route, navigation }) {
                 }
             }
         } catch (e) {
-            console.error(e);
+            logger.error(e);
             Alert.alert('Error', 'Action failed.');
         }
     };
@@ -528,7 +528,7 @@ export default function EventDetail({ route, navigation }) {
                 );
             }
         } catch (e) {
-            console.error('RSVP Error: ', e);
+            logger.error('RSVP Error: ', e);
             Alert.alert('Error', 'Failed to update RSVP');
         }
     };
@@ -557,16 +557,16 @@ export default function EventDetail({ route, navigation }) {
         setSendingCertificates(true);
         try {
             // Fetch Participants via participantService
-            console.log(`Fetching participants for event: ${event.id}`);
+            logger.debug(`Fetching participants for event: ${event.id}`);
             const snapshotData = await (
                 await import('../lib/participantService')
             ).default.fetchParticipantsOnce(db, event.id);
             const participants = (snapshotData || [])
                 .map(d => ({ name: d.name, email: d.email }))
                 .filter(p => p.email && p.email !== '-');
-            console.log(`Valid participants count: ${participants.length}`);
+            logger.debug(`Valid participants count: ${participants.length}`);
 
-            console.log(`Valid participants count: ${participants.length}`);
+            logger.debug(`Valid participants count: ${participants.length}`);
 
             if (participants.length === 0) {
                 Alert.alert('Error', 'No participants found with valid emails.');
@@ -575,7 +575,7 @@ export default function EventDetail({ route, navigation }) {
             }
 
             // Send certificates via EmailJS (Frontend)
-            console.log('Calling sendBulkCertificates...');
+            logger.debug('Calling sendBulkCertificates...');
             const eventLink = `https://unievent-ez2w.onrender.com/event/${event.id}`;
             const count = await sendBulkCertificates(
                 participants,
@@ -583,7 +583,7 @@ export default function EventDetail({ route, navigation }) {
                 new Date(event.startAt).toLocaleDateString(),
                 eventLink,
             );
-            console.log(`Sent count: ${count}`);
+            logger.debug(`Sent count: ${count}`);
 
             // Update event status
             await updateDoc(doc(db, 'events', event.id), {
@@ -593,7 +593,7 @@ export default function EventDetail({ route, navigation }) {
 
             Alert.alert('Success', `Certificates sent to ${count} participants.`);
         } catch (e) {
-            console.error('Certificate Send Error:', e);
+            logger.error('Certificate Send Error:', e);
             Alert.alert('Error', 'Failed to send certificates via EmailJS');
         } finally {
             setSendingCertificates(false);
@@ -872,7 +872,7 @@ export default function EventDetail({ route, navigation }) {
                 }
             }
         } catch (e) {
-            console.error('Certificate Error:', e);
+            logger.error('Certificate Error:', e);
             Alert.alert('Error', 'Failed to generate certificate: ' + e.message);
         } finally {
             setSendingCertificates(false); // Reset loading state
@@ -896,13 +896,13 @@ export default function EventDetail({ route, navigation }) {
 
             await Linking.openURL(finalUrl);
         } catch (error) {
-            console.log(error);
+            logger.debug(error);
             Alert.alert('Error', 'Failed to open LinkedIn');
         }
     };
 
     const handleSendCertificates = async () => {
-        console.log('Send Certificates Button Clicked');
+        logger.debug('Send Certificates Button Clicked');
         sendCertificates();
     };
 
@@ -921,7 +921,7 @@ export default function EventDetail({ route, navigation }) {
             setHasGivenFeedback(true);
             Alert.alert('Thank You', 'Feedback submitted!');
         } catch (error) {
-            console.error(error);
+            logger.error(error);
             Alert.alert('Error', 'Failed to submit feedback');
         }
     };
