@@ -1,6 +1,6 @@
 jest.mock('../../lib/checkInService', () => ({
-  queueOfflineCheckIn: jest.fn(),
-  checkInAttendee: jest.fn(),
+    queueOfflineCheckIn: jest.fn(),
+    checkInAttendee: jest.fn(),
 }));
 
 jest.mock('expo-camera', () => ({
@@ -44,8 +44,13 @@ jest.mock('../../lib/ThemeContext', () => ({
 }));
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { render, waitFor } from '@testing-library/react-native';
 import QRScannerScreen from '../QRScannerScreen';
+
+beforeAll(() => {
+    jest.spyOn(Platform, 'OS', 'get').mockReturnValue('android');
+});
 
 describe('QRScannerScreen', () => {
     it('shows no camera access message when permission denied', async () => {
