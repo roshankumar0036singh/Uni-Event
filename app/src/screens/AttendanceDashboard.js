@@ -157,7 +157,7 @@ export default function AttendanceDashboard({ route, navigation }) {
     useFocusEffect(
         useCallback(() => {
             getOfflineCheckInCount(eventId).then(count => setPendingOfflineCount(count));
-        }, [eventId])
+        }, [eventId]),
     );
 
     const handleSyncOffline = async () => {
@@ -476,13 +476,38 @@ export default function AttendanceDashboard({ route, navigation }) {
 
             <ScrollView showsVerticalScrollIndicator={false}>
                 {pendingOfflineCount > 0 && (
-                    <View style={[styles.offlineBanner, { backgroundColor: theme.colors.warning + '20', borderColor: theme.colors.warning }]}>
+                    <View
+                        style={[
+                            styles.offlineBanner,
+                            {
+                                backgroundColor: theme.colors.warning + '20',
+                                borderColor: theme.colors.warning,
+                            },
+                        ]}
+                    >
                         <View style={{ flex: 1 }}>
-                            <Text style={[styles.offlineBannerTitle, { color: theme.colors.text }]}>Offline Sync Pending</Text>
-                            <Text style={[styles.offlineBannerText, { color: theme.colors.textSecondary }]}>{pendingOfflineCount} check-ins waiting for network</Text>
+                            <Text style={[styles.offlineBannerTitle, { color: theme.colors.text }]}>
+                                Offline Sync Pending
+                            </Text>
+                            <Text
+                                style={[
+                                    styles.offlineBannerText,
+                                    { color: theme.colors.textSecondary },
+                                ]}
+                            >
+                                {pendingOfflineCount} check-ins waiting for network
+                            </Text>
                         </View>
-                        <TouchableOpacity style={[styles.syncBtn, { backgroundColor: theme.colors.warning }]} onPress={handleSyncOffline} disabled={syncingOffline}>
-                            {syncingOffline ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.syncBtnText}>Sync Now</Text>}
+                        <TouchableOpacity
+                            style={[styles.syncBtn, { backgroundColor: theme.colors.warning }]}
+                            onPress={handleSyncOffline}
+                            disabled={syncingOffline}
+                        >
+                            {syncingOffline ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <Text style={styles.syncBtnText}>Sync Now</Text>
+                            )}
                         </TouchableOpacity>
                     </View>
                 )}

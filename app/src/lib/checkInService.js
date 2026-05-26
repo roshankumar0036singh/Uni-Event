@@ -1,4 +1,13 @@
-import { doc, getDoc, serverTimestamp, increment, runTransaction, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import {
+    doc,
+    getDoc,
+    serverTimestamp,
+    increment,
+    runTransaction,
+    setDoc,
+    updateDoc,
+    Timestamp,
+} from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -209,18 +218,18 @@ export const parseQRCode = qrData => {
     }
 };
 
-const getOfflineQueueKey = (eventId) => `@offline_checkins_${eventId}`;
+const getOfflineQueueKey = eventId => `@offline_checkins_${eventId}`;
 
 export const queueOfflineCheckIn = async (eventId, checkInData) => {
     try {
         const key = getOfflineQueueKey(eventId);
         const existingQueueStr = await AsyncStorage.getItem(key);
         const queue = existingQueueStr ? JSON.parse(existingQueueStr) : [];
-        
+
         if (!queue.some(item => item.userId === checkInData.userId)) {
             queue.push({
                 ...checkInData,
-                queuedAt: new Date().toISOString()
+                queuedAt: new Date().toISOString(),
             });
             await AsyncStorage.setItem(key, JSON.stringify(queue));
         }
@@ -231,7 +240,7 @@ export const queueOfflineCheckIn = async (eventId, checkInData) => {
     }
 };
 
-export const getOfflineCheckInCount = async (eventId) => {
+export const getOfflineCheckInCount = async eventId => {
     try {
         const key = getOfflineQueueKey(eventId);
         const existingQueueStr = await AsyncStorage.getItem(key);
@@ -289,10 +298,10 @@ export const syncOfflineCheckIns = async (eventId, organizerId) => {
         const key = getOfflineQueueKey(eventId);
         const existingQueueStr = await AsyncStorage.getItem(key);
         if (!existingQueueStr) return { success: true, syncedCount: 0 };
-        
+
         const queue = JSON.parse(existingQueueStr);
         if (queue.length === 0) return { success: true, syncedCount: 0 };
-        
+
         let syncedCount = 0;
         let failedQueue = [];
 
