@@ -1,13 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-    addDoc,
     collection,
     doc,
-    getDoc,
-    setDoc,
-    updateDoc,
     increment,
     arrayUnion,
+    runTransaction,
 } from 'firebase/firestore';
 import { useState } from 'react';
 import {
@@ -30,6 +27,7 @@ import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 
 import { getEarlyBirdInfo } from '../lib/earlyBird';
+import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
 import PropTypes from 'prop-types';
 
 export default function PaymentScreen({ route, navigation }) {
@@ -106,76 +104,115 @@ export default function PaymentScreen({ route, navigation }) {
                 // 1. Create Order ID (Mock or UTR)
                 const orderId = transactionId || 'ORD-' + Date.now();
 
-                // ... (rest of logic same) -> will inject confirm in separate chunks or rewrite processTicketBooking
+                const ticketRef = doc(collection(db, 'tickets'));
+                const eventRef = doc(db, 'events', event.id);
+                const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
+                const participatingRef = doc(db, 'users', user.uid, 'participating', event.id);
+                const userRef = doc(db, 'users', user.uid);
+                let finalEarlyBird = false;
+                let ticketData = null;
 
-                // 2. Fetch user data for year and branch
-                const userDoc = await getDoc(doc(db, 'users', user.uid));
-                const userData = userDoc.exists() ? userDoc.data() : {};
+                await runTransaction(db, async transaction => {
+                    const eventSnap = await transaction.get(eventRef);
+                    if (!eventSnap.exists()) {
+                        throw new Error('Event not found');
+                    }
 
-                // 3. Generate Ticket Data
-                const ticketData = {
-                    eventId: event.id,
-                    eventTitle: event.title,
-                    eventDate: event.startAt,
-                    eventLocation: event.location,
-                    userId: user.uid,
-                    userName: user.displayName || 'Guest',
-                    userEmail: user.email,
-                    userYear: userData.year || 'N/A',
-                    userBranch: userData.branch || 'N/A',
-                    price: price,
-                    status: 'paid', // 'paid', 'cancelled'
-                    orderId: orderId,
-                    paymentMethod: selectedMethod,
-                    purchasedAt: new Date().toISOString(),
-                };
+                    const participantSnap = await transaction.get(participantRef);
+                    if (participantSnap.exists()) {
+                        throw new Error('You are already registered for this event.');
+                    }
 
-                // 3. Save to Firestore
-                // Add to Global Tickets collection (for validation)
-                const ticketRef = await addDoc(collection(db, 'tickets'), ticketData);
+                    const userSnap = await transaction.get(userRef);
+                    const userData = userSnap.exists() ? userSnap.data() : {};
+                    const eventData = eventSnap.data();
+                    const freshEvent = { id: event.id, ...eventData };
 
-                // Add to User's Participating list
-                await setDoc(doc(db, 'users', user.uid, 'participating', event.id), {
-                    eventId: event.id,
-                    joinedAt: new Date().toISOString(),
-                    role: 'attendee',
-                    ticketId: ticketRef.id,
-                    status: 'paid',
-                });
+                    let { isEligible: earlyBird } = getEarlyBirdInfo(freshEvent);
+                    if (earlyBird && freshEvent.earlyBirdCapacity != null) {
+                        const currentEarlyBirds = freshEvent.stats?.earlyBirdRegistrations || 0;
+                        if (currentEarlyBirds >= freshEvent.earlyBirdCapacity) {
+                            earlyBird = false;
+                        }
+                    }
+                    finalEarlyBird = earlyBird;
 
-                // Add to Event's Participants list
-                await setDoc(doc(db, 'events', event.id, 'participants', user.uid), {
-                    userId: user.uid,
-                    name: user.displayName,
-                    email: user.email,
-                    joinedAt: new Date().toISOString(),
-                    ticketId: ticketRef.id,
-                    status: 'paid',
-                });
-
-                // 4. Save Custom Form Responses (if any)
-                if (formResponses) {
-                    await addDoc(collection(db, 'registrations'), {
+                    ticketData = {
                         eventId: event.id,
-                        eventId_userId: `${event.id}_${user.uid}`,
+                        eventTitle: event.title,
+                        eventDate: event.startAt,
+                        eventLocation: event.location,
                         userId: user.uid,
+                        userName: user.displayName || 'Guest',
                         userEmail: user.email,
-                        userName: user.displayName,
-                        responses: formResponses,
-                        schemaAtSubmission: event.customFormSchema || [],
+                        userYear: userData.year || 'N/A',
+                        userBranch: userData.branch || 'N/A',
+                        price: price,
+                        status: 'paid',
+                        orderId: orderId,
+                        paymentMethod: selectedMethod,
+                        purchasedAt: new Date().toISOString(),
+                    };
+
+                    const participantPayload = {
+                        userId: user.uid,
+                        name: user.displayName || 'Guest',
+                        email: user.email,
+                        branch: userData.branch || 'Unknown',
+                        year: userData.year || 'Unknown',
+                        joinedAt: new Date().toISOString(),
                         ticketId: ticketRef.id,
-                        timestamp: new Date().toISOString(),
+                        status: 'paid',
+                    };
+
+                    transaction.set(ticketRef, ticketData);
+                    transaction.set(participatingRef, {
+                        eventId: event.id,
+                        joinedAt: new Date().toISOString(),
+                        role: 'attendee',
+                        ticketId: ticketRef.id,
                         status: 'paid',
                     });
-                }
+                    transaction.set(participantRef, participantPayload);
 
-                // 5. Award Points & Early Bird Badge
-                const { isEligible: earlyBird } = getEarlyBirdInfo(event);
-                const userUpdate = { points: increment(10) };
-                if (earlyBird) {
-                    userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
-                }
-                await updateDoc(doc(db, 'users', user.uid), userUpdate);
+                    if (formResponses) {
+                        const registrationRef = doc(collection(db, 'registrations'));
+                        transaction.set(registrationRef, {
+                            eventId: event.id,
+                            eventId_userId: `${event.id}_${user.uid}`,
+                            userId: user.uid,
+                            userEmail: user.email,
+                            userName: user.displayName,
+                            responses: formResponses,
+                            schemaAtSubmission: event.customFormSchema || [],
+                            ticketId: ticketRef.id,
+                            timestamp: new Date().toISOString(),
+                            status: 'paid',
+                        });
+                    }
+
+                    const userUpdate = { points: increment(10) };
+                    if (earlyBird) {
+                        userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
+                    }
+                    transaction.set(userRef, userUpdate, { merge: true });
+
+                    const eventUpdates = buildCounterUpdates({
+                        branch: participantPayload.branch,
+                        year: participantPayload.year,
+                        delta: 1,
+                    });
+                    const nextPreview = buildPreviewUpdate({
+                        eventData,
+                        participant: participantPayload,
+                        delta: 1,
+                    });
+                    eventUpdates.participantsPreview = nextPreview;
+                    if (earlyBird) {
+                        eventUpdates['stats.earlyBirdRegistrations'] = increment(1);
+                    }
+                    transaction.set(eventRef, eventUpdates, { merge: true });
+                });
 
                 setLoading(false);
 
@@ -188,7 +225,7 @@ export default function PaymentScreen({ route, navigation }) {
                     navigation.replace('TicketScreen', {
                         ticketId: ticketRef.id,
                         ticketData,
-                        earlyBirdEarned: earlyBird,
+                        earlyBirdEarned: finalEarlyBird,
                     });
                 }, 2500);
             } catch (error) {

@@ -247,6 +247,10 @@ export default function CreateEvent({ navigation, route }) {
             } else {
                 await addDoc(collection(db, 'events'), {
                     ...eventData,
+                    participantCount: 0,
+                    branchCounts: {},
+                    yearCounts: {},
+                    participantsPreview: [],
                     ownerId: user.uid,
                     ownerEmail: user.email,
                     organizerName: user.displayName || 'Club Admin',

@@ -45,6 +45,7 @@ import { cancelScheduledNotification, scheduleEventReminder,triggerBuddyMatchNot
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
 import { getEarlyBirdInfo, getTimestampMs } from '../lib/earlyBird';
+import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
 import PropTypes from 'prop-types';
 
 // Constants to eliminate SonarQube Magic Numbers
@@ -406,28 +407,53 @@ export default function EventDetail({ route, navigation }) {
         const ref = doc(db, 'events', eventId, 'participants', user.uid);
         const userRef = doc(db, 'users', user.uid, 'participating', eventId);
         const userProfileRef = doc(db, 'users', user.uid);
+        const eventRef = doc(db, 'events', eventId);
 
         try {
             await runTransaction(db, async transaction => {
                 const participantDoc = await transaction.get(ref);
                 const userDoc = await transaction.get(userProfileRef);
+                const eventSnap = await transaction.get(eventRef);
                 const userData = userDoc.exists() ? userDoc.data() : {};
+                const eventData = eventSnap.exists() ? eventSnap.data() : {};
 
                 if (participantDoc.exists()) {
+                    const participantData = participantDoc.data() || {};
+                    const nextPreview = buildPreviewUpdate({
+                        eventData,
+                        participant: {
+                            userId: user.uid,
+                            name: participantData.name || user.displayName || 'Anonymous',
+                            email: participantData.email || user.email,
+                            branch: participantData.branch || 'Unknown',
+                            year: participantData.year || 'Unknown',
+                        },
+                        delta: -1,
+                    });
+                    const eventUpdates = buildCounterUpdates({
+                        branch: participantData.branch || 'Unknown',
+                        year: participantData.year || 'Unknown',
+                        delta: -1,
+                    });
+                    eventUpdates.participantsPreview = nextPreview;
+
                     // Withdraw RSVP
                     transaction.delete(ref);
                     transaction.delete(userRef);
                     transaction.update(userProfileRef, { points: increment(-RSVP_POINTS_CHANGE) });
+                    transaction.set(eventRef, eventUpdates, { merge: true });
                 } else {
-                    // Add RSVP
-                    transaction.set(ref, {
+                    const participantPayload = {
                         userId: user.uid,
                         email: user.email,
                         name: user.displayName || 'Anonymous',
                         branch: userData.branch || 'Unknown',
                         year: userData.year || 'Unknown',
                         joinedAt: new Date().toISOString(),
-                    });
+                    };
+
+                    // Add RSVP
+                    transaction.set(ref, participantPayload);
                     transaction.set(userRef, {
                         eventId: eventId,
                         joinedAt: new Date().toISOString(),
@@ -439,6 +465,19 @@ export default function EventDetail({ route, navigation }) {
                         userUpdate.badges = arrayUnion(`early_bird_${eventId}`);
                     }
                     transaction.update(userProfileRef, userUpdate);
+
+                    const nextPreview = buildPreviewUpdate({
+                        eventData,
+                        participant: participantPayload,
+                        delta: 1,
+                    });
+                    const eventUpdates = buildCounterUpdates({
+                        branch: participantPayload.branch,
+                        year: participantPayload.year,
+                        delta: 1,
+                    });
+                    eventUpdates.participantsPreview = nextPreview;
+                    transaction.set(eventRef, eventUpdates, { merge: true });
                 }
             });
 

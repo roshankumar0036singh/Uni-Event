@@ -21,6 +21,7 @@ import { scheduleEventReminder } from '../lib/notificationService';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { getEarlyBirdInfo } from '../lib/earlyBird';
+import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
 import PropTypes from 'prop-types';
 
 export default function EventRegistrationFormScreen({ navigation, route }) {
@@ -90,7 +91,14 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                     throw new Error('Event not found');
                 }
                 
-                freshEvent = { id: eventSnap.id, ...eventSnap.data() };
+                const eventData = eventSnap.data();
+                freshEvent = { id: eventSnap.id, ...eventData };
+
+                const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
+                const participantSnap = await transaction.get(participantRef);
+                if (participantSnap.exists()) {
+                    throw new Error('You are already registered for this event.');
+                }
                 
                 // Determine early bird eligibility based on the real-time data
                 let { isEligible: earlyBird } = getEarlyBirdInfo(freshEvent);
@@ -120,15 +128,15 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 });
 
                 // C. Add to Event Participants
-                const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
-                transaction.set(participantRef, {
+                const participantPayload = {
                     userId: user.uid,
                     name: user.displayName || 'Anonymous',
                     email: user.email,
                     branch: userData.branch || 'Unknown',
                     year: userData.year || 'Unknown',
                     joinedAt: new Date().toISOString(),
-                });
+                };
+                transaction.set(participantRef, participantPayload);
 
                 // D. Add to User's Participating List
                 const participatingRef = doc(db, 'users', user.uid, 'participating', event.id);
@@ -137,19 +145,29 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                     joinedAt: new Date().toISOString(),
                 });
 
-                // E. Award Points & Early Bird Badge
+                // E. Award Points & Early Bird Badge + Analytics Counters
                 const userUpdate = { points: increment(10) };
+                const eventUpdates = buildCounterUpdates({
+                    branch: participantPayload.branch,
+                    year: participantPayload.year,
+                    delta: 1,
+                });
+                const nextPreview = buildPreviewUpdate({
+                    eventData,
+                    participant: participantPayload,
+                    delta: 1,
+                });
+                eventUpdates.participantsPreview = nextPreview;
                 if (earlyBird) {
                     userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
-                    
+
                     // Increment early bird stats to enforce limits on concurrent requests
-                    transaction.update(eventRef, {
-                        'stats.earlyBirdRegistrations': increment(1)
-                    });
+                    eventUpdates['stats.earlyBirdRegistrations'] = increment(1);
                 }
                 
                 const userRef = doc(db, 'users', user.uid);
                 transaction.set(userRef, userUpdate, { merge: true });
+                transaction.set(eventRef, eventUpdates, { merge: true });
             });
 
             // F. Schedule Reminder
