@@ -1,4 +1,3 @@
-import logger from "../lib/logger";
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -35,17 +34,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../lib/ThemeContext';
-import { useNavigation } from '@react-navigation/native';
-
-let MapView = null;
-let Marker = null;
-let Callout = null;
-if (Platform.OS !== 'web') {
-    const Maps = require('react-native-maps');
-    MapView = Maps.default;
-    Marker = Maps.Marker;
-    Callout = Maps.Callout;
-}
 
 import { MapView, Marker, Callout } from '../components/MapComponent';
 
@@ -61,8 +49,6 @@ export default function UserFeed() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [isConnected, setIsConnected] = useState(true);
-    const [viewMode, setViewMode] = useState('list');
-    const navigation = useNavigation();
     const [viewMode, setViewMode] = useState('list');
     const navigation = useNavigation();
 
@@ -91,11 +77,13 @@ export default function UserFeed() {
         return () => unsubscribe();
     }, []);
 
-    // Load cached events on mount
+    // Load cached events on mount (after user is known)
     useEffect(() => {
+        if (!user) return;
+        const cacheKey = `@userfeed:events:${user.uid}`;
         const loadCache = async () => {
             try {
-                const json = await AsyncStorage.getItem('@userfeed:events');
+                const json = await AsyncStorage.getItem(cacheKey);
                 if (json) setEvents(JSON.parse(json));
             } catch (e) {
                 console.error('Failed to load cached events', e);
@@ -107,7 +95,8 @@ export default function UserFeed() {
             }
         };
         loadCache();
-    }, []);
+    }, [user]);
+
     useEffect(() => {
         if (!user) return;
         const q = collection(db, 'users', user.uid, 'participating');
@@ -148,7 +137,7 @@ export default function UserFeed() {
                     setShowFeedbackModal(true);
                 }
             },
-            err => logger.debug('Feedback Listener Error', err),
+            err => console.log('Feedback Listener Error', err),
         );
 
         return () => unsubscribe();
@@ -159,7 +148,9 @@ export default function UserFeed() {
         if (!user) {
             setEvents([]);
             setLoading(false);
-            AsyncStorage.removeItem('@userfeed:events').catch(err => console.error('Cache clear on logout failed', err));
+            AsyncStorage.removeItem('@userfeed:events').catch(err =>
+                console.error('Cache clear on logout failed', err),
+            );
             return;
         }
 
@@ -181,7 +172,7 @@ export default function UserFeed() {
                 });
                 setUpcomingPool(list);
             } catch (error) {
-                logger.error('Error fetching recommendation pool: ', error);
+                console.error('Error fetching recommendation pool: ', error);
             }
         };
         fetchPool();
@@ -253,10 +244,20 @@ export default function UserFeed() {
                     setEvents(prev => {
                         const existingIds = new Set(prev.map(e => e.id));
                         const newEvents = list.filter(e => !existingIds.has(e.id));
-                        return [...prev, ...newEvents];
+                        const merged = [...prev, ...newEvents];
+                        AsyncStorage.setItem(
+                            `@userfeed:events:${user.uid}`,
+                            JSON.stringify(merged),
+                        ).catch(err => console.error('Cache write failed', err));
+                        return merged;
                     });
                 } else {
-                    setEvents(list);
+                    const merged = list;
+                    setEvents(merged);
+                    AsyncStorage.setItem(
+                        `@userfeed:events:${user.uid}`,
+                        JSON.stringify(merged),
+                    ).catch(err => console.error('Cache write failed', err));
                 }
 
                 if (snapshot.docs.length > 0) {
@@ -266,14 +267,13 @@ export default function UserFeed() {
                 }
                 setHasMore(snapshot.docs.length === PAGE_SIZE);
 
-                AsyncStorage.setItem('@userfeed:events', JSON.stringify(list)).catch(err => console.error('Cache write failed', err));
+                // Cache write moved into setEvents logic above
             } catch (error) {
-                logger.error('Error fetching paginated events: ', error);
-                // Fallback if composite index is missing for categories
+                console.error('Error fetching paginated events: ', error);
                 if (error.message?.includes('index')) {
                     Alert.alert(
                         'Database Index Required',
-                        'Please create the required Firestore composite index found in the debug logs.',
+                        'Please create the required Firestore composite index found in the console logs.',
                     );
                 }
             } finally {
@@ -381,7 +381,9 @@ export default function UserFeed() {
             });
             setEvents(list);
             // Update cache
-            AsyncStorage.setItem('@userfeed:events', JSON.stringify(list)).catch(err => console.error('Cache write failed', err));
+            AsyncStorage.setItem(`@userfeed:events:${user.uid}`, JSON.stringify(list)).catch(err =>
+                console.error('Cache write failed', err),
+            );
         } catch (error) {
             console.error('Refresh error:', error);
             Alert.alert('Error', 'Failed to refresh events.');
@@ -494,7 +496,7 @@ export default function UserFeed() {
                             message: `Check out this event: ${item.title} at ${item.location}!`,
                         });
                     } catch (e) {
-                        logger.error('Share Error:', e);
+                        console.error('Share Error:', e);
                         Alert.alert('Error', 'Failed to share the event.');
                     }
                 }}
