@@ -1,6 +1,8 @@
 import { doc, getDoc, serverTimestamp, increment, runTransaction, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+/**
  * Validate a ticket for check-in
  */
 export const validateTicket = async (ticketId, eventId) => {
