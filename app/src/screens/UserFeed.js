@@ -412,6 +412,7 @@ export default function UserFeed() {
                                             {f}
                                         </Text>
                                     </View>
+                                )}
                             </TouchableOpacity>
                         );
                     })}
