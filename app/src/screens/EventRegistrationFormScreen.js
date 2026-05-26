@@ -151,6 +151,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                     branch: participantPayload.branch,
                     year: participantPayload.year,
                     delta: 1,
+                    eventData,
                 });
                 const nextPreview = buildPreviewUpdate({
                     eventData,
@@ -167,7 +168,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 
                 const userRef = doc(db, 'users', user.uid);
                 transaction.set(userRef, userUpdate, { merge: true });
-                transaction.set(eventRef, eventUpdates, { merge: true });
+                transaction.update(eventRef, eventUpdates);
             });
 
             // F. Schedule Reminder

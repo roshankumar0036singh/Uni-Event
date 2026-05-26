@@ -415,7 +415,11 @@ export default function EventDetail({ route, navigation }) {
                 const userDoc = await transaction.get(userProfileRef);
                 const eventSnap = await transaction.get(eventRef);
                 const userData = userDoc.exists() ? userDoc.data() : {};
-                const eventData = eventSnap.exists() ? eventSnap.data() : {};
+                if (!eventSnap.exists()) {
+                    throw new Error('Event not found');
+                }
+
+                const eventData = eventSnap.data() || {};
 
                 if (participantDoc.exists()) {
                     const participantData = participantDoc.data() || {};
@@ -434,6 +438,7 @@ export default function EventDetail({ route, navigation }) {
                         branch: participantData.branch || 'Unknown',
                         year: participantData.year || 'Unknown',
                         delta: -1,
+                        eventData,
                     });
                     eventUpdates.participantsPreview = nextPreview;
 
@@ -441,7 +446,7 @@ export default function EventDetail({ route, navigation }) {
                     transaction.delete(ref);
                     transaction.delete(userRef);
                     transaction.update(userProfileRef, { points: increment(-RSVP_POINTS_CHANGE) });
-                    transaction.set(eventRef, eventUpdates, { merge: true });
+                    transaction.update(eventRef, eventUpdates);
                 } else {
                     const participantPayload = {
                         userId: user.uid,
@@ -475,9 +480,10 @@ export default function EventDetail({ route, navigation }) {
                         branch: participantPayload.branch,
                         year: participantPayload.year,
                         delta: 1,
+                        eventData,
                     });
                     eventUpdates.participantsPreview = nextPreview;
-                    transaction.set(eventRef, eventUpdates, { merge: true });
+                    transaction.update(eventRef, eventUpdates);
                 }
             });
 

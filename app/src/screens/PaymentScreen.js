@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
     collection,
     doc,
+    getDoc,
     increment,
     arrayUnion,
     runTransaction,
@@ -43,6 +44,14 @@ export default function PaymentScreen({ route, navigation }) {
     const [showConfetti, setShowConfetti] = useState(false);
     const { width: screenWidth } = Dimensions.get('window');
 
+    const fetchFreshEvent = async () => {
+        const eventSnap = await getDoc(doc(db, 'events', event.id));
+        if (!eventSnap.exists()) {
+            throw new Error('Event not found');
+        }
+        return { id: eventSnap.id, ...eventSnap.data() };
+    };
+
     const handlePay = async () => {
         if (!selectedMethod) {
             Alert.alert('Select Payment', 'Please choose a payment method.');
@@ -50,14 +59,35 @@ export default function PaymentScreen({ route, navigation }) {
         }
 
         if (selectedMethod === 'upi') {
-            if (!event.upiId) {
+            let paymentEvent = event;
+            let paymentPrice = price;
+
+            try {
+                paymentEvent = await fetchFreshEvent();
+                let { isEligible: earlyBird } = getEarlyBirdInfo(paymentEvent);
+                if (earlyBird && paymentEvent.earlyBirdCapacity != null) {
+                    const currentEarlyBirds = paymentEvent.stats?.earlyBirdRegistrations || 0;
+                    if (currentEarlyBirds >= paymentEvent.earlyBirdCapacity) {
+                        earlyBird = false;
+                    }
+                }
+                paymentPrice =
+                    earlyBird && paymentEvent.earlyBirdPrice != null
+                        ? paymentEvent.earlyBirdPrice
+                        : paymentEvent.price ?? price ?? 0;
+            } catch (error) {
+                Alert.alert('Error', error.message || 'Unable to fetch event details.');
+                return;
+            }
+
+            if (!paymentEvent.upiId) {
                 Alert.alert(
                     'Error',
                     'Event Organizer has not provided a UPI ID. Please contact them.',
                 );
                 return;
             }
-            const upiUrl = `upi://pay?pa=${event.upiId}&pn=${encodeURIComponent(event.organization || 'Event Organizer')}&tn=Event_${event.id}&am=${price}&cu=INR`;
+            const upiUrl = `upi://pay?pa=${paymentEvent.upiId}&pn=${encodeURIComponent(paymentEvent.organization || 'Event Organizer')}&tn=Event_${paymentEvent.id}&am=${paymentPrice}&cu=INR`;
 
             Linking.canOpenURL(upiUrl)
                 .then(supported => {
@@ -126,7 +156,7 @@ export default function PaymentScreen({ route, navigation }) {
                     const userSnap = await transaction.get(userRef);
                     const userData = userSnap.exists() ? userSnap.data() : {};
                     const eventData = eventSnap.data();
-                    const freshEvent = { id: event.id, ...eventData };
+                    const freshEvent = { id: eventSnap.id, ...eventData };
 
                     let { isEligible: earlyBird } = getEarlyBirdInfo(freshEvent);
                     if (earlyBird && freshEvent.earlyBirdCapacity != null) {
@@ -137,17 +167,22 @@ export default function PaymentScreen({ route, navigation }) {
                     }
                     finalEarlyBird = earlyBird;
 
+                    const finalPrice =
+                        earlyBird && freshEvent.earlyBirdPrice != null
+                            ? freshEvent.earlyBirdPrice
+                            : freshEvent.price ?? price ?? 0;
+
                     ticketData = {
-                        eventId: event.id,
-                        eventTitle: event.title,
-                        eventDate: event.startAt,
-                        eventLocation: event.location,
+                        eventId: freshEvent.id,
+                        eventTitle: freshEvent.title,
+                        eventDate: freshEvent.startAt,
+                        eventLocation: freshEvent.location,
                         userId: user.uid,
                         userName: user.displayName || 'Guest',
                         userEmail: user.email,
                         userYear: userData.year || 'N/A',
                         userBranch: userData.branch || 'N/A',
-                        price: price,
+                        price: finalPrice,
                         status: 'paid',
                         orderId: orderId,
                         paymentMethod: selectedMethod,
@@ -201,6 +236,7 @@ export default function PaymentScreen({ route, navigation }) {
                         branch: participantPayload.branch,
                         year: participantPayload.year,
                         delta: 1,
+                        eventData,
                     });
                     const nextPreview = buildPreviewUpdate({
                         eventData,
@@ -211,7 +247,7 @@ export default function PaymentScreen({ route, navigation }) {
                     if (earlyBird) {
                         eventUpdates['stats.earlyBirdRegistrations'] = increment(1);
                     }
-                    transaction.set(eventRef, eventUpdates, { merge: true });
+                    transaction.update(eventRef, eventUpdates);
                 });
 
                 setLoading(false);

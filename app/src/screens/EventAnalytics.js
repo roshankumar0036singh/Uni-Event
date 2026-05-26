@@ -25,7 +25,11 @@ export default function EventAnalytics({ route, navigation }) {
                     ? eventData.participantsPreview
                     : [];
                 setParticipants(
-                    preview.map(item => ({ id: item.userId || item.id, ...item })),
+                    preview.map(item => ({
+                        ...item,
+                        userId: item.userId || item.id,
+                        id: item.userId || item.id,
+                    })),
                 );
                 const count =
                     eventData.participantCount ??
@@ -76,15 +80,7 @@ export default function EventAnalytics({ route, navigation }) {
         >
             <View style={styles.studentInfo}>
                 <Text style={[styles.studentName, { color: theme.colors.text }]}>{item.name}</Text>
-                <Text style={{ color: theme.colors.textSecondary }}>{item.email}</Text>
-                <View style={styles.metaRow}>
-                    <Text style={[styles.metaTag, { backgroundColor: theme.colors.secondary }]}>
-                        {item.branch || 'N/A'}
-                    </Text>
-                    <Text style={[styles.metaTag, { backgroundColor: theme.colors.primary }]}>
-                        Year: {item.year || '?'}
-                    </Text>
-                </View>
+                <Text style={{ color: theme.colors.textSecondary }}>ID: {item.userId}</Text>
             </View>
         </View>
     );
@@ -121,7 +117,10 @@ export default function EventAnalytics({ route, navigation }) {
                 <Text
                     style={[theme.typography.h3, { color: theme.colors.text, marginVertical: 15 }]}
                 >
-                    Participant List
+                    Participant Preview
+                </Text>
+                <Text style={{ color: theme.colors.textSecondary, marginBottom: 10 }}>
+                    Showing a recent preview of registrations.
                 </Text>
 
                 <FlatList
@@ -160,15 +159,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     studentName: { fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
-    metaRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
-    metaTag: {
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 4,
-        fontSize: 12,
-        color: '#000',
-        fontWeight: 'bold',
-    },
 });
 
 EventAnalytics.propTypes = {
