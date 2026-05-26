@@ -239,7 +239,7 @@ export default function UserFeed() {
                 setRefreshing(false);
             }
         },
-        [user, activeFilter, debouncedSearchQuery, hasMore, isFetchingMore, lastVisible],
+        [user, activeFilter, hasMore, isFetchingMore, lastVisible],
     );
 
     useEffect(() => {

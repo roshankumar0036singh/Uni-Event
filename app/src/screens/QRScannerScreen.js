@@ -2,7 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { Camera } from 'expo-camera';
 import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View, Share, Alert } from 'react-native';
+import {
+    Dimensions,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    Share,
+    Alert,
+} from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import WebQRScanner from '../components/WebQRScanner';
 import { useAuth } from '../lib/AuthContext';
@@ -112,32 +121,27 @@ export default function QRScannerScreen({ navigation, route }) {
             setTimeout(() => {
                 setCopied(false);
             }, 2000);
-
         } catch (error) {
-            Alert.alert(
-                'Copy Failed',
-                error?.message || 'Unable to copy event link.'
-            );
+            Alert.alert('Copy Failed', error?.message || 'Unable to copy event link.');
         }
-    }
+    };
 
     const handleShare = async () => {
         const message = `Join ${eventTitle}\n${eventUrl}`;
         try {
-            if (Platform.OS === "web") {
+            if (Platform.OS === 'web') {
                 if (navigator.share) {
                     await navigator.share({
                         title: eventTitle,
                         text: message,
                         url: eventUrl,
-                    })
-                }
-                else {
+                    });
+                } else {
                     await Clipboard.setStringAsync(message);
 
                     Alert.alert(
                         'Copied!',
-                        'Event link copied to clipboard. You can now share it manually.'
+                        'Event link copied to clipboard. You can now share it manually.',
                     );
                 }
 
@@ -150,12 +154,9 @@ export default function QRScannerScreen({ navigation, route }) {
                 title: eventTitle,
             });
         } catch (error) {
-            Alert.alert(
-                'Share Failed',
-                error?.message || 'Unable to share event link.'
-            );
+            Alert.alert('Share Failed', error?.message || 'Unable to share event link.');
         }
-    }
+    };
 
     if (hasPermission === null) {
         return (
@@ -201,20 +202,14 @@ export default function QRScannerScreen({ navigation, route }) {
 
             <View style={styles.shareContainer}>
                 <TouchableOpacity
-                    style={[
-                        styles.shareButton,
-                        copied && { backgroundColor: '#0bdd43' }
-                    ]}
+                    style={[styles.shareButton, copied && { backgroundColor: '#0bdd43' }]}
                     onPress={handleCopyLink}
                 >
                     <Ionicons name="copy-outline" size={20} color="#fff" />
-                    <Text style={styles.shareButtonText}>{copied ? "Copied!" : "Copy Link"}</Text>
+                    <Text style={styles.shareButtonText}>{copied ? 'Copied!' : 'Copy Link'}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={styles.shareButton}
-                    onPress={handleShare}
-                >
+                <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
                     <Ionicons name="share-social-outline" size={20} color="#fff" />
                     <Text style={styles.shareButtonText}>Share</Text>
                 </TouchableOpacity>
@@ -265,7 +260,7 @@ export default function QRScannerScreen({ navigation, route }) {
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     cameraContainer: { flex: 1, position: 'relative' },
-    camera: { flex: 1, width: "100%" },
+    camera: { flex: 1, width: width },
     overlayHeader: {
         position: 'absolute',
         top: 40,
@@ -328,7 +323,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        backgroundColor: "#333",
+        backgroundColor: '#333',
         paddingHorizontal: 18,
         paddingVertical: 12,
         borderRadius: 12,
