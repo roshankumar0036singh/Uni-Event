@@ -199,7 +199,11 @@ export default function UserFeed() {
                 if (loadMore && lastVisible) {
                     qConstraints.push(startAfter(lastVisible));
                 }
-                const q = query(collection(db, COLLECTIONS.EVENTS), ...qConstraints, limit(PAGE_SIZE));
+                const q = query(
+                    collection(db, COLLECTIONS.EVENTS),
+                    ...qConstraints,
+                    limit(PAGE_SIZE),
+                );
 
                 const snapshot = await getDocs(q);
                 const list = [];

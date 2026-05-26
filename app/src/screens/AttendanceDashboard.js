@@ -399,7 +399,10 @@ export default function AttendanceDashboard({ route, navigation }) {
     const handleExportFormResponses = async () => {
         setExporting(true);
         try {
-            const q = query(collection(db, COLLECTIONS.REGISTRATIONS), where('eventId', '==', eventId));
+            const q = query(
+                collection(db, COLLECTIONS.REGISTRATIONS),
+                where('eventId', '==', eventId),
+            );
             const snapshot = await getDocs(q);
 
             if (snapshot.empty) {
