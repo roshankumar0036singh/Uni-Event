@@ -1,3 +1,4 @@
+import logger from './logger';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
@@ -63,7 +64,7 @@ export const usePushNotifications = () => {
 
         responseListener.current = Notifications.addNotificationResponseReceivedListener(
             response => {
-                console.log(response);
+                logger.debug(response);
             },
         );
 

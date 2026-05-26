@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { collection, getCountFromServer, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getCountFromServer, getDoc, query, where } from 'firebase/firestore';
 import { useEffect, useState, useCallback } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -11,16 +11,35 @@ export default function EventAnalytics({ route, navigation }) {
     const { eventId } = route.params;
     const { theme } = useTheme();
     const [participants, setParticipants] = useState([]);
+    const [participantCount, setParticipantCount] = useState(0);
     const [reminderCount, setReminderCount] = useState(0);
     const [loading, setLoading] = useState(true);
 
     const fetchData = useCallback(async () => {
         try {
-            // 1. Fetch Participants
-            const pRef = collection(db, 'events', eventId, 'participants');
-            const pSnap = await getDocs(pRef);
-            const pList = pSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            setParticipants(pList);
+            // 1. Fetch Event Analytics (denormalized)
+            const eventSnap = await getDoc(doc(db, 'events', eventId));
+            if (eventSnap.exists()) {
+                const eventData = eventSnap.data();
+                const preview = Array.isArray(eventData.participantsPreview)
+                    ? eventData.participantsPreview
+                    : [];
+                setParticipants(
+                    preview.map(item => ({
+                        ...item,
+                        userId: item.userId || item.id,
+                        id: item.userId || item.id,
+                    })),
+                );
+                const count =
+                    eventData.participantCount ??
+                    eventData.stats?.totalRegistrations ??
+                    preview.length;
+                setParticipantCount(count || 0);
+            } else {
+                setParticipants([]);
+                setParticipantCount(0);
+            }
 
             // 2. Fetch Reminder Count
             // Note: Reminders are stored as 'reminders/{userId_eventId}'
@@ -61,15 +80,7 @@ export default function EventAnalytics({ route, navigation }) {
         >
             <View style={styles.studentInfo}>
                 <Text style={[styles.studentName, { color: theme.colors.text }]}>{item.name}</Text>
-                <Text style={{ color: theme.colors.textSecondary }}>{item.email}</Text>
-                <View style={styles.metaRow}>
-                    <Text style={[styles.metaTag, { backgroundColor: theme.colors.secondary }]}>
-                        {item.branch || 'N/A'}
-                    </Text>
-                    <Text style={[styles.metaTag, { backgroundColor: theme.colors.primary }]}>
-                        Year: {item.year || '?'}
-                    </Text>
-                </View>
+                <Text style={{ color: theme.colors.textSecondary }}>ID: {item.userId}</Text>
             </View>
         </View>
     );
@@ -86,7 +97,7 @@ export default function EventAnalytics({ route, navigation }) {
                     <View style={[styles.statCard, { backgroundColor: theme.colors.surface }]}>
                         <Ionicons name="people" size={24} color={theme.colors.primary} />
                         <Text style={[styles.statValue, { color: theme.colors.text }]}>
-                            {participants.length}
+                            {participantCount}
                         </Text>
                         <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
                             Registrations
@@ -106,7 +117,10 @@ export default function EventAnalytics({ route, navigation }) {
                 <Text
                     style={[theme.typography.h3, { color: theme.colors.text, marginVertical: 15 }]}
                 >
-                    Participant List
+                    Participant Preview
+                </Text>
+                <Text style={{ color: theme.colors.textSecondary, marginBottom: 10 }}>
+                    Showing a recent preview of registrations.
                 </Text>
 
                 <FlatList
@@ -145,15 +159,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     studentName: { fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
-    metaRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
-    metaTag: {
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 4,
-        fontSize: 12,
-        color: '#000',
-        fontWeight: 'bold',
-    },
 });
 
 EventAnalytics.propTypes = {

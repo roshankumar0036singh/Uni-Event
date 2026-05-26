@@ -37,82 +37,93 @@ exports.checkUpcomingEvents = void 0;
 const expo_server_sdk_1 = require("expo-server-sdk");
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
+const participants_1 = require("./lib/participants");
 const expo = new expo_server_sdk_1.Expo();
-/**
- * Scheduled function to check for upcoming events (10 mins before).
- * Runs every minute.
- */
-exports.checkUpcomingEvents = functions.pubsub.schedule('every 1 minutes').onRun(async (context) => {
+async function gatherMessagesForEvent(db, eventDoc) {
+    const eventData = eventDoc.data();
+    if (eventData.notified10Min)
+        return [];
+    const eventId = eventDoc.id;
+    const participants = (await (0, participants_1.getParticipantContacts)(db, eventId));
+    const participantIds = participants.map((p) => p.id);
+    if (participantIds.length === 0)
+        return [];
+    const userDocs = await Promise.all(participantIds.map((uid) => db.collection('users').doc(uid).get()));
+    const messages = [];
+    for (const userDoc of userDocs) {
+        if (!userDoc.exists)
+            continue;
+        const userData = userDoc.data();
+        const pushToken = userData === null || userData === void 0 ? void 0 : userData.pushToken;
+        if (pushToken && expo_server_sdk_1.Expo.isExpoPushToken(pushToken)) {
+            messages.push({
+                to: pushToken,
+                sound: 'default',
+                title: 'Event Starting Soon!',
+                body: `${eventData.title} is starting in 10 minutes.`,
+                data: { eventId, url: `/event/${eventId}` },
+            });
+        }
+    }
+    return messages;
+}
+async function sendMessagesOrThrow(messages) {
+    const chunks = expo.chunkPushNotifications(messages);
+    let sentChunks = 0;
+    let failedChunks = 0;
+    for (const chunk of chunks) {
+        try {
+            await expo.sendPushNotificationsAsync(chunk);
+            sentChunks += 1;
+        }
+        catch (error) {
+            failedChunks += 1;
+            console.error('Failed to send notification chunk', {
+                chunkSize: chunk.length,
+                error,
+            });
+        }
+    }
+    return {
+        sentChunks,
+        failedChunks,
+        allChunksSucceeded: failedChunks === 0,
+    };
+}
+exports.checkUpcomingEvents = functions.pubsub.schedule('every 1 minutes').onRun(async () => {
     const db = admin.firestore();
-    // 1. Get events starting soon that haven't been notified
-    const eventsRef = db.collection('events');
-    // Note: ISO string comparison in Firestore works lexicographically.
-    // However, in EventDetail.js we saw `new Date(event.startAt)`. 
-    // If stored as ISO String, string comparison works.
-    // But we need to be careful. Let's assume standard ISO.
-    // Actually, checking "starts in 10 mins" with a "notified" flag is safer.
-    // Let's refine query: "startAt" <= now + 10m AND "status" == 'active' AND "notified" != true
-    // Wait, simpler query:
-    // Get all active events starting between NOW and NOW+15m.
-    // Filter locally for "notified" to save writes if we want, or just update "notified" flag in DB.
-    // Creating a buffer of 10-15 mins to catch them.
     const startRange = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const endRange = new Date(Date.now() + 11 * 60 * 1000).toISOString();
-    const eventsSnapshot = await eventsRef
+    const eventsSnapshot = await db
+        .collection('events')
         .where('startAt', '>=', startRange)
         .where('startAt', '<=', endRange)
         .where('status', '==', 'active')
         .get();
-    if (eventsSnapshot.empty) {
-        return null;
-    }
-    const messages = [];
+    if (eventsSnapshot.empty)
+        return { processed: 0, notificationsSent: 0 };
     const batch = db.batch();
+    let totalMessages = 0;
+    const successfulEventRefs = [];
     for (const eventDoc of eventsSnapshot.docs) {
-        const eventData = eventDoc.data();
-        if (eventData.notified10Min)
-            continue; // Skip if already notified
-        const eventId = eventDoc.id;
-        // Get Participants
-        const participantsSnapshot = await db.collection(`events/${eventId}/participants`).get();
-        const participantIds = participantsSnapshot.docs.map(doc => doc.id);
-        if (participantIds.length > 0) {
-            // Get User Tokens (in chunks of 10 to avoid "in" query limits if needed, but for now simple)
-            // Firestore "in" supports up to 10. For larger, we iterate.
-            // Efficient way: store pushToken in participant doc? 
-            // EventDetail.js stores { userId, email, name, joinedAt }. No pushToken.
-            // So we must fetch users.
-            const userDocs = await Promise.all(participantIds.map(uid => db.collection('users').doc(uid).get()));
-            for (const userDoc of userDocs) {
-                if (!userDoc.exists)
-                    continue;
-                const userData = userDoc.data();
-                const pushToken = userData === null || userData === void 0 ? void 0 : userData.pushToken;
-                if (pushToken && expo_server_sdk_1.Expo.isExpoPushToken(pushToken)) {
-                    messages.push({
-                        to: pushToken,
-                        sound: 'default',
-                        title: 'Event Starting Soon!',
-                        body: `${eventData.title} is starting in 10 minutes.`,
-                        data: { eventId: eventId, url: `/event/${eventId}` },
-                    });
-                }
+        const msgs = await gatherMessagesForEvent(db, eventDoc);
+        if (msgs.length === 0)
+            continue;
+        try {
+            const result = await sendMessagesOrThrow(msgs);
+            if (result.allChunksSucceeded) {
+                successfulEventRefs.push(eventDoc.ref);
+                totalMessages += msgs.length;
             }
         }
-        // Mark event as notified
-        batch.update(eventDoc.ref, { notified10Min: true });
-    }
-    // Send Notifications
-    let chunks = expo.chunkPushNotifications(messages);
-    for (let chunk of chunks) {
-        try {
-            await expo.sendPushNotificationsAsync(chunk);
-        }
         catch (error) {
-            console.error(error);
+            console.error('Unexpected error while sending notifications for event', eventDoc.id, error);
         }
+    }
+    for (const ref of successfulEventRefs) {
+        batch.update(ref, { notified10Min: true });
     }
     await batch.commit();
-    return null;
+    return { processed: eventsSnapshot.size, notificationsSent: totalMessages };
 });
 //# sourceMappingURL=eventNotifications.js.map

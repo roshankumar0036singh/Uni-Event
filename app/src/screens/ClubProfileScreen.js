@@ -139,7 +139,7 @@ export default function ClubProfileScreen({ route, navigation }) {
     const ratingScore = Number.isFinite(rawRatingScore)
         ? Math.min(100, Math.max(0, rawRatingScore))
         : 0;
-        
+
     const successScore = Math.round(attendanceRate * 0.4 + ratingScore * 0.6);
 
     const toggleFollow = async () => {

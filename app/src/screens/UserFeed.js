@@ -1,9 +1,20 @@
+import logger from '../lib/logger';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, limit, onSnapshot, query, where } from 'firebase/firestore';
-import { useEffect, useRef, useState } from 'react';
+import {
+    collection,
+    limit,
+    onSnapshot,
+    query,
+    where,
+    getDocs,
+    startAfter,
+    orderBy,
+} from 'firebase/firestore';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Animated,
+    Alert,
     Platform,
     RefreshControl,
     ScrollView,
@@ -16,11 +27,17 @@ import {
 } from 'react-native';
 import EventCard from '../components/EventCard';
 import FeedbackModal from '../components/FeedbackModal';
-import { EventListSkeleton } from '../components/SkeletonLoader';
+import SkeletonLoader from '../components/SkeletonLoader';
 import { useAuth } from '../lib/AuthContext';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../lib/ThemeContext';
+import { COLLECTIONS, getUserParticipatingPath } from '../lib/firestorePaths';
+
+import { MapView, Marker, Callout } from '../components/MapComponent';
 
 const FILTERS = ['Upcoming', 'Past', 'Cultural', 'Sports', 'Tech', 'Workshop', 'Seminar'];
 
@@ -33,7 +50,31 @@ export default function UserFeed() {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [refreshNonce, setRefreshNonce] = useState(0);
+    const [isConnected, setIsConnected] = useState(true);
+    const [viewMode, setViewMode] = useState('list');
+    const navigation = useNavigation();
+
+    // Pagination and Recommendation State
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+    const [upcomingPool, setUpcomingPool] = useState([]);
+    const [lastVisible, setLastVisible] = useState(null);
+    const [isFetchingMore, setIsFetchingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const PAGE_SIZE = 20;
+
+    const hasMoreRef = useRef(hasMore);
+    const isFetchingMoreRef = useRef(isFetchingMore);
+    const lastVisibleRef = useRef(lastVisible);
+
+    useEffect(() => {
+        hasMoreRef.current = hasMore;
+    }, [hasMore]);
+    useEffect(() => {
+        isFetchingMoreRef.current = isFetchingMore;
+    }, [isFetchingMore]);
+    useEffect(() => {
+        lastVisibleRef.current = lastVisible;
+    }, [lastVisible]);
 
     // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -41,22 +82,60 @@ export default function UserFeed() {
 
     const scrollY = useRef(new Animated.Value(0)).current;
 
-    // Listen for my registrations
+    // NetInfo listener for connectivity
+    useEffect(() => {
+        const unsubscribe = NetInfo.addEventListener(state => {
+            setIsConnected(state.isConnected ?? true);
+            if (!state.isConnected) {
+                setLoading(false);
+            }
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // Load cached events on mount (after user is known)
     useEffect(() => {
         if (!user) return;
-        const q = collection(db, 'users', user.uid, 'participating');
+        const cacheKey = `@userfeed:events:${user.uid}`;
+        const loadCache = async () => {
+            try {
+                const json = await AsyncStorage.getItem(cacheKey);
+                if (json) setEvents(JSON.parse(json));
+            } catch (e) {
+                console.error('Failed to load cached events', e);
+            } finally {
+                const state = await NetInfo.fetch();
+                if (!state.isConnected) {
+                    setLoading(false);
+                }
+            }
+        };
+        loadCache();
+    }, [user]);
+
+    useEffect(() => {
+        if (!user) return;
+        const q = collection(db, getUserParticipatingPath(user.uid));
         const unsub = onSnapshot(q, snap => {
             setParticipatingIds(snap.docs.map(d => d.id));
         });
         return unsub;
     }, [user]);
 
+    // Debounce search query to prevent excessive Firestore reads
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
     // Listen for pending feedback requests
     useEffect(() => {
         if (!user) return;
 
         const feedbackQuery = query(
-            collection(db, 'feedbackRequests'),
+            collection(db, COLLECTIONS.FEEDBACK_REQUESTS),
             where('userId', '==', user.uid),
             where('status', '==', 'pending'),
             limit(1), // Show one at a time
@@ -80,48 +159,175 @@ export default function UserFeed() {
         return () => unsubscribe();
     }, [user]);
 
+    // Fetch a pool of upcoming events for recommendations
     useEffect(() => {
         if (!user) {
+            setEvents([]);
             setLoading(false);
+            AsyncStorage.removeItem('@userfeed:events').catch(err =>
+                console.error('Cache clear on logout failed', err),
+            );
             return;
         }
 
-        // Fetching events. ideally separate query.
-        const q = query(collection(db, 'events'));
-
-        const unsubscribe = onSnapshot(
-            q,
-            snapshot => {
+        const fetchPool = async () => {
+            try {
+                const now = new Date().toISOString();
+                const q = query(
+                    collection(db, COLLECTIONS.EVENTS),
+                    where('status', '==', 'active'),
+                    where('startAt', '>=', now),
+                    orderBy('startAt', 'asc'),
+                    limit(50),
+                );
+                const snapshot = await getDocs(q);
                 const list = [];
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    if (data.status === 'suspended') return;
                     list.push({ id: doc.id, ...data });
                 });
-                setEvents(list);
-                setLoading(false);
-                setRefreshing(false);
-            },
-            error => {
-                console.log('Error fetching events: ', error);
-                setLoading(false);
-                setRefreshing(false);
-            },
-        );
+                setUpcomingPool(list);
+            } catch (error) {
+                console.error('Error fetching recommendation pool: ', error);
+            }
+        };
+        fetchPool();
+    }, [user]);
 
-        return () => unsubscribe();
-    }, [role, user, refreshNonce]);
+    const checkAudienceEligibility = event => {
+        if (role === 'student' && userData && userData.branch && userData.year) {
+            const targetDepts = event.target?.departments || [];
+            const userDept = userData.branch || 'Unknown';
+            const deptMatch =
+                targetDepts.length === 0 ||
+                targetDepts.includes('All') ||
+                targetDepts.includes(userDept);
+
+            const targetYears = event.target?.years || [];
+            const userYear = parseInt(userData.year || 0);
+            const yearMatch = targetYears.length === 0 || targetYears.includes(userYear);
+
+            return deptMatch && yearMatch;
+        }
+        return true;
+    };
+
+    const fetchEvents = useCallback(
+        async (loadMore = false) => {
+            if (!user) return;
+            if (loadMore && (!hasMoreRef.current || isFetchingMoreRef.current)) return;
+
+            if (loadMore) {
+                isFetchingMoreRef.current = true;
+                setIsFetchingMore(true);
+            } else {
+                setLoading(true);
+                setEvents([]);
+                lastVisibleRef.current = null;
+                setLastVisible(null);
+            }
+
+            try {
+                const now = new Date().toISOString();
+                const qConstraints = [where('status', '==', 'active')];
+
+                if (activeFilter === 'Upcoming') {
+                    qConstraints.push(where('startAt', '>=', now), orderBy('startAt', 'asc'));
+                } else if (activeFilter === 'Past') {
+                    qConstraints.push(where('startAt', '<', now), orderBy('startAt', 'desc'));
+                } else {
+                    // For categories, without composite index, we might just query upcoming
+                    // and filter locally, OR assume composite index exists.
+                    // Assuming composite index exists for category + startAt
+                    qConstraints.push(
+                        where('category', '==', activeFilter),
+                        where('startAt', '>=', now),
+                        orderBy('startAt', 'asc'),
+                    );
+                }
+
+                if (loadMore && lastVisibleRef.current) {
+                    qConstraints.push(startAfter(lastVisibleRef.current));
+                }
+                const q = query(
+                    collection(db, COLLECTIONS.EVENTS),
+                    ...qConstraints,
+                    limit(PAGE_SIZE),
+                );
+
+                const snapshot = await getDocs(q);
+                const list = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    list.push({ id: doc.id, ...data });
+                });
+
+                if (loadMore) {
+                    setEvents(prev => {
+                        const existingIds = new Set(prev.map(e => e.id));
+                        const newEvents = list.filter(e => !existingIds.has(e.id));
+                        const merged = [...prev, ...newEvents];
+                        AsyncStorage.setItem(
+                            `@userfeed:events:${user.uid}`,
+                            JSON.stringify(merged),
+                        ).catch(err => console.error('Cache write failed', err));
+                        return merged;
+                    });
+                } else {
+                    const merged = list;
+                    setEvents(merged);
+                    AsyncStorage.setItem(
+                        `@userfeed:events:${user.uid}`,
+                        JSON.stringify(merged),
+                    ).catch(err => console.error('Cache write failed', err));
+                }
+
+                if (snapshot.docs.length > 0) {
+                    const nextCursor = snapshot.docs[snapshot.docs.length - 1];
+                    lastVisibleRef.current = nextCursor;
+                    setLastVisible(nextCursor);
+                } else {
+                    if (!loadMore) {
+                        lastVisibleRef.current = null;
+                        setLastVisible(null);
+                    }
+                }
+                const nextHasMore = snapshot.docs.length === PAGE_SIZE;
+                hasMoreRef.current = nextHasMore;
+                setHasMore(nextHasMore);
+            } catch (error) {
+                console.error('Error fetching paginated events: ', error);
+                if (error.message?.includes('index')) {
+                    Alert.alert(
+                        'Database Index Required',
+                        'Please create the required Firestore composite index found in the console logs.',
+                    );
+                }
+            } finally {
+                setLoading(false);
+                isFetchingMoreRef.current = false;
+                setIsFetchingMore(false);
+                setRefreshing(false);
+            }
+        },
+        [user, activeFilter],
+    );
+
+    useEffect(() => {
+        fetchEvents(false);
+    }, [fetchEvents]);
 
     // Recommendation Logic: Views + User History + Freshness
     const getRecommendedEvents = () => {
         const now = new Date();
-        const upcomingEvents = events.filter(e => new Date(e.startAt) >= now);
+        const eligiblePool = upcomingPool.filter(checkAudienceEligibility);
+        const upcomingEvents = eligiblePool.filter(e => new Date(e.startAt) >= now);
 
         if (upcomingEvents.length === 0) return [];
 
         // 1. Analyze User History (Favorite Categories)
         const categoryCounts = {};
-        events
+        upcomingPool
             .filter(e => participatingIds.includes(e.id))
             .forEach(e => {
                 if (e.category) {
@@ -165,12 +371,11 @@ export default function UserFeed() {
     };
 
     const getFilteredEvents = () => {
-        const now = new Date();
         let filtered = events;
 
         // 0. Search Query Filtering
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
+        if (debouncedSearchQuery.trim()) {
+            const query = debouncedSearchQuery.toLowerCase();
             filtered = filtered.filter(
                 e =>
                     e.title?.toLowerCase().includes(query) ||
@@ -180,70 +385,40 @@ export default function UserFeed() {
         }
 
         // 1. Strict Profile Filtering (Department & Year)
-        if (role === 'student' && userData && userData.branch && userData.year) {
-            // Only filter if we have complete user data
-            filtered = filtered.filter(e => {
-                // Check Department
-                const targetDepts = e.target?.departments || [];
-                const userDept = userData.branch || 'Unknown';
-                // If no specific departments listed, assume Open to All
-                const deptMatch =
-                    targetDepts.length === 0 ||
-                    targetDepts.includes('All') ||
-                    targetDepts.includes(userDept);
+        filtered = filtered.filter(checkAudienceEligibility);
 
-                // Check Year
-                const targetYears = e.target?.years || [];
-                const userYear = parseInt(userData.year || 0);
-                // If targetYears is empty/undefined, assume open to all.
-                const yearMatch = targetYears.length === 0 || targetYears.includes(userYear);
-
-                return deptMatch && yearMatch;
-            });
-        }
-
-        // 2. Tab/Category Filtering
-
-        if (activeFilter === 'Upcoming') {
-            // Show events that ends in the future (includes ongoing)
-            filtered = filtered.filter(e => {
-                const end = e.endAt
-                    ? new Date(e.endAt)
-                    : new Date(new Date(e.startAt).getTime() + 24 * 60 * 60 * 1000); // Fallback to 24h if no endAt
-                return end >= now;
-            });
-            // Sort: Closest upcoming first
-            filtered.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
-        } else if (activeFilter === 'Past') {
-            // Show events that have ended
-            filtered = filtered.filter(e => {
-                const end = e.endAt
-                    ? new Date(e.endAt)
-                    : new Date(new Date(e.startAt).getTime() + 24 * 60 * 60 * 1000);
-                return end < now;
-            });
-            // Sort: Most recent past first
-            filtered.sort((a, b) => new Date(b.startAt) - new Date(a.startAt));
-        } else {
-            // Category filters - HIDE ENDED EVENTS
-            filtered = filtered.filter(e => {
-                const end = e.endAt
-                    ? new Date(e.endAt)
-                    : new Date(new Date(e.startAt).getTime() + 24 * 60 * 60 * 1000);
-                return e.category === activeFilter && end >= now;
-            });
-            // Sort: Closest upcoming first for categories too
-            filtered.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
-        }
+        // We no longer need to filter by Upcoming/Past/Category manually
+        // because the backend query (fetchEvents) already handles it!
 
         return filtered;
     };
 
     const displayList = getFilteredEvents();
 
-    const onRefresh = () => {
+    const onRefresh = async () => {
+        if (!user) return;
         setRefreshing(true);
-        setRefreshNonce(n => n + 1);
+        try {
+            const q = query(collection(db, 'events'));
+            const snapshot = await getDocs(q);
+            const list = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.status === 'suspended') return;
+                list.push({ id: doc.id, ...data });
+            });
+            setEvents(list);
+            // Update cache
+            AsyncStorage.setItem(`@userfeed:events:${user.uid}`, JSON.stringify(list)).catch(err =>
+                console.error('Cache write failed', err),
+            );
+        } catch (error) {
+            console.error('Refresh error:', error);
+            Alert.alert('Error', 'Failed to refresh events.');
+        } finally {
+            setRefreshing(false);
+        }
+        await fetchEvents(false);
     };
 
     const StickyHeader = () => (
@@ -262,6 +437,9 @@ export default function UserFeed() {
                     placeholderTextColor={theme.colors.textSecondary}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
+                    accessible={true}
+                    accessibilityRole="search"
+                    accessibilityLabel="Search events"
                 />
                 {searchQuery.length > 0 && (
                     <TouchableOpacity onPress={() => setSearchQuery('')}>
@@ -291,6 +469,9 @@ export default function UserFeed() {
                                     borderRadius: 25,
                                     ...theme.shadows.small,
                                 }}
+                                accessible={true}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${f} filter`}
                             >
                                 {isActive ? (
                                     <LinearGradient
@@ -331,23 +512,27 @@ export default function UserFeed() {
         </View>
     );
 
-    const renderEvent = ({ item }) => (
-        <View style={{ paddingHorizontal: 20 }}>
-            <EventCard
-                event={item}
-                isRegistered={participatingIds.includes(item.id)}
-                onLike={() => {}}
-                onShare={async () => {
-                    try {
-                        await Share.share({
-                            message: `Check out this event: ${item.title} at ${item.location}!`,
-                        });
-                    } catch (e) {
-                        console.log(e);
-                    }
-                }}
-            />
-        </View>
+    const renderEvent = useCallback(
+        ({ item }) => (
+            <View style={{ paddingHorizontal: 20 }}>
+                <EventCard
+                    event={item}
+                    isRegistered={participatingIds.includes(item.id)}
+                    onLike={() => {}}
+                    onShare={async () => {
+                        try {
+                            await Share.share({
+                                message: `Check out this event: ${item.title} at ${item.location}!`,
+                            });
+                        } catch (e) {
+                            logger.error('Share Error:', e);
+                            Alert.alert('Error', 'Failed to share the event.');
+                        }
+                    }}
+                />
+            </View>
+        ),
+        [participatingIds],
     );
 
     const headerTranslateY = scrollY.interpolate({
@@ -358,9 +543,66 @@ export default function UserFeed() {
 
     const renderHeader = () => (
         <Animated.View style={{ transform: [{ translateY: headerTranslateY }] }}>
+            <View
+                style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginHorizontal: 20,
+                    marginBottom: 15,
+                }}
+            >
+                <Text style={styles.sectionTitle}>RECOMMENDED FOR YOU</Text>
+                {MapView && (
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            backgroundColor: theme.colors.surface,
+                            borderRadius: 20,
+                            overflow: 'hidden',
+                        }}
+                    >
+                        <TouchableOpacity
+                            onPress={() => setViewMode('list')}
+                            style={{
+                                paddingHorizontal: 15,
+                                paddingVertical: 8,
+                                backgroundColor:
+                                    viewMode === 'list' ? theme.colors.primary : 'transparent',
+                            }}
+                            accessible={true}
+                            accessibilityRole="button"
+                            accessibilityLabel="List view"
+                        >
+                            <Ionicons
+                                name="list"
+                                size={20}
+                                color={viewMode === 'list' ? '#fff' : theme.colors.textSecondary}
+                            />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => setViewMode('map')}
+                            style={{
+                                paddingHorizontal: 15,
+                                paddingVertical: 8,
+                                backgroundColor:
+                                    viewMode === 'map' ? theme.colors.primary : 'transparent',
+                            }}
+                            accessible={true}
+                            accessibilityRole="button"
+                            accessibilityLabel="Map view"
+                        >
+                            <Ionicons
+                                name="map"
+                                size={20}
+                                color={viewMode === 'map' ? '#fff' : theme.colors.textSecondary}
+                            />
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
             {/* Recommendations Rail */}
             <View style={{ marginBottom: 20 }}>
-                <Text style={styles.sectionTitle}>RECOMMENDED FOR YOU</Text>
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -389,11 +631,16 @@ export default function UserFeed() {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            {!isConnected && (
+                <View style={styles.offlineBanner}>
+                    <Text style={styles.offlineText}>Viewing cached events offline</Text>
+                </View>
+            )}
             {loading ? (
                 <View style={{ paddingTop: 20 }}>
-                    <EventListSkeleton />
+                    <SkeletonLoader />
                 </View>
-            ) : (
+            ) : viewMode === 'list' ? (
                 <Animated.SectionList
                     sections={[{ data: displayList }]}
                     keyExtractor={item => item.id}
@@ -409,6 +656,12 @@ export default function UserFeed() {
                             tintColor={theme.colors.primary}
                         />
                     }
+                    onEndReached={() => {
+                        if (hasMore && !isFetchingMore) {
+                            fetchEvents(true);
+                        }
+                    }}
+                    onEndReachedThreshold={0.5}
                     onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
                         useNativeDriver: true,
                     })}
@@ -428,7 +681,170 @@ export default function UserFeed() {
                             </Text>
                         </View>
                     }
+                    ListFooterComponent={
+                        isFetchingMore ? (
+                            <View style={{ padding: 20, alignItems: 'center' }}>
+                                <Text style={{ color: theme.colors.textSecondary }}>
+                                    Loading more...
+                                </Text>
+                            </View>
+                        ) : null
+                    }
                 />
+            ) : (
+                MapView && (
+                    <View style={{ flex: 1 }}>
+                        <View style={{ paddingTop: 10 }}>
+                            <StickyHeader />
+                        </View>
+                        <View
+                            style={{
+                                flexDirection: 'row',
+                                justifyContent: 'flex-end',
+                                paddingHorizontal: 20,
+                                marginBottom: 10,
+                            }}
+                        >
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    backgroundColor: theme.colors.surface,
+                                    borderRadius: 20,
+                                    overflow: 'hidden',
+                                }}
+                            >
+                                <TouchableOpacity
+                                    onPress={() => setViewMode('list')}
+                                    style={{
+                                        paddingHorizontal: 15,
+                                        paddingVertical: 8,
+                                        backgroundColor:
+                                            viewMode === 'list'
+                                                ? theme.colors.primary
+                                                : 'transparent',
+                                    }}
+                                    accessible={true}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="List view"
+                                >
+                                    <Ionicons
+                                        name="list"
+                                        size={20}
+                                        color={
+                                            viewMode === 'list'
+                                                ? '#fff'
+                                                : theme.colors.textSecondary
+                                        }
+                                    />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => setViewMode('map')}
+                                    style={{
+                                        paddingHorizontal: 15,
+                                        paddingVertical: 8,
+                                        backgroundColor:
+                                            viewMode === 'map'
+                                                ? theme.colors.primary
+                                                : 'transparent',
+                                    }}
+                                    accessible={true}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Map view"
+                                >
+                                    <Ionicons
+                                        name="map"
+                                        size={20}
+                                        color={
+                                            viewMode === 'map' ? '#fff' : theme.colors.textSecondary
+                                        }
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View
+                            style={{
+                                flex: 1,
+                                marginHorizontal: 20,
+                                marginBottom: 20,
+                                borderRadius: 16,
+                                overflow: 'hidden',
+                                borderWidth: 1,
+                                borderColor: theme.colors.border,
+                            }}
+                        >
+                            <MapView
+                                style={{ flex: 1 }}
+                                initialRegion={{
+                                    latitude: 28.7041,
+                                    longitude: 77.1025,
+                                    latitudeDelta: 0.01,
+                                    longitudeDelta: 0.01,
+                                }}
+                            >
+                                {displayList
+                                    .filter(
+                                        e =>
+                                            e.coordinates &&
+                                            typeof e.coordinates === 'object' &&
+                                            Number.isFinite(e.coordinates.latitude) &&
+                                            Number.isFinite(e.coordinates.longitude),
+                                    )
+                                    .map(event => (
+                                        <Marker key={event.id} coordinate={event.coordinates}>
+                                            <Callout
+                                                onPress={() =>
+                                                    navigation.navigate('EventDetail', {
+                                                        eventId: event.id,
+                                                        action: 'view',
+                                                    })
+                                                }
+                                            >
+                                                <View style={{ width: 200, padding: 5 }}>
+                                                    <Text
+                                                        style={{
+                                                            fontWeight: 'bold',
+                                                            fontSize: 16,
+                                                            marginBottom: 5,
+                                                        }}
+                                                    >
+                                                        {event.title}
+                                                    </Text>
+                                                    <Text
+                                                        style={{
+                                                            color: '#666',
+                                                            fontSize: 12,
+                                                            marginBottom: 10,
+                                                        }}
+                                                        numberOfLines={2}
+                                                    >
+                                                        {event.description}
+                                                    </Text>
+                                                    <TouchableOpacity
+                                                        style={{
+                                                            backgroundColor: theme.colors.primary,
+                                                            padding: 8,
+                                                            borderRadius: 8,
+                                                            alignItems: 'center',
+                                                        }}
+                                                    >
+                                                        <Text
+                                                            style={{
+                                                                color: '#fff',
+                                                                fontWeight: 'bold',
+                                                            }}
+                                                        >
+                                                            View Details
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </Callout>
+                                        </Marker>
+                                    ))}
+                            </MapView>
+                        </View>
+                    </View>
+                )
             )}
 
             {/* Feedback Modal */}
@@ -475,9 +891,6 @@ const styles = StyleSheet.create({
         marginLeft: 10,
         fontSize: 16,
         borderWidth: 0,
-        ...Platform.select({
-            web: { outlineStyle: 'none' },
-        }),
     },
     filterWrapper: {
         height: 60,
@@ -507,4 +920,15 @@ const styles = StyleSheet.create({
     },
     emptyContainer: { alignItems: 'center', marginTop: 50, padding: 20 },
     emptyText: { marginTop: 10, fontSize: 16 },
+    offlineBanner: {
+        backgroundColor: '#FF9800',
+        padding: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    offlineText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
 });
