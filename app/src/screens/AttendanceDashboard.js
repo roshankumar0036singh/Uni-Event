@@ -173,8 +173,16 @@ export default function AttendanceDashboard({ route, navigation }) {
             const result = await syncOfflineCheckIns(eventId, user?.uid || 'Unknown Organizer');
             if (result.success) {
                 Alert.alert('Success', `Synced ${result.syncedCount} check-ins.`);
+            } else if (typeof result.remainingCount === 'number') {
+                Alert.alert(
+                    'Partial Sync',
+                    `Synced ${result.syncedCount} check-ins. ${result.remainingCount} still pending.`,
+                );
             } else {
-                Alert.alert('Partial Sync', `Synced ${result.syncedCount} check-ins. ${result.remainingCount} remaining.`);
+                // Fatal error returned from syncOfflineCheckIns
+                const msg = result.error?.message || String(result.error) || 'Unknown error';
+                console.error('Offline sync fatal error:', result.error);
+                Alert.alert('Sync Failed', `Could not sync offline check-ins: ${msg}`);
             }
         } catch (error) {
             Alert.alert('Error', 'Failed to sync offline check-ins.');

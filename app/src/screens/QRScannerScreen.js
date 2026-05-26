@@ -1,13 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Camera } from 'expo-camera';
-import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import WebQRScanner from '../components/WebQRScanner';
 import { useAuth } from '../lib/AuthContext';
-import { db } from '../lib/firebaseConfig';
-import { queueOfflineCheckIn } from '../lib/checkInService';
+import { queueOfflineCheckIn, checkInAttendee, validateTicket } from '../lib/checkInService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
@@ -56,9 +54,10 @@ export default function QRScannerScreen({ navigation, route }) {
                     return;
                 }
             } catch (_e) {
-                // If JSON parsing fails, treat as plain userId string (fallback)
-                console.log('JSON parsing failed, falling back to plain string format:', _e);
-                scannedUserId = data;
+                // If JSON parsing fails, the QR is not a structured ticket — do NOT queue offline.
+                // We cannot revalidate a raw userId string at sync time.
+                setScanResult({ status: 'error', message: 'Invalid QR code format.' });
+                return;
             }
 
             console.log(`Scanned user: ${scannedUserId} for event: ${eventId}`);
@@ -75,14 +74,19 @@ export default function QRScannerScreen({ navigation, route }) {
                 }
             } catch (err) {
                 if (err.code === 'unavailable' || err.message?.includes('offline') || err.message?.includes('network')) {
-                    await queueOfflineCheckIn(eventId, {
+                    const queued = await queueOfflineCheckIn(eventId, {
                         userId: scannedUserId,
                         userName: ticketData?.attendeeName || 'Guest',
                         userBranch: ticketData?.branch || 'N/A',
                         userYear: ticketData?.year || 'N/A',
-                        ticketId: ticketData?.ticketId || null
+                        ticketId: ticketData?.ticketId || null,
                     });
-                    
+
+                    if (!queued) {
+                        setScanResult({ status: 'error', message: 'Offline — failed to save check-in locally.' });
+                        return;
+                    }
+
                     setScanResult({
                         status: 'success',
                         message: `Queued offline check-in for ${ticketData?.attendeeName || 'Guest'}.`,
@@ -95,40 +99,47 @@ export default function QRScannerScreen({ navigation, route }) {
 
             const userData = userSnap.data();
 
-            // 2. CheckIn Logic
+            // 2. CheckIn Logic — use the canonical checkInAttendee to ensure all
+            // invariants (ticket status, event stats, organizer metadata) are maintained.
             try {
-                const checkInRef = doc(db, 'events', eventId, 'checkIns', scannedUserId);
-                await setDoc(checkInRef, {
+                const ticketPayload = {
+                    id: ticketData?.ticketId || scannedUserId,
                     userId: scannedUserId,
                     userName: userData.name || ticketData?.attendeeName,
-                    userBranch: userData.branch || ticketData?.branch,
-                    userYear: userData.year || ticketData?.year,
-                    checkedInAt: serverTimestamp(),
-                    checkedBy: user.uid,
-                    ticketId: ticketData?.ticketId || null,
-                });
+                    userEmail: userData.email || ticketData?.attendeeEmail || '',
+                    userYear: userData.year || ticketData?.year || 'N/A',
+                    userBranch: userData.branch || ticketData?.branch || 'N/A',
+                    receiverId: scannedUserId,
+                };
 
-                // 3. Mark registration as attended (optional, if separate collection)
-                const registrationRef = doc(db, 'events', eventId, 'registrations', scannedUserId);
-                // Check if registration exists first or just set merge
-                await updateDoc(registrationRef, { status: 'attended' }).catch(err =>
-                    console.log('No reg doc, skipping update'),
-                );
+                const result = await checkInAttendee(ticketPayload, eventId, user.uid, userData.name || 'Organizer');
+
+                if (!result.success) {
+                    // Already checked-in or ineligible — report, don't crash
+                    setScanResult({ status: 'error', message: result.message || 'Check-in failed.' });
+                    return;
+                }
 
                 setScanResult({
                     status: 'success',
-                    message: `Checked in ${userData.name || ticketData?.attendeeName}!`,
+                    message: result.message || `Checked in ${userData.name || ticketData?.attendeeName}!`,
                     user: userData,
                 });
             } catch (err) {
                 if (err.code === 'unavailable' || err.message?.includes('offline') || err.message?.includes('network')) {
-                    await queueOfflineCheckIn(eventId, {
+                    const queued = await queueOfflineCheckIn(eventId, {
                         userId: scannedUserId,
                         userName: userData.name || ticketData?.attendeeName || 'Guest',
                         userBranch: userData.branch || ticketData?.branch || 'N/A',
                         userYear: userData.year || ticketData?.year || 'N/A',
-                        ticketId: ticketData?.ticketId || null
+                        ticketId: ticketData?.ticketId || null,
                     });
+
+                    if (!queued) {
+                        setScanResult({ status: 'error', message: 'Offline — failed to save check-in locally.' });
+                        return;
+                    }
+
                     setScanResult({
                         status: 'success',
                         message: `Queued offline check-in for ${userData.name || ticketData?.attendeeName || 'Guest'}.`,

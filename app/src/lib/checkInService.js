@@ -1,4 +1,4 @@
-import { doc, getDoc, serverTimestamp, increment, runTransaction, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, increment, runTransaction, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
  * Validate a ticket for check-in
@@ -256,20 +256,40 @@ export const syncOfflineCheckIns = async (eventId, organizerId) => {
         for (const item of queue) {
             try {
                 const checkInRef = doc(db, 'events', eventId, 'checkIns', item.userId);
-                
+
                 const checkInSnap = await getDoc(checkInRef);
                 if (!checkInSnap.exists()) {
+                    // Preserve original scan time; fall back to server time if missing
+                    const offlineCheckedInAt = item.queuedAt
+                        ? Timestamp.fromDate(new Date(item.queuedAt))
+                        : serverTimestamp();
+
                     await setDoc(checkInRef, {
                         userId: item.userId,
                         userName: item.userName || 'Guest',
                         userBranch: item.userBranch || 'N/A',
                         userYear: item.userYear || 'N/A',
-                        checkedInAt: serverTimestamp(),
-                        checkedBy: organizerId,
+                        checkedInAt: offlineCheckedInAt,
+                        checkedInBy: organizerId,
                         ticketId: item.ticketId || null,
-                        syncedOffline: true
+                        syncedOffline: true,
                     });
-                    
+
+                    // Mark the ticket as checked-in so validateTicket sees it used
+                    if (item.ticketId) {
+                        await updateDoc(doc(db, 'tickets', item.ticketId), {
+                            checkInStatus: 'checked-in',
+                            checkedInAt: offlineCheckedInAt,
+                            checkedInBy: organizerId,
+                        }).catch(() => {});
+                    }
+
+                    // Increment event stats to keep dashboard accurate
+                    await updateDoc(doc(db, 'events', eventId), {
+                        'stats.totalCheckedIn': increment(1),
+                        'stats.lastCheckInAt': serverTimestamp(),
+                    }).catch(() => {});
+
                     const registrationRef = doc(db, 'events', eventId, 'registrations', item.userId);
                     await updateDoc(registrationRef, { status: 'attended' }).catch(() => {});
                 }
