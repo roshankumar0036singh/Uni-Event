@@ -116,8 +116,12 @@ export default function ProfileScreen({ navigation }) {
                     setFollowingCount(followingSnap.data().count);
                 }
                 // Check if current user is following this profile
-                const followDoc = await getDoc(doc(db, 'users', user.uid, 'following', targetUserId));
-                setIsFollowing(followDoc.exists());
+                if (targetUserId && targetUserId !== user.uid) {
+                    const followDoc = await getDoc(
+                        doc(db, 'users', user.uid, 'following', targetUserId)
+                    );
+                    setIsFollowing(followDoc.exists());
+                }
             }
 
             // Fetch Participated Events Count
