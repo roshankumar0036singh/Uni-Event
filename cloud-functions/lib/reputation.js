@@ -46,31 +46,41 @@ const db = admin.firestore();
  * +1 point per reminder set
  */
 exports.calculateReputation = functions.https.onCall(async (_data, context) => {
-    var _a;
+    var _a, _b, _c, _d;
     if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.admin)) {
         throw new functions.https.HttpsError('permission-denied', 'Only admin can calculate reputation.');
     }
     const usersSnapshot = await db.collection('users').get();
-    const updates = [];
-    usersSnapshot.forEach(userDoc => {
-        var _a, _b, _c;
+    let batch = db.batch();
+    let opCount = 0;
+    let updatedUsers = 0;
+    for (const userDoc of usersSnapshot.docs) {
         const userData = userDoc.data();
-        const attendanceCount = ((_a = userData.reputation) === null || _a === void 0 ? void 0 : _a.attendanceCount) || userData.attendanceCount || 0;
-        const registrationCount = ((_b = userData.reputation) === null || _b === void 0 ? void 0 : _b.registrationCount) || userData.registrationCount || 0;
-        const remindersSet = ((_c = userData.reputation) === null || _c === void 0 ? void 0 : _c.remindersSet) || userData.remindersSet || 0;
+        const attendanceCount = ((_b = userData.reputation) === null || _b === void 0 ? void 0 : _b.attendanceCount) || userData.attendanceCount || 0;
+        const registrationCount = ((_c = userData.reputation) === null || _c === void 0 ? void 0 : _c.registrationCount) || userData.registrationCount || 0;
+        const remindersSet = ((_d = userData.reputation) === null || _d === void 0 ? void 0 : _d.remindersSet) || userData.remindersSet || 0;
         const points = attendanceCount * 10 + registrationCount * 2 + remindersSet;
-        updates.push(userDoc.ref.update({
+        batch.update(userDoc.ref, {
             'reputation.points': points,
             'reputation.attendanceCount': attendanceCount,
             'reputation.registrationCount': registrationCount,
             'reputation.remindersSet': remindersSet,
             'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
-        }));
-    });
-    await Promise.all(updates);
+        });
+        opCount += 1;
+        updatedUsers += 1;
+        if (opCount === 500) {
+            await batch.commit();
+            batch = db.batch();
+            opCount = 0;
+        }
+    }
+    if (opCount > 0) {
+        await batch.commit();
+    }
     return {
         success: true,
-        message: `Updated reputation for ${updates.length} users`,
+        message: `Updated reputation for ${updatedUsers} users`,
     };
 });
 /**

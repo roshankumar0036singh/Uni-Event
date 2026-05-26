@@ -31,6 +31,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BarChart } from 'react-native-chart-kit';
 import { db } from '../lib/firebaseConfig';
+import participantService from '../lib/participantService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkAnnouncement, sendBulkFeedbackRequest } from '../lib/EmailService';
 import PropTypes from 'prop-types';
@@ -71,13 +72,9 @@ export default function AttendanceDashboard({ route, navigation }) {
         setFeedbackModalVisible(false);
 
         try {
-            const participantsRef = collection(db, `events/${eventId}/participants`);
-            const snapshot = await getDocs(participantsRef);
-            const participants = snapshot.docs
-                .map(doc => ({
-                    name: doc.data().name,
-                    email: doc.data().email,
-                }))
+            const snapshotData = await participantService.fetchParticipantsOnce(db, eventId);
+            const participants = (snapshotData || [])
+                .map(d => ({ name: d.name, email: d.email }))
                 .filter(p => p.email && p.email !== '-');
 
             if (participants.length === 0) {
@@ -112,20 +109,16 @@ export default function AttendanceDashboard({ route, navigation }) {
         setSending(true);
         try {
             // Fetch Participants
-            const participantsRef = collection(db, `events/${eventId}/participants`);
-            const snapshot = await getDocs(participantsRef);
+            const snapshotData = await participantService.fetchParticipantsOnce(db, eventId);
 
-            if (snapshot.empty) {
+            if (!snapshotData || snapshotData.length === 0) {
                 Alert.alert('No Participants', 'No one to send email to.');
                 setSending(false);
                 return;
             }
 
-            const participants = snapshot.docs
-                .map(doc => ({
-                    name: doc.data().name,
-                    email: doc.data().email,
-                }))
+            const participants = (snapshotData || [])
+                .map(d => ({ name: d.name, email: d.email }))
                 .filter(p => p.email && p.email !== '-');
 
             if (participants.length === 0) {
@@ -195,22 +188,19 @@ export default function AttendanceDashboard({ route, navigation }) {
     // Live Participant Count
     const [totalRegistrations, setTotalRegistrations] = useState(0);
 
-    // Real-time participants listener
+    // Real-time participants listener (use shared subscriber to dedupe)
     useEffect(() => {
-        const participantsRef = collection(db, `events/${eventId}/participants`);
-        const unsubscribe = onSnapshot(
-            participantsRef,
-            snapshot => {
-                setTotalRegistrations(snapshot.size);
-                setLoading(false);
-            },
-            error => {
-                console.error('Error fetching participants:', error);
-                setLoading(false);
-            },
-        );
+        let mounted = true;
+        const unsub = participantService.subscribeParticipants(db, eventId, data => {
+            if (!mounted) return;
+            setTotalRegistrations(Array.isArray(data) ? data.length : 0);
+            setLoading(false);
+        });
 
-        return () => unsubscribe();
+        return () => {
+            mounted = false;
+            if (unsub) unsub();
+        };
     }, [eventId]);
 
     // Note: Automatic feedback sending is now handled globally in App.js via AutomationService.
@@ -324,10 +314,9 @@ export default function AttendanceDashboard({ route, navigation }) {
     const handleExportParticipants = async () => {
         setExporting(true);
         try {
-            const participantsRef = collection(db, `events/${eventId}/participants`);
-            const snapshot = await getDocs(participantsRef);
+            const snapshotData = await participantService.fetchParticipantsOnce(db, eventId);
 
-            if (snapshot.empty) {
+            if (!snapshotData || snapshotData.length === 0) {
                 Alert.alert('No Data', 'No registered participants yet.');
                 setExporting(false);
                 return;
@@ -337,8 +326,7 @@ export default function AttendanceDashboard({ route, navigation }) {
 
             // Fetch live user profiles to fill in missing Branch/Year
             const rows = await Promise.all(
-                snapshot.docs.map(async docSnap => {
-                    const d = docSnap.data();
+                snapshotData.map(async d => {
                     let branch = d.branch;
                     let year = d.year;
 

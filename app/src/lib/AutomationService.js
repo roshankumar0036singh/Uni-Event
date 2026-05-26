@@ -1,6 +1,7 @@
 import { collection, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { sendBulkFeedbackRequest } from './EmailService';
+import participantService from './participantService';
 
 /**
  * Checks for all events owned by the user that have ended and need feedback requests sent.
@@ -37,14 +38,13 @@ export const checkAndTriggerAutomations = async userId => {
             if (now > endAt) {
                 console.log(`[Automation] Processing Event: ${eventData.title} (Ended)`);
 
-                // 1. Fetch Participants
-                const participantsRef = collection(db, `events/${eventDoc.id}/participants`);
-                const participantsSnap = await getDocs(participantsRef);
-                const participants = participantsSnap.docs
-                    .map(p => ({
-                        name: p.data().name,
-                        email: p.data().email,
-                    }))
+                // 1. Fetch Participants (use shared helper)
+                const participantsSnap = await participantService.fetchParticipantsOnce(
+                    db,
+                    eventDoc.id,
+                );
+                const participants = (participantsSnap || [])
+                    .map(p => ({ name: p.name, email: p.email }))
                     .filter(p => p.email && p.email !== '-');
 
                 let emailCount = 0;

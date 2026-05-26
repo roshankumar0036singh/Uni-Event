@@ -41,6 +41,7 @@ import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
+import participantService from '../lib/participantService';
 import {
     cancelScheduledNotification,
     scheduleEventReminder,
@@ -228,19 +229,18 @@ export default function EventDetail({ route, navigation }) {
             setLoading(false);
         });
 
-        const unsubParticipants = onSnapshot(
-            collection(db, `events/${eventId}/participants`),
-            snapshot => {
-                setParticipantCount(snapshot.size);
-                const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setParticipants(list);
-                if (user) {
-                    const myDoc = list.find(d => d.id === user.uid);
-                    if (myDoc) setRsvpStatus('going');
-                    else setRsvpStatus(null);
-                }
-            },
-        );
+        const unsubParticipants = participantService.subscribeParticipants(db, eventId, data => {
+            const list = Array.isArray(data) ? data : [];
+            setParticipantCount(list.length);
+            setParticipants(list);
+            if (user) {
+                const myDoc = list.find(d => d.id === user.uid);
+                if (myDoc) setRsvpStatus('going');
+                else setRsvpStatus(null);
+            } else {
+                setRsvpStatus(null);
+            }
+        });
 
         if (user) {
             getDoc(doc(db, `events/${eventId}/feedback`, user.uid)).then(snap => {
@@ -562,22 +562,15 @@ export default function EventDetail({ route, navigation }) {
 
         setSendingCertificates(true);
         try {
-            // Fetch Participants
+            // Fetch Participants via participantService
             console.log(`Fetching participants for event: ${event.id}`);
-            const participantsRef = collection(db, `events/${event.id}/participants`);
-            const snapshot = await getDocs(participantsRef);
-            console.log(`Snapshot size: ${snapshot.size}`);
-
-            const participants = snapshot.docs
-                .map(doc => {
-                    const data = doc.data();
-                    console.log(`Participant: ${data.name}, Email: ${data.email}`);
-                    return {
-                        name: data.name,
-                        email: data.email,
-                    };
-                })
+            const snapshotData = await (
+                await import('../lib/participantService')
+            ).default.fetchParticipantsOnce(db, event.id);
+            const participants = (snapshotData || [])
+                .map(d => ({ name: d.name, email: d.email }))
                 .filter(p => p.email && p.email !== '-');
+            console.log(`Valid participants count: ${participants.length}`);
 
             console.log(`Valid participants count: ${participants.length}`);
 
