@@ -613,6 +613,7 @@ export default function UserFeed() {
                                     overflow: 'hidden',
                                 }}
                             >
+                                    </View>
                                 <TouchableOpacity
                                     onPress={() => setViewMode('list')}
                                     style={{

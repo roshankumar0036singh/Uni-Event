@@ -65,6 +65,10 @@ export default function PremiumInput({
                     <TouchableOpacity
                         onPress={() => setIsPasswordVisible(!isPasswordVisible)}
                         style={styles.eyeIcon}
+                        accessibilityRole="button"
+                        accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
+                        accessibilityHint="Toggles password visibility"
+                        accessibilityState={{ checked: isPasswordVisible }}
                     >
                         <Ionicons
                             name={isPasswordVisible ? 'eye-off' : 'eye'}
