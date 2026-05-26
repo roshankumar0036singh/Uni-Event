@@ -2,7 +2,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 // import { Picker } from '@react-native-picker/picker'; // Removed native picker
 import { updateProfile } from 'firebase/auth';
 import { addDoc, collection, doc, getCountFromServer, getDoc, updateDoc } from 'firebase/firestore';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
     Alert,
@@ -24,6 +24,12 @@ import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserLevel, getUserLevelProgress } from '../lib/userLevels';
+import {
+    getSafeSelectedProfileBadge,
+    getUnlockedProfileBadges,
+    PROFILE_BADGES,
+    canUseProfileBadge,
+} from '../lib/profileBadges';
 
 // Helper to get ordinal year labels
 const getYearLabel = y => {
@@ -40,7 +46,6 @@ const getYearLabel = y => {
 };
 
 // Helper for menu items
-
 const MenuItem = ({
     icon,
     label,
@@ -130,6 +135,78 @@ const LevelProgressCard = ({ levelInfo, progressInfo, points, theme, styles }) =
     </View>
 );
 
+const ActiveProfileBadge = ({ badge, onPress, styles }) => (
+    <TouchableOpacity
+        style={[styles.activeProfileBadge, { borderColor: badge.color + '80' }]}
+        onPress={onPress}
+        activeOpacity={0.85}
+    >
+        <View style={[styles.activeProfileBadgeIcon, { backgroundColor: badge.color + '20' }]}>
+            <Ionicons name={badge.icon} size={18} color={badge.color} />
+        </View>
+        <View style={{ flex: 1 }}>
+            <Text style={styles.activeProfileBadgeTitle}>{badge.label}</Text>
+            <Text style={styles.activeProfileBadgeText}>Profile badge</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={badge.color} />
+    </TouchableOpacity>
+);
+
+const ProfileBadgeShelf = ({
+    badges,
+    selectedBadgeId,
+    onSelectBadge,
+    onManagePress,
+    styles,
+    disabled,
+}) => (
+    <View style={styles.profileBadgeShelf}>
+        <View style={styles.profileBadgeShelfHeader}>
+            <Text style={styles.profileBadgeShelfTitle}>Unlocked badges</Text>
+            <TouchableOpacity onPress={onManagePress} activeOpacity={0.8}>
+                <Text style={styles.profileBadgeShelfAction}>Manage</Text>
+            </TouchableOpacity>
+        </View>
+        <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.profileBadgeShelfList}
+        >
+            {badges.map(badge => {
+                const isSelected = badge.id === selectedBadgeId;
+
+                return (
+                    <TouchableOpacity
+                        key={badge.id}
+                        style={[
+                            styles.profileBadgeShelfItem,
+                            {
+                                borderColor: isSelected ? badge.color : 'transparent',
+                                backgroundColor: badge.color + (isSelected ? '24' : '14'),
+                            },
+                        ]}
+                        onPress={() => onSelectBadge(badge)}
+                        activeOpacity={disabled ? 1 : 0.85}
+                        disabled={disabled}
+                    >
+                        <Ionicons name={badge.icon} size={20} color={badge.color} />
+                        {isSelected && (
+                            <View
+                                style={[
+                                    styles.profileBadgeShelfCheck,
+                                    { backgroundColor: badge.color },
+                                ]}
+                            >
+                                <Ionicons name="checkmark" size={10} color="#fff" />
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                );
+            })}
+        </ScrollView>
+    </View>
+);
+
 LevelProgressCard.propTypes = {
     levelInfo: PropTypes.shape({
         icon: PropTypes.string,
@@ -147,6 +224,31 @@ LevelProgressCard.propTypes = {
     points: PropTypes.number,
     theme: PropTypes.object,
     styles: PropTypes.object,
+};
+
+ActiveProfileBadge.propTypes = {
+    badge: PropTypes.shape({
+        color: PropTypes.string,
+        icon: PropTypes.string,
+        label: PropTypes.string,
+    }),
+    onPress: PropTypes.func,
+    styles: PropTypes.object,
+};
+
+ProfileBadgeShelf.propTypes = {
+    badges: PropTypes.arrayOf(
+        PropTypes.shape({
+            color: PropTypes.string,
+            icon: PropTypes.string,
+            id: PropTypes.string,
+        }),
+    ),
+    selectedBadgeId: PropTypes.string,
+    onSelectBadge: PropTypes.func,
+    onManagePress: PropTypes.func,
+    styles: PropTypes.object,
+    disabled: PropTypes.bool,
 };
 
 const BRANCHES = ['CSE', 'ETC', 'EE', 'ME', 'Civil'];
@@ -168,13 +270,24 @@ export default function ProfileScreen({ navigation }) {
     const [eventsCount, setEventsCount] = useState(0);
     const [rating, setRating] = useState(0);
     const [badges, setBadges] = useState([]);
+    const [selectedProfileBadge, setSelectedProfileBadge] = useState('fresh-face');
     const [isEditing, setIsEditing] = useState(false);
     const [showRequestModal, setShowRequestModal] = useState(false);
+    const [showBadgeModal, setShowBadgeModal] = useState(false);
     const [requestSubject, setRequestSubject] = useState('Request Club Access');
     const [requestMessage, setRequestMessage] = useState('');
     const [loading, setLoading] = useState(false);
+    const updatingBadgeRef = useRef(null);
     const levelInfo = useMemo(() => getUserLevel(points), [points]);
     const progressInfo = useMemo(() => getUserLevelProgress(points), [points]);
+    const activeProfileBadge = useMemo(
+        () => getSafeSelectedProfileBadge(selectedProfileBadge, levelInfo.level),
+        [selectedProfileBadge, levelInfo.level],
+    );
+    const unlockedProfileBadges = useMemo(
+        () => getUnlockedProfileBadges(levelInfo.level),
+        [levelInfo.level],
+    );
 
     const fetchUserData = useCallback(async () => {
         if (!user?.uid) return;
@@ -191,6 +304,7 @@ export default function ProfileScreen({ navigation }) {
                 setBranch(data.branch || 'CSE');
                 setPoints(data.points ?? 0);
                 setBadges(data.badges || []);
+                setSelectedProfileBadge(data.selectedProfileBadge || 'fresh-face');
 
                 // Fetch Club Rating (for club/admin users) from reputation field
                 if (role === 'club' || role === 'admin') {
@@ -316,6 +430,41 @@ export default function ProfileScreen({ navigation }) {
         }
     };
 
+    const handleSelectProfileBadge = async badge => {
+        if (loading || updatingBadgeRef.current) return;
+
+        if (badge.id === activeProfileBadge.id) {
+            setShowBadgeModal(false);
+            return;
+        }
+
+        if (!canUseProfileBadge(badge.id, levelInfo.level)) {
+            Alert.alert('Locked Badge', `Reach Level ${badge.requiredLevel} to unlock this badge.`);
+            return;
+        }
+
+        try {
+            updatingBadgeRef.current = badge.id;
+            setLoading(true);
+            await updateDoc(doc(db, 'users', user.uid), {
+                selectedProfileBadge: badge.id,
+            });
+            if (updatingBadgeRef.current !== badge.id) return;
+
+            setSelectedProfileBadge(badge.id);
+            setShowBadgeModal(false);
+            Alert.alert('Badge Updated', `${badge.label} is now shown on your profile.`);
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to update profile badge');
+        } finally {
+            if (updatingBadgeRef.current === badge.id) {
+                updatingBadgeRef.current = null;
+                setLoading(false);
+            }
+        }
+    };
+
     return (
         <ScreenWrapper>
             <ScrollView
@@ -370,6 +519,19 @@ export default function ProfileScreen({ navigation }) {
                                 {bio}
                             </Text>
                         ) : null}
+                        <ActiveProfileBadge
+                            badge={activeProfileBadge}
+                            onPress={() => setShowBadgeModal(true)}
+                            styles={styles}
+                        />
+                        <ProfileBadgeShelf
+                            badges={unlockedProfileBadges}
+                            selectedBadgeId={activeProfileBadge.id}
+                            onSelectBadge={handleSelectProfileBadge}
+                            onManagePress={() => setShowBadgeModal(true)}
+                            styles={styles}
+                            disabled={loading}
+                        />
                     </View>
                 </LinearGradient>
 
@@ -782,7 +944,7 @@ export default function ProfileScreen({ navigation }) {
                             </View>
                             <View style={styles.bentoRow}>
                                 <MenuItem
-                                    icon="sparkles-outline"
+                                    icon="trophy-outline"
                                     label="My Wrapped"
                                     description="Your yearly event recap"
                                     width="48%"
@@ -1058,6 +1220,100 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                 </View>
             </Modal>
+
+            <Modal visible={showBadgeModal} transparent animationType="slide">
+                <View style={styles.modalBackdrop}>
+                    <View style={[styles.badgeModal, { backgroundColor: theme.colors.background }]}>
+                        <View style={styles.badgeModalHeader}>
+                            <View>
+                                <Text style={styles.badgeModalTitle}>Choose Profile Badge</Text>
+                                <Text style={styles.badgeModalSubtitle}>
+                                    Level {levelInfo.level} unlocks{' '}
+                                    {
+                                        PROFILE_BADGES.filter(
+                                            badge => badge.requiredLevel <= levelInfo.level,
+                                        ).length
+                                    }{' '}
+                                    badges
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                style={styles.badgeModalClose}
+                                onPress={() => setShowBadgeModal(false)}
+                            >
+                                <Ionicons name="close" size={22} color={theme.colors.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView
+                            contentContainerStyle={styles.profileBadgeGrid}
+                            showsVerticalScrollIndicator={false}
+                        >
+                            {PROFILE_BADGES.map(badge => {
+                                const isUnlocked = canUseProfileBadge(badge.id, levelInfo.level);
+                                const isSelected = activeProfileBadge.id === badge.id;
+
+                                return (
+                                    <TouchableOpacity
+                                        key={badge.id}
+                                        style={[
+                                            styles.profileBadgeOption,
+                                            {
+                                                backgroundColor: theme.colors.surface,
+                                                borderColor: isSelected
+                                                    ? badge.color
+                                                    : theme.colors.border,
+                                                opacity: isUnlocked ? 1 : 0.55,
+                                            },
+                                        ]}
+                                        disabled={!isUnlocked || loading}
+                                        activeOpacity={isUnlocked && !loading ? 0.85 : 1}
+                                        onPress={() => handleSelectProfileBadge(badge)}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.profileBadgeOptionIcon,
+                                                { backgroundColor: badge.color + '20' },
+                                            ]}
+                                        >
+                                            <Ionicons
+                                                name={isUnlocked ? badge.icon : 'lock-closed'}
+                                                size={24}
+                                                color={badge.color}
+                                            />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.profileBadgeOptionTitle}>
+                                                {badge.label}
+                                            </Text>
+                                            <Text style={styles.profileBadgeOptionDescription}>
+                                                {badge.description}
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.profileBadgeOptionMeta,
+                                                    { color: badge.color },
+                                                ]}
+                                            >
+                                                {isUnlocked
+                                                    ? `Unlocked at Level ${badge.requiredLevel}`
+                                                    : `Unlocks at Level ${badge.requiredLevel}`}
+                                            </Text>
+                                        </View>
+                                        {isSelected && (
+                                            <Ionicons
+                                                name="checkmark-circle"
+                                                size={22}
+                                                color={badge.color}
+                                            />
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
         </ScreenWrapper>
     );
 }
@@ -1143,6 +1399,85 @@ const getStyles = theme =>
             textAlign: 'left',
             color: theme.colors.textSecondary,
             marginTop: 2,
+        },
+        activeProfileBadge: {
+            alignSelf: 'flex-start',
+            minWidth: 210,
+            maxWidth: '100%',
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderWidth: 1.5,
+            borderRadius: 18,
+            paddingVertical: 8,
+            paddingHorizontal: 10,
+            marginTop: 2,
+            backgroundColor: theme.colors.surface,
+            ...theme.shadows.small,
+        },
+        activeProfileBadgeIcon: {
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 10,
+        },
+        activeProfileBadgeTitle: {
+            color: theme.colors.text,
+            fontSize: 13,
+            fontWeight: '800',
+        },
+        activeProfileBadgeText: {
+            color: theme.colors.textSecondary,
+            fontSize: 11,
+            marginTop: 1,
+        },
+        profileBadgeShelf: {
+            width: '100%',
+            marginTop: 12,
+            paddingHorizontal: theme.spacing.m,
+        },
+        profileBadgeShelfHeader: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 8,
+        },
+        profileBadgeShelfTitle: {
+            color: theme.colors.textSecondary,
+            fontSize: 12,
+            fontWeight: '800',
+            textTransform: 'uppercase',
+        },
+        profileBadgeShelfAction: {
+            color: theme.colors.primary,
+            fontSize: 12,
+            fontWeight: '800',
+        },
+        profileBadgeShelfList: {
+            gap: 8,
+            paddingRight: theme.spacing.m,
+        },
+        profileBadgeShelfItem: {
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+            borderWidth: 1.5,
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+        },
+        profileBadgeShelfCheck: {
+            position: 'absolute',
+            right: -2,
+            bottom: -2,
+            width: 16,
+            height: 16,
+            borderRadius: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1.5,
+            borderColor: theme.colors.background,
         },
         editIconBtn: {
             backgroundColor: theme.colors.primary + '20',
@@ -1385,6 +1720,75 @@ const getStyles = theme =>
         badgeText: {
             fontSize: 12,
             fontWeight: 'bold',
+        },
+        modalBackdrop: {
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.55)',
+            justifyContent: 'flex-end',
+        },
+        badgeModal: {
+            maxHeight: '82%',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            padding: 20,
+        },
+        badgeModalHeader: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 16,
+        },
+        badgeModalTitle: {
+            color: theme.colors.text,
+            fontSize: 20,
+            fontWeight: '900',
+        },
+        badgeModalSubtitle: {
+            color: theme.colors.textSecondary,
+            fontSize: 12,
+            marginTop: 4,
+        },
+        badgeModalClose: {
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: theme.colors.surface,
+        },
+        profileBadgeGrid: {
+            paddingBottom: 24,
+            gap: 10,
+        },
+        profileBadgeOption: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderWidth: 1.5,
+            borderRadius: 16,
+            padding: 12,
+        },
+        profileBadgeOptionIcon: {
+            width: 48,
+            height: 48,
+            borderRadius: 16,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 12,
+        },
+        profileBadgeOptionTitle: {
+            color: theme.colors.text,
+            fontSize: 15,
+            fontWeight: '800',
+        },
+        profileBadgeOptionDescription: {
+            color: theme.colors.textSecondary,
+            fontSize: 12,
+            marginTop: 2,
+        },
+        profileBadgeOptionMeta: {
+            fontSize: 11,
+            fontWeight: '800',
+            marginTop: 5,
         },
 
         formActions: {

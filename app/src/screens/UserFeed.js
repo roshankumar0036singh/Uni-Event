@@ -825,9 +825,6 @@ const styles = StyleSheet.create({
         marginLeft: 10,
         fontSize: 16,
         borderWidth: 0,
-        ...Platform.select({
-            web: { outlineStyle: 'none' },
-        }),
     },
     filterWrapper: {
         height: 60,
