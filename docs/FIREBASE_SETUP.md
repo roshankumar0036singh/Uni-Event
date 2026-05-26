@@ -44,7 +44,17 @@ You should see output indicating that ALL emulators are running:
 *   **Database**: 9000
 *   **Storage**: 9199
 
-## 3. Running the App
+## 3. Deploying Firestore Indexes
+
+Firestore composite indexes are committed in `firestore.indexes.json` and referenced from `firebase.json`.
+
+Deploy the indexes before using a new Firebase project in production:
+
+```bash
+firebase deploy --only firestore:indexes
+```
+
+## 4. Running the App
 
 Now, whenever you run the Expo app (`npx expo start`), it will connect to these local emulators.
 
@@ -52,7 +62,7 @@ Now, whenever you run the Expo app (`npx expo start`), it will connect to these 
 *   **iOS Simulator**: Connects via `localhost`.
 *   **Web**: Connects via `localhost`.
 
-## 4. Troubleshooting
+## 5. Troubleshooting
 
 *   **"Network Error"**: Ensure the emulators are running and that no other process is using the emulator ports.
 *   **Data Persistence**: Emulator data is wiped when you stop the emulators. To export/import data, check the Firebase Emulator docs.
