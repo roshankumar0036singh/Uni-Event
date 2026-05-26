@@ -40,7 +40,7 @@ const getYearLabel = y => {
 };
 
 // Helper for menu items
-// eslint-disable-next-line prettier/prettier
+
 const MenuItem = ({
     icon,
     label,

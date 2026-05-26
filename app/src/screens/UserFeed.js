@@ -245,7 +245,7 @@ export default function UserFeed() {
                 setRefreshing(false);
             }
         },
-        [user, activeFilter, debouncedSearchQuery, hasMore, isFetchingMore, lastVisible],
+        [user, activeFilter, hasMore, isFetchingMore, lastVisible],
     );
 
     useEffect(() => {
@@ -427,25 +427,28 @@ export default function UserFeed() {
         </View>
     );
 
-    const renderEvent = useCallback(({ item }) => (
-        <View style={{ paddingHorizontal: 20 }}>
-            <EventCard
-                event={item}
-                isRegistered={participatingIds.includes(item.id)}
-                onLike={() => {}}
-                onShare={async () => {
-                    try {
-                        await Share.share({
-                            message: `Check out this event: ${item.title} at ${item.location}!`,
-                        });
-                    } catch (e) {
-                        logger.error('Share Error:', e);
-                        Alert.alert('Error', 'Failed to share the event.');
-                    }
-                }}
-            />
-        </View>
-    ), [participatingIds]);
+    const renderEvent = useCallback(
+        ({ item }) => (
+            <View style={{ paddingHorizontal: 20 }}>
+                <EventCard
+                    event={item}
+                    isRegistered={participatingIds.includes(item.id)}
+                    onLike={() => {}}
+                    onShare={async () => {
+                        try {
+                            await Share.share({
+                                message: `Check out this event: ${item.title} at ${item.location}!`,
+                            });
+                        } catch (e) {
+                            logger.error('Share Error:', e);
+                            Alert.alert('Error', 'Failed to share the event.');
+                        }
+                    }}
+                />
+            </View>
+        ),
+        [participatingIds],
+    );
 
     const headerTranslateY = scrollY.interpolate({
         inputRange: [0, 100],
