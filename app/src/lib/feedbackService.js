@@ -1,6 +1,7 @@
 import logger from './logger';
 import { doc, getDoc, increment, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from './firebaseConfig';
+import { analyzeSentiment } from './feedbackSentiment';
 
 /**
  * Submit feedback for a completed event
@@ -20,12 +21,14 @@ export const submitFeedback = async ({
     try {
         // 1. Save feedback to event's feedback subcollection
         const feedbackRef = doc(db, 'events', eventId, 'feedback', userId);
+        const feedbackText = attended ? feedback : null;
         batch.set(feedbackRef, {
             userId,
             attended,
             eventRating: attended ? eventRating : null,
             clubRating: attended ? clubRating : null,
-            feedback: attended ? feedback : null,
+            feedback: feedbackText,
+            sentiment: feedbackText ? analyzeSentiment(feedbackText) : null,
             submittedAt: serverTimestamp(),
             eventId,
             clubId,
