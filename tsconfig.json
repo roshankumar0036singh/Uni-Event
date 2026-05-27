@@ -15,4 +15,4 @@
   },
   "include": ["tests/**/*.ts", "tests/**/*.tsx", "**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules", "cloud-functions/lib"]
-}
+} 

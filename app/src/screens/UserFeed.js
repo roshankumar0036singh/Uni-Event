@@ -1,3 +1,4 @@
+import logger from '../lib/logger';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -30,18 +31,13 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import { useAuth } from '../lib/AuthContext';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
-import { useTheme } from '../lib/ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../lib/ThemeContext';
+import { COLLECTIONS, getUserParticipatingPath } from '../lib/firestorePaths';
 
-let MapView = null;
-let Marker = null;
-let Callout = null;
-if (Platform.OS !== 'web') {
-    const Maps = require('react-native-maps');
-    MapView = Maps.default;
-    Marker = Maps.Marker;
-    Callout = Maps.Callout;
-}
+import { MapView, Marker, Callout } from '../components/MapComponent';
 
 const FILTERS = ['Upcoming', 'Past', 'Cultural', 'Sports', 'Tech', 'Workshop', 'Seminar'];
 
@@ -54,6 +50,7 @@ export default function UserFeed() {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [isConnected, setIsConnected] = useState(true);
     const [viewMode, setViewMode] = useState('list');
     const navigation = useNavigation();
 
@@ -65,16 +62,60 @@ export default function UserFeed() {
     const [hasMore, setHasMore] = useState(true);
     const PAGE_SIZE = 20;
 
+    const hasMoreRef = useRef(hasMore);
+    const isFetchingMoreRef = useRef(isFetchingMore);
+    const lastVisibleRef = useRef(lastVisible);
+
+    useEffect(() => {
+        hasMoreRef.current = hasMore;
+    }, [hasMore]);
+    useEffect(() => {
+        isFetchingMoreRef.current = isFetchingMore;
+    }, [isFetchingMore]);
+    useEffect(() => {
+        lastVisibleRef.current = lastVisible;
+    }, [lastVisible]);
+
     // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [currentFeedbackRequest, setCurrentFeedbackRequest] = useState(null);
 
     const scrollY = useRef(new Animated.Value(0)).current;
 
-    // Listen for my registrations
+    // NetInfo listener for connectivity
+    useEffect(() => {
+        const unsubscribe = NetInfo.addEventListener(state => {
+            setIsConnected(state.isConnected ?? true);
+            if (!state.isConnected) {
+                setLoading(false);
+            }
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // Load cached events on mount (after user is known)
     useEffect(() => {
         if (!user) return;
-        const q = collection(db, 'users', user.uid, 'participating');
+        const cacheKey = `@userfeed:events:${user.uid}`;
+        const loadCache = async () => {
+            try {
+                const json = await AsyncStorage.getItem(cacheKey);
+                if (json) setEvents(JSON.parse(json));
+            } catch (e) {
+                console.error('Failed to load cached events', e);
+            } finally {
+                const state = await NetInfo.fetch();
+                if (!state.isConnected) {
+                    setLoading(false);
+                }
+            }
+        };
+        loadCache();
+    }, [user]);
+
+    useEffect(() => {
+        if (!user) return;
+        const q = collection(db, getUserParticipatingPath(user.uid));
         const unsub = onSnapshot(q, snap => {
             setParticipatingIds(snap.docs.map(d => d.id));
         });
@@ -94,7 +135,7 @@ export default function UserFeed() {
         if (!user) return;
 
         const feedbackQuery = query(
-            collection(db, 'feedbackRequests'),
+            collection(db, COLLECTIONS.FEEDBACK_REQUESTS),
             where('userId', '==', user.uid),
             where('status', '==', 'pending'),
             limit(1), // Show one at a time
@@ -120,12 +161,20 @@ export default function UserFeed() {
 
     // Fetch a pool of upcoming events for recommendations
     useEffect(() => {
-        if (!user) return;
+        if (!user) {
+            setEvents([]);
+            setLoading(false);
+            AsyncStorage.removeItem('@userfeed:events').catch(err =>
+                console.error('Cache clear on logout failed', err),
+            );
+            return;
+        }
+
         const fetchPool = async () => {
             try {
                 const now = new Date().toISOString();
                 const q = query(
-                    collection(db, 'events'),
+                    collection(db, COLLECTIONS.EVENTS),
                     where('status', '==', 'active'),
                     where('startAt', '>=', now),
                     orderBy('startAt', 'asc'),
@@ -166,13 +215,15 @@ export default function UserFeed() {
     const fetchEvents = useCallback(
         async (loadMore = false) => {
             if (!user) return;
-            if (loadMore && (!hasMore || isFetchingMore)) return;
+            if (loadMore && (!hasMoreRef.current || isFetchingMoreRef.current)) return;
 
             if (loadMore) {
+                isFetchingMoreRef.current = true;
                 setIsFetchingMore(true);
             } else {
                 setLoading(true);
                 setEvents([]);
+                lastVisibleRef.current = null;
                 setLastVisible(null);
             }
 
@@ -195,10 +246,14 @@ export default function UserFeed() {
                     );
                 }
 
-                if (loadMore && lastVisible) {
-                    qConstraints.push(startAfter(lastVisible));
+                if (loadMore && lastVisibleRef.current) {
+                    qConstraints.push(startAfter(lastVisibleRef.current));
                 }
-                const q = query(collection(db, 'events'), ...qConstraints, limit(PAGE_SIZE));
+                const q = query(
+                    collection(db, COLLECTIONS.EVENTS),
+                    ...qConstraints,
+                    limit(PAGE_SIZE),
+                );
 
                 const snapshot = await getDocs(q);
                 const list = [];
@@ -209,24 +264,39 @@ export default function UserFeed() {
 
                 if (loadMore) {
                     setEvents(prev => {
-                        // Prevent duplicates
                         const existingIds = new Set(prev.map(e => e.id));
                         const newEvents = list.filter(e => !existingIds.has(e.id));
-                        return [...prev, ...newEvents];
+                        const merged = [...prev, ...newEvents];
+                        AsyncStorage.setItem(
+                            `@userfeed:events:${user.uid}`,
+                            JSON.stringify(merged),
+                        ).catch(err => console.error('Cache write failed', err));
+                        return merged;
                     });
                 } else {
-                    setEvents(list);
+                    const merged = list;
+                    setEvents(merged);
+                    AsyncStorage.setItem(
+                        `@userfeed:events:${user.uid}`,
+                        JSON.stringify(merged),
+                    ).catch(err => console.error('Cache write failed', err));
                 }
 
                 if (snapshot.docs.length > 0) {
-                    setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+                    const nextCursor = snapshot.docs[snapshot.docs.length - 1];
+                    lastVisibleRef.current = nextCursor;
+                    setLastVisible(nextCursor);
                 } else {
-                    if (!loadMore) setLastVisible(null);
+                    if (!loadMore) {
+                        lastVisibleRef.current = null;
+                        setLastVisible(null);
+                    }
                 }
-                setHasMore(snapshot.docs.length === PAGE_SIZE);
+                const nextHasMore = snapshot.docs.length === PAGE_SIZE;
+                hasMoreRef.current = nextHasMore;
+                setHasMore(nextHasMore);
             } catch (error) {
                 console.error('Error fetching paginated events: ', error);
-                // Fallback if composite index is missing for categories
                 if (error.message?.includes('index')) {
                     Alert.alert(
                         'Database Index Required',
@@ -235,11 +305,12 @@ export default function UserFeed() {
                 }
             } finally {
                 setLoading(false);
+                isFetchingMoreRef.current = false;
                 setIsFetchingMore(false);
                 setRefreshing(false);
             }
         },
-        [user, activeFilter, debouncedSearchQuery, hasMore, isFetchingMore, lastVisible],
+        [user, activeFilter],
     );
 
     useEffect(() => {
@@ -327,6 +398,26 @@ export default function UserFeed() {
     const onRefresh = async () => {
         if (!user) return;
         setRefreshing(true);
+        try {
+            const q = query(collection(db, 'events'));
+            const snapshot = await getDocs(q);
+            const list = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.status === 'suspended') return;
+                list.push({ id: doc.id, ...data });
+            });
+            setEvents(list);
+            // Update cache
+            AsyncStorage.setItem(`@userfeed:events:${user.uid}`, JSON.stringify(list)).catch(err =>
+                console.error('Cache write failed', err),
+            );
+        } catch (error) {
+            console.error('Refresh error:', error);
+            Alert.alert('Error', 'Failed to refresh events.');
+        } finally {
+            setRefreshing(false);
+        }
         await fetchEvents(false);
     };
 
@@ -421,24 +512,27 @@ export default function UserFeed() {
         </View>
     );
 
-    const renderEvent = ({ item }) => (
-        <View style={{ paddingHorizontal: 20 }}>
-            <EventCard
-                event={item}
-                isRegistered={participatingIds.includes(item.id)}
-                onLike={() => {}}
-                onShare={async () => {
-                    try {
-                        await Share.share({
-                            message: `Check out this event: ${item.title} at ${item.location}!`,
-                        });
-                    } catch (e) {
-                        console.error('Share Error:', e);
-                        Alert.alert('Error', 'Failed to share the event.');
-                    }
-                }}
-            />
-        </View>
+    const renderEvent = useCallback(
+        ({ item }) => (
+            <View style={{ paddingHorizontal: 20 }}>
+                <EventCard
+                    event={item}
+                    isRegistered={participatingIds.includes(item.id)}
+                    onLike={() => {}}
+                    onShare={async () => {
+                        try {
+                            await Share.share({
+                                message: `Check out this event: ${item.title} at ${item.location}!`,
+                            });
+                        } catch (e) {
+                            logger.error('Share Error:', e);
+                            Alert.alert('Error', 'Failed to share the event.');
+                        }
+                    }}
+                />
+            </View>
+        ),
+        [participatingIds],
     );
 
     const headerTranslateY = scrollY.interpolate({
@@ -537,6 +631,11 @@ export default function UserFeed() {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            {!isConnected && (
+                <View style={styles.offlineBanner}>
+                    <Text style={styles.offlineText}>Viewing cached events offline</Text>
+                </View>
+            )}
             {loading ? (
                 <View style={{ paddingTop: 20 }}>
                     <SkeletonLoader />
@@ -792,9 +891,6 @@ const styles = StyleSheet.create({
         marginLeft: 10,
         fontSize: 16,
         borderWidth: 0,
-        ...Platform.select({
-            web: { outlineStyle: 'none' },
-        }),
     },
     filterWrapper: {
         height: 60,
@@ -824,4 +920,15 @@ const styles = StyleSheet.create({
     },
     emptyContainer: { alignItems: 'center', marginTop: 50, padding: 20 },
     emptyText: { marginTop: 10, fontSize: 16 },
+    offlineBanner: {
+        backgroundColor: '#FF9800',
+        padding: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    offlineText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
 });

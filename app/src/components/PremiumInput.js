@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
 
 PremiumInput.propTypes = {
     label: PropTypes.any,
-    value: PropTypes.number,
+    value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     onChangeText: PropTypes.func,
     placeholder: PropTypes.any,
     secureTextEntry: PropTypes.any,

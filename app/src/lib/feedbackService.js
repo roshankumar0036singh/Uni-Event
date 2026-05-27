@@ -1,3 +1,4 @@
+import logger from './logger';
 import { doc, getDoc, increment, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 
@@ -97,11 +98,11 @@ export const submitFeedback = async ({
 
         // Commit all changes
         await batch.commit();
-        console.log('Feedback submitted successfully');
+        logger.debug('Feedback submitted successfully');
 
         return { success: true };
     } catch (error) {
-        console.error('Error submitting feedback:', error);
+        logger.error('Error submitting feedback:', error);
         throw error;
     }
 };

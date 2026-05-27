@@ -11,7 +11,9 @@ import {
     where,
     updateDoc,
 } from 'firebase/firestore';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { getOfflineCheckInCount, syncOfflineCheckIns } from '../lib/checkInService';
 import {
     ActivityIndicator,
     Alert,
@@ -30,9 +32,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BarChart } from 'react-native-chart-kit';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
+import participantService from '../lib/participantService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkAnnouncement, sendBulkFeedbackRequest } from '../lib/EmailService';
 import PropTypes from 'prop-types';
+import { COLLECTIONS, getEventCheckInsPath, getEventFeedbackPath } from '../lib/firestorePaths';
 
 export default function AttendanceDashboard({ route, navigation }) {
     const { width: screenWidth } = useWindowDimensions();
@@ -45,6 +49,12 @@ export default function AttendanceDashboard({ route, navigation }) {
     const [departmentStats, setDepartmentStats] = useState({});
     const [yearStats, setYearStats] = useState({});
     const [eventData, setEventData] = useState(null);
+
+    const { user } = useAuth();
+
+    // Offline Sync State
+    const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
+    const [syncingOffline, setSyncingOffline] = useState(false);
 
     // Announcement State
     const [announcementModalVisible, setAnnouncementModalVisible] = useState(false);
@@ -64,13 +74,9 @@ export default function AttendanceDashboard({ route, navigation }) {
         setFeedbackModalVisible(false);
 
         try {
-            const participantsRef = collection(db, `events/${eventId}/participants`);
-            const snapshot = await getDocs(participantsRef);
-            const participants = snapshot.docs
-                .map(doc => ({
-                    name: doc.data().name,
-                    email: doc.data().email,
-                }))
+            const snapshotData = await participantService.fetchParticipantsOnce(db, eventId);
+            const participants = (snapshotData || [])
+                .map(d => ({ name: d.name, email: d.email }))
                 .filter(p => p.email && p.email !== '-');
 
             if (participants.length === 0) {
@@ -82,7 +88,7 @@ export default function AttendanceDashboard({ route, navigation }) {
             const count = await sendBulkFeedbackRequest(participants, eventTitle, eventId);
 
             // Update event to mark feedback as sent
-            await updateDoc(doc(db, 'events', eventId), {
+            await updateDoc(doc(db, COLLECTIONS.EVENTS, eventId), {
                 feedbackRequestSent: true,
                 feedbackRequestSentAt: new Date().toISOString(),
             });
@@ -105,20 +111,16 @@ export default function AttendanceDashboard({ route, navigation }) {
         setSending(true);
         try {
             // Fetch Participants
-            const participantsRef = collection(db, `events/${eventId}/participants`);
-            const snapshot = await getDocs(participantsRef);
+            const snapshotData = await participantService.fetchParticipantsOnce(db, eventId);
 
-            if (snapshot.empty) {
+            if (!snapshotData || snapshotData.length === 0) {
                 Alert.alert('No Participants', 'No one to send email to.');
                 setSending(false);
                 return;
             }
 
-            const participants = snapshot.docs
-                .map(doc => ({
-                    name: doc.data().name,
-                    email: doc.data().email,
-                }))
+            const participants = (snapshotData || [])
+                .map(d => ({ name: d.name, email: d.email }))
                 .filter(p => p.email && p.email !== '-');
 
             if (participants.length === 0) {
@@ -148,30 +150,59 @@ export default function AttendanceDashboard({ route, navigation }) {
 
     // Fetch Event Data to check for Custom Form
     useEffect(() => {
-        getDoc(doc(db, 'events', eventId)).then(snap => {
+        getDoc(doc(db, COLLECTIONS.EVENTS, eventId)).then(snap => {
             if (snap.exists()) setEventData(snap.data());
         });
     }, [eventId]);
 
+    useFocusEffect(
+        useCallback(() => {
+            getOfflineCheckInCount(eventId).then(count => setPendingOfflineCount(count));
+        }, [eventId]),
+    );
+
+    const handleSyncOffline = async () => {
+        setSyncingOffline(true);
+        try {
+            const result = await syncOfflineCheckIns(eventId, user?.uid || 'Unknown Organizer');
+            if (result.success) {
+                Alert.alert('Success', `Synced ${result.syncedCount} check-ins.`);
+            } else if (typeof result.remainingCount === 'number') {
+                Alert.alert(
+                    'Partial Sync',
+                    `Synced ${result.syncedCount} check-ins. ${result.remainingCount} still pending.`,
+                );
+            } else {
+                // Fatal error returned from syncOfflineCheckIns
+                const msg = result.error?.message || String(result.error) || 'Unknown error';
+                console.error('Offline sync fatal error:', result.error);
+                Alert.alert('Sync Failed', `Could not sync offline check-ins: ${msg}`);
+            }
+        } catch (error) {
+            console.error('Failed to sync offline check-ins', error);
+            Alert.alert('Error', 'Failed to sync offline check-ins.');
+        }
+        const count = await getOfflineCheckInCount(eventId);
+        setPendingOfflineCount(count);
+        setSyncingOffline(false);
+    };
+
     // Live Participant Count
     const [totalRegistrations, setTotalRegistrations] = useState(0);
 
-    // Real-time participants listener
+    // Real-time participants listener (use shared subscriber to dedupe)
     useEffect(() => {
-        const participantsRef = collection(db, `events/${eventId}/participants`);
-        const unsubscribe = onSnapshot(
-            participantsRef,
-            snapshot => {
-                setTotalRegistrations(snapshot.size);
-                setLoading(false);
-            },
-            error => {
-                console.error('Error fetching participants:', error);
-                setLoading(false);
-            },
-        );
+        let mounted = true;
+        const unsub = participantService.subscribeParticipants(db, eventId, data => {
+            if (!mounted) return;
+            setTotalRegistrations(Array.isArray(data) ? data.length : 0);
+            setLoading(false);
+        });
 
-        return () => unsubscribe();
+        return () => {
+            mounted = false;
+            if (unsub) unsub();
+        };
     }, [eventId]);
 
     // Note: Automatic feedback sending is now handled globally in App.js via AutomationService.
@@ -180,7 +211,7 @@ export default function AttendanceDashboard({ route, navigation }) {
     // Real-time check-ins listener
     useEffect(() => {
         const q = query(
-            collection(db, 'events', eventId, 'checkIns'),
+            collection(db, getEventCheckInsPath(eventId)),
             orderBy('checkedInAt', 'desc'),
         );
 
@@ -285,10 +316,9 @@ export default function AttendanceDashboard({ route, navigation }) {
     const handleExportParticipants = async () => {
         setExporting(true);
         try {
-            const participantsRef = collection(db, `events/${eventId}/participants`);
-            const snapshot = await getDocs(participantsRef);
+            const snapshotData = await participantService.fetchParticipantsOnce(db, eventId);
 
-            if (snapshot.empty) {
+            if (!snapshotData || snapshotData.length === 0) {
                 Alert.alert('No Data', 'No registered participants yet.');
                 setExporting(false);
                 return;
@@ -298,8 +328,7 @@ export default function AttendanceDashboard({ route, navigation }) {
 
             // Fetch live user profiles to fill in missing Branch/Year
             const rows = await Promise.all(
-                snapshot.docs.map(async docSnap => {
-                    const d = docSnap.data();
+                snapshotData.map(async d => {
                     let branch = d.branch;
                     let year = d.year;
 
@@ -337,7 +366,7 @@ export default function AttendanceDashboard({ route, navigation }) {
     const handleExportReviews = async () => {
         setExporting(true);
         try {
-            const feedbackRef = collection(db, `events/${eventId}/feedback`);
+            const feedbackRef = collection(db, getEventFeedbackPath(eventId));
             const snapshot = await getDocs(feedbackRef);
 
             if (snapshot.empty) {
@@ -370,7 +399,10 @@ export default function AttendanceDashboard({ route, navigation }) {
     const handleExportFormResponses = async () => {
         setExporting(true);
         try {
-            const q = query(collection(db, 'registrations'), where('eventId', '==', eventId));
+            const q = query(
+                collection(db, COLLECTIONS.REGISTRATIONS),
+                where('eventId', '==', eventId),
+            );
             const snapshot = await getDocs(q);
 
             if (snapshot.empty) {
@@ -447,6 +479,42 @@ export default function AttendanceDashboard({ route, navigation }) {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
+                {pendingOfflineCount > 0 && (
+                    <View
+                        style={[
+                            styles.offlineBanner,
+                            {
+                                backgroundColor: theme.colors.warning + '20',
+                                borderColor: theme.colors.warning,
+                            },
+                        ]}
+                    >
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.offlineBannerTitle, { color: theme.colors.text }]}>
+                                Offline Sync Pending
+                            </Text>
+                            <Text
+                                style={[
+                                    styles.offlineBannerText,
+                                    { color: theme.colors.textSecondary },
+                                ]}
+                            >
+                                {pendingOfflineCount} check-ins waiting for network
+                            </Text>
+                        </View>
+                        <TouchableOpacity
+                            style={[styles.syncBtn, { backgroundColor: theme.colors.warning }]}
+                            onPress={handleSyncOffline}
+                            disabled={syncingOffline}
+                        >
+                            {syncingOffline ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <Text style={styles.syncBtnText}>Sync Now</Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                )}
                 <View style={styles.statsContainer}>
                     {/* Updated Stat Cards to use Primary Theme */}
                     <StatCard
@@ -1174,6 +1242,32 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
     },
     modalButtonText: { fontSize: 15, fontWeight: '700' },
+    offlineBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 20,
+        marginTop: 20,
+        padding: 15,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    offlineBannerTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    offlineBannerText: {
+        fontSize: 13,
+    },
+    syncBtn: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    syncBtnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
 });
 
 AttendanceDashboard.propTypes = {
