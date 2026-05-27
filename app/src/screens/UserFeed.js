@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { collection, limit, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     Animated,
     Alert,
@@ -31,17 +32,49 @@ export default function UserFeed() {
     const [events, setEvents] = useState([]);
     const [participatingIds, setParticipatingIds] = useState([]); // Track joined events
     const [activeFilter, setActiveFilter] = useState('Upcoming');
+    const [searchHistory, setSearchHistory] = useState([]);
+    const [showHistory, setShowHistory] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-
-    // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [currentFeedbackRequest, setCurrentFeedbackRequest] = useState(null);
-
     const scrollY = useRef(new Animated.Value(0)).current;
 
-    // Listen for my registrations
+    // Load persisted search history on component mount
+    useEffect(() => {
+        const loadHistory = async () => {
+            try {
+                const stored = await AsyncStorage.getItem('searchHistory');
+                if (stored) {
+                    setSearchHistory(JSON.parse(stored));
+                }
+            } catch (e) {
+                console.error('Failed to load search history', e);
+            }
+        };
+        loadHistory();
+    }, []);
+
+    const updateHistory = async (query) => {
+        if (!query) return;
+        // Use functional updater to get latest state
+        setSearchHistory(prev => {
+            const filtered = prev.filter(q => q !== query);
+            const newHist = [query, ...filtered].slice(0, 5);
+            // Persist asynchronously (do not await here to avoid blocking UI)
+            AsyncStorage.setItem('searchHistory', JSON.stringify(newHist)).catch(e => console.error('Failed to save search history', e));
+            return newHist;
+        });
+    };
+
+    // Clear history handler
+    const clearHistory = async () => {
+        try {
+            await AsyncStorage.removeItem('searchHistory');
+        } catch (e) {}
+        setSearchHistory([]);
+    };
     useEffect(() => {
         if (!user) return;
         const q = collection(db, 'users', user.uid, 'participating');
@@ -275,8 +308,17 @@ export default function UserFeed() {
                     placeholder="Search events..."
                     placeholderTextColor={theme.colors.textSecondary}
                     value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
+                    onChangeText={(text) => {
+    setSearchQuery(text);
+    updateHistory(text);
+    // Hide history as soon as the user types something
+    if (text.trim() !== '') setShowHistory(false);
+}}
+onFocus={() => {
+    // Only show history if the input is empty
+    if (searchQuery.trim() === '') setShowHistory(true);
+}}
+onBlur={() => setShowHistory(false)}
                 {searchQuery.length > 0 && (
                     <TouchableOpacity onPress={() => setSearchQuery('')}>
                         <Ionicons
@@ -287,6 +329,21 @@ export default function UserFeed() {
                     </TouchableOpacity>
                 )}
             </View>
+            {/* Recent Search History */}
+            {showHistory && searchHistory.length > 0 && (
+                <View style={styles.historyContainer}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScroll}>
+                        {searchHistory.map((qh) => (
+                            <TouchableOpacity key={qh} style={styles.historyChip} onPress={() => { setSearchQuery(qh); setShowHistory(false); }}>
+                                <Text style={styles.historyChipText}>{qh}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                    <TouchableOpacity onPress={clearHistory} style={styles.clearHistoryBtn}>
+                        <Ionicons name="trash-outline" size={18} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+            )}
 
             <View style={styles.filterWrapper}>
                 <ScrollView
@@ -494,8 +551,28 @@ const styles = StyleSheet.create({
             web: { outlineStyle: 'none' },
         }),
     },
-    filterWrapper: {
-        height: 60,
+    historyContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 20,
+        marginBottom: 10,
+    },
+    historyScroll: {
+        flexGrow: 0,
+    },
+    historyChip: {
+        backgroundColor: '#eee',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 15,
+        marginRight: 8,
+    },
+    historyChipText: {
+        fontSize: 13,
+        color: '#333',
+    },
+    clearHistoryBtn: {
+        marginLeft: 8,
     },
     filterContent: {
         paddingHorizontal: 20,
