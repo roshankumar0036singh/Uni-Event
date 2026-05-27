@@ -1,4 +1,11 @@
-import { collection, getDocs, onSnapshot, doc, runTransaction, increment } from 'firebase/firestore';
+import {
+    collection,
+    getDocs,
+    onSnapshot,
+    doc,
+    runTransaction,
+    increment,
+} from 'firebase/firestore';
 
 // In-memory listener registry to dedupe reads and subscriptions per event
 const registry = new Map(); // eventId -> { subscribers: Set(fn), unsubscribe: fn|null, data: any, lastFetched: number, fetchPromise: Promise<any>|null }
@@ -139,10 +146,10 @@ export const safeToggleEventAction = async (db, userId, eventId, isRegistering) 
     const participantRef = doc(db, `events/${eventId}/participants`, userId);
 
     try {
-        await runTransaction(db, async (transaction) => {
+        await runTransaction(db, async transaction => {
             const eventDoc = await transaction.get(eventRef);
             if (!eventDoc.exists()) {
-                throw new Error("Target event mapping does not exist upstream.");
+                throw new Error('Target event mapping does not exist upstream.');
             }
 
             // 🔍 Technical Task 3: Unique structural constraint check (User ID + Event ID)
@@ -155,16 +162,20 @@ export const safeToggleEventAction = async (db, userId, eventId, isRegistering) 
                 return;
             }
 
-            // 1. Write registration state change
-            transaction.set(participantRef, {
-                id: userId,
-                registered: isRegistering,
-                synchronizedAt: new Date().toISOString(),
-            }, { merge: true });
+            // 1. Write registration state change securely with sync timestamp tracking
+            transaction.set(
+                participantRef,
+                {
+                    id: userId,
+                    registered: isRegistering,
+                    synchronizedAt: new Date().toISOString(),
+                },
+                { merge: true },
+            );
 
             // 2. Atomically update seat counters without overlapping drift
             transaction.update(eventRef, {
-                totalAttendees: increment(isRegistering ? 1 : -1)
+                totalAttendees: increment(isRegistering ? 1 : -1),
             });
         });
         console.log("Database transaction completed safely.");
@@ -174,4 +185,9 @@ export const safeToggleEventAction = async (db, userId, eventId, isRegistering) 
     }
 };
 
-export default { fetchParticipantsOnce, subscribeParticipants, clearParticipantCache, safeToggleEventAction };
+export default {
+    fetchParticipantsOnce,
+    subscribeParticipants,
+    clearParticipantCache,
+    safeToggleEventAction,
+};

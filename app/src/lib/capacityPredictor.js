@@ -49,11 +49,13 @@ export const predictAttendance = async ({ category, rsvpCount, capacity }) => {
     let severity = 'ok';
 
     if (predicted >= capacity + margin) {
-        warning = `Current RSVPs (${rsvpCount}) × historical show-up rate (${(ratio * 100).toFixed(0)}%) ` +
+        warning =
+            `Current RSVPs (${rsvpCount}) × historical show-up rate (${(ratio * 100).toFixed(0)}%) ` +
             `≈ ~${predicted} attendees, which exceeds the capacity of ${capacity}.`;
         severity = 'high';
     } else if (predicted >= capacity) {
-        warning = `Current RSVPs (${rsvpCount}) × historical show-up rate (${(ratio * 100).toFixed(0)}%) ` +
+        warning =
+            `Current RSVPs (${rsvpCount}) × historical show-up rate (${(ratio * 100).toFixed(0)}%) ` +
             `≈ ~${predicted} attendees, which is at or near the capacity of ${capacity}.`;
         severity = 'medium';
     }

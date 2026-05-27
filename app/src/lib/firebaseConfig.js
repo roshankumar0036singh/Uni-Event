@@ -7,11 +7,11 @@ import {
     initializeAuth,
     connectAuthEmulator,
 } from 'firebase/auth';
-import { 
-    initializeFirestore, 
-    persistentLocalCache, 
+import {
+    initializeFirestore,
+    persistentLocalCache,
     persistentMultipleTabManager,
-    connectFirestoreEmulator 
+    connectFirestoreEmulator,
 } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
