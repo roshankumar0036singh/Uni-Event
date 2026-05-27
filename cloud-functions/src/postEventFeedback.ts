@@ -45,7 +45,7 @@ export const sendPostEventFeedback = functions.pubsub
         // Get events where feedback hasn't been sent yet
         const events = await db
             .collection("events")
-            .where("feedbackRequestSent", "!=", true)
+            .where("feedbackRequestSent", "in", [false, null])
             .get();
 
         if (events.empty) {
