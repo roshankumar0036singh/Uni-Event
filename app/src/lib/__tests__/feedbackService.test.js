@@ -14,10 +14,6 @@ jest.mock('firebase/firestore', () => ({
     writeBatch: jest.fn(),
 }));
 
-jest.mock('../feedbackSentiment', () => ({
-    analyzeSentiment: jest.fn(() => 'positive'),
-}));
-
 jest.mock('../firebaseConfig', () => ({
     db: {},
 }));

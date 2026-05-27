@@ -1,4 +1,4 @@
-import * as admin from "firebase-admin";
+import * as admin from 'firebase-admin';
 
 admin.initializeApp();
 
@@ -9,6 +9,6 @@ export * from './onEventCreate';
 export * from './reminders';
 export * from './reputation';
 export * from './setRole';
-export * from "./inactiveUsers";
+export * from './inactiveUsers';
 export * from './backfillEventAnalytics';
-
+export * from './feedbackSentimentAnalysis';
