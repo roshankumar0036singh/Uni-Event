@@ -24,6 +24,7 @@ import { db, storage } from '../lib/firebaseConfig';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
 import { extractTags } from '../lib/tagExtractor';
+import { predictAttendance } from '../lib/capacityPredictor';
 import PropTypes from 'prop-types';
 
 let MapView = null;
@@ -85,6 +86,8 @@ export default function CreateEvent({ navigation, route }) {
     const [upiId, setUpiId] = useState('');
     const [registrationLink, setRegistrationLink] = useState('');
     const [imageUri, setImageUri] = useState(null);
+    const [capacity, setCapacity] = useState('');
+    const [capacityWarning, setCapacityWarning] = useState(null);
 
     // Custom Form
     const [useCustomForm, setUseCustomForm] = useState(false);
@@ -169,6 +172,23 @@ export default function CreateEvent({ navigation, route }) {
         setSuggestedTags(tags);
     }, [description]);
 
+    useEffect(() => {
+        const cap = Number.parseInt(capacity, 10);
+        if (!cap || cap <= 0) {
+            setCapacityWarning(null);
+            return;
+        }
+        let timer = setTimeout(async () => {
+            const result = await predictAttendance({
+                category,
+                rsvpCount: 0,
+                capacity: cap,
+            });
+            setCapacityWarning(result);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [capacity, category]);
+
     const toggleTag = tag => {
         setSelectedTags(prev =>
             prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag],
@@ -194,6 +214,7 @@ export default function CreateEvent({ navigation, route }) {
             setUpiId(event.upiId || '');
             setRegistrationLink(event.registrationLink || '');
             setImageUri(event.bannerUrl);
+            setCapacity(event.capacity?.toString() || '');
             setUseCustomForm(event.hasCustomForm);
             setCustomFormSchema(event.customFormSchema || []);
             navigation.setOptions({ title: 'Edit Event' });
@@ -263,6 +284,7 @@ export default function CreateEvent({ navigation, route }) {
                     years: targetYears.length ? targetYears : [1, 2, 3, 4],
                 },
                 bannerUrl,
+                capacity: capacity ? Number.parseInt(capacity, 10) : null,
                 hasCustomForm: useCustomForm,
                 customFormSchema: useCustomForm ? customFormSchema : [],
             };
@@ -790,7 +812,65 @@ export default function CreateEvent({ navigation, route }) {
                     </View>
                 </View>
 
-                {/* Section 5: Custom Form */}
+                {/* Section 5: Capacity */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Capacity</Text>
+                    <Text style={[styles.label, { color: theme.colors.textSecondary, marginBottom: 12 }]}>
+                        Set a maximum attendee limit (optional)
+                    </Text>
+                    <PremiumInput
+                        label="Maximum Attendees"
+                        placeholder="e.g. 200"
+                        value={capacity}
+                        onChangeText={setCapacity}
+                        keyboardType="numeric"
+                        icon={
+                            <Ionicons name="people-outline" size={20} color={theme.colors.primary} />
+                        }
+                    />
+                    {capacityWarning && capacityWarning.warning && (
+                        <View
+                            style={[
+                                styles.capacityWarning,
+                                {
+                                    backgroundColor:
+                                        capacityWarning.severity === 'high'
+                                            ? '#fee2e2'
+                                            : '#fef9c3',
+                                    borderColor:
+                                        capacityWarning.severity === 'high'
+                                            ? '#fca5a5'
+                                            : '#fcd34d',
+                                },
+                            ]}
+                        >
+                            <Ionicons
+                                name={
+                                    capacityWarning.severity === 'high'
+                                        ? 'warning'
+                                        : 'information-circle'
+                                }
+                                size={18}
+                                color={capacityWarning.severity === 'high' ? '#dc2626' : '#a16207'}
+                            />
+                            <Text
+                                style={[
+                                    styles.capacityWarningText,
+                                    {
+                                        color:
+                                            capacityWarning.severity === 'high'
+                                                ? '#991b1b'
+                                                : '#713f12',
+                                    },
+                                ]}
+                            >
+                                {capacityWarning.warning}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+
+                {/* Section 6: Custom Form */}
                 <View style={styles.section}>
                     <View
                         style={[
@@ -996,6 +1076,22 @@ const getStyles = theme =>
             elevation: 5,
         },
         createBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+
+        // Capacity Warning
+        capacityWarning: {
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: 8,
+            padding: 12,
+            borderRadius: 12,
+            marginTop: 12,
+            borderWidth: 1,
+        },
+        capacityWarningText: {
+            fontSize: 13,
+            lineHeight: 18,
+            flex: 1,
+        },
 
         // Form Builder Btn
         formBuilderBtn: {
