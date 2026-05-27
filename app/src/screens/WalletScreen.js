@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
+import { formatEventDate } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
@@ -85,11 +86,7 @@ export default function WalletScreen({ navigation }) {
                             <Text
                                 style={[styles.detailText, { color: theme.colors.textSecondary }]}
                             >
-                                {new Date(item.eventDate).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric',
-                                })}
+                                {formatEventDate(item.eventDate)}
                             </Text>
                         </View>
                         <View style={styles.detailsRow}>

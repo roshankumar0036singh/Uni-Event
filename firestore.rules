@@ -20,19 +20,31 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && (request.auth.token.admin == true || request.auth.uid == resource.data.ownerId);
 
       match /participants/{participantId} {
-    allow read: if request.auth != null;
-    allow create, delete, update: if request.auth != null && request.auth.uid == participantId;
-    } 
+        allow read: if request.auth != null && (
+          request.auth.uid == participantId ||
+          exists(/databases/$(database)/documents/events/$(eventId)/participants/$(request.auth.uid)) ||
+          request.auth.token.admin == true ||
+          request.auth.token.club == true
+        );
+        allow create: if request.auth != null &&
+          request.auth.uid == participantId &&
+          !request.resource.data.keys().hasAny([
+            'isPaid', 'paymentStatus', 'paymentId', 'role', 'approved'
+          ]);
+        allow delete: if request.auth != null && request.auth.uid == participantId;
+        allow update: if request.auth != null && request.auth.uid == participantId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buddyPreference', 'updatedAt']);
+      }
 
-        match /checkIns/{checkInId} {
-         allow read: if request.auth != null && (
+      match /checkIns/{checkInId} {
+        allow read: if request.auth != null && (
           request.auth.token.admin == true ||
           request.auth.token.club == true ||
-         request.auth.uid == resource.data.userId ||
-         request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId
+          request.auth.uid == resource.data.userId ||
+          request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId
         );
-         allow create, update, delete: if request.auth != null &&
-         exists(/databases/$(database)/documents/events/$(eventId)) && (
+        allow create, update, delete: if request.auth != null &&
+          exists(/databases/$(database)/documents/events/$(eventId)) && (
           request.auth.token.admin == true ||
           request.auth.token.club == true ||
           request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId
@@ -45,7 +57,11 @@ service cloud.firestore {
       }
 
       match /messages/{messageId} {
-        allow read, create: if request.auth != null;
+        allow read, create: if request.auth != null && (
+          exists(/databases/$(database)/documents/events/$(eventId)/participants/$(request.auth.uid)) ||
+          request.auth.token.admin == true ||
+          request.auth.token.club == true
+        );
       }
     }
     match /reminders/{rid} {

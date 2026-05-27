@@ -4,6 +4,7 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { db } from '../lib/firebaseConfig';
 
 import { useAuth } from '../lib/AuthContext';
+import { formatEventDate } from '../lib/formatEventDate';
 
 export default function DesktopAdmin() {
     const [activeTab, setActiveTab] = useState('clubs'); // 'clubs' | 'events' | 'analytics'
@@ -156,7 +157,7 @@ export default function DesktopAdmin() {
                                 <View key={event.id} style={styles.row}>
                                     <Text style={styles.cell}>{event.title}</Text>
                                     <Text style={styles.cell}>
-                                        {new Date(event.startAt).toLocaleDateString()}
+                                        {formatEventDate(event.startAt)}
                                     </Text>
                                     <Text style={styles.cell}>{event.category}</Text>
                                 </View>
