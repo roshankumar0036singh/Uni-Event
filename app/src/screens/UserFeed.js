@@ -56,7 +56,7 @@ export default function UserFeed() {
         loadHistory();
     }, []);
 
-    const updateHistory = (query) => {
+    const updateHistory = query => {
         if (!query) return;
         // Update in-memory only; no AsyncStorage side‑effect
         setSearchHistory(prev => {
@@ -66,13 +66,15 @@ export default function UserFeed() {
     };
 
     // Persist search history to AsyncStorage (called on submit/blur)
-    const persistSearchHistory = async (raw) => {
+    const persistSearchHistory = async raw => {
         const normalized = raw?.trim();
         if (!normalized) return;
         setSearchHistory(prev => {
             const filtered = prev.filter(q => q !== normalized);
             const newHist = [normalized, ...filtered].slice(0, 5);
-            AsyncStorage.setItem('searchHistory', JSON.stringify(newHist)).catch(e => console.error('Failed to save search history', e));
+            AsyncStorage.setItem('searchHistory', JSON.stringify(newHist)).catch(e =>
+                console.error('Failed to save search history', e),
+            );
             return newHist;
         });
     };
@@ -81,7 +83,9 @@ export default function UserFeed() {
     const clearHistory = async () => {
         try {
             await AsyncStorage.removeItem('searchHistory');
-        } catch (e) { console.error('Failed to clear search history', e); }
+        } catch (e) {
+            console.error('Failed to clear search history', e);
+        }
         setSearchHistory([]);
     };
     useEffect(() => {
@@ -317,7 +321,7 @@ export default function UserFeed() {
                     placeholder="Search events..."
                     placeholderTextColor={theme.colors.textSecondary}
                     value={searchQuery}
-                    onChangeText={(text) => {
+                    onChangeText={text => {
                         setSearchQuery(text);
                         updateHistory(text);
                         // Hide history as soon as the user types something
@@ -348,15 +352,37 @@ export default function UserFeed() {
             {/* Recent Search History */}
             {showHistory && searchHistory.length > 0 && (
                 <View style={styles.historyContainer}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyScroll}>
-                        {searchHistory.map((qh) => (
-                            <TouchableOpacity key={qh} style={styles.historyChip} onPress={() => { setSearchQuery(qh); setShowHistory(false); }}>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.historyScroll}
+                    >
+                        {searchHistory.map(qh => (
+                            <TouchableOpacity
+                                key={qh}
+                                style={styles.historyChip}
+                                onPress={() => {
+                                    setSearchQuery(qh);
+                                    setShowHistory(false);
+                                }}
+                            >
                                 <Text style={styles.historyChipText}>{qh}</Text>
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
-                    <TouchableOpacity onPress={clearHistory} style={styles.clearHistoryBtn} accessible={true} accessibilityRole="button" accessibilityLabel="Clear search history" accessibilityHint="Deletes all saved search history">
-                        <Ionicons name="trash-outline" size={18} color={theme.colors.textSecondary} />
+                    <TouchableOpacity
+                        onPress={clearHistory}
+                        style={styles.clearHistoryBtn}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear search history"
+                        accessibilityHint="Deletes all saved search history"
+                    >
+                        <Ionicons
+                            name="trash-outline"
+                            size={18}
+                            color={theme.colors.textSecondary}
+                        />
                     </TouchableOpacity>
                 </View>
             )}
