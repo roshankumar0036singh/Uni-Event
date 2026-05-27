@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { db } from '../lib/firebaseConfig';
+import { formatEventDate } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
 
 export default function MobileAdmin() {
@@ -164,7 +165,7 @@ export default function MobileAdmin() {
                 </View>
             </View>
             <Text style={styles.cardDesc}>
-                {new Date(item.startAt).toLocaleDateString()} at {item.location}
+                {formatEventDate(item.startAt)} at {item.location}
             </Text>
             <View style={styles.actionRow}>
                 <TouchableOpacity

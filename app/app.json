@@ -38,7 +38,11 @@
             "dir": "ltr",
             "lang": "en-US"
         },
-        "plugins": ["expo-notifications"],
+        "plugins": [
+            "expo-notifications",
+            "@react-native-community/datetimepicker",
+            "expo-secure-store"
+        ],
         "scheme": "centralized-event-platform"
     }
 }

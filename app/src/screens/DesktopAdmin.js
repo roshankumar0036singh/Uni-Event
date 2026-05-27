@@ -4,6 +4,7 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { db } from '../lib/firebaseConfig';
 
 import { useAuth } from '../lib/AuthContext';
+import { formatEventDate } from '../lib/formatEventDate';
 
 export default function DesktopAdmin() {
     const [activeTab, setActiveTab] = useState('clubs'); // 'clubs' | 'events' | 'analytics'
@@ -35,7 +36,21 @@ export default function DesktopAdmin() {
     const approveClub = async (clubId, ownerId) => {
         try {
             // 1. Update Firestore
-            await updateDoc(doc(db, 'clubs', clubId), { approved: true });
+            if (!ownerId) {
+                console.error('Owner ID is missing');
+                return;
+            }
+
+            await Promise.all([
+                updateDoc(doc(db, 'clubs', clubId), {
+                    approved: true,
+                    verificationStatus: 'verified',
+                }),
+
+                updateDoc(doc(db, 'users', ownerId), {
+                    verificationStatus: 'verified',
+                }),
+            ]);
 
             // 2. Call Backend to Set Role
             if (user && ownerId) {
@@ -110,7 +125,9 @@ export default function DesktopAdmin() {
                                     <Text style={styles.cell}>{club.name}</Text>
                                     <Text style={styles.cell}>{club.ownerUserId}</Text>
                                     <Text style={styles.cell}>
-                                        {club.approved ? 'Approved' : 'Pending'}
+                                        {club.verificationStatus === 'verified'
+                                            ? 'Verified'
+                                            : 'Pending'}
                                     </Text>
                                     <View style={styles.cell}>
                                         {!club.approved && (
@@ -140,7 +157,7 @@ export default function DesktopAdmin() {
                                 <View key={event.id} style={styles.row}>
                                     <Text style={styles.cell}>{event.title}</Text>
                                     <Text style={styles.cell}>
-                                        {new Date(event.startAt).toLocaleDateString()}
+                                        {formatEventDate(event.startAt)}
                                     </Text>
                                     <Text style={styles.cell}>{event.category}</Text>
                                 </View>

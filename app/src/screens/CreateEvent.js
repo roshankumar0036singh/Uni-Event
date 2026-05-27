@@ -21,8 +21,18 @@ import PremiumInput from '../components/PremiumInput'; // Using the existing com
 import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { db, storage } from '../lib/firebaseConfig';
+import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
+import { extractTags } from '../lib/tagExtractor';
 import PropTypes from 'prop-types';
+
+let MapView = null;
+let Marker = null;
+if (Platform.OS !== 'web') {
+    const Maps = require('react-native-maps');
+    MapView = Maps.default;
+    Marker = Maps.Marker;
+}
 
 const DEFAULT_BANNERS = [
     'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1000&q=80',
@@ -45,8 +55,11 @@ export default function CreateEvent({ navigation, route }) {
     // Form State
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
+    const [suggestedTags, setSuggestedTags] = useState([]);
+    const [selectedTags, setSelectedTags] = useState([]);
     const [category, setCategory] = useState('');
     const [location, setLocation] = useState('');
+    const [coordinates, setCoordinates] = useState(null);
 
     // Target
     const [targetBranches, setTargetBranches] = useState(['All']);
@@ -56,6 +69,11 @@ export default function CreateEvent({ navigation, route }) {
     const [startDate, setStartDate] = useState(new Date());
     const [endDate, setEndDate] = useState(new Date(Date.now() + 3600000)); // +1 hour default
     const [showStartPicker, setShowStartPicker] = useState(false);
+    useEffect(() => {
+        if (endDate.getTime() <= startDate.getTime()) {
+            setEndDate(new Date(startDate.getTime() + 60 * 60 * 1000));
+        }
+    }, [startDate, endDate]);
     const [showEndPicker, setShowEndPicker] = useState(false);
     const [dateMode, setDateMode] = useState('date');
 
@@ -147,11 +165,24 @@ export default function CreateEvent({ navigation, route }) {
     const isEditMode = !!event;
 
     useEffect(() => {
+        const tags = extractTags(description);
+        setSuggestedTags(tags);
+    }, [description]);
+
+    const toggleTag = tag => {
+        setSelectedTags(prev =>
+            prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag],
+        );
+    };
+
+    useEffect(() => {
         if (isEditMode) {
             setTitle(event.title);
             setDescription(event.description);
+            setSelectedTags(event.tags || []);
             setCategory(event.category);
             setLocation(event.location || '');
+            if (event.coordinates) setCoordinates(event.coordinates);
             setTargetBranches(event.target?.departments || ['All']);
             setTargetYears(event.target?.years || []);
             setStartDate(new Date(event.startAt));
@@ -183,6 +214,10 @@ export default function CreateEvent({ navigation, route }) {
             return;
         }
 
+        if (endDate.getTime() <= startDate.getTime()) {
+            Alert.alert('Invalid Dates', 'End date must be after start date');
+            return;
+        }
         setLoading(true);
         try {
             let bannerUrl = imageUri;
@@ -211,7 +246,9 @@ export default function CreateEvent({ navigation, route }) {
             const eventData = {
                 title,
                 description,
+                tags: selectedTags,
                 location: eventMode === 'online' ? 'Google Meet' : location,
+                coordinates: eventMode === 'offline' && coordinates ? coordinates : null,
                 category,
                 eventMode,
                 meetLink: eventMode === 'online' ? generatedMeetLink : null,
@@ -236,6 +273,10 @@ export default function CreateEvent({ navigation, route }) {
             } else {
                 await addDoc(collection(db, 'events'), {
                     ...eventData,
+                    participantCount: 0,
+                    branchCounts: {},
+                    yearCounts: {},
+                    participantsPreview: [],
                     ownerId: user.uid,
                     ownerEmail: user.email,
                     organizerName: user.displayName || 'Club Admin',
@@ -319,10 +360,8 @@ export default function CreateEvent({ navigation, route }) {
                 >
                     <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
                     <View>
-                        <Text style={styles.dateText}>{date.toLocaleDateString()}</Text>
-                        <Text style={styles.timeText}>
-                            {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </Text>
+                        <Text style={styles.dateText}>{formatEventDate(date)}</Text>
+                        <Text style={styles.timeText}>{formatEventTime(date)}</Text>
                     </View>
                 </TouchableOpacity>
 
@@ -407,7 +446,7 @@ export default function CreateEvent({ navigation, route }) {
                         value={description}
                         onChangeText={setDescription}
                         multiline
-                        style={{ height: 120 }} // Taller container for multiline
+                        style={{ height: 120 }}
                         icon={
                             <Ionicons
                                 name="document-text-outline"
@@ -416,6 +455,33 @@ export default function CreateEvent({ navigation, route }) {
                             />
                         }
                     />
+
+                    {suggestedTags.length > 0 && (
+                        <View style={{ marginBottom: 16 }}>
+                            <Text style={[styles.label, { marginBottom: 8 }]}>Suggested Tags</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                {suggestedTags.map(tag => {
+                                    const isSelected = selectedTags.includes(tag);
+                                    return (
+                                        <TouchableOpacity
+                                            key={tag}
+                                            onPress={() => toggleTag(tag)}
+                                            style={[styles.chip, isSelected && styles.chipActive]}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.chipText,
+                                                    isSelected && styles.chipTextActive,
+                                                ]}
+                                            >
+                                                #{tag}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        </View>
+                    )}
                 </View>
 
                 {/* Section 2: Logistics */}
@@ -519,6 +585,57 @@ export default function CreateEvent({ navigation, route }) {
                                     />
                                 }
                             />
+                            {MapView && (
+                                <View style={{ marginTop: 15 }}>
+                                    <Text style={[styles.label, { color: theme.colors.text }]}>
+                                        Pinpoint Exact Location
+                                    </Text>
+                                    <Text
+                                        style={{
+                                            color: theme.colors.textSecondary,
+                                            marginBottom: 10,
+                                            fontSize: 12,
+                                        }}
+                                    >
+                                        Drag the map marker to set the exact coordinates for the
+                                        venue.
+                                    </Text>
+                                    <View
+                                        style={{
+                                            height: 200,
+                                            borderRadius: 12,
+                                            overflow: 'hidden',
+                                        }}
+                                    >
+                                        <MapView
+                                            style={{ flex: 1 }}
+                                            initialRegion={{
+                                                latitude: coordinates
+                                                    ? coordinates.latitude
+                                                    : 28.7041,
+                                                longitude: coordinates
+                                                    ? coordinates.longitude
+                                                    : 77.1025,
+                                                latitudeDelta: 0.005,
+                                                longitudeDelta: 0.005,
+                                            }}
+                                        >
+                                            <Marker
+                                                draggable
+                                                coordinate={
+                                                    coordinates || {
+                                                        latitude: 28.7041,
+                                                        longitude: 77.1025,
+                                                    }
+                                                }
+                                                onDragEnd={e =>
+                                                    setCoordinates(e.nativeEvent.coordinate)
+                                                }
+                                            />
+                                        </MapView>
+                                    </View>
+                                </View>
+                            )}
                         </View>
                     )}
                 </View>

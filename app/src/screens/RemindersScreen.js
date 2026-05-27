@@ -24,6 +24,7 @@ import {
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
+import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { cancelScheduledNotification } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
@@ -241,11 +242,7 @@ export default function RemindersScreen({ navigation }) {
                                             color={theme.colors.textSecondary}
                                         />
                                         <Text style={styles.dateText}>
-                                            {dateObj.toLocaleDateString()} •{' '}
-                                            {dateObj.toLocaleTimeString([], {
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
+                                            {formatEventDate(dateObj)} • {formatEventTime(dateObj)}
                                         </Text>
                                     </View>
 

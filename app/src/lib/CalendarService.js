@@ -21,10 +21,12 @@ export const useCalendarAuth = () => {
     // 🔍 DEBUG: Show Redirect URI only on Mobile Web (Ngrok)
     useEffect(() => {
         if (Platform.OS === 'web' && window.location.hostname !== 'localhost') {
-            Alert.alert(
-                'Mobile Web Calendar Debug',
-                `Generated Redirect URI:\n${redirectUri}\n\nPlease add EXACTLY this to Google Console.`,
-            );
+            if (process.env.EXPO_PUBLIC_DEBUG_MODE === 'true') {
+                console.warn(
+                    'Mobile Web Calendar Debug',
+                    `Generated Redirect URI:\n${redirectUri}\n\nPlease add EXACTLY this to Google Console.`,
+                );
+            }
         }
     }, [redirectUri]);
 

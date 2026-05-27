@@ -20,9 +20,11 @@ export const calculateReputation = functions.https.onCall(async (_data, context)
     }
 
     const usersSnapshot = await db.collection('users').get();
-    const updates: Promise<FirebaseFirestore.WriteResult>[] = [];
+    let batch = db.batch();
+    let opCount = 0;
+    let updatedUsers = 0;
 
-    usersSnapshot.forEach(userDoc => {
+    for (const userDoc of usersSnapshot.docs) {
         const userData = userDoc.data();
 
         const attendanceCount =
@@ -35,22 +37,30 @@ export const calculateReputation = functions.https.onCall(async (_data, context)
 
         const points = attendanceCount * 10 + registrationCount * 2 + remindersSet;
 
-        updates.push(
-            userDoc.ref.update({
-                'reputation.points': points,
-                'reputation.attendanceCount': attendanceCount,
-                'reputation.registrationCount': registrationCount,
-                'reputation.remindersSet': remindersSet,
-                'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
-            }),
-        );
-    });
+        batch.update(userDoc.ref, {
+            'reputation.points': points,
+            'reputation.attendanceCount': attendanceCount,
+            'reputation.registrationCount': registrationCount,
+            'reputation.remindersSet': remindersSet,
+            'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+        });
+        opCount += 1;
+        updatedUsers += 1;
 
-    await Promise.all(updates);
+        if (opCount === 500) {
+            await batch.commit();
+            batch = db.batch();
+            opCount = 0;
+        }
+    }
+
+    if (opCount > 0) {
+        await batch.commit();
+    }
 
     return {
         success: true,
-        message: `Updated reputation for ${updates.length} users`,
+        message: `Updated reputation for ${updatedUsers} users`,
     };
 });
 
@@ -101,7 +111,10 @@ export const refreshTopContributorsLeaderboard = functions.pubsub
  * Client can load the first 10 contributors and then request more using
  * lastPoints, lastUserId, and startRank.
  */
-export const getTopContributors = functions.https.onCall(async data => {
+export const getTopContributors = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
     const limit = Math.min(data?.limit || 10, 25);
     const lastPoints = data?.lastPoints;
     const lastUserId = data?.lastUserId;
