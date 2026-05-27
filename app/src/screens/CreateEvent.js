@@ -21,7 +21,10 @@ import PremiumInput from '../components/PremiumInput'; // Using the existing com
 import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { db, storage } from '../lib/firebaseConfig';
+import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
+import { extractTags } from '../lib/tagExtractor';
+import { predictAttendance } from '../lib/capacityPredictor';
 import PropTypes from 'prop-types';
 
 let MapView = null;
@@ -53,6 +56,8 @@ export default function CreateEvent({ navigation, route }) {
     // Form State
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
+    const [suggestedTags, setSuggestedTags] = useState([]);
+    const [selectedTags, setSelectedTags] = useState([]);
     const [category, setCategory] = useState('');
     const [location, setLocation] = useState('');
     const [coordinates, setCoordinates] = useState(null);
@@ -65,11 +70,11 @@ export default function CreateEvent({ navigation, route }) {
     const [startDate, setStartDate] = useState(new Date());
     const [endDate, setEndDate] = useState(new Date(Date.now() + 3600000)); // +1 hour default
     const [showStartPicker, setShowStartPicker] = useState(false);
-useEffect(() => {
-    if (endDate.getTime() <= startDate.getTime()) {
-        setEndDate(new Date(startDate.getTime() + 60 * 60 * 1000));
-    }
-}, [startDate, endDate]);
+    useEffect(() => {
+        if (endDate.getTime() <= startDate.getTime()) {
+            setEndDate(new Date(startDate.getTime() + 60 * 60 * 1000));
+        }
+    }, [startDate, endDate]);
     const [showEndPicker, setShowEndPicker] = useState(false);
     const [dateMode, setDateMode] = useState('date');
 
@@ -81,6 +86,8 @@ useEffect(() => {
     const [upiId, setUpiId] = useState('');
     const [registrationLink, setRegistrationLink] = useState('');
     const [imageUri, setImageUri] = useState(null);
+    const [capacity, setCapacity] = useState('');
+    const [capacityWarning, setCapacityWarning] = useState(null);
 
     // Custom Form
     const [useCustomForm, setUseCustomForm] = useState(false);
@@ -161,9 +168,38 @@ useEffect(() => {
     const isEditMode = !!event;
 
     useEffect(() => {
+        const tags = extractTags(description);
+        setSuggestedTags(tags);
+    }, [description]);
+
+    useEffect(() => {
+        const cap = Number.parseInt(capacity, 10);
+        if (!cap || cap <= 0) {
+            setCapacityWarning(null);
+            return;
+        }
+        let timer = setTimeout(async () => {
+            const result = await predictAttendance({
+                category,
+                rsvpCount: 0,
+                capacity: cap,
+            });
+            setCapacityWarning(result);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [capacity, category]);
+
+    const toggleTag = tag => {
+        setSelectedTags(prev =>
+            prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag],
+        );
+    };
+
+    useEffect(() => {
         if (isEditMode) {
             setTitle(event.title);
             setDescription(event.description);
+            setSelectedTags(event.tags || []);
             setCategory(event.category);
             setLocation(event.location || '');
             if (event.coordinates) setCoordinates(event.coordinates);
@@ -178,6 +214,7 @@ useEffect(() => {
             setUpiId(event.upiId || '');
             setRegistrationLink(event.registrationLink || '');
             setImageUri(event.bannerUrl);
+            setCapacity(event.capacity?.toString() || '');
             setUseCustomForm(event.hasCustomForm);
             setCustomFormSchema(event.customFormSchema || []);
             navigation.setOptions({ title: 'Edit Event' });
@@ -230,6 +267,7 @@ useEffect(() => {
             const eventData = {
                 title,
                 description,
+                tags: selectedTags,
                 location: eventMode === 'online' ? 'Google Meet' : location,
                 coordinates: eventMode === 'offline' && coordinates ? coordinates : null,
                 category,
@@ -246,6 +284,7 @@ useEffect(() => {
                     years: targetYears.length ? targetYears : [1, 2, 3, 4],
                 },
                 bannerUrl,
+                capacity: capacity ? Number.parseInt(capacity, 10) : null,
                 hasCustomForm: useCustomForm,
                 customFormSchema: useCustomForm ? customFormSchema : [],
             };
@@ -343,10 +382,8 @@ useEffect(() => {
                 >
                     <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
                     <View>
-                        <Text style={styles.dateText}>{date.toLocaleDateString()}</Text>
-                        <Text style={styles.timeText}>
-                            {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </Text>
+                        <Text style={styles.dateText}>{formatEventDate(date)}</Text>
+                        <Text style={styles.timeText}>{formatEventTime(date)}</Text>
                     </View>
                 </TouchableOpacity>
 
@@ -431,7 +468,7 @@ useEffect(() => {
                         value={description}
                         onChangeText={setDescription}
                         multiline
-                        style={{ height: 120 }} // Taller container for multiline
+                        style={{ height: 120 }}
                         icon={
                             <Ionicons
                                 name="document-text-outline"
@@ -440,6 +477,33 @@ useEffect(() => {
                             />
                         }
                     />
+
+                    {suggestedTags.length > 0 && (
+                        <View style={{ marginBottom: 16 }}>
+                            <Text style={[styles.label, { marginBottom: 8 }]}>Suggested Tags</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                {suggestedTags.map(tag => {
+                                    const isSelected = selectedTags.includes(tag);
+                                    return (
+                                        <TouchableOpacity
+                                            key={tag}
+                                            onPress={() => toggleTag(tag)}
+                                            style={[styles.chip, isSelected && styles.chipActive]}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.chipText,
+                                                    isSelected && styles.chipTextActive,
+                                                ]}
+                                            >
+                                                #{tag}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        </View>
+                    )}
                 </View>
 
                 {/* Section 2: Logistics */}
@@ -748,7 +812,70 @@ useEffect(() => {
                     </View>
                 </View>
 
-                {/* Section 5: Custom Form */}
+                {/* Section 5: Capacity */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Capacity</Text>
+                    <Text
+                        style={[
+                            styles.label,
+                            { color: theme.colors.textSecondary, marginBottom: 12 },
+                        ]}
+                    >
+                        Set a maximum attendee limit (optional)
+                    </Text>
+                    <PremiumInput
+                        label="Maximum Attendees"
+                        placeholder="e.g. 200"
+                        value={capacity}
+                        onChangeText={setCapacity}
+                        keyboardType="numeric"
+                        icon={
+                            <Ionicons
+                                name="people-outline"
+                                size={20}
+                                color={theme.colors.primary}
+                            />
+                        }
+                    />
+                    {capacityWarning && capacityWarning.warning && (
+                        <View
+                            style={[
+                                styles.capacityWarning,
+                                {
+                                    backgroundColor:
+                                        capacityWarning.severity === 'high' ? '#fee2e2' : '#fef9c3',
+                                    borderColor:
+                                        capacityWarning.severity === 'high' ? '#fca5a5' : '#fcd34d',
+                                },
+                            ]}
+                        >
+                            <Ionicons
+                                name={
+                                    capacityWarning.severity === 'high'
+                                        ? 'warning'
+                                        : 'information-circle'
+                                }
+                                size={18}
+                                color={capacityWarning.severity === 'high' ? '#dc2626' : '#a16207'}
+                            />
+                            <Text
+                                style={[
+                                    styles.capacityWarningText,
+                                    {
+                                        color:
+                                            capacityWarning.severity === 'high'
+                                                ? '#991b1b'
+                                                : '#713f12',
+                                    },
+                                ]}
+                            >
+                                {capacityWarning.warning}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+
+                {/* Section 6: Custom Form */}
                 <View style={styles.section}>
                     <View
                         style={[
@@ -954,6 +1081,22 @@ const getStyles = theme =>
             elevation: 5,
         },
         createBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+
+        // Capacity Warning
+        capacityWarning: {
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: 8,
+            padding: 12,
+            borderRadius: 12,
+            marginTop: 12,
+            borderWidth: 1,
+        },
+        capacityWarningText: {
+            fontSize: 13,
+            lineHeight: 18,
+            flex: 1,
+        },
 
         // Form Builder Btn
         formBuilderBtn: {

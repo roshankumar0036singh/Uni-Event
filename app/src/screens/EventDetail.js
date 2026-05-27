@@ -50,6 +50,8 @@ import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
 import { getEarlyBirdInfo, getTimestampMs } from '../lib/earlyBird';
 import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
+import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
+import { predictAttendance } from '../lib/capacityPredictor';
 import PropTypes from 'prop-types';
 import logger from '../lib/logger';
 
@@ -74,6 +76,7 @@ export default function EventDetail({ route, navigation }) {
     const [hasGivenFeedback, setHasGivenFeedback] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [showAppealModal, setShowAppealModal] = useState(false);
+    const [capacityPrediction, setCapacityPrediction] = useState(null);
 
     const [sendingAppeal, setSendingAppeal] = useState(false);
     const [activeTab, setActiveTab] = useState('about');
@@ -269,6 +272,23 @@ export default function EventDetail({ route, navigation }) {
         };
     }, [eventId, user, navigation]);
 
+    useEffect(() => {
+        if (!event) return;
+        const cap = event.capacity;
+        if (!cap || cap <= 0) {
+            setCapacityPrediction(null);
+            return;
+        }
+        const rsvpCount = event.participantCount || 0;
+        predictAttendance({
+            category: event.category,
+            rsvpCount,
+            capacity: cap,
+        }).then(result => {
+            setCapacityPrediction(result);
+        });
+    }, [event]);
+
     // Derived State
     const isOwner = user && event?.ownerId === user.uid;
     const isSuspended = event?.status === 'suspended';
@@ -307,7 +327,7 @@ export default function EventDetail({ route, navigation }) {
     const shareEvent = async () => {
         try {
             const eventUrl = `https://unievent-ez2w.onrender.com/event/${eventId}`; // Replace with your actual domain
-            const shareMessage = `🎉 Check out this event: ${event.title}\n\n📅 ${new Date(event.startAt).toLocaleDateString()} at ${new Date(event.startAt).toLocaleTimeString()}\n📍 ${event.location || 'Online'}\n\n${eventUrl}`;
+            const shareMessage = `🎉 Check out this event: ${event.title}\n\n📅 ${formatEventDate(event.startAt)} at ${formatEventTime(event.startAt)}\n📍 ${event.location || 'Online'}\n\n${eventUrl}`;
 
             // For web, use Web Share API if available
             if (Platform.OS === 'web' && navigator.share) {
@@ -580,7 +600,7 @@ export default function EventDetail({ route, navigation }) {
             const count = await sendBulkCertificates(
                 participants,
                 event.title,
-                new Date(event.startAt).toLocaleDateString(),
+                formatEventDate(event.startAt),
                 eventLink,
             );
             logger.debug(`Sent count: ${count}`);
@@ -825,7 +845,7 @@ export default function EventDetail({ route, navigation }) {
                                 </div>
                                 
                                 <div class="sign-box">
-                                    <div class="sign-name">${new Date(event.startAt).toLocaleDateString()}</div>
+                                    <div class="sign-name">${formatEventDate(event.startAt)}</div>
                                     <div class="sign-label">Date Issued</div>
                                 </div>
                             </div>
@@ -1834,12 +1854,7 @@ export default function EventDetail({ route, navigation }) {
                                     Date & Time
                                 </Text>
                                 <Text style={[styles.detailValue, { color: theme.colors.text }]}>
-                                    {new Date(event.startAt).toLocaleDateString('en-US', {
-                                        weekday: 'short',
-                                        month: 'short',
-                                        day: 'numeric',
-                                        year: 'numeric',
-                                    })}
+                                    {formatEventDate(event.startAt)}
                                 </Text>
                                 <Text
                                     style={[
@@ -1847,10 +1862,7 @@ export default function EventDetail({ route, navigation }) {
                                         { color: theme.colors.textSecondary },
                                     ]}
                                 >
-                                    {new Date(event.startAt).toLocaleTimeString([], {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })}
+                                    {formatEventTime(event.startAt)}
                                 </Text>
                             </View>
                         </View>
@@ -1882,6 +1894,73 @@ export default function EventDetail({ route, navigation }) {
                                 </Text>
                             </View>
                         </View>
+
+                        {event.capacity && (
+                            <>
+                                <View
+                                    style={[
+                                        styles.detailDivider,
+                                        { backgroundColor: theme.colors.border },
+                                    ]}
+                                />
+                                <View style={styles.detailRow}>
+                                    <View
+                                        style={[
+                                            styles.detailIconContainer,
+                                            { backgroundColor: theme.colors.primary + '15' },
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name="people-outline"
+                                            size={22}
+                                            color={theme.colors.primary}
+                                        />
+                                    </View>
+                                    <View style={styles.detailContent}>
+                                        <Text
+                                            style={[
+                                                styles.detailLabel,
+                                                { color: theme.colors.textSecondary },
+                                            ]}
+                                        >
+                                            Capacity
+                                        </Text>
+                                        <Text
+                                            style={[
+                                                styles.detailValue,
+                                                { color: theme.colors.text },
+                                            ]}
+                                        >
+                                            {event.participantCount || 0} / {event.capacity}
+                                        </Text>
+                                        {capacityPrediction?.severity === 'high' && (
+                                            <Text
+                                                style={{
+                                                    color: '#dc2626',
+                                                    fontSize: 12,
+                                                    marginTop: 2,
+                                                    fontWeight: '500',
+                                                }}
+                                            >
+                                                ⚠ Likely to exceed capacity
+                                            </Text>
+                                        )}
+                                        {capacityPrediction?.severity === 'medium' && (
+                                            <Text
+                                                style={{
+                                                    color: '#a16207',
+                                                    fontSize: 12,
+                                                    marginTop: 2,
+                                                    fontWeight: '500',
+                                                }}
+                                            >
+                                                ⚡ Approaching capacity
+                                            </Text>
+                                        )}
+                                    </View>
+                                </View>
+                            </>
+                        )}
                     </View>
 
                     {/* Tabs Navigation — Interactive */}
@@ -2202,7 +2281,24 @@ export default function EventDetail({ route, navigation }) {
                 <View style={[styles.fabContainer, { backgroundColor: theme.colors.surface }]}>
                     <View style={styles.fabSubInfo}>
                         <Text style={styles.fabLabel}>Attending</Text>
-                        <Text style={styles.fabValue}>{participantCount} People</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                            <Text style={styles.fabValue}>{participantCount} People</Text>
+                            {event?.capacity && (
+                                <Text
+                                    style={[
+                                        styles.fabValue,
+                                        { fontSize: 12, color: theme.colors.textSecondary },
+                                    ]}
+                                >
+                                    / {event.capacity}
+                                </Text>
+                            )}
+                        </View>
+                        {capacityPrediction?.severity === 'high' && (
+                            <Text style={{ color: '#dc2626', fontSize: 11, fontWeight: '600' }}>
+                                ⚠ Predicted overflow
+                            </Text>
+                        )}
                     </View>
 
                     <TouchableOpacity
