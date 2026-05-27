@@ -20,6 +20,7 @@ import { getEarlyBirdInfo } from '../lib/earlyBird';
 import { ShimmerItem } from './SkeletonLoader';
 import { useAuth } from '../lib/AuthContext';
 import { triggerBuddyMatchNotification } from '../lib/notificationService';
+import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import PropTypes from 'prop-types';
 
 const EventCard = memo(
@@ -94,19 +95,6 @@ const EventCard = memo(
         }, [event?.ownerId, event?.organization]);
 
         if (!event) return null;
-
-        const dateObj = new Date(event.startAt);
-
-        // Format Date: "OCT 15"
-        const month = dateObj.toLocaleString('default', { month: 'short' }).toUpperCase();
-        const day = dateObj.getDate();
-
-        // Format Time: "7 PM"
-        const time = dateObj.toLocaleString('default', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-        });
 
         // Fallback for second image if not present in data
         const flyerUrl =
@@ -234,7 +222,8 @@ const EventCard = memo(
                                 <Text
                                     style={[styles.infoText, { color: theme.colors.textSecondary }]}
                                 >
-                                    {month} {day} • {time}
+                                    {formatEventDate(event.startAt)} •{' '}
+                                    {formatEventTime(event.startAt)}
                                 </Text>
                             </View>
                             <View style={styles.infoItem}>
