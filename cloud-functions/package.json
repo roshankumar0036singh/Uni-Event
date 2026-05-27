@@ -3,6 +3,7 @@
   "scripts": {
     "build": "tsc",
     "serve": "npm run build && firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+    "test": "jest",
     "shell": "npm run build && firebase functions:shell",
     "start": "node lib/server.js",
     "deploy": "firebase deploy --only functions",
@@ -33,15 +34,23 @@
     "resend": "^6.6.0"
   },
   "devDependencies": {
-    "@types/markdown-it": "^14.1.2",
+    "@babel/core": "^7.29.7",
+    "@babel/preset-env": "^7.29.7",
+    "@babel/preset-typescript": "^7.29.7",
     "@types/cors": "^2.8.0",
     "@types/express": "^4.17.0",
+"@types/jest": "^30.0.0",
+"@types/markdown-it": "^14.1.2",
+"babel-jest": "^30.4.1",
     "eslint": "^8.57.0",
     "eslint-config-google": "^0.14.0",
     "firebase-functions-test": "^3.1.0",
     "firebase-tools": "^15.4.0",
-    "prettier": "^3.0.0",
-    "typescript": "^5.3.0"
+"jest": "^30.4.2",
+"prettier": "^3.0.0",
+"ts-jest": "^29.4.11",
+"ts-node": "^10.9.2",
+"typescript": "^5.9.3"
   },
   "private": true
 }
