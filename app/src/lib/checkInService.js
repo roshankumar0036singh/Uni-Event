@@ -51,7 +51,7 @@ export const validateTicket = async (ticketId, eventId) => {
                 valid: false,
                 error: 'Already checked in',
                 message: `This attendee was already checked in at ${new Date(
-                    ticketData.checkedInAt?.toMillis()
+                    ticketData.checkedInAt?.toMillis(),
                 ).toLocaleTimeString()}.`,
                 alreadyCheckedIn: true,
                 ticketData,
@@ -70,8 +70,7 @@ export const validateTicket = async (ticketId, eventId) => {
         return {
             valid: false,
             error: 'Validation failed',
-            message:
-                'Unable to validate ticket. Please check your connection.',
+            message: 'Unable to validate ticket. Please check your connection.',
         };
     }
 };
@@ -85,11 +84,9 @@ const getLocation = async () => {
             navigator.geolocation.getCurrentPosition(
                 position => {
                     resolve({
-                        latitude:
-                            position.coords.latitude,
+                        latitude: position.coords.latitude,
 
-                        longitude:
-                            position.coords.longitude,
+                        longitude: position.coords.longitude,
                     });
                 },
                 () => {
@@ -102,7 +99,7 @@ const getLocation = async () => {
                     enableHighAccuracy: true,
                     timeout: 5000,
                     maximumAge: 0,
-                }
+                },
             );
         });
     } catch (error) {
@@ -117,12 +114,7 @@ const getLocation = async () => {
 /**
  * Check in an attendee
  */
-export const checkInAttendee = async (
-    ticketData,
-    eventId,
-    organizerId,
-    organizerName
-) => {
+export const checkInAttendee = async (ticketData, eventId, organizerId, organizerName) => {
     try {
         const ticketId = ticketData.id;
         const userId = ticketData.userId;
@@ -182,16 +174,14 @@ export const checkInAttendee = async (
 
         return {
             success: true,
-            message:
-                `${ticketData.userName} checked in successfully!`,
+            message: `${ticketData.userName} checked in successfully!`,
         };
     } catch (error) {
         logger.error('Check-in error:', error);
         return {
             success: false,
             error: 'Check-in failed',
-            message:
-                'Unable to complete check-in. Please try again.',
+            message: 'Unable to complete check-in. Please try again.',
         };
     }
 };
@@ -213,34 +203,22 @@ export const getAttendanceStats = async eventId => {
 
         const stats = eventData.stats || {};
 
-        const totalRegistrations =
-            stats.totalRegistrations || 0;
+        const totalRegistrations = stats.totalRegistrations || 0;
 
-        const totalCheckedIn =
-            stats.totalCheckedIn || 0;
+        const totalCheckedIn = stats.totalCheckedIn || 0;
 
         const checkInRate =
-            totalRegistrations > 0
-                ? (
-                      (totalCheckedIn /
-                          totalRegistrations) *
-                      100
-                  ).toFixed(1)
-                : 0;
+            totalRegistrations > 0 ? ((totalCheckedIn / totalRegistrations) * 100).toFixed(1) : 0;
 
         return {
             totalRegistrations,
             totalCheckedIn,
 
-            checkInRate:
-                Number.parseFloat(checkInRate),
+            checkInRate: Number.parseFloat(checkInRate),
 
-            lastCheckInAt:
-                stats.lastCheckInAt,
+            lastCheckInAt: stats.lastCheckInAt,
 
-            pending:
-                totalRegistrations -
-                totalCheckedIn,
+            pending: totalRegistrations - totalCheckedIn,
         };
     } catch (error) {
         logger.error('Error fetching stats:', error);
@@ -255,14 +233,10 @@ export const parseQRCode = qrData => {
     try {
         const data = JSON.parse(qrData);
 
-        if (
-            !data.ticketId ||
-            !data.eventId
-        ) {
+        if (!data.ticketId || !data.eventId) {
             return {
                 valid: false,
-                error:
-                    'Invalid QR code format',
+                error: 'Invalid QR code format',
             };
         }
 
@@ -271,10 +245,8 @@ export const parseQRCode = qrData => {
             ticketId: data.ticketId,
             eventId: data.eventId,
             userId: data.userId,
-            attendeeName:
-                data.attendeeName,
-            attendeeEmail:
-                data.attendeeEmail,
+            attendeeName: data.attendeeName,
+            attendeeEmail: data.attendeeEmail,
             year: data.year,
             branch: data.branch,
         };
@@ -282,8 +254,7 @@ export const parseQRCode = qrData => {
         console.warn('QR parse failed:', _error);
         return {
             valid: false,
-            error:
-                'Unable to parse QR code',
+            error: 'Unable to parse QR code',
         };
     }
 };
