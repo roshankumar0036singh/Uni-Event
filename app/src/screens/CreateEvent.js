@@ -65,11 +65,11 @@ export default function CreateEvent({ navigation, route }) {
     const [startDate, setStartDate] = useState(new Date());
     const [endDate, setEndDate] = useState(new Date(Date.now() + 3600000)); // +1 hour default
     const [showStartPicker, setShowStartPicker] = useState(false);
-useEffect(() => {
-    if (endDate.getTime() <= startDate.getTime()) {
-        setEndDate(new Date(startDate.getTime() + 60 * 60 * 1000));
-    }
-}, [startDate, endDate]);
+    useEffect(() => {
+        if (endDate.getTime() <= startDate.getTime()) {
+            setEndDate(new Date(startDate.getTime() + 60 * 60 * 1000));
+        }
+    }, [startDate, endDate]);
     const [showEndPicker, setShowEndPicker] = useState(false);
     const [dateMode, setDateMode] = useState('date');
 
