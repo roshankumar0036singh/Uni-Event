@@ -815,7 +815,12 @@ export default function CreateEvent({ navigation, route }) {
                 {/* Section 5: Capacity */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Capacity</Text>
-                    <Text style={[styles.label, { color: theme.colors.textSecondary, marginBottom: 12 }]}>
+                    <Text
+                        style={[
+                            styles.label,
+                            { color: theme.colors.textSecondary, marginBottom: 12 },
+                        ]}
+                    >
                         Set a maximum attendee limit (optional)
                     </Text>
                     <PremiumInput
@@ -825,7 +830,11 @@ export default function CreateEvent({ navigation, route }) {
                         onChangeText={setCapacity}
                         keyboardType="numeric"
                         icon={
-                            <Ionicons name="people-outline" size={20} color={theme.colors.primary} />
+                            <Ionicons
+                                name="people-outline"
+                                size={20}
+                                color={theme.colors.primary}
+                            />
                         }
                     />
                     {capacityWarning && capacityWarning.warning && (
@@ -834,13 +843,9 @@ export default function CreateEvent({ navigation, route }) {
                                 styles.capacityWarning,
                                 {
                                     backgroundColor:
-                                        capacityWarning.severity === 'high'
-                                            ? '#fee2e2'
-                                            : '#fef9c3',
+                                        capacityWarning.severity === 'high' ? '#fee2e2' : '#fef9c3',
                                     borderColor:
-                                        capacityWarning.severity === 'high'
-                                            ? '#fca5a5'
-                                            : '#fcd34d',
+                                        capacityWarning.severity === 'high' ? '#fca5a5' : '#fcd34d',
                                 },
                             ]}
                         >

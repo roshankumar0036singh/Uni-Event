@@ -2284,7 +2284,12 @@ export default function EventDetail({ route, navigation }) {
                         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
                             <Text style={styles.fabValue}>{participantCount} People</Text>
                             {event?.capacity && (
-                                <Text style={[styles.fabValue, { fontSize: 12, color: theme.colors.textSecondary }]}>
+                                <Text
+                                    style={[
+                                        styles.fabValue,
+                                        { fontSize: 12, color: theme.colors.textSecondary },
+                                    ]}
+                                >
                                     / {event.capacity}
                                 </Text>
                             )}
