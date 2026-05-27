@@ -12,7 +12,16 @@ import {
     updateDoc,
 } from 'firebase/firestore';
 import React, { useEffect, useState, memo } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View, Switch, Platform, ActivityIndicator } from 'react-native';
+import {
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    Switch,
+    Platform,
+    ActivityIndicator,
+} from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme as globalTheme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
@@ -42,7 +51,7 @@ const EventCard = memo(
         const [bannerLoaded, setBannerLoaded] = useState(false);
         const [flyerLoaded, setFlyerLoaded] = useState(false);
         const [lookingForBuddy, setLookingForBuddy] = useState(false);
-        
+
         // 🔒 State tracking variable to implement frontend click locking (Issue #266 Task 4)
         const [isProcessing, setIsProcessing] = useState(false);
 
@@ -91,7 +100,7 @@ const EventCard = memo(
             try {
                 // Call our atomic transaction validator engine
                 await safeToggleEventAction(db, user.uid, event.id, true);
-                
+
                 // Route navigation to primary view detail upon confirmation mapping clear
                 navigation.navigate('EventDetail', { eventId: event.id });
             } catch (error) {
@@ -384,7 +393,9 @@ const EventCard = memo(
                                 style={[
                                     styles.registerBtn,
                                     {
-                                        backgroundColor: isProcessing ? theme.colors.border : theme.colors.primary,
+                                        backgroundColor: isProcessing
+                                            ? theme.colors.border
+                                            : theme.colors.primary,
                                         ...theme.shadows.default,
                                     },
                                 ]}

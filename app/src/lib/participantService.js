@@ -138,7 +138,7 @@ export function clearParticipantCache(eventId) {
 
 /**
  * 🚀 GSSoC 2026 / Issue #266: Idempotent Event Registration Processing
- * Uses an atomic transaction constraint check to ensure rapid repeated button presses 
+ * Uses an atomic transaction constraint check to ensure rapid repeated button presses
  * can never write duplicate entries or double-increment attendance counters.
  */
 export const safeToggleEventAction = async (db, userId, eventId, isRegistering) => {
@@ -154,11 +154,12 @@ export const safeToggleEventAction = async (db, userId, eventId, isRegistering) 
 
             // 🔍 Technical Task 3: Unique structural constraint check (User ID + Event ID)
             const participantDoc = await transaction.get(participantRef);
-            const wasRegistered = participantDoc.exists() && participantDoc.data()?.registered === true;
+            const wasRegistered =
+                participantDoc.exists() && participantDoc.data()?.registered === true;
 
             // 🛑 IDEMPOTENCY GUARD: If the state matches what they want, exit immediately!
             if (wasRegistered === isRegistering) {
-                console.log("Idempotent block: Request already handled, ignoring double trigger.");
+                console.log('Idempotent block: Request already handled, ignoring double trigger.');
                 return;
             }
 
@@ -178,9 +179,9 @@ export const safeToggleEventAction = async (db, userId, eventId, isRegistering) 
                 totalAttendees: increment(isRegistering ? 1 : -1),
             });
         });
-        console.log("Database transaction completed safely.");
+        console.log('Database transaction completed safely.');
     } catch (error) {
-        console.error("Idempotent pipeline processing error:", error);
+        console.error('Idempotent pipeline processing error:', error);
         throw error;
     }
 };
