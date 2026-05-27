@@ -24,7 +24,8 @@ const normalizeBranch = (value: unknown) => {
   if (typeof value !== "string" && typeof value !== "number") return "Unknown";
 
   const raw = String(value).trim();
-  return raw || "Unknown";
+    if (!raw) return "Unknown";
+   return raw.replace(/[./#[\]$]/g, "_");
 };
 
 const toDateInput = (value: unknown, fieldName: string) => {
@@ -317,12 +318,14 @@ export const generateBranchParticipationReport = functions.https.onCall(
       const event = eventDoc.data() || {};
       const branchCounts = event.branchCounts;
 
-      if (
+       const branchCountEntries =
         branchCounts &&
         typeof branchCounts === "object" &&
         !Array.isArray(branchCounts)
-      ) {
-        Object.entries(branchCounts).forEach(([branch, count]) => {
+          ? Object.entries(branchCounts).filter(([, count]) => Number(count) > 0)
+          : [];
+      if (branchCountEntries.length > 0) {
+        branchCountEntries.forEach(([branch, count]) => {
           const numericCount = Number(count) || 0;
           const stats = ensureStats(statsByBranch, branch);
           stats.registrations += numericCount;
