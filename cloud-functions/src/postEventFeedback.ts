@@ -55,8 +55,15 @@ export const sendPostEventFeedback = functions.pubsub
 
         for (const eventDoc of events.docs) {
             const event = eventDoc.data();
-            const eventEndTime = event.endAt?.toDate ? event.endAt.toDate() : new Date(event.endAt);
+            const rawEnd = event.endAt?.toDate ? event.endAt.toDate() : new Date(event.endAt);
 
+// Skip if endAt is missing or invalid
+if (!rawEnd || isNaN(rawEnd.getTime())) {
+    console.log(`Skipping "${event.title}" — invalid or missing endAt`);
+    continue;
+}
+
+const eventEndTime = rawEnd;
             // Skip if event hasn't ended yet
             if (now <= eventEndTime) continue;
 
