@@ -128,6 +128,12 @@ export function clearParticipantCache(eventId) {
         registry.clear();
     }
 }
+
+/**
+ * 🚀 GSSoC 2026 / Issue #266: Idempotent Event Registration Processing
+ * Uses an atomic transaction constraint check to ensure rapid repeated button presses 
+ * can never write duplicate entries or double-increment attendance counters.
+ */
 export const safeToggleEventAction = async (db, userId, eventId, isRegistering) => {
     const eventRef = doc(db, 'events', eventId);
     const participantRef = doc(db, `events/${eventId}/participants`, userId);
@@ -139,21 +145,31 @@ export const safeToggleEventAction = async (db, userId, eventId, isRegistering) 
                 throw new Error("Target event mapping does not exist upstream.");
             }
 
-            // 1. Last-Write-Wins Rule: Set tracking state with a sync timestamp
+            // 🔍 Technical Task 3: Unique structural constraint check (User ID + Event ID)
+            const participantDoc = await transaction.get(participantRef);
+            const wasRegistered = participantDoc.exists() && participantDoc.data()?.registered === true;
+
+            // 🛑 IDEMPOTENCY GUARD: If the state matches what they want, exit immediately!
+            if (wasRegistered === isRegistering) {
+                console.log("Idempotent block: Request already handled, ignoring double trigger.");
+                return;
+            }
+
+            // 1. Write registration state change
             transaction.set(participantRef, {
                 id: userId,
                 registered: isRegistering,
                 synchronizedAt: new Date().toISOString(),
             }, { merge: true });
 
-            // 2. Delta Merge Rule: Use atomic field increments so counters don't overwrite blindly
+            // 2. Atomically update seat counters without overlapping drift
             transaction.update(eventRef, {
                 totalAttendees: increment(isRegistering ? 1 : -1)
             });
         });
-        console.log("Offline operation successfully synchronized and merged!");
+        console.log("Database transaction completed safely.");
     } catch (error) {
-        console.error("Conflict engine rollback triggered:", error);
+        console.error("Idempotent pipeline processing error:", error);
         throw error;
     }
 };

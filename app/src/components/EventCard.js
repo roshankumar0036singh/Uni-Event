@@ -4,15 +4,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
     doc,
     getDoc,
-    updateDoc,
     onSnapshot,
     collection,
     query,
     where,
     getDocs,
+    updateDoc,
 } from 'firebase/firestore';
 import React, { useEffect, useState, memo } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View, Switch, Platform } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, Switch, Platform, ActivityIndicator } from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme as globalTheme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
@@ -21,6 +21,7 @@ import { ShimmerItem } from './SkeletonLoader';
 import { useAuth } from '../lib/AuthContext';
 import { triggerBuddyMatchNotification } from '../lib/notificationService';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
+import { safeToggleEventAction } from '../lib/participantService';
 import PropTypes from 'prop-types';
 
 const EventCard = memo(
@@ -41,6 +42,10 @@ const EventCard = memo(
         const [bannerLoaded, setBannerLoaded] = useState(false);
         const [flyerLoaded, setFlyerLoaded] = useState(false);
         const [lookingForBuddy, setLookingForBuddy] = useState(false);
+        
+        // 🔒 State tracking variable to implement frontend click locking (Issue #266 Task 4)
+        const [isProcessing, setIsProcessing] = useState(false);
+
         useEffect(() => {
             if (!isRegistered || !user || !event?.id) return;
 
@@ -76,6 +81,27 @@ const EventCard = memo(
             }
         };
 
+        // 🚀 Task 4 implementation handler block
+        const handleRegisterPress = async () => {
+            if (isProcessing || !user || !event?.id) return;
+
+            // Freeze the interactive element layout layout immediately on the very first touch action
+            setIsProcessing(true);
+
+            try {
+                // Call our atomic transaction validator engine
+                await safeToggleEventAction(db, user.uid, event.id, true);
+                
+                // Route navigation to primary view detail upon confirmation mapping clear
+                navigation.navigate('EventDetail', { eventId: event.id });
+            } catch (error) {
+                console.error('Spam button trigger rejected processing error:', error);
+            } finally {
+                // Release the interaction lock state layer
+                setIsProcessing(false);
+            }
+        };
+
         useEffect(() => {
             setBannerLoaded(false);
         }, [event?.bannerUrl]);
@@ -96,7 +122,6 @@ const EventCard = memo(
 
         if (!event) return null;
 
-        // Fallback for second image if not present in data
         const flyerUrl =
             event.detailImageUrl ||
             event.bannerUrl ||
@@ -117,7 +142,7 @@ const EventCard = memo(
                 activeOpacity={0.9}
                 onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
             >
-                {/* 1. MAIN BANNER IMAGE (Top Layer) */}
+                {/* 1. MAIN BANNER IMAGE */}
                 <View style={[styles.bannerContainer, isRecommended && { height: 140 }]}>
                     {!bannerLoaded && (
                         <ShimmerItem
@@ -134,7 +159,7 @@ const EventCard = memo(
                                 event.bannerUrl ||
                                 'https://dummyimage.com/800x400/cccccc/000000.png&text=No+Image',
                         }}
-                        style={[styles.bannerImage, isRecommended && { height: 140 }]} // Compact height for recommended
+                        style={[styles.bannerImage, isRecommended && { height: 140 }]}
                         resizeMode="cover"
                         onLoadEnd={() => setBannerLoaded(true)}
                     />
@@ -142,14 +167,12 @@ const EventCard = memo(
                         colors={['transparent', 'rgba(0,0,0,0.4)']}
                         style={StyleSheet.absoluteFillObject}
                     />
-                    {/* Category Tag on Banner */}
                     <View style={[styles.categoryBadge, { backgroundColor: theme.colors.surface }]}>
                         <Text style={[styles.categoryText, { color: theme.colors.text }]}>
                             {event.category}
                         </Text>
                     </View>
 
-                    {/* Live / Online Badge */}
                     {isLive && (
                         <View style={[styles.onlineBadge, { backgroundColor: theme.colors.error }]}>
                             <Ionicons name="radio-button-on" size={12} color="#fff" />
@@ -165,20 +188,16 @@ const EventCard = memo(
                         </View>
                     )}
 
-                    {/* SUSPENDED Badge */}
                     {event.status === 'suspended' && (
                         <View style={[styles.onlineBadge, { backgroundColor: '#FF4444' }]}>
                             <Ionicons name="alert-circle" size={12} color="#fff" />
                             <Text style={styles.onlineText}>SUSPENDED</Text>
                         </View>
                     )}
-
-                    {/* Removed Top Pick badge from banner - moved to details row */}
                 </View>
 
                 {/* 2. CONTENT CONTAINER */}
                 <View style={styles.contentContainer}>
-                    {/* FLYER IMAGE (Overlapping) */}
                     <View
                         style={[
                             styles.flyerContainer,
@@ -196,7 +215,6 @@ const EventCard = memo(
                         />
                     </View>
 
-                    {/* HEADER INFO (Right of Flyer) */}
                     <View style={styles.headerInfo}>
                         <Text
                             style={[styles.title, { color: theme.colors.text }]}
@@ -209,9 +227,7 @@ const EventCard = memo(
                         </Text>
                     </View>
 
-                    {/* DETAILS ROW (Below Flyer) */}
                     <View style={styles.detailsRow}>
-                        {/* Date & Location */}
                         <View style={styles.infoBlock}>
                             <View style={styles.infoItem}>
                                 <Ionicons
@@ -252,7 +268,6 @@ const EventCard = memo(
                                 </Text>
                             </View>
 
-                            {/* Top Pick Badge - Moved here */}
                             {isRecommended && (
                                 <View
                                     style={{
@@ -277,7 +292,6 @@ const EventCard = memo(
                                 </View>
                             )}
 
-                            {/* Early Bird Badge */}
                             {isEarlyBird && !isRegistered && (
                                 <View
                                     style={{
@@ -310,7 +324,6 @@ const EventCard = memo(
                             )}
                         </View>
 
-                        {/* Price Badge */}
                         <View
                             style={[styles.priceBadge, { backgroundColor: theme.colors.secondary }]}
                         >
@@ -320,7 +333,7 @@ const EventCard = memo(
                         </View>
                     </View>
 
-                    {/* FOOTER ACTION */}
+                    {/* FOOTER ACTIONS ROW */}
                     {showRegisterButton &&
                         (isRegistered ? (
                             <View style={styles.registeredRow}>
@@ -371,15 +384,18 @@ const EventCard = memo(
                                 style={[
                                     styles.registerBtn,
                                     {
-                                        backgroundColor: theme.colors.primary,
+                                        backgroundColor: isProcessing ? theme.colors.border : theme.colors.primary,
                                         ...theme.shadows.default,
                                     },
                                 ]}
-                                onPress={() =>
-                                    navigation.navigate('EventDetail', { eventId: event.id })
-                                }
+                                disabled={isProcessing} // 🛑 Gated freeze prevents quick multi-taps
+                                onPress={handleRegisterPress}
                             >
-                                <Text style={styles.registerText}>REGISTER</Text>
+                                {isProcessing ? (
+                                    <ActivityIndicator size="small" color="#ffffff" />
+                                ) : (
+                                    <Text style={styles.registerText}>REGISTER</Text>
+                                )}
                             </TouchableOpacity>
                         ))}
                 </View>
@@ -414,7 +430,7 @@ const styles = StyleSheet.create({
         right: 16,
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 20, // Pill
+        borderRadius: 20,
         ...globalTheme.shadows.small,
     },
     categoryText: {
@@ -429,7 +445,7 @@ const styles = StyleSheet.create({
         left: 16,
         paddingHorizontal: 10,
         paddingVertical: 6,
-        borderRadius: 20, // Pill
+        borderRadius: 20,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
@@ -496,11 +512,10 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
     },
-    // New Ribbon Style for Price
     priceBadge: {
         paddingVertical: 6,
         paddingHorizontal: 12,
-        borderRadius: 20, // Pill
+        borderRadius: 20,
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.1)',
     },
