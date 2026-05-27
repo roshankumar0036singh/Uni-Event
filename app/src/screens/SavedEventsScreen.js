@@ -72,9 +72,7 @@ export default function SavedEventsScreen({ navigation }) {
     };
 
     // 🚀 Task 3: Wrap list rendering element with useCallback to optimize functional layout memory recycling
-    const renderItem = useCallback(({ item }) => (
-        <EventCard event={item} />
-    ), []);
+    const renderItem = useCallback(({ item }) => <EventCard event={item} />, []);
 
     if (loading && !refreshing) {
         return (

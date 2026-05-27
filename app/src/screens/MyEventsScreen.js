@@ -88,58 +88,67 @@ export default function MyEventsScreen({ navigation }) {
     };
 
     // 🚀 Task 3: Wrap component renderer with useCallback to avoid functional rebuilds on updates
-    const renderItem = useCallback(({ item }) => (
-        <View style={styles.cardContainer}>
-            <EventCard event={item} showRegisterButton={false} style={{ marginBottom: 0 }} />
+    const renderItem = useCallback(
+        ({ item }) => (
+            <View style={styles.cardContainer}>
+                <EventCard event={item} showRegisterButton={false} style={{ marginBottom: 0 }} />
 
-            <View
-                style={[
-                    styles.actionBar,
-                    { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-                ]}
-            >
-                {/* Status */}
-                <View style={styles.statusContainer}>
-                    <View
-                        style={[
-                            styles.dot,
-                            {
-                                backgroundColor:
-                                    item.status === 'suspended'
-                                        ? theme.colors.error
-                                        : theme.colors.success,
-                            },
-                        ]}
-                    />
-                    <Text style={[styles.statusText, { color: theme.colors.text }]}>
-                        {item.status === 'suspended' ? 'SUSPENDED' : 'Active'}
-                    </Text>
-                </View>
+                <View
+                    style={[
+                        styles.actionBar,
+                        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+                    ]}
+                >
+                    {/* Status */}
+                    <View style={styles.statusContainer}>
+                        <View
+                            style={[
+                                styles.dot,
+                                {
+                                    backgroundColor:
+                                        item.status === 'suspended'
+                                            ? theme.colors.error
+                                            : theme.colors.success,
+                                },
+                            ]}
+                        />
+                        <Text style={[styles.statusText, { color: theme.colors.text }]}>
+                            {item.status === 'suspended' ? 'SUSPENDED' : 'Active'}
+                        </Text>
+                    </View>
 
-                {/* Actions */}
-                <View style={styles.actions}>
-                    <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: theme.colors.primary + '15' }]}
-                        onPress={() =>
-                            navigation.navigate('AttendanceDashboard', {
-                                eventId: item.id,
-                                eventTitle: item.title,
-                            })
-                        }
-                    >
-                        <Ionicons name="bar-chart" size={18} color={theme.colors.primary} />
-                    </TouchableOpacity>
+                    {/* Actions */}
+                    <View style={styles.actions}>
+                        <TouchableOpacity
+                            style={[
+                                styles.actionBtn,
+                                { backgroundColor: theme.colors.primary + '15' },
+                            ]}
+                            onPress={() =>
+                                navigation.navigate('AttendanceDashboard', {
+                                    eventId: item.id,
+                                    eventTitle: item.title,
+                                })
+                            }
+                        >
+                            <Ionicons name="bar-chart" size={18} color={theme.colors.primary} />
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: theme.colors.error + '15' }]}
-                        onPress={() => handleDelete(item.id)}
-                    >
-                        <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.actionBtn,
+                                { backgroundColor: theme.colors.error + '15' },
+                            ]}
+                            onPress={() => handleDelete(item.id)}
+                        >
+                            <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </View>
-        </View>
-    ), [theme, navigation]);
+        ),
+        [theme, navigation],
+    );
 
     if (loading)
         return (

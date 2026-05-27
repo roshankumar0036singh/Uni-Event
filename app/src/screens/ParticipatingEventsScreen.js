@@ -2,13 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-    ActivityIndicator,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
@@ -61,14 +55,17 @@ export default function ParticipatingEventsScreen({ navigation }) {
     }, [user]);
 
     // 🚀 Task 3: Wrap list item component renderer with useCallback to completely optimize list recycling renders
-    const renderItem = useCallback(({ item }) => (
-        <EventCard
-            event={item}
-            isRegistered={true} // By definition
-            onLike={() => {}}
-            onShare={() => {}}
-        />
-    ), []);
+    const renderItem = useCallback(
+        ({ item }) => (
+            <EventCard
+                event={item}
+                isRegistered={true} // By definition
+                onLike={() => {}}
+                onShare={() => {}}
+            />
+        ),
+        [],
+    );
 
     if (loading)
         return (
