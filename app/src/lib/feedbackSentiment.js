@@ -1,4 +1,4 @@
-const POSITIVE_WORDS = [
+const POSITIVE_WORDS = new Set([
     'amazing',
     'excellent',
     'fantastic',
@@ -27,9 +27,9 @@ const POSITIVE_WORDS = [
     'insightful',
     'engaging',
     'memorable',
-];
+]);
 
-const NEGATIVE_WORDS = [
+const NEGATIVE_WORDS = new Set([
     'terrible',
     'awful',
     'horrible',
@@ -57,7 +57,7 @@ const NEGATIVE_WORDS = [
     'dull',
     'ridiculous',
     'pathetic',
-];
+]);
 
 export function analyzeSentiment(text) {
     if (!text || typeof text !== 'string') {
@@ -73,12 +73,8 @@ export function analyzeSentiment(text) {
     let negativeScore = 0;
 
     for (const word of words) {
-        if (POSITIVE_WORDS.includes(word)) {
-            positiveScore += 1;
-        }
-        if (NEGATIVE_WORDS.includes(word)) {
-            negativeScore += 1;
-        }
+        if (POSITIVE_WORDS.has(word)) positiveScore += 1;
+        if (NEGATIVE_WORDS.has(word)) negativeScore += 1;
     }
 
     const diff = positiveScore - negativeScore;

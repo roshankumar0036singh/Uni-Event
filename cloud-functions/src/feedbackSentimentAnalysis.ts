@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
-const POSITIVE_WORDS = [
+const POSITIVE_WORDS = new Set([
     'amazing',
     'excellent',
     'fantastic',
@@ -30,9 +30,9 @@ const POSITIVE_WORDS = [
     'insightful',
     'engaging',
     'memorable',
-];
+]);
 
-const NEGATIVE_WORDS = [
+const NEGATIVE_WORDS = new Set([
     'terrible',
     'awful',
     'horrible',
@@ -59,7 +59,7 @@ const NEGATIVE_WORDS = [
     'pointless',
     'dull',
     'ridiculous',
-];
+]);
 
 function analyzeSentiment(text: string): string {
     const normalized = text.toLowerCase().trim();
@@ -71,8 +71,8 @@ function analyzeSentiment(text: string): string {
     let negativeScore = 0;
 
     for (const word of words) {
-        if (POSITIVE_WORDS.includes(word)) positiveScore += 1;
-        if (NEGATIVE_WORDS.includes(word)) negativeScore += 1;
+        if (POSITIVE_WORDS.has(word)) positiveScore += 1;
+        if (NEGATIVE_WORDS.has(word)) negativeScore += 1;
     }
 
     const diff = positiveScore - negativeScore;
