@@ -22,6 +22,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { getEarlyBirdInfo } from '../lib/earlyBird';
 import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
+import { formatEventDate } from '../lib/formatEventDate';
 import PropTypes from 'prop-types';
 
 export default function EventRegistrationFormScreen({ navigation, route }) {
@@ -258,7 +259,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                             <Ionicons name="calendar-outline" size={20} color={theme.colors.text} />
                             <Text style={styles.dateText}>
                                 {responses[field.id]
-                                    ? new Date(responses[field.id]).toLocaleDateString()
+                                    ? formatEventDate(responses[field.id])
                                     : 'Select Date'}
                             </Text>
                         </TouchableOpacity>

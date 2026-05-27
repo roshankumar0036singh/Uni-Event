@@ -22,6 +22,7 @@ import { useTheme } from '../lib/ThemeContext';
 
 import { getEarlyBirdInfo } from '../lib/earlyBird';
 import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
+import { formatEventDate } from '../lib/formatEventDate';
 import PropTypes from 'prop-types';
 
 export default function PaymentScreen({ route, navigation }) {
@@ -284,7 +285,7 @@ export default function PaymentScreen({ route, navigation }) {
                             {event.title}
                         </Text>
                         <Text style={{ color: theme.colors.textSecondary, marginBottom: 10 }}>
-                            {new Date(event.startAt).toDateString()} • {event.location}
+                            {formatEventDate(event.startAt)} • {event.location}
                         </Text>
                         <View style={styles.divider} />
                         <View style={styles.row}>

@@ -50,6 +50,7 @@ import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
 import { getEarlyBirdInfo, getTimestampMs } from '../lib/earlyBird';
 import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
+import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import PropTypes from 'prop-types';
 import logger from '../lib/logger';
 
@@ -307,7 +308,7 @@ export default function EventDetail({ route, navigation }) {
     const shareEvent = async () => {
         try {
             const eventUrl = `https://unievent-ez2w.onrender.com/event/${eventId}`; // Replace with your actual domain
-            const shareMessage = `🎉 Check out this event: ${event.title}\n\n📅 ${new Date(event.startAt).toLocaleDateString()} at ${new Date(event.startAt).toLocaleTimeString()}\n📍 ${event.location || 'Online'}\n\n${eventUrl}`;
+            const shareMessage = `🎉 Check out this event: ${event.title}\n\n📅 ${formatEventDate(event.startAt)} at ${formatEventTime(event.startAt)}\n📍 ${event.location || 'Online'}\n\n${eventUrl}`;
 
             // For web, use Web Share API if available
             if (Platform.OS === 'web' && navigator.share) {
@@ -580,7 +581,7 @@ export default function EventDetail({ route, navigation }) {
             const count = await sendBulkCertificates(
                 participants,
                 event.title,
-                new Date(event.startAt).toLocaleDateString(),
+                formatEventDate(event.startAt),
                 eventLink,
             );
             logger.debug(`Sent count: ${count}`);
@@ -825,7 +826,7 @@ export default function EventDetail({ route, navigation }) {
                                 </div>
                                 
                                 <div class="sign-box">
-                                    <div class="sign-name">${new Date(event.startAt).toLocaleDateString()}</div>
+                                    <div class="sign-name">${formatEventDate(event.startAt)}</div>
                                     <div class="sign-label">Date Issued</div>
                                 </div>
                             </div>
@@ -1834,12 +1835,7 @@ export default function EventDetail({ route, navigation }) {
                                     Date & Time
                                 </Text>
                                 <Text style={[styles.detailValue, { color: theme.colors.text }]}>
-                                    {new Date(event.startAt).toLocaleDateString('en-US', {
-                                        weekday: 'short',
-                                        month: 'short',
-                                        day: 'numeric',
-                                        year: 'numeric',
-                                    })}
+                                    {formatEventDate(event.startAt)}
                                 </Text>
                                 <Text
                                     style={[
@@ -1847,10 +1843,7 @@ export default function EventDetail({ route, navigation }) {
                                         { color: theme.colors.textSecondary },
                                     ]}
                                 >
-                                    {new Date(event.startAt).toLocaleTimeString([], {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })}
+                                    {formatEventTime(event.startAt)}
                                 </Text>
                             </View>
                         </View>

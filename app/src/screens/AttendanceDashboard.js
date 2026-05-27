@@ -32,6 +32,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BarChart } from 'react-native-chart-kit';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
+import { formatEventDate } from '../lib/formatEventDate';
 import participantService from '../lib/participantService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkAnnouncement, sendBulkFeedbackRequest } from '../lib/EmailService';
@@ -380,7 +381,7 @@ export default function AttendanceDashboard({ route, navigation }) {
                 const d = doc.data();
                 // Fix CSV escaping and formatting
                 const safeFeedback = (d.feedback || '').replace(/"/g, '""');
-                const dateStr = d.createdAt ? new Date(d.createdAt).toLocaleDateString() : '-';
+                const dateStr = d.createdAt ? formatEventDate(d.createdAt) : '-';
 
                 const line = `"${d.userName || 'Anonymous'}","${d.eventRating || '-'}","${d.clubRating || '-'}","${safeFeedback}","${dateStr}"\n`;
                 csv += line;
@@ -1000,7 +1001,7 @@ const getTimeAgo = timestamp => {
     const hours = Math.floor(minutes / 60);
     if (hours === 1) return '1 hour ago';
     if (hours < 24) return `${hours} hours ago`;
-    return new Date(timestamp).toLocaleDateString();
+    return formatEventDate(timestamp);
 };
 
 const AnalyticsSection = ({ title, data, icon }) => {
