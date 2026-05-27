@@ -57,20 +57,36 @@ export const sendPostEventFeedback = functions.pubsub
             const event = eventDoc.data();
             const rawEnd = event.endAt?.toDate ? event.endAt.toDate() : new Date(event.endAt);
 
-// Skip if endAt is missing or invalid
-if (!rawEnd || isNaN(rawEnd.getTime())) {
-    console.log(`Skipping "${event.title}" — invalid or missing endAt`);
-    continue;
-}
+            // Skip if endAt is missing or invalid
+            if (!rawEnd || isNaN(rawEnd.getTime())) {
+                console.log(`Skipping "${event.title}" — invalid or missing endAt`);
+                continue;
+            }
 
-const eventEndTime = rawEnd;
             // Skip if event hasn't ended yet
-            if (now <= eventEndTime) continue;
+            if (now <= rawEnd) continue;
+
+            // Claim the event FIRST using a transaction to prevent
+            // duplicate emails if the function runs twice at the same time
+            try {
+                await db.runTransaction(async (transaction) => {
+                    const freshDoc = await transaction.get(eventDoc.ref);
+                    if (freshDoc.data()?.feedbackRequestSent === true) {
+                        throw new Error("already_claimed");
+                    }
+                    transaction.update(eventDoc.ref, { feedbackRequestSent: true });
+                });
+            } catch (e: any) {
+                console.log(`Skipping "${event.title}" — already claimed`);
+                continue;
+            }
 
             console.log(`Sending feedback emails for: ${event.title}`);
 
             // Get participants of this event
-            const participantsSnap = await db.collection(`events/${eventDoc.id}/participants`).get();
+            const participantsSnap = await db
+                .collection(`events/${eventDoc.id}/participants`)
+                .get();
 
             // Send email to each participant
             for (const p of participantsSnap.docs) {
@@ -82,9 +98,8 @@ const eventEndTime = rawEnd;
                 }
             }
 
-            // Mark event as done so we don't email them again
+            // Save the timestamp of when emails were sent
             await eventDoc.ref.update({
-                feedbackRequestSent: true,
                 feedbackRequestSentAt: new Date().toISOString(),
             });
 
