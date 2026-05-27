@@ -1,6 +1,7 @@
 import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { db } from '../lib/firebaseConfig';
 
 import { useAuth } from '../lib/AuthContext';
@@ -30,8 +31,9 @@ export default function DesktopAdmin() {
         setEvents(list);
     };
 
-    const { user } = useAuth(); // Get current admin user
-    const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'; // Backend URL
+    const { user } = useAuth();
+    const navigation = useNavigation();
+    const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
     const approveClub = async (clubId, ownerId) => {
         try {
@@ -102,6 +104,12 @@ export default function DesktopAdmin() {
                     onPress={() => setActiveTab('analytics')}
                 >
                     <Text style={styles.navText}>Analytics</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.navItem}
+                    onPress={() => navigation.navigate('LocationHeatmap')}
+                >
+                    <Text style={styles.navText}>Heatmap</Text>
                 </TouchableOpacity>
             </View>
 
