@@ -1,11 +1,16 @@
 import {
     collection,
-    getDocs,
     onSnapshot,
     doc,
     runTransaction,
     increment,
+    orderBy,
+    query,
+    startAfter,
+    limit,
+    documentId,
 } from 'firebase/firestore';
+import { fetchPagedDocuments } from './firestoreBatchedFetch';
 
 // In-memory listener registry to dedupe reads and subscriptions per event
 const registry = new Map(); // eventId -> { subscribers: Set(fn), unsubscribe: fn|null, data: any, lastFetched: number, fetchPromise: Promise<any>|null }
@@ -36,19 +41,40 @@ export async function fetchParticipantsOnce(db, eventId) {
         registry.set(key, entry);
     }
 
-    const fetchPromise = getDocs(collection(db, `events/${eventId}/participants`))
-        .then(snap => {
-            const arr = snap.docs.map(d => {
+    const participantsRef = collection(db, `events/${eventId}/participants`);
+
+    const nextData = [];
+
+    const fetchPromise = fetchPagedDocuments({
+        pageSize: 100,
+        buildQuery: ({ lastDoc, pageSize }) => {
+            const baseQuery = query(participantsRef, orderBy(documentId()), limit(pageSize));
+            return lastDoc ? query(participantsRef, orderBy(documentId()), startAfter(lastDoc), limit(pageSize)) : baseQuery;
+        },
+        onPage: async (docs, pageInfo) => {
+            const current = registry.get(key);
+            if (current?.fetchPromise !== fetchPromise) {
+                return;
+            }
+
+            docs.forEach(d => {
                 const data = d.data();
-                return data ? { id: d.id, ...data } : { id: d.id };
+                nextData.push(data ? { id: d.id, ...data } : { id: d.id });
             });
+
+            current.lastFetched = Date.now();
+            current.lastPageCount = pageInfo.pageCount;
+        },
+    })
+        .then(result => {
             const current = registry.get(key);
             if (current?.fetchPromise === fetchPromise) {
-                current.data = arr;
-                current.lastFetched = Date.now();
+                current.data = nextData;
                 current.fetchPromise = null;
+                current.lastQueryDurationMs = result.durationMs;
+                current.lastQueryWasSlow = result.isSlow;
             }
-            return arr;
+            return current?.data || [];
         })
         .catch(error => {
             const current = registry.get(key);
@@ -73,6 +99,9 @@ export function subscribeParticipants(db, eventId, onChange) {
             data: null,
             lastFetched: 0,
             fetchPromise: null,
+            lastPageCount: 0,
+            lastQueryDurationMs: 0,
+            lastQueryWasSlow: false,
         };
         registry.set(key, entry);
     }

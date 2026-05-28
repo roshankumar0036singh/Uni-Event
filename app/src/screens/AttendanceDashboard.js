@@ -10,6 +10,8 @@ import {
     getDoc,
     where,
     updateDoc,
+    limit,
+    startAfter,
 } from 'firebase/firestore';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
@@ -38,17 +40,55 @@ import { useTheme } from '../lib/ThemeContext';
 import { sendBulkAnnouncement, sendBulkFeedbackRequest } from '../lib/EmailService';
 import PropTypes from 'prop-types';
 import { COLLECTIONS, getEventCheckInsPath, getEventFeedbackPath } from '../lib/firestorePaths';
+import { fetchPagedDocuments } from '../lib/firestoreBatchedFetch';
+
+const CHECK_IN_PAGE_SIZE = 100;
+const PEAK_BUCKET_LABELS = [
+    '>30m Early',
+    '15-30m Early',
+    '0-15m Early',
+    '0-15m Late',
+    '15-30m Late',
+    '>30m Late',
+];
+
+const createEmptyAttendanceSummary = () => ({
+    departmentStats: {},
+    yearStats: {},
+    peakBuckets: PEAK_BUCKET_LABELS.reduce((acc, label) => {
+        acc[label] = 0;
+        return acc;
+    }, {}),
+});
+
+const getPeakBucketLabel = (eventStartMs, checkInTimestamp) => {
+    if (!eventStartMs || !checkInTimestamp) return null;
+
+    const checkInTime = checkInTimestamp?.toMillis ? checkInTimestamp.toMillis() : null;
+    if (!checkInTime) return null;
+
+    const diffMinutes = (checkInTime - eventStartMs) / 60000;
+
+    if (diffMinutes < -30) return '>30m Early';
+    if (diffMinutes >= -30 && diffMinutes < -15) return '15-30m Early';
+    if (diffMinutes >= -15 && diffMinutes < 0) return '0-15m Early';
+    if (diffMinutes >= 0 && diffMinutes <= 15) return '0-15m Late';
+    if (diffMinutes > 15 && diffMinutes <= 30) return '15-30m Late';
+    return '>30m Late';
+};
 
 export default function AttendanceDashboard({ route, navigation }) {
     const { width: screenWidth } = useWindowDimensions();
     const { eventId, eventTitle } = route.params;
     const { theme } = useTheme();
 
-    const [checkIns, setCheckIns] = useState([]);
+    const [liveCheckIns, setLiveCheckIns] = useState([]);
+    const [olderCheckIns, setOlderCheckIns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
     const [departmentStats, setDepartmentStats] = useState({});
     const [yearStats, setYearStats] = useState({});
+    const [peakBuckets, setPeakBuckets] = useState(createEmptyAttendanceSummary().peakBuckets);
     const [eventData, setEventData] = useState(null);
 
     const { user } = useAuth();
@@ -190,6 +230,63 @@ export default function AttendanceDashboard({ route, navigation }) {
 
     // Live Participant Count
     const [totalRegistrations, setTotalRegistrations] = useState(0);
+    const [checkInCursor, setCheckInCursor] = useState(null);
+    const [hasMoreCheckIns, setHasMoreCheckIns] = useState(true);
+    const [loadingMoreCheckIns, setLoadingMoreCheckIns] = useState(false);
+
+    const totalCheckedIn =
+        eventData?.stats?.attendeeCount ?? eventData?.stats?.totalCheckedIn ?? 0;
+
+    const checkIns = useMemo(() => {
+        const merged = [];
+        const seenIds = new Set();
+
+        for (const item of [...liveCheckIns, ...olderCheckIns]) {
+            if (!item?.id || seenIds.has(item.id)) continue;
+            seenIds.add(item.id);
+            merged.push(item);
+        }
+
+        return merged;
+    }, [liveCheckIns, olderCheckIns]);
+
+    const visibleCheckInCount = checkIns.length;
+
+    const handleLoadMoreCheckIns = async () => {
+        if (!hasMoreCheckIns || !checkInCursor || loadingMoreCheckIns) return;
+
+        setLoadingMoreCheckIns(true);
+
+        try {
+            const nextQuery = query(
+                collection(db, getEventCheckInsPath(eventId)),
+                orderBy('checkedInAt', 'desc'),
+                startAfter(checkInCursor),
+                limit(CHECK_IN_PAGE_SIZE),
+            );
+
+            const snapshot = await getDocs(nextQuery);
+
+            if (snapshot.empty) {
+                setHasMoreCheckIns(false);
+                return;
+            }
+
+            const nextPage = snapshot.docs.map(docSnap => {
+                const data = docSnap.data();
+                return { id: docSnap.id, ...data };
+            });
+
+            setOlderCheckIns(current => [...current, ...nextPage]);
+            setCheckInCursor(snapshot.docs[snapshot.docs.length - 1] || null);
+            setHasMoreCheckIns(snapshot.size === CHECK_IN_PAGE_SIZE);
+        } catch (error) {
+            console.error('Failed to load more check-ins', error);
+            Alert.alert('Error', 'Unable to load more check-ins right now.');
+        } finally {
+            setLoadingMoreCheckIns(false);
+        }
+    };
 
     // Real-time participants listener (use shared subscriber to dedupe)
     useEffect(() => {
@@ -209,71 +306,133 @@ export default function AttendanceDashboard({ route, navigation }) {
     // Note: Automatic feedback sending is now handled globally in App.js via AutomationService.
     // This component simply reflects the status via 'eventData.feedbackRequestSent'.
 
-    // Real-time check-ins listener
+    // Real-time check-ins listener for the first page only.
     useEffect(() => {
+        let mounted = true;
+        const loadStartedAt = Date.now();
+        let warnedAboutSlowLoad = false;
+
+        setLiveCheckIns([]);
+        setOlderCheckIns([]);
+        setCheckInCursor(null);
+        setHasMoreCheckIns(true);
+        setLoading(true);
+
         const q = query(
             collection(db, getEventCheckInsPath(eventId)),
             orderBy('checkedInAt', 'desc'),
+            limit(CHECK_IN_PAGE_SIZE),
         );
 
         const unsubscribe = onSnapshot(q, snapshot => {
-            const checkInsList = [];
-            const deptCount = {};
-            const yearCount = {};
+            if (!mounted) return;
 
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                checkInsList.push({ id: doc.id, ...data });
+            if (!warnedAboutSlowLoad) {
+                const loadDurationMs = Date.now() - loadStartedAt;
+                if (loadDurationMs > 5000) {
+                    warnedAboutSlowLoad = true;
+                    Alert.alert(
+                        'Slow attendance load',
+                        `Loading the first page of check-ins took ${loadDurationMs}ms. The list now loads in pages of ${CHECK_IN_PAGE_SIZE}.`,
+                    );
+                }
+            }
 
-                const dept = data.userBranch || 'Unknown';
-                deptCount[dept] = (deptCount[dept] || 0) + 1;
-
-                const year = data.userYear || 'Unknown';
-                yearCount[year] = (yearCount[year] || 0) + 1;
+            const firstPage = snapshot.docs.map(docSnap => {
+                const data = docSnap.data();
+                return { id: docSnap.id, ...data };
             });
 
-            setCheckIns(checkInsList);
-            setDepartmentStats(deptCount);
-            setYearStats(yearCount);
+            setLiveCheckIns(firstPage);
+            setCheckInCursor(snapshot.docs[snapshot.docs.length - 1] || null);
+            setHasMoreCheckIns(snapshot.size === CHECK_IN_PAGE_SIZE);
+            setLoading(false);
         });
 
-        return () => unsubscribe();
+        return () => {
+            mounted = false;
+            unsubscribe();
+        };
     }, [eventId]);
+
+    useEffect(() => {
+        if (!eventData?.startAt) return;
+
+        let cancelled = false;
+
+        const runAggregation = async () => {
+            const nextDepartmentStats = {};
+            const nextYearStats = {};
+            const nextPeakBuckets = createEmptyAttendanceSummary().peakBuckets;
+            const eventStartMs = new Date(eventData.startAt).getTime();
+
+            const queryStats = await fetchPagedDocuments({
+                pageSize: CHECK_IN_PAGE_SIZE,
+                buildQuery: ({ lastDoc, pageSize }) => {
+                    const baseQuery = query(
+                        collection(db, getEventCheckInsPath(eventId)),
+                        orderBy('checkedInAt', 'desc'),
+                        limit(pageSize),
+                    );
+
+                    return lastDoc
+                        ? query(
+                              collection(db, getEventCheckInsPath(eventId)),
+                              orderBy('checkedInAt', 'desc'),
+                              startAfter(lastDoc),
+                              limit(pageSize),
+                          )
+                        : baseQuery;
+                },
+                onPage: async docs => {
+                    docs.forEach(docSnap => {
+                        const data = docSnap.data() || {};
+
+                        const dept = data.userBranch || 'Unknown';
+                        nextDepartmentStats[dept] = (nextDepartmentStats[dept] || 0) + 1;
+
+                        const year = data.userYear || 'Unknown';
+                        nextYearStats[year] = (nextYearStats[year] || 0) + 1;
+
+                        const bucket = getPeakBucketLabel(eventStartMs, data.checkedInAt);
+                        if (bucket) {
+                            nextPeakBuckets[bucket] = (nextPeakBuckets[bucket] || 0) + 1;
+                        }
+                    });
+                },
+            });
+
+            if (cancelled) return;
+
+            setDepartmentStats(nextDepartmentStats);
+            setYearStats(nextYearStats);
+            setPeakBuckets(nextPeakBuckets);
+
+            if (queryStats.isSlow) {
+                Alert.alert(
+                    'Slow attendance load',
+                    `Aggregating attendance insights took ${queryStats.durationMs}ms for ${queryStats.totalDocs} records.`,
+                );
+            }
+        };
+
+        runAggregation().catch(error => {
+            console.error('Failed to aggregate attendance data', error);
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [eventId, eventData?.startAt]);
 
     // Calculate Peak Attendance Data
     const peakAttendanceData = useMemo(() => {
-        if (!checkIns || checkIns.length === 0 || !eventData?.startAt) return null;
+        if (!eventData?.startAt) return null;
 
-        const startAt = new Date(eventData.startAt).getTime();
-        if (isNaN(startAt)) return null;
-        const buckets = {
-            '>30m Early': 0,
-            '15-30m Early': 0,
-            '0-15m Early': 0,
-            '0-15m Late': 0,
-            '15-30m Late': 0,
-            '>30m Late': 0,
-        };
-
-        checkIns.forEach(checkIn => {
-            const checkInTime = checkIn.checkedInAt?.toMillis();
-            if (!checkInTime) return;
-
-            const diffMinutes = (checkInTime - startAt) / 60000;
-
-            if (diffMinutes < -30) buckets['>30m Early']++;
-            else if (diffMinutes >= -30 && diffMinutes < -15) buckets['15-30m Early']++;
-            else if (diffMinutes >= -15 && diffMinutes < 0) buckets['0-15m Early']++;
-            else if (diffMinutes >= 0 && diffMinutes <= 15) buckets['0-15m Late']++;
-            else if (diffMinutes > 15 && diffMinutes <= 30) buckets['15-30m Late']++;
-            else buckets['>30m Late']++;
-        });
-
-        // Only render graph if there is at least one check-in with a valid timestamp
-        const totalValid = Object.values(buckets).reduce((sum, val) => sum + val, 0);
+        const data = PEAK_BUCKET_LABELS.map(label => peakBuckets[label] || 0);
+        const totalValid = data.reduce((sum, val) => sum + val, 0);
         if (totalValid === 0) return null;
 
-        const data = Object.values(buckets);
         const maxVal = Math.max(...data);
 
         return {
@@ -293,7 +452,7 @@ export default function AttendanceDashboard({ route, navigation }) {
                 },
             ],
         };
-    }, [checkIns, eventData, theme]);
+    }, [peakBuckets, eventData, theme]);
 
     const downloadCSV = async (csvContent, fileName) => {
         if (Platform.OS === 'web') {
@@ -517,7 +676,6 @@ export default function AttendanceDashboard({ route, navigation }) {
                     </View>
                 )}
                 <View style={styles.statsContainer}>
-                    {/* Updated Stat Cards to use Primary Theme */}
                     <StatCard
                         icon="people"
                         label="REGISTERED"
@@ -528,14 +686,12 @@ export default function AttendanceDashboard({ route, navigation }) {
                     <StatCard
                         icon="checkmark-done-circle"
                         label="CHECKED IN"
-                        value={checkIns.length}
-                        color={theme.colors.success} // Use Success/Green for check-ins for distinction, or Primary if strictly requested. Let's use Primary for now but maybe a variant. Wait, user screenshot showed Gold 0. Let's stick strictly to Theme.
+                        value={totalCheckedIn}
+                        color={theme.colors.success}
                         gradient={[theme.colors.surface, theme.colors.surface]}
+                        subtitle={`Loaded ${visibleCheckInCount} of ${totalCheckedIn}`}
                     />
-                    {/* Re-doing the StatCards to be safe and consistent */}
                 </View>
-                {/* ... (rest of render is handled by partial replacement or I need to include it) */}
-                {/* Wait, the replace_file_content needs to be precise. I will just replace the StatCards implementation in the render block */}
 
                 {/* Live Check-Ins Feed */}
                 <View style={[styles.section, { backgroundColor: theme.colors.surface }]}>
@@ -550,11 +706,11 @@ export default function AttendanceDashboard({ route, navigation }) {
                         </View>
                         <View style={styles.countBadge}>
                             <Text style={[styles.countText, { color: theme.colors.primary }]}>
-                                {checkIns.length}
+                                {visibleCheckInCount}/{totalCheckedIn || visibleCheckInCount}
                             </Text>
                         </View>
                     </View>
-                    {checkIns.length === 0 ? (
+                    {visibleCheckInCount === 0 ? (
                         <View style={styles.emptyState}>
                             <View
                                 style={[
@@ -574,9 +730,35 @@ export default function AttendanceDashboard({ route, navigation }) {
                         </View>
                     ) : (
                         <View style={styles.checkInsList}>
-                            {checkIns.slice(0, 10).map(item => (
+                            {checkIns.map(item => (
                                 <CheckInItem key={item.id} item={item} />
                             ))}
+                            {hasMoreCheckIns && (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.loadMoreBtn,
+                                        {
+                                            borderColor: theme.colors.primary,
+                                            backgroundColor: theme.colors.surface,
+                                        },
+                                    ]}
+                                    onPress={handleLoadMoreCheckIns}
+                                    disabled={loadingMoreCheckIns}
+                                >
+                                    {loadingMoreCheckIns ? (
+                                        <ActivityIndicator size="small" color={theme.colors.primary} />
+                                    ) : (
+                                        <Text
+                                            style={[
+                                                styles.loadMoreText,
+                                                { color: theme.colors.primary },
+                                            ]}
+                                        >
+                                            Load More Check-Ins
+                                        </Text>
+                                    )}
+                                </TouchableOpacity>
+                            )}
                         </View>
                     )}
                 </View>
@@ -1154,6 +1336,18 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     timeText: { fontSize: 11 },
+    loadMoreBtn: {
+        marginTop: 4,
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingVertical: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loadMoreText: {
+        fontSize: 13,
+        fontWeight: '700',
+    },
     emptyState: { alignItems: 'center', paddingVertical: 40 },
     emptyIcon: {
         width: 80,

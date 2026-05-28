@@ -298,6 +298,12 @@ export default function CreateEvent({ navigation, route }) {
                     participantCount: 0,
                     branchCounts: {},
                     yearCounts: {},
+                    stats: {
+                        totalRegistrations: 0,
+                        totalCheckedIn: 0,
+                        attendeeCount: 0,
+                        showUpRatio: 0,
+                    },
                     participantsPreview: [],
                     ownerId: user.uid,
                     ownerEmail: user.email,

@@ -21,6 +21,7 @@ export const backfillEventAnalyticsCounters = functions.https.onCall(
     const db = admin.firestore();
     const limit = Math.min(Math.max(Number(data?.limit) || 25, 1), 100);
     const startAfterId = typeof data?.startAfterId === "string" ? data.startAfterId : null;
+    const pageSize = 100;
 
     let query = db
       .collection("events")
@@ -42,40 +43,82 @@ export const backfillEventAnalyticsCounters = functions.https.onCall(
     let updated = 0;
 
     for (const docSnap of eventSnap.docs) {
+      const eventStartedAt = Date.now();
       const eventData = docSnap.data() || {};
       const missingCounters =
         eventData.participantCount == null ||
         eventData.branchCounts == null ||
-        eventData.yearCounts == null;
+        eventData.yearCounts == null ||
+        eventData.stats?.attendeeCount == null ||
+        eventData.stats?.showUpRatio == null;
 
       if (!missingCounters) continue;
 
-      const participantsSnap = await docSnap.ref.collection("participants").get();
-      const participantCount = participantsSnap.size;
       const branchCounts: Record<string, number> = {};
       const yearCounts: Record<string, number> = {};
+      let participantCount = 0;
 
-      participantsSnap.forEach(participantDoc => {
-        const participant = participantDoc.data() || {};
-        const branchKey = normalizeCounterKey(participant.branch);
-        const yearKey = normalizeCounterKey(participant.year);
+      let lastParticipantSnap: admin.firestore.DocumentSnapshot | null = null;
 
-        branchCounts[branchKey] = (branchCounts[branchKey] || 0) + 1;
-        yearCounts[yearKey] = (yearCounts[yearKey] || 0) + 1;
-      });
+      while (true) {
+        let participantsQuery = docSnap.ref
+          .collection("participants")
+          .orderBy(admin.firestore.FieldPath.documentId())
+          .limit(pageSize);
+
+        if (lastParticipantSnap) {
+          participantsQuery = participantsQuery.startAfter(lastParticipantSnap);
+        }
+
+        const participantsSnap = await participantsQuery.get();
+
+        if (participantsSnap.empty) {
+          break;
+        }
+
+        participantCount += participantsSnap.size;
+
+        participantsSnap.forEach(participantDoc => {
+          const participant = participantDoc.data() || {};
+          const branchKey = normalizeCounterKey(participant.branch);
+          const yearKey = normalizeCounterKey(participant.year);
+
+          branchCounts[branchKey] = (branchCounts[branchKey] || 0) + 1;
+          yearCounts[yearKey] = (yearCounts[yearKey] || 0) + 1;
+        });
+
+        lastParticipantSnap = participantsSnap.docs[participantsSnap.docs.length - 1];
+
+        if (participantsSnap.size < pageSize) {
+          break;
+        }
+      }
+
+      const checkedInCount = Number(eventData.stats?.totalCheckedIn || 0);
+      const showUpRatio = participantCount > 0 ? checkedInCount / participantCount : 0;
 
       const updatePayload: Record<string, unknown> = {
         participantCount,
         branchCounts,
         yearCounts,
+        stats: {
+          ...(eventData.stats || {}),
+          totalRegistrations: eventData.stats?.totalRegistrations ?? participantCount,
+          totalCheckedIn: checkedInCount,
+          attendeeCount: checkedInCount,
+          showUpRatio,
+        },
       };
-
-      if (eventData.stats?.totalRegistrations == null) {
-        updatePayload["stats.totalRegistrations"] = participantCount;
-      }
 
       await docSnap.ref.set(updatePayload, { merge: true });
       updated += 1;
+
+      const elapsedMs = Date.now() - eventStartedAt;
+      if (elapsedMs > 5000) {
+        console.warn(
+          `Backfill for event ${docSnap.id} took ${elapsedMs}ms while reading ${participantCount} participants.`
+        );
+      }
     }
 
     const lastDoc = eventSnap.docs[eventSnap.docs.length - 1];

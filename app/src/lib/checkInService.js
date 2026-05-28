@@ -12,6 +12,22 @@ import {
 import { db } from './firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const updateAttendanceAggregates = async (transaction, eventRef, eventSnap, delta) => {
+    const eventData = eventSnap.data() || {};
+    const stats = eventData.stats || {};
+    const totalRegistrations = Number(stats.totalRegistrations ?? eventData.participantCount ?? 0);
+    const currentAttendeeCount = Number(stats.attendeeCount ?? stats.totalCheckedIn ?? 0);
+    const nextAttendeeCount = Math.max(0, currentAttendeeCount + delta);
+    const showUpRatio = totalRegistrations > 0 ? nextAttendeeCount / totalRegistrations : 0;
+
+    transaction.update(eventRef, {
+        'stats.totalCheckedIn': increment(delta),
+        'stats.attendeeCount': nextAttendeeCount,
+        'stats.showUpRatio': showUpRatio,
+        'stats.lastCheckInAt': serverTimestamp(),
+    });
+};
+
 /**
  * Validate a ticket for check-in
  */
@@ -121,10 +137,15 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
 
         await runTransaction(db, async transaction => {
             const ticketRef = doc(db, 'tickets', ticketId);
+            const eventRef = doc(db, 'events', eventId);
             const ticketSnap = await transaction.get(ticketRef);
+            const eventSnap = await transaction.get(eventRef);
 
             if (!ticketSnap.exists()) {
                 throw new Error('Ticket not found');
+            }
+            if (!eventSnap.exists()) {
+                throw new Error('Event not found');
             }
 
             const freshTicket = ticketSnap.data();
@@ -158,10 +179,7 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
                 checkedInBy: organizerId,
             });
 
-            transaction.update(eventRef, {
-                'stats.totalCheckedIn': increment(1),
-                'stats.lastCheckInAt': serverTimestamp(),
-            });
+            await updateAttendanceAggregates(transaction, eventRef, eventSnap, 1);
 
             transaction.set(
                 userRef,
@@ -203,9 +221,9 @@ export const getAttendanceStats = async eventId => {
 
         const stats = eventData.stats || {};
 
-        const totalRegistrations = stats.totalRegistrations || 0;
+        const totalRegistrations = stats.totalRegistrations || eventData.participantCount || 0;
 
-        const totalCheckedIn = stats.totalCheckedIn || 0;
+        const totalCheckedIn = stats.attendeeCount ?? stats.totalCheckedIn ?? 0;
 
         const checkInRate =
             totalRegistrations > 0 ? ((totalCheckedIn / totalRegistrations) * 100).toFixed(1) : 0;
@@ -213,6 +231,8 @@ export const getAttendanceStats = async eventId => {
         return {
             totalRegistrations,
             totalCheckedIn,
+            attendeeCount: totalCheckedIn,
+            showUpRatio: stats.showUpRatio ?? (totalRegistrations > 0 ? totalCheckedIn / totalRegistrations : 0),
 
             checkInRate: Number.parseFloat(checkInRate),
 
@@ -297,6 +317,7 @@ export const getOfflineCheckInCount = async eventId => {
 const syncOfflineCheckInItem = async (item, eventId, organizerId) => {
     const checkInRef = doc(db, 'events', eventId, 'checkIns', item.userId);
     const checkInSnap = await getDoc(checkInRef);
+    const eventRef = doc(db, 'events', eventId);
     if (!checkInSnap.exists()) {
         const offlineCheckedInAt = item.queuedAt
             ? Timestamp.fromDate(new Date(item.queuedAt))
@@ -324,10 +345,19 @@ const syncOfflineCheckInItem = async (item, eventId, organizerId) => {
             }).catch(() => {});
         }
 
-        await updateDoc(doc(db, 'events', eventId), {
-            'stats.totalCheckedIn': increment(1),
-            'stats.lastCheckInAt': serverTimestamp(),
-        }).catch(() => {});
+        try {
+            await runTransaction(db, async transaction => {
+                const eventSnap = await transaction.get(eventRef);
+                if (!eventSnap.exists()) return;
+                await updateAttendanceAggregates(transaction, eventRef, eventSnap, 1);
+            });
+        } catch (_error) {
+            await updateDoc(eventRef, {
+                'stats.totalCheckedIn': increment(1),
+                'stats.attendeeCount': increment(1),
+                'stats.lastCheckInAt': serverTimestamp(),
+            }).catch(() => {});
+        }
 
         const registrationRef = doc(db, 'events', eventId, 'registrations', item.userId);
         await updateDoc(registrationRef, { status: 'attended' }).catch(() => {});
