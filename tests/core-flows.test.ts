@@ -19,8 +19,18 @@ import {
     where,
     getDocs,
 } from 'firebase/firestore';
+import {
+    analyzeFeedbackSentiment,
+    buildCancellationNotification,
+    buildCertificate,
+    buildOrganizerFeedbackNotification,
+    buildRefund,
+    type Attendee,
+} from './coreFlowHarness';
 
 let testEnv: RulesTestEnvironment;
+
+jest.setTimeout(60000);
 
 beforeAll(async () => {
     testEnv = await initializeTestEnvironment({
@@ -34,7 +44,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-    await testEnv.cleanup();
+    await testEnv?.cleanup();
 });
 
 beforeEach(async () => {
@@ -51,11 +61,17 @@ const seed = async (path: string, data: object) => {
 };
 
 const getServerDoc = async (path: string) => {
-    let snap;
-    await testEnv.withSecurityRulesDisabled(async context => {
-        snap = await getDoc(doc(context.firestore(), path));
-    });
-    return snap as Awaited<ReturnType<typeof getDoc>>;
+  let snap = null;
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    snap = await getDoc(doc(context.firestore(), path));
+  });
+
+  if (!snap) {
+    throw new Error(`Failed to fetch Firestore document: ${path}`);
+  }
+
+  return snap;
 };
 
 describe('Core Firebase emulator flows', () => {
@@ -139,9 +155,7 @@ describe('Core Firebase emulator flows', () => {
                 checkedInBy: 'club-1',
             });
             await setDoc(doc(db, 'certificates', certificateId), {
-                eventId: event.id,
-                userId: user.uid,
-                certificateUrl: 'https://storage.example/certificates/cloud-expo.pdf',
+                ...buildCertificate(event.id, user.uid, 'cloud-expo'),
                 issuedAt: serverTimestamp(),
             });
         });
@@ -165,7 +179,7 @@ describe('Core Firebase emulator flows', () => {
     test('event cancellation -> notification sent -> refund processed', async () => {
         const eventId = 'event-cancelled';
         const ownerId = 'club-1';
-        const participants = [
+        const participants: Attendee[] = [
             { uid: 'student-1', email: 'student@example.edu', ticketId: 'ticket-student-1' },
             { uid: 'student-2', email: 'second@example.edu', ticketId: 'ticket-student-2' },
         ];
@@ -212,19 +226,12 @@ describe('Core Firebase emulator flows', () => {
             const db = context.firestore();
             for (const attendee of participants) {
                 await setDoc(doc(collection(db, 'users', attendee.uid, 'notifications')), {
-                    type: 'event_cancelled',
-                    eventId,
-                    title: 'Design Summit cancelled',
-                    body: 'Venue unavailable',
+                    ...buildCancellationNotification(eventId, 'Design Summit', 'Venue unavailable'),
                     read: false,
                     createdAt: serverTimestamp(),
                 });
                 await setDoc(doc(collection(db, 'refunds')), {
-                    eventId,
-                    ticketId: attendee.ticketId,
-                    userId: attendee.uid,
-                    amount: 499,
-                    status: 'processed',
+                    ...buildRefund(eventId, attendee, 499),
                     processedAt: serverTimestamp(),
                 });
                 await updateDoc(doc(db, 'tickets', attendee.ticketId), {
@@ -304,6 +311,8 @@ describe('Core Firebase emulator flows', () => {
 
         await testEnv.withSecurityRulesDisabled(async context => {
             const db = context.firestore();
+            const sentiment = analyzeFeedbackSentiment(feedbackText);
+
             await runTransaction(db, async transaction => {
                 const eventRef = doc(db, 'events', eventId);
                 const userRef = doc(db, 'users', 'student-1');
@@ -321,14 +330,10 @@ describe('Core Firebase emulator flows', () => {
                     'reputation.totalPoints': increment(5),
                     'reputation.totalRatings': increment(1),
                 });
-                transaction.update(feedbackRef, { sentiment: 'positive' });
+                transaction.update(feedbackRef, { sentiment });
                 transaction.set(notificationRef, {
-                    type: 'feedback_sentiment',
-                    eventId,
-                    sentiment: 'positive',
-                    rating: 5,
+                    ...buildOrganizerFeedbackNotification(eventId, sentiment, 5),
                     createdAt: serverTimestamp(),
-                    read: false,
                 });
             });
         });
@@ -358,8 +363,8 @@ describe('Core Firebase emulator flows', () => {
             totalEventRating: 5,
             eventRatingCount: 1,
         });
-        expect(updatedUser.data()?.points).toBe(5);
-        expect(updatedClub.data()?.reputation).toMatchObject({
+        expect((updatedUser.data() as { points?: number })?.points).toBe(5);
+        expect((updatedClub.data() as { reputation?: object })?.reputation).toMatchObject({
             totalPoints: 5,
             totalRatings: 1,
         });

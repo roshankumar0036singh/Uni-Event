@@ -1,9 +1,9 @@
 {
   "scripts": {
     "build": "tsc -p cloud-functions/tsconfig.json",
-    "test:rules": "npx firebase emulators:exec --only firestore \"jest tests/firestore.rules.test.ts --runInBand\"",
-    "test:flows": "npx firebase emulators:exec --only firestore \"jest tests/core-flows.test.ts --runInBand --coverage\"",
-    "test:emulators": "npx firebase emulators:exec --only firestore \"jest tests --runInBand --coverage\""
+    "test:rules": "node --max-old-space-size=4096 ./node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"jest tests/firestore.rules.test.ts --runInBand\"",
+    "test:flows": "node --max-old-space-size=4096 ./node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"jest tests/core-flows.test.ts --runInBand --coverage\"",
+    "test:emulators": "node --max-old-space-size=4096 ./node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"jest tests --runInBand --coverage\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
