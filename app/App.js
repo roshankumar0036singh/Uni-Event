@@ -31,6 +31,7 @@ import EventDetail from './src/screens/EventDetail';
 import EventRegistrationFormScreen from './src/screens/EventRegistrationFormScreen';
 import FormBuilderScreen from './src/screens/FormBuilderScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
+import LocationHeatmapScreen from './src/screens/LocationHeatmapScreen';
 import MyEventsScreen from './src/screens/MyEventsScreen';
 import MyRegisteredEventsScreen from './src/screens/MyRegisteredEventsScreen';
 import ParticipatingEventsScreen from './src/screens/ParticipatingEventsScreen';
@@ -316,6 +317,11 @@ function Navigation() {
                             name="ReportBug"
                             component={ReportBugScreen}
                             options={{ title: 'Report a Bug' }}
+                        />
+                        <Stack.Screen
+                            name="LocationHeatmap"
+                            component={LocationHeatmapScreen}
+                            options={{ title: 'Event Heatmap' }}
                         />
                     </>
                 ) : (
