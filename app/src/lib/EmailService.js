@@ -74,7 +74,7 @@ export const sendBulkAnnouncement = async (participants, subject, message) => {
                 browse_btn_display: 'block',
             }
         });
-        return response.data.successCount;
+        return response.data;
     } catch (error) {
         logger.error('Failed to send bulk announcement:', error);
         throw error;
@@ -101,7 +101,7 @@ export const sendBulkFeedbackRequest = async (participants, eventTitle, eventId)
                 feedback_link: feedbackLink
             }
         });
-        return response.data.successCount;
+        return response.data;
     } catch (error) {
         logger.error('Failed to send bulk feedback request:', error);
         throw error;
@@ -159,7 +159,7 @@ export const sendBulkCertificates = async (participants, eventTitle, date, event
                 browse_btn_display: 'none',
             }
         });
-        return response.data.successCount;
+        return response.data;
     } catch (error) {
         logger.error('Failed to send bulk certificates:', error);
         throw error;

@@ -60,41 +60,7 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
 
     const emailCount = participants.length;
 
-    // 3. Check Rate Limits
-    const db = admin.firestore();
-    const rateLimitRef = db.collection('rate_limits').doc(uid);
-
-    const now = Date.now();
-    const ONE_HOUR_MS = 60 * 60 * 1000;
-
-    await db.runTransaction(async (transaction) => {
-        const doc = await transaction.get(rateLimitRef);
-        let hourlyCount = 0;
-        let windowStart = now;
-
-        if (doc.exists) {
-            const data = doc.data();
-            if (data && now - data.windowStart < ONE_HOUR_MS) {
-                // Still within the current hour window
-                hourlyCount = data.hourlyCount;
-                windowStart = data.windowStart;
-            }
-        }
-
-        if (hourlyCount + emailCount > MAX_EMAILS_PER_HOUR) {
-            throw new functions.https.HttpsError(
-                'resource-exhausted',
-                `Rate limit exceeded. You can only send ${MAX_EMAILS_PER_HOUR} emails per hour. Try again later.`
-            );
-        }
-
-        transaction.set(rateLimitRef, {
-            hourlyCount: hourlyCount + emailCount,
-            windowStart: windowStart,
-        }, { merge: true });
-    });
-
-    // 4. Send Emails via EmailJS REST API
+    // 3. Validate Provider Config before reserving quota
     const EMAILJS_SERVICE_ID = process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID;
     const EMAILJS_PUBLIC_KEY = process.env.EXPO_PUBLIC_EMAILJS_PUBLIC_KEY;
 
@@ -106,8 +72,56 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
         );
     }
 
+    // 4. Check Rate Limits (Rolling Window)
+    const db = admin.firestore();
+    const rateLimitRef = db.collection('rate_limits').doc(uid);
+
+    const now = Date.now();
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+
+    await db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(rateLimitRef);
+        let timestamps: number[] = [];
+
+        if (doc.exists) {
+            const data = doc.data();
+            if (data && Array.isArray(data.timestamps)) {
+                // Prune timestamps older than 1 hour
+                timestamps = data.timestamps.filter((ts: number) => now - ts < ONE_HOUR_MS);
+            }
+        }
+
+        if (timestamps.length + emailCount > MAX_EMAILS_PER_HOUR) {
+            throw new functions.https.HttpsError(
+                'resource-exhausted',
+                `Rate limit exceeded. You can only send ${MAX_EMAILS_PER_HOUR} emails per hour. Try again later.`
+            );
+        }
+
+        const newTimestamps = Array(emailCount).fill(now);
+        timestamps.push(...newTimestamps);
+
+        transaction.set(rateLimitRef, { timestamps }, { merge: true });
+    });
+
+    // 5. Send Emails via EmailJS REST API
     let successCount = 0;
     let failureCount = 0;
+
+    // Create preliminary audit log
+    let auditDocRef: admin.firestore.DocumentReference | null = null;
+    try {
+        auditDocRef = await db.collection('email_audit_logs').add({
+            senderId: uid,
+            templateId: templateId,
+            recipientCount: emailCount,
+            status: 'pending',
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            ip: context.rawRequest ? context.rawRequest.ip : 'unknown'
+        });
+    } catch (auditError) {
+        console.error('Failed to create initial audit log:', auditError);
+    }
 
     const emailPromises = participants.map(async (p) => {
         if (!p.email) {
@@ -151,26 +165,25 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
         }
     });
 
-    await Promise.all(emailPromises);
-
-    // 5. Create Audit Log
+    let finalStatus = 'completed';
     try {
-        await db.collection('email_audit_logs').add({
-            senderId: uid,
-            templateId: templateId,
-            recipientCount: emailCount,
-            successCount,
-            failureCount,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            ip: context.rawRequest ? context.rawRequest.ip : 'unknown'
-        });
-    } catch (auditError) {
-        console.error('Failed to create audit log:', auditError);
-        // We don't fail the request if audit logging fails, but we log the error.
+        await Promise.all(emailPromises);
+    } catch (error) {
+        finalStatus = 'failed';
+        console.error('Bulk email processing encountered an error:', error);
+    } finally {
+        // Update audit log with terminal status
+        if (auditDocRef) {
+            await auditDocRef.update({
+                successCount,
+                failureCount,
+                status: finalStatus
+            }).catch(e => console.error('Failed to update audit log:', e));
+        }
     }
 
     return {
-        success: true,
+        success: failureCount === 0,
         successCount,
         failureCount,
         totalAttempted: emailCount
