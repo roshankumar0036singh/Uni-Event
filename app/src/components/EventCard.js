@@ -34,6 +34,14 @@ import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { safeToggleEventAction } from '../lib/participantService';
 import PropTypes from 'prop-types';
 
+// ─── Module-level profile cache ───────────────────────────────────────────────
+// Declared at file root so the Map is shared across every EventCard instance
+// and survives re-renders for the full lifetime of the app session.
+// Key: Firestore user document ID (ownerId)
+// Value: user document data object { displayName, photoURL, … }
+const profileCache = new Map();
+// ─────────────────────────────────────────────────────────────────────────────
+
 const EventCard = memo(
     ({
         event,
@@ -101,15 +109,37 @@ const EventCard = memo(
             setFlyerLoaded(false);
         }, [event?.detailImageUrl, event?.bannerUrl]);
 
+        // ── Host profile fetch with in-memory memoization cache ───────────────
         useEffect(() => {
-            if (event?.ownerId) {
-                getDoc(doc(db, 'users', event.ownerId)).then(snap => {
-                    if (snap.exists()) {
-                        setHostName(snap.data().displayName || event.organization || 'Club Name');
-                    }
-                });
+            if (!event?.ownerId) return;
+
+            // Cache hit: apply memoized data and short-circuit — no network call
+            if (profileCache.has(event.ownerId)) {
+                const cached = profileCache.get(event.ownerId);
+                setHostName(cached.displayName || event.organization || 'Club Name');
+                return;
             }
+
+            // Cache miss: fetch from Firestore, populate cache, then update state
+            let cancelled = false; // guard against state updates on unmounted cards
+
+            getDoc(doc(db, 'users', event.ownerId)).then(snap => {
+                if (snap.exists()) {
+                    const data = snap.data();
+
+                    // Write into cache before touching state so concurrent cards
+                    // mounting with the same ownerId benefit immediately
+                    profileCache.set(event.ownerId, data);
+
+                    if (!cancelled) {
+                        setHostName(data.displayName || event.organization || 'Club Name');
+                    }
+                }
+            });
+
+            return () => { cancelled = true; };
         }, [event?.ownerId, event?.organization]);
+        // ─────────────────────────────────────────────────────────────────────
 
         // 🚀 Gated same-frame input execution track blocker handler
         const handleRegisterPress = async () => {
