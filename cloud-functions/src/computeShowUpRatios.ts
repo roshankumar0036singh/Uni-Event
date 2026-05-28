@@ -41,7 +41,7 @@ export const computeShowUpRatios = functions.pubsub
         for (const doc of pastEvents.docs) {
             const data = doc.data();
             const rsvps = data.participantCount || 0;
-            const checkedIn = data.stats?.attendeeCount || data.stats?.totalCheckedIn || 0;
+            const checkedIn = data.stats?.attendeeCount ?? data.stats?.totalCheckedIn ?? 0;
             const category = data.category || 'General';
 
             if (rsvps === 0) continue;

@@ -49,9 +49,10 @@ export async function fetchParticipantsOnce(db, eventId) {
         pageSize: 100,
         buildQuery: ({ lastDoc, pageSize }) => {
             const baseQuery = query(participantsRef, orderBy(documentId()), limit(pageSize));
-            return lastDoc ? query(participantsRef, orderBy(documentId()), startAfter(lastDoc), limit(pageSize)) : baseQuery;
+
+            return lastDoc ? query(baseQuery, startAfter(lastDoc)) : baseQuery;
         },
-        onPage: async (docs, pageInfo) => {
+        onPage: docs => {
             const current = registry.get(key);
             if (current?.fetchPromise !== fetchPromise) {
                 return;
@@ -61,9 +62,8 @@ export async function fetchParticipantsOnce(db, eventId) {
                 const data = d.data();
                 nextData.push(data ? { id: d.id, ...data } : { id: d.id });
             });
-
-            current.lastFetched = Date.now();
-            current.lastPageCount = pageInfo.pageCount;
+            // Do not update lastFetched here — wait until all pages complete to avoid
+            // serving stale cache entries while a refresh is still in progress.
         },
     })
         .then(result => {
@@ -73,6 +73,8 @@ export async function fetchParticipantsOnce(db, eventId) {
                 current.fetchPromise = null;
                 current.lastQueryDurationMs = result.durationMs;
                 current.lastQueryWasSlow = result.isSlow;
+                current.lastFetched = Date.now();
+                current.lastPageCount = result.pageCount || current.lastPageCount || 0;
             }
             return current?.data || [];
         })

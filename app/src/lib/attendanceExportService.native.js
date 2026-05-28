@@ -1,17 +1,17 @@
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { Alert } from 'react-native';
 import { collection, limit, orderBy, query, startAfter } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { fetchPagedDocuments } from './firestoreBatchedFetch';
+import {
+    mapCheckInToCsvLine,
+    computeTotalRegistrations,
+    showSlowQueryWarning,
+} from './attendancePagedHelpers';
 
 const REPORT_PAGE_SIZE = 100;
 
-const showSlowQueryWarning = (label, durationMs, totalDocs) => {
-    const message = `${label} took ${durationMs}ms while loading ${totalDocs} attendance records.`;
-    console.warn(message);
-    Alert.alert('Slow attendance query', message);
-};
+// use shared showSlowQueryWarning from helpers
 
 /**
  * Export attendance data as CSV
@@ -35,18 +35,7 @@ export const exportAttendanceCSV = async (eventId, eventTitle) => {
             onPage: async docs => {
                 docs.forEach(doc => {
                     const data = doc.data();
-                    const checkInTime = data.checkedInAt?.toDate
-                        ? data.checkedInAt.toDate().toLocaleString()
-                        : 'N/A';
-
-                    csvContent += `"${String(data.userName || 'N/A').replace(/"/g, '""')}","${String(
-                        data.userEmail || 'N/A',
-                    ).replace(/"/g, '""')}","${String(data.userYear || 'N/A').replace(
-                        /"/g,
-                        '""',
-                    )}","${String(data.userBranch || 'N/A').replace(/"/g, '""')}","${String(
-                        data.ticketId || 'N/A',
-                    ).replace(/"/g, '""')}","${String(checkInTime).replace(/"/g, '""')}"\n`;
+                    csvContent += mapCheckInToCsvLine(data);
                 });
             },
         });
@@ -56,7 +45,11 @@ export const exportAttendanceCSV = async (eventId, eventTitle) => {
         }
 
         if (queryStats.isSlow) {
-            showSlowQueryWarning('Attendance CSV export', queryStats.durationMs, queryStats.totalDocs);
+            showSlowQueryWarning(
+                'Attendance CSV export',
+                queryStats.durationMs,
+                queryStats.totalDocs,
+            );
         }
 
         // Create file
@@ -123,11 +116,15 @@ export const exportAttendancePDF = async (eventId, eventTitle, eventData) => {
         }
 
         if (queryStats.isSlow) {
-            showSlowQueryWarning('Attendance PDF export', queryStats.durationMs, queryStats.totalDocs);
+            showSlowQueryWarning(
+                'Attendance PDF export',
+                queryStats.durationMs,
+                queryStats.totalDocs,
+            );
         }
 
-        // Calculate stats
-        const totalRegistrations = eventData?.stats?.totalRegistrations || eventData?.participantCount || 0;
+        // Calculate stats (prefer denormalized field, nullish fallback)
+        const totalRegistrations = computeTotalRegistrations(eventData);
         const totalCheckedIn = checkIns.length;
         const checkInRate =
             totalRegistrations > 0 ? ((totalCheckedIn / totalRegistrations) * 100).toFixed(1) : 0;

@@ -3,18 +3,18 @@
  * For web, we'll download files directly to the browser
  */
 
-import { Alert } from 'react-native';
 import { collection, limit, orderBy, query, startAfter } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { fetchPagedDocuments } from './firestoreBatchedFetch';
+import {
+    mapCheckInToCsvLine,
+    computeTotalRegistrations,
+    showSlowQueryWarning,
+} from './attendancePagedHelpers';
 
 const REPORT_PAGE_SIZE = 100;
 
-const showSlowQueryWarning = (label, durationMs, totalDocs) => {
-    const message = `${label} took ${durationMs}ms while loading ${totalDocs} attendance records.`;
-    console.warn(message);
-    Alert.alert('Slow attendance query', message);
-};
+// use shared showSlowQueryWarning from helpers
 
 /**
  * Export attendance data as CSV (Web version - direct download)
@@ -38,18 +38,7 @@ export const exportAttendanceCSV = async (eventId, eventTitle) => {
             onPage: async docs => {
                 docs.forEach(doc => {
                     const data = doc.data();
-                    const checkInTime = data.checkedInAt?.toDate
-                        ? data.checkedInAt.toDate().toLocaleString()
-                        : 'N/A';
-
-                    csvContent += `"${String(data.userName || 'N/A').replace(/"/g, '""')}","${String(
-                        data.userEmail || 'N/A',
-                    ).replace(/"/g, '""')}","${String(data.userYear || 'N/A').replace(
-                        /"/g,
-                        '""',
-                    )}","${String(data.userBranch || 'N/A').replace(/"/g, '""')}","${String(
-                        data.ticketId || 'N/A',
-                    ).replace(/"/g, '""')}","${String(checkInTime).replace(/"/g, '""')}"\n`;
+                    csvContent += mapCheckInToCsvLine(data);
                 });
             },
         });
@@ -59,7 +48,11 @@ export const exportAttendanceCSV = async (eventId, eventTitle) => {
         }
 
         if (queryStats.isSlow) {
-            showSlowQueryWarning('Attendance CSV export', queryStats.durationMs, queryStats.totalDocs);
+            showSlowQueryWarning(
+                'Attendance CSV export',
+                queryStats.durationMs,
+                queryStats.totalDocs,
+            );
         }
 
         // Create and download file (Web)
@@ -73,7 +66,7 @@ export const exportAttendanceCSV = async (eventId, eventTitle) => {
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        link.remove();
 
         return {
             success: true,
@@ -119,11 +112,15 @@ export const exportAttendancePDF = async (eventId, eventTitle, eventData) => {
         }
 
         if (queryStats.isSlow) {
-            showSlowQueryWarning('Attendance PDF export', queryStats.durationMs, queryStats.totalDocs);
+            showSlowQueryWarning(
+                'Attendance PDF export',
+                queryStats.durationMs,
+                queryStats.totalDocs,
+            );
         }
 
-        // Calculate stats
-        const totalRegistrations = eventData?.stats?.totalRegistrations || eventData?.participantCount || 0;
+        // Calculate stats (prefer denormalized field, nullish fallback)
+        const totalRegistrations = computeTotalRegistrations(eventData);
         const totalCheckedIn = checkIns.length;
         const checkInRate =
             totalRegistrations > 0 ? ((totalCheckedIn / totalRegistrations) * 100).toFixed(1) : 0;
@@ -288,9 +285,12 @@ export const exportAttendancePDF = async (eventId, eventTitle, eventData) => {
         `;
 
         // Open in new window for printing/saving as PDF
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
+        // Open printable HTML in a new tab using a Blob URL (avoids document.write)
+        const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+        const htmlUrl = URL.createObjectURL(htmlBlob);
+        window.open(htmlUrl, '_blank');
+        // Revoke the object URL shortly after opening
+        setTimeout(() => URL.revokeObjectURL(htmlUrl), 2000);
 
         return {
             success: true,

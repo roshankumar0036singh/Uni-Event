@@ -11,11 +11,12 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { computeTotalRegistrations } from './attendancePagedHelpers';
 
 const updateAttendanceAggregates = async (transaction, eventRef, eventSnap, delta) => {
     const eventData = eventSnap.data() || {};
     const stats = eventData.stats || {};
-    const totalRegistrations = Number(stats.totalRegistrations ?? eventData.participantCount ?? 0);
+    const totalRegistrations = Number(computeTotalRegistrations(eventData));
     const currentAttendeeCount = Number(stats.attendeeCount ?? stats.totalCheckedIn ?? 0);
     const nextAttendeeCount = Math.max(0, currentAttendeeCount + delta);
     const showUpRatio = totalRegistrations > 0 ? nextAttendeeCount / totalRegistrations : 0;
@@ -157,7 +158,6 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
             }
 
             const checkInRef = doc(db, 'events', eventId, 'checkIns', userId);
-            const eventRef = doc(db, 'events', eventId);
             const userRef = doc(db, 'users', userId);
 
             transaction.set(checkInRef, {
@@ -221,7 +221,7 @@ export const getAttendanceStats = async eventId => {
 
         const stats = eventData.stats || {};
 
-        const totalRegistrations = stats.totalRegistrations || eventData.participantCount || 0;
+        const totalRegistrations = Number(computeTotalRegistrations(eventData));
 
         const totalCheckedIn = stats.attendeeCount ?? stats.totalCheckedIn ?? 0;
 
@@ -232,7 +232,9 @@ export const getAttendanceStats = async eventId => {
             totalRegistrations,
             totalCheckedIn,
             attendeeCount: totalCheckedIn,
-            showUpRatio: stats.showUpRatio ?? (totalRegistrations > 0 ? totalCheckedIn / totalRegistrations : 0),
+            showUpRatio:
+                stats.showUpRatio ??
+                (totalRegistrations > 0 ? totalCheckedIn / totalRegistrations : 0),
 
             checkInRate: Number.parseFloat(checkInRate),
 
@@ -351,17 +353,36 @@ const syncOfflineCheckInItem = async (item, eventId, organizerId) => {
                 if (!eventSnap.exists()) return;
                 await updateAttendanceAggregates(transaction, eventRef, eventSnap, 1);
             });
-        } catch (_error) {
-            await updateDoc(eventRef, {
-                'stats.totalCheckedIn': increment(1),
-                'stats.attendeeCount': increment(1),
-                'stats.lastCheckInAt': serverTimestamp(),
-            }).catch(() => {});
+        } catch (txnErr) {
+            console.error('Event aggregates transaction failed, attempting fallback', txnErr);
+            try {
+                await attemptAggregateFallback(eventRef);
+            } catch (fallbackErr) {
+                throw new Error(
+                    `Fallback aggregate update failed: ${fallbackErr?.message || String(fallbackErr)}`,
+                );
+            }
         }
 
         const registrationRef = doc(db, 'events', eventId, 'registrations', item.userId);
         await updateDoc(registrationRef, { status: 'attended' }).catch(() => {});
     }
+};
+
+// Helper: best-effort fallback to update aggregates and recompute showUpRatio
+const attemptAggregateFallback = async eventRef => {
+    await updateDoc(eventRef, {
+        'stats.totalCheckedIn': increment(1),
+        'stats.attendeeCount': increment(1),
+        'stats.lastCheckInAt': serverTimestamp(),
+    });
+
+    const refreshed = await getDoc(eventRef);
+    const ed = refreshed.exists() ? refreshed.data() : {};
+    const totalRegs = Number(computeTotalRegistrations(ed));
+    const attendeeCount = Number(ed?.stats?.attendeeCount ?? ed?.stats?.totalCheckedIn ?? 0);
+    const newShowUpRatio = totalRegs > 0 ? attendeeCount / totalRegs : 0;
+    await updateDoc(eventRef, { 'stats.showUpRatio': newShowUpRatio });
 };
 
 export const syncOfflineCheckIns = async (eventId, organizerId) => {

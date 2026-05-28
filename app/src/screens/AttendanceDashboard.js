@@ -7,7 +7,6 @@ import {
     query,
     getDocs,
     doc,
-    getDoc,
     where,
     updateDoc,
     limit,
@@ -41,6 +40,7 @@ import { sendBulkAnnouncement, sendBulkFeedbackRequest } from '../lib/EmailServi
 import PropTypes from 'prop-types';
 import { COLLECTIONS, getEventCheckInsPath, getEventFeedbackPath } from '../lib/firestorePaths';
 import { fetchPagedDocuments } from '../lib/firestoreBatchedFetch';
+import { showSlowQueryWarning, formatCsvCell } from '../lib/attendancePagedHelpers';
 
 const CHECK_IN_PAGE_SIZE = 100;
 const PEAK_BUCKET_LABELS = [
@@ -189,11 +189,14 @@ export default function AttendanceDashboard({ route, navigation }) {
         }
     };
 
-    // Fetch Event Data to check for Custom Form
+    // Listen to Event document so denormalized stats stay live
     useEffect(() => {
-        getDoc(doc(db, COLLECTIONS.EVENTS, eventId)).then(snap => {
+        const eventRef = doc(db, COLLECTIONS.EVENTS, eventId);
+        const unsub = onSnapshot(eventRef, snap => {
             if (snap.exists()) setEventData(snap.data());
         });
+
+        return () => unsub();
     }, [eventId]);
 
     useFocusEffect(
@@ -230,12 +233,12 @@ export default function AttendanceDashboard({ route, navigation }) {
 
     // Live Participant Count
     const [totalRegistrations, setTotalRegistrations] = useState(0);
-    const [checkInCursor, setCheckInCursor] = useState(null);
+    
+    const [paginationCursor, setPaginationCursor] = useState(null);
     const [hasMoreCheckIns, setHasMoreCheckIns] = useState(true);
     const [loadingMoreCheckIns, setLoadingMoreCheckIns] = useState(false);
 
-    const totalCheckedIn =
-        eventData?.stats?.attendeeCount ?? eventData?.stats?.totalCheckedIn ?? 0;
+    const totalCheckedIn = eventData?.stats?.attendeeCount ?? eventData?.stats?.totalCheckedIn ?? 0;
 
     const checkIns = useMemo(() => {
         const merged = [];
@@ -253,7 +256,7 @@ export default function AttendanceDashboard({ route, navigation }) {
     const visibleCheckInCount = checkIns.length;
 
     const handleLoadMoreCheckIns = async () => {
-        if (!hasMoreCheckIns || !checkInCursor || loadingMoreCheckIns) return;
+        if (!hasMoreCheckIns || !paginationCursor || loadingMoreCheckIns) return;
 
         setLoadingMoreCheckIns(true);
 
@@ -261,7 +264,7 @@ export default function AttendanceDashboard({ route, navigation }) {
             const nextQuery = query(
                 collection(db, getEventCheckInsPath(eventId)),
                 orderBy('checkedInAt', 'desc'),
-                startAfter(checkInCursor),
+                startAfter(paginationCursor),
                 limit(CHECK_IN_PAGE_SIZE),
             );
 
@@ -278,7 +281,7 @@ export default function AttendanceDashboard({ route, navigation }) {
             });
 
             setOlderCheckIns(current => [...current, ...nextPage]);
-            setCheckInCursor(snapshot.docs[snapshot.docs.length - 1] || null);
+            setPaginationCursor(snapshot.docs.at(-1) ?? null);
             setHasMoreCheckIns(snapshot.size === CHECK_IN_PAGE_SIZE);
         } catch (error) {
             console.error('Failed to load more check-ins', error);
@@ -309,12 +312,14 @@ export default function AttendanceDashboard({ route, navigation }) {
     // Real-time check-ins listener for the first page only.
     useEffect(() => {
         let mounted = true;
+
         const loadStartedAt = Date.now();
         let warnedAboutSlowLoad = false;
 
         setLiveCheckIns([]);
         setOlderCheckIns([]);
-        setCheckInCursor(null);
+        setLivePageCursor(null);
+        setPaginationCursor(null);
         setHasMoreCheckIns(true);
         setLoading(true);
 
@@ -344,7 +349,10 @@ export default function AttendanceDashboard({ route, navigation }) {
             });
 
             setLiveCheckIns(firstPage);
-            setCheckInCursor(snapshot.docs[snapshot.docs.length - 1] || null);
+            const lastDoc = snapshot.docs.at(-1) ?? null;
+            setLivePageCursor(lastDoc);
+            // only initialize the pagination cursor if it's not set yet
+            setPaginationCursor(curr => curr || lastDoc);
             setHasMoreCheckIns(snapshot.size === CHECK_IN_PAGE_SIZE);
             setLoading(false);
         });
@@ -409,9 +417,10 @@ export default function AttendanceDashboard({ route, navigation }) {
             setPeakBuckets(nextPeakBuckets);
 
             if (queryStats.isSlow) {
-                Alert.alert(
-                    'Slow attendance load',
-                    `Aggregating attendance insights took ${queryStats.durationMs}ms for ${queryStats.totalDocs} records.`,
+                showSlowQueryWarning(
+                    'Aggregating attendance insights',
+                    queryStats.durationMs,
+                    queryStats.totalDocs,
                 );
             }
         };
@@ -466,7 +475,7 @@ export default function AttendanceDashboard({ route, navigation }) {
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
+            link.remove();
         } else {
             // Use standard share on mobile
             await Share.share({ message: csvContent, title: fileName });
@@ -538,11 +547,14 @@ export default function AttendanceDashboard({ route, navigation }) {
             let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
             snapshot.forEach(doc => {
                 const d = doc.data();
-                // Fix CSV escaping and formatting
-                const safeFeedback = (d.feedback || '').replace(/"/g, '""');
                 const dateStr = d.createdAt ? formatEventDate(d.createdAt) : '-';
-
-                const line = `"${d.userName || 'Anonymous'}","${d.eventRating || '-'}","${d.clubRating || '-'}","${safeFeedback}","${dateStr}"\n`;
+                const line = [
+                    formatCsvCell(d.userName || 'Anonymous'),
+                    formatCsvCell(d.eventRating ?? '-'),
+                    formatCsvCell(d.clubRating ?? '-'),
+                    formatCsvCell(d.feedback || ''),
+                    formatCsvCell(dateStr),
+                ].join(',') + '\n';
                 csv += line;
             });
 
@@ -585,13 +597,14 @@ export default function AttendanceDashboard({ route, navigation }) {
                 const d = doc.data();
                 const responseMap = d.responses || {};
 
-                const responseValues = schema.map(f => {
-                    let val = responseMap[f.id] || '';
-                    val = String(val).replace(/"/g, '""'); // Escape quotes
-                    return `"${val}"`;
-                });
+                const responseValues = schema.map(f => formatCsvCell(responseMap[f.id] ?? ''));
 
-                const line = `"${d.userName || 'Anonymous'}","${d.userEmail || '-'}","${responseValues.join('","')}","${d.timestamp}"\n`;
+                const line = [
+                    formatCsvCell(d.userName || 'Anonymous'),
+                    formatCsvCell(d.userEmail || '-'),
+                    ...responseValues,
+                    formatCsvCell(d.timestamp ?? ''),
+                ].join(',') + '\n';
                 csv += line;
             });
 
@@ -746,7 +759,10 @@ export default function AttendanceDashboard({ route, navigation }) {
                                     disabled={loadingMoreCheckIns}
                                 >
                                     {loadingMoreCheckIns ? (
-                                        <ActivityIndicator size="small" color={theme.colors.primary} />
+                                        <ActivityIndicator
+                                            size="small"
+                                            color={theme.colors.primary}
+                                        />
                                     ) : (
                                         <Text
                                             style={[
