@@ -251,6 +251,10 @@ npm run build
 
 ## Troubleshooting
 
+> [!TIP]
+> For a comprehensive, production-grade diagnostic guide covering startup crashes, push notification failures, database security rules, and functions latency, please refer to our dedicated **[Troubleshooting Guide](./TROUBLESHOOTING.md)**.
+
+
 ### Issue: "Firebase Emulators not starting"
 
 **Solution**:

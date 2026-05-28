@@ -1,4 +1,4 @@
-﻿import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -34,14 +34,11 @@ import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { safeToggleEventAction } from '../lib/participantService';
 import PropTypes from 'prop-types';
 
-// ΓöÇΓöÇΓöÇ Module-level profile cache ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-// Declared at file root so the Map is shared across every EventCard instance
-// and survives re-renders for the full lifetime of the app session.
-// Key: Firestore user document ID (ownerId)
-// Value: user document data object { displayName, photoURL, ΓÇª }
+// Module-level profile cache registry
+// profileCache: resolved data keyed by ownerId
+// profileRequestCache: in-flight promises to prevent duplicate concurrent reads
 const profileCache = new Map();
 const profileRequestCache = new Map();
-// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 const EventCard = memo(
     ({
@@ -62,9 +59,9 @@ const EventCard = memo(
         const [flyerLoaded, setFlyerLoaded] = useState(false);
         const [lookingForBuddy, setLookingForBuddy] = useState(false);
 
-        // ≡ƒöÆ UI Loading State
+        // UI Loading State
         const [isProcessing, setIsProcessing] = useState(false);
-        // ≡ƒöÆ Synchronous lock reference to block multi-taps inside the same render frame
+        // Synchronous lock reference to block multi-taps inside the same render frame
         const isProcessingRef = useRef(false);
 
         useEffect(() => {
@@ -110,39 +107,47 @@ const EventCard = memo(
             setFlyerLoaded(false);
         }, [event?.detailImageUrl, event?.bannerUrl]);
 
-        // ─────────────────────────────────────────────────────────────────────
         useEffect(() => {
             if (!event?.ownerId) return;
 
-            // Cache hit: apply memoized data and short-circuit ΓÇö no network call
+            // Reset immediately to prevent stale FlashList cells showing previous host
+            setHostName(event?.organization || 'Club Name');
+
+            // Cache hit: apply memoized data and short-circuit, no network call
             if (profileCache.has(event.ownerId)) {
                 const cached = profileCache.get(event.ownerId);
                 setHostName(cached.displayName || event.organization || 'Club Name');
                 return;
             }
 
-            // Cache miss: fetch from Firestore, populate cache, then update state
-            let cancelled = false; // guard against state updates on unmounted cards
+            let cancelled = false;
 
-            getDoc(doc(db, 'users', event.ownerId)).then(snap => {
+            // In-flight cache: reuse existing promise if another card already fired
+            // getDoc for this ownerId, preventing duplicate concurrent Firestore reads
+            if (!profileRequestCache.has(event.ownerId)) {
+                profileRequestCache.set(
+                    event.ownerId,
+                    getDoc(doc(db, 'users', event.ownerId)),
+                );
+            }
+
+            profileRequestCache.get(event.ownerId).then(snap => {
                 if (snap.exists()) {
                     const data = snap.data();
-
-                    // Write into cache before touching state so concurrent cards
-                    // mounting with the same ownerId benefit immediately
                     profileCache.set(event.ownerId, data);
-
+                    profileRequestCache.delete(event.ownerId);
                     if (!cancelled) {
                         setHostName(data.displayName || event.organization || 'Club Name');
                     }
                 }
+            }).catch(() => {
+                profileRequestCache.delete(event.ownerId);
             });
 
             return () => { cancelled = true; };
         }, [event?.ownerId, event?.organization]);
-        // ─────────────────────────────────────────────────────────────────────
 
-        // ≡ƒÜÇ Gated same-frame input execution track blocker handler
+        // Gated same-frame input execution track blocker handler
         const handleRegisterPress = async () => {
             if (isProcessingRef.current || !user || !event?.id) return;
 
@@ -156,7 +161,7 @@ const EventCard = memo(
                 console.error('Spam button trigger rejected processing error:', error);
                 Alert.alert(
                     'Registration Failed',
-                    'Unable to register for this event. Please verify your internet connection and try again.'
+                    'Unable to register for this event. Please verify your internet connection and try again.',
                 );
             } finally {
                 isProcessingRef.current = false;
@@ -186,7 +191,6 @@ const EventCard = memo(
                 activeOpacity={0.9}
                 onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
             >
-                {/* 1. MAIN BANNER IMAGE (Top Layer) */}
                 <View style={[styles.bannerContainer, isRecommended && { height: 140 }]}>
                     {!bannerLoaded && (
                         <ShimmerItem
@@ -211,14 +215,12 @@ const EventCard = memo(
                         colors={['transparent', 'rgba(0,0,0,0.4)']}
                         style={StyleSheet.absoluteFillObject}
                     />
-                    {/* Category Tag on Banner */}
                     <View style={[styles.categoryBadge, { backgroundColor: theme.colors.surface }]}>
                         <Text style={[styles.categoryText, { color: theme.colors.text }]}>
                             {event.category}
                         </Text>
                     </View>
 
-                    {/* Live / Online Badge */}
                     {isLive && (
                         <View style={[styles.onlineBadge, { backgroundColor: theme.colors.error }]}>
                             <Ionicons name="radio-button-on" size={12} color="#fff" />
@@ -234,7 +236,6 @@ const EventCard = memo(
                         </View>
                     )}
 
-                    {/* SUSPENDED Badge */}
                     {event.status === 'suspended' && (
                         <View style={[styles.onlineBadge, { backgroundColor: '#FF4444' }]}>
                             <Ionicons name="alert-circle" size={12} color="#fff" />
@@ -243,9 +244,7 @@ const EventCard = memo(
                     )}
                 </View>
 
-                {/* 2. CONTENT CONTAINER */}
                 <View style={styles.contentContainer}>
-                    {/* FLYER IMAGE (Overlapping) */}
                     <View
                         style={[
                             styles.flyerContainer,
@@ -263,7 +262,6 @@ const EventCard = memo(
                         />
                     </View>
 
-                    {/* HEADER INFO (Right of Flyer) */}
                     <View style={styles.headerInfo}>
                         <Text
                             style={[styles.title, { color: theme.colors.text }]}
@@ -276,9 +274,7 @@ const EventCard = memo(
                         </Text>
                     </View>
 
-                    {/* DETAILS ROW (Below Flyer) */}
                     <View style={styles.detailsRow}>
-                        {/* Date & Location */}
                         <View style={styles.infoBlock}>
                             <View style={styles.infoItem}>
                                 <Ionicons
@@ -289,7 +285,7 @@ const EventCard = memo(
                                 <Text
                                     style={[styles.infoText, { color: theme.colors.textSecondary }]}
                                 >
-                                    {formatEventDate(event.startAt)} ΓÇó{' '}
+                                    {formatEventDate(event.startAt)} {' '}
                                     {formatEventTime(event.startAt)}
                                 </Text>
                             </View>
@@ -319,7 +315,6 @@ const EventCard = memo(
                                 </Text>
                             </View>
 
-                            {/* Top Pick Badge */}
                             {isRecommended && (
                                 <View
                                     style={{
@@ -344,7 +339,6 @@ const EventCard = memo(
                                 </View>
                             )}
 
-                            {/* Early Bird Badge */}
                             {isEarlyBird && !isRegistered && (
                                 <View
                                     style={{
@@ -361,7 +355,7 @@ const EventCard = memo(
                                         borderColor: '#EAB308',
                                     }}
                                 >
-                                    <Text style={{ fontSize: 10, lineHeight: 14 }}>≡ƒÉª</Text>
+                                    <Text style={{ fontSize: 10, lineHeight: 14 }}>🐦</Text>
                                     <Text
                                         style={{
                                             fontSize: 10,
@@ -377,17 +371,15 @@ const EventCard = memo(
                             )}
                         </View>
 
-                        {/* Price Badge */}
                         <View
                             style={[styles.priceBadge, { backgroundColor: theme.colors.secondary }]}
                         >
                             <Text style={styles.priceText}>
-                                {event.isPaid ? `Γé╣${currentPrice}` : 'FREE'}
+                                {event.isPaid ? `\u20B9${currentPrice}` : 'FREE'}
                             </Text>
                         </View>
                     </View>
 
-                    {/* FOOTER ACTION */}
                     {showRegisterButton &&
                         (isRegistered ? (
                             <View style={styles.registeredRow}>
@@ -438,7 +430,9 @@ const EventCard = memo(
                                 style={[
                                     styles.registerBtn,
                                     {
-                                        backgroundColor: isProcessing ? theme.colors.border : theme.colors.primary,
+                                        backgroundColor: isProcessing
+                                            ? theme.colors.border
+                                            : theme.colors.primary,
                                         ...theme.shadows.default,
                                     },
                                 ]}

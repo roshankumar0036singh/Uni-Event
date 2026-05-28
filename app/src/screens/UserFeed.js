@@ -146,11 +146,9 @@ export default function UserFeed() {
                 });
                 setEvents(list);
                 setLoading(false);
+                setRefreshing(false);
             },
-            error => {
-                console.error('Error fetching events: ', error);
-                setLoading(false);
-            },
+            [user, activeFilter],
         );
 
         return () => unsubscribe();

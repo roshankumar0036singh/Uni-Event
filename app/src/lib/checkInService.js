@@ -76,42 +76,6 @@ export const validateTicket = async (ticketId, eventId) => {
 };
 
 /**
- * Safe location helper
- */
-const getLocation = async () => {
-    try {
-        return await new Promise(resolve => {
-            navigator.geolocation.getCurrentPosition(
-                position => {
-                    resolve({
-                        latitude: position.coords.latitude,
-
-                        longitude: position.coords.longitude,
-                    });
-                },
-                () => {
-                    resolve({
-                        latitude: null,
-                        longitude: null,
-                    });
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 5000,
-                    maximumAge: 0,
-                },
-            );
-        });
-    } catch (error) {
-        console.error('Location error:', error);
-        return {
-            latitude: null,
-            longitude: null,
-        };
-    }
-};
-
-/**
  * Check in an attendee
  */
 export const checkInAttendee = async (ticketData, eventId, organizerId, organizerName) => {

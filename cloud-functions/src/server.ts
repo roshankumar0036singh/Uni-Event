@@ -139,20 +139,6 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, async (req: express.Re
       return;
     }
 
-    // const { sendDailyDigest } = require('./dailyDigest'); // Unused
-
-    // Since sendDailyDigest is an onCall, we can reuse logic or extract logic.
-    // But onCall expects (data, context).
-    // Let's just run logic here or duplicate/extract.
-    // Actually, better to import the Logic function if I separated it.
-    // But since I wrote it as `functions.https.onCall`, it's not directly callable as a plain JS function easily without mock.
-
-    // Let's rewrite dailyDigest to be a shared function or just call it if it was separate.
-    // For simplicity in this structure, I will copy the logic or simpler: use the firebase-admin directly here 
-    // OR better: Invoke the function? No.
-
-    // I will implement the logic directly here for the API endpoint to ensure it works smoothly with Express req/res.
-
     const db = admin.firestore();
     const today = new Date();
     today.setHours(0, 0, 0, 0);

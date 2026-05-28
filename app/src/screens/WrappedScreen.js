@@ -90,13 +90,13 @@ export default function WrappedScreen({ navigation }) {
                     monthCount[month] = (monthCount[month] || 0) + 1;
                 }
             });
-            const activeMonthIndex = Object.keys(monthCount).sort(
+            const activeMonthKeys = Object.keys(monthCount).sort(
                 (a, b) => monthCount[b] - monthCount[a],
-            )[0];
+            );
             const activeMonth =
-                activeMonthIndex === undefined
-                    ? 'N/A'
-                    : MONTH_NAMES[Number.parseInt(activeMonthIndex, 10)];
+                activeMonthKeys.length > 0
+                    ? MONTH_NAMES[Number.parseInt(activeMonthKeys[0], 10)]
+                    : 'N/A';
 
             // Favorite category
             const catCount = {};
