@@ -25,6 +25,7 @@ import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
 import { extractTags } from '../lib/tagExtractor';
 import { predictAttendance } from '../lib/capacityPredictor';
+import { enforceRateLimit } from '../lib/rateLimiter';
 import PropTypes from 'prop-types';
 
 let MapView = null;
@@ -290,9 +291,29 @@ export default function CreateEvent({ navigation, route }) {
             };
 
             if (isEditMode) {
+                try {
+                    await enforceRateLimit(false);
+                } catch (rateLimitErr) {
+                    if (rateLimitErr.status === 429) {
+                        Alert.alert('Too Many Requests', rateLimitErr.message);
+                        setLoading(false);
+                        return;
+                    }
+                    throw rateLimitErr;
+                }
                 await updateDoc(doc(db, 'events', event.id), eventData);
                 Alert.alert('Success', 'Event Updated!');
             } else {
+                try {
+                    await enforceRateLimit(true);
+                } catch (rateLimitErr) {
+                    if (rateLimitErr.status === 429) {
+                        Alert.alert('Too Many Requests', rateLimitErr.message);
+                        setLoading(false);
+                        return;
+                    }
+                    throw rateLimitErr;
+                }
                 await addDoc(collection(db, 'events'), {
                     ...eventData,
                     participantCount: 0,

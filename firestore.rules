@@ -1,12 +1,35 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper to fetch user rate limit state
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    // Enforce max 10 writes per user per minute (using request.time)
+    function checkWriteRate(userId) {
+      let userData = getUserData(userId);
+      return userData.role == 'admin' ||
+             !('lastWriteAt' in userData) ||
+             (request.time.toMillis() - userData.lastWriteAt.toMillis() > 60000) ||
+             userData.writeCountMinute <= 10;
+    }
+
+    // Enforce max 5 event creations per user per day
+    function checkEventDailyRate(userId) {
+      let userData = getUserData(userId);
+      return userData.role == 'admin' ||
+             !('lastEventDay' in userData) ||
+             userData.lastEventDay != request.time.year() * 10000 + request.time.month() * 100 + request.time.day() ||
+             userData.eventCountDay <= 5;
+    }
+
     match /users/{userId} {
       allow create: if request.auth != null && request.auth.uid == userId && !("role" in request.resource.data);
       allow read: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && (
         request.auth.token.admin == true || 
-        (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+        (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) && checkWriteRate(userId))
       );
     }
     match /clubs/{clubId} {
@@ -16,8 +39,14 @@ service cloud.firestore {
     }
     match /events/{eventId} {
       allow read: if true;
-      allow create: if request.auth != null && (request.auth.token.admin == true || request.auth.token.club == true);
-      allow update, delete: if request.auth != null && (request.auth.token.admin == true || request.auth.uid == resource.data.ownerId);
+      allow create: if request.auth != null && (
+        request.auth.token.admin == true || 
+        (request.auth.token.club == true && checkWriteRate(request.auth.uid) && checkEventDailyRate(request.auth.uid))
+      );
+      allow update, delete: if request.auth != null && (
+        request.auth.token.admin == true || 
+        (request.auth.uid == resource.data.ownerId && checkWriteRate(request.auth.uid))
+      );
 
       match /participants/{participantId} {
         allow read: if request.auth != null && (
@@ -70,7 +99,7 @@ service cloud.firestore {
       }
     }
     match /reminders/{rid} {
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId && checkWriteRate(request.auth.uid);
       allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
     match /admin/{doc} {
@@ -78,7 +107,8 @@ service cloud.firestore {
     }
     match /feedback/{docId} {
       allow create: if request.auth != null
-                    && request.resource.data.userId == request.auth.uid;
+                    && request.resource.data.userId == request.auth.uid
+                    && checkWriteRate(request.auth.uid);
 
       allow read: if request.auth != null
                   && (resource.data.userId == request.auth.uid
