@@ -125,26 +125,28 @@ const EventCard = memo(
             // In-flight cache: reuse existing promise if another card already fired
             // getDoc for this ownerId, preventing duplicate concurrent Firestore reads
             if (!profileRequestCache.has(event.ownerId)) {
-                profileRequestCache.set(
-                    event.ownerId,
-                    getDoc(doc(db, 'users', event.ownerId)),
-                );
+                profileRequestCache.set(event.ownerId, getDoc(doc(db, 'users', event.ownerId)));
             }
 
-            profileRequestCache.get(event.ownerId).then(snap => {
-                if (snap.exists()) {
-                    const data = snap.data();
-                    profileCache.set(event.ownerId, data);
-                    profileRequestCache.delete(event.ownerId);
-                    if (!cancelled) {
-                        setHostName(data.displayName || event.organization || 'Club Name');
+            profileRequestCache
+                .get(event.ownerId)
+                .then(snap => {
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        profileCache.set(event.ownerId, data);
+                        profileRequestCache.delete(event.ownerId);
+                        if (!cancelled) {
+                            setHostName(data.displayName || event.organization || 'Club Name');
+                        }
                     }
-                }
-            }).catch(() => {
-                profileRequestCache.delete(event.ownerId);
-            });
+                })
+                .catch(() => {
+                    profileRequestCache.delete(event.ownerId);
+                });
 
-            return () => { cancelled = true; };
+            return () => {
+                cancelled = true;
+            };
         }, [event?.ownerId, event?.organization]);
 
         // Gated same-frame input execution track blocker handler
@@ -285,7 +287,7 @@ const EventCard = memo(
                                 <Text
                                     style={[styles.infoText, { color: theme.colors.textSecondary }]}
                                 >
-                                    {formatEventDate(event.startAt)} {' '}
+                                    {formatEventDate(event.startAt)}{' '}
                                     {formatEventTime(event.startAt)}
                                 </Text>
                             </View>
@@ -637,4 +639,3 @@ EventCard.propTypes = {
 };
 
 export default EventCard;
-
