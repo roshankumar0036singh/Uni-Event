@@ -98,7 +98,7 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
             );
         }
 
-        const newTimestamps = Array(emailCount).fill(now);
+        const newTimestamps = new Array(emailCount).fill(now);
         timestamps.push(...newTimestamps);
 
         transaction.set(rateLimitRef, { timestamps }, { merge: true });
@@ -139,7 +139,7 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
                 subject: subject,
                 message: message,
                 ...templateData,
-                ...(p.templateData || {})
+                ...p.templateData
             },
         };
 
