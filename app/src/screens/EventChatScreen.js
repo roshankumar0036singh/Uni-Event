@@ -36,6 +36,8 @@ export default function EventChatScreen({ route, navigation }) {
     const [inputText, setInputText] = useState('');
     const [sending, setSending] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [hasAccess, setHasAccess] = useState(false);
+    const [checkingAccess, setCheckingAccess] = useState(true);
 
     const emojis = ['👍', '❤️', '😂', '😮', '😢', '😡', '🔥', '🎉', '👋', '🙏', '💯', '👀'];
 
@@ -47,41 +49,67 @@ export default function EventChatScreen({ route, navigation }) {
     const [isOrganizer, setIsOrganizer] = useState(false);
 
     useEffect(() => {
-        // Check organizer status
-        const checkOwner = async () => {
+        let unsubscribeMessages;
+
+        const checkAccessAndSubscribe = async () => {
             if (!user?.uid) {
-                setIsOrganizer(false);
+                setHasAccess(false);
+                setCheckingAccess(false);
                 return;
             }
-            const eventDoc = await getDoc(doc(db, 'events', eventId));
-            if (eventDoc.exists() && eventDoc.data().ownerId === user.uid) {
-                setIsOrganizer(true);
-            } else {
-                setIsOrganizer(false);
+
+            try {
+                setCheckingAccess(true);
+
+                const eventDoc = await getDoc(doc(db, 'events', eventId));
+                const isOwner = eventDoc.exists() && eventDoc.data().ownerId === user.uid;
+                const isAdminOrClub = role === 'admin' || role === 'club';
+
+                const participantDoc = await getDoc(
+                    doc(db, 'events', eventId, 'participants', user.uid),
+                );
+
+                const allowed = participantDoc.exists() || isOwner || isAdminOrClub;
+
+                setIsOrganizer(isOwner);
+                setHasAccess(allowed);
+
+                if (!allowed) {
+                    setMessages([]);
+                    return;
+                }
+
+                const q = query(
+                    collection(db, 'events', eventId, 'messages'),
+                    orderBy('createdAt', 'desc'),
+                );
+
+                unsubscribeMessages = onSnapshot(q, snapshot => {
+                    setMessages(
+                        snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data(),
+                        })),
+                    );
+                });
+            } catch (error) {
+                console.error('Access check failed', error);
+                setHasAccess(false);
+                setMessages([]);
+            } finally {
+                setCheckingAccess(false);
             }
         };
-        checkOwner();
 
-        // Subscribe to messages
-        const q = query(
-            collection(db, 'events', eventId, 'messages'),
-            orderBy('createdAt', 'desc'),
-        );
+        checkAccessAndSubscribe();
 
-        const unsubscribe = onSnapshot(q, snapshot => {
-            setMessages(
-                snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                })),
-            );
-        });
-
-        return () => unsubscribe();
-    }, [eventId, user?.uid]);
+        return () => {
+            if (unsubscribeMessages) unsubscribeMessages();
+        };
+    }, [eventId, user?.uid, role]);
 
     const handleSend = async () => {
-        if (!inputText.trim()) return;
+        if (!inputText.trim() || !user?.uid || !hasAccess) return;
         setSending(true);
         try {
             await addDoc(collection(db, 'events', eventId, 'messages'), {
@@ -164,6 +192,42 @@ export default function EventChatScreen({ route, navigation }) {
             </View>
         );
     };
+
+    if (checkingAccess) {
+        return (
+            <SafeAreaView
+                style={[styles.centerContainer, { backgroundColor: theme.colors.background }]}
+            >
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={[styles.accessText, { color: theme.colors.textSecondary }]}>
+                    Checking chat access...
+                </Text>
+            </SafeAreaView>
+        );
+    }
+
+    if (!hasAccess) {
+        return (
+            <SafeAreaView
+                style={[styles.centerContainer, { backgroundColor: theme.colors.background }]}
+            >
+                <Ionicons name="lock-closed" size={56} color={theme.colors.textSecondary} />
+                <Text style={[styles.accessTitle, { color: theme.colors.text }]}>
+                    Chat Access Restricted
+                </Text>
+                <Text style={[styles.accessText, { color: theme.colors.textSecondary }]}>
+                    You must register for this event to access the chat.
+                </Text>
+
+                <TouchableOpacity
+                    style={[styles.backAccessBtn, { backgroundColor: theme.colors.primary }]}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Text style={styles.backAccessText}>Go Back</Text>
+                </TouchableOpacity>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView
@@ -282,6 +346,34 @@ export default function EventChatScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+    centerContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    accessTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginTop: 16,
+        textAlign: 'center',
+    },
+    accessText: {
+        fontSize: 14,
+        marginTop: 8,
+        textAlign: 'center',
+        lineHeight: 20,
+    },
+    backAccessBtn: {
+        marginTop: 20,
+        paddingHorizontal: 22,
+        paddingVertical: 12,
+        borderRadius: 10,
+    },
+    backAccessText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
     container: { flex: 1 },
     header: {
         flexDirection: 'row',
