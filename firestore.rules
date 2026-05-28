@@ -1,6 +1,57 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // =========================================================================
+    // VALIDATION HELPER FUNCTIONS
+    // =========================================================================
+
+    function isValidEventTitle(data) {
+      return !('title' in data) || (data.title is string && data.title.size() >= 3 && data.title.size() <= 200);
+    }
+
+    function isValidEventCapacity(data) {
+      return !('capacity' in data) || (data.capacity is int && data.capacity > 0);
+    }
+
+    function isValidEventDate(data) {
+      return !('date' in data) || (data.date is timestamp && data.date > request.time);
+    }
+
+    function validateEventShape(data) {
+      return isValidEventTitle(data) && isValidEventCapacity(data) && isValidEventDate(data);
+    }
+
+    function validateAttendanceStatus(data) {
+      return !('status' in data) || (data.status in ['rsvp', 'checked_in', 'cancelled']);
+    }
+
+    // =========================================================================
+    // AUTH & SAFETY HELPER FUNCTIONS
+    // =========================================================================
+    
+    function isAdmin() {
+      return request.auth != null && 'admin' in request.auth.token && request.auth.token.admin == true;
+    }
+    
+    function isClub() {
+      return request.auth != null && 'club' in request.auth.token && request.auth.token.club == true;
+    }
+
+    function isEventOwner(database, eventId) {
+      return exists(/databases/$(database)/documents/events/$(eventId)) 
+          && ('ownerId' in get(/databases/$(database)/documents/events/$(eventId)).data)
+          && request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId;
+    }
+
+    function isParticipant(database, eventId) {
+      return exists(/databases/$(database)/documents/events/$(eventId)/participants/$(request.auth.uid));
+    }
+
+    // =========================================================================
+    // RATE LIMITING HELPER FUNCTIONS
+    // =========================================================================
+
     // Helper to fetch user rate limit state
     function getUserData(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data;
@@ -24,98 +75,174 @@ service cloud.firestore {
              userData.eventCountDay <= 5;
     }
 
+    // =========================================================================
+    // ROOT-LEVEL COLLECTIONS
+    // =========================================================================
+
     match /users/{userId} {
       allow create: if request.auth != null && request.auth.uid == userId && !("role" in request.resource.data);
       allow read: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && (
-        request.auth.token.admin == true || 
+        isAdmin() || 
         (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) && checkWriteRate(userId))
       );
     }
+    
     match /clubs/{clubId} {
       allow read: if true;
-      allow create: if request.auth != null && request.auth.token.admin == true;
-      allow update, delete: if request.auth != null && request.auth.token.admin == true;
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
     }
-    match /events/{eventId} {
-      allow read: if true;
-      allow create: if request.auth != null && (
-        request.auth.token.admin == true || 
-        (request.auth.token.club == true && checkWriteRate(request.auth.uid) && checkEventDailyRate(request.auth.uid))
-      );
-      allow update, delete: if request.auth != null && (
-        request.auth.token.admin == true || 
-        (request.auth.uid == resource.data.ownerId && checkWriteRate(request.auth.uid))
-      );
 
+    // Root-level Certificates Collection
+    match /certificates/{certId} {
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+        ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
+      );
+    }
+
+    // Root-level Analytics Collection
+    match /analytics/{analyticsId} {
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
+      );
+    }
+    
+    // =========================================================================
+    // EVENTS COLLECTION & SUBCOLLECTIONS
+    // =========================================================================
+
+    match /events/{eventId} {
+      allow read: if request.auth != null;
+      
+      // Write operations with rate limit checks
+      allow create: if request.auth != null 
+                    && (isAdmin() || (isClub() && checkWriteRate(request.auth.uid) && checkEventDailyRate(request.auth.uid)))
+                    && validateEventShape(request.resource.data);
+      
+      allow update: if request.auth != null 
+                    && (isAdmin() || ('ownerId' in resource.data && request.auth.uid == resource.data.ownerId && checkWriteRate(request.auth.uid)))
+                    && validateEventShape(request.resource.data);
+                    
+      allow delete: if request.auth != null 
+                    && (isAdmin() || ('ownerId' in resource.data && request.auth.uid == resource.data.ownerId));
+
+      // Attendance fallback subcollection
+      match /attendance/{attendanceId} {
+         allow read: if request.auth != null && (
+           isAdmin() ||
+           ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+           request.auth.uid == attendanceId ||
+           isEventOwner(database, eventId)
+         );
+      }
+
+      // Event Participants Registry
       match /participants/{participantId} {
         allow read: if request.auth != null && (
           request.auth.uid == participantId ||
-          request.auth.token.admin == true ||
-          request.auth.token.club == true ||
-          request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId
+          isAdmin() ||
+          isEventOwner(database, eventId)
         );
+        
         allow create: if request.auth != null &&
           request.auth.uid == participantId &&
+          validateAttendanceStatus(request.resource.data) &&
           !request.resource.data.keys().hasAny([
             'isPaid', 'paymentStatus', 'paymentId', 'role', 'approved'
           ]);
+          
         allow delete: if request.auth != null && request.auth.uid == participantId;
+        
         allow update: if request.auth != null && request.auth.uid == participantId &&
+          validateAttendanceStatus(request.resource.data) &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buddyPreference', 'updatedAt']);
       }
 
+      // Event Check-ins (Contactless Verification)
       match /checkIns/{checkInId} {
         allow read: if request.auth != null && (
-          request.auth.token.admin == true ||
-          request.auth.token.club == true ||
-          request.auth.uid == resource.data.userId ||
-          request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId
+          isAdmin() ||
+          ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+          isEventOwner(database, eventId)
         );
         allow create, update, delete: if request.auth != null &&
           exists(/databases/$(database)/documents/events/$(eventId)) && (
-          request.auth.token.admin == true ||
-          request.auth.token.club == true ||
-          request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId
+          isAdmin() ||
+          isClub() ||
+          isEventOwner(database, eventId)
         );
       }
 
+      // Subcollection Certificates
+      match /certificates/{certId} {
+         allow read: if request.auth != null && (
+           isAdmin() ||
+           ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+           isEventOwner(database, eventId)
+         );
+      }
+
+      // Subcollection Analytics
+      match /analytics/{docId} {
+         allow read: if request.auth != null && (
+           isAdmin() ||
+           isEventOwner(database, eventId)
+         );
+      }
+
+      // Event Feedback
       match /feedback/{feedbackId} {
         allow read: if request.auth != null;
         allow create: if request.auth != null && request.auth.uid == feedbackId;
       }
 
+      // Realtime Discussion Messages
       match /messages/{messageId} {
         allow read: if request.auth != null && (
-          exists(/databases/$(database)/documents/events/$(eventId)/participants/$(request.auth.uid)) ||
-          request.auth.token.admin == true ||
-          request.auth.token.club == true
+          isParticipant(database, eventId) ||
+          isAdmin() ||
+          isClub()
         );
         allow create: if request.auth != null && (
-          exists(/databases/$(database)/documents/events/$(eventId)/participants/$(request.auth.uid)) ||
-          request.auth.token.admin == true ||
-          request.auth.token.club == true
-        ) && request.resource.data.userId == request.auth.uid;
+          isParticipant(database, eventId) ||
+          isAdmin() ||
+          isClub()
+        ) && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid);
       }
     }
+    
+    // =========================================================================
+    // OTHER ROOT COLLECTIONS
+    // =========================================================================
+
+    // Student Reminders
     match /reminders/{rid} {
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId && checkWriteRate(request.auth.uid);
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null 
+                    && (!('userId' in request.resource.data) || request.auth.uid == request.resource.data.userId)
+                    && checkWriteRate(request.auth.uid);
+      allow read, update, delete: if request.auth != null && ('userId' in resource.data) && request.auth.uid == resource.data.userId;
     }
+    
+    // Global Administration Controls
     match /admin/{doc} {
-      allow read, write: if request.auth != null && request.auth.token.admin == true;
+      allow read, write: if isAdmin();
     }
+    
+    // General / Platform Feedback
     match /feedback/{docId} {
       allow create: if request.auth != null
-                    && request.resource.data.userId == request.auth.uid
+                    && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid)
                     && checkWriteRate(request.auth.uid);
 
       allow read: if request.auth != null
-                  && (resource.data.userId == request.auth.uid
-                      || request.auth.token.admin == true);
+                  && (('userId' in resource.data && resource.data.userId == request.auth.uid)
+                      || isAdmin());
 
-      allow update, delete: if request.auth != null
-                            && request.auth.token.admin == true;
+      allow update, delete: if isAdmin();
     }
   }
 }

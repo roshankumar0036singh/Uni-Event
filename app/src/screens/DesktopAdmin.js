@@ -1,15 +1,54 @@
 import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { db } from '../lib/firebaseConfig';
+import {
+    Alert,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { db, functions } from '../lib/firebaseConfig';
 
 import { useAuth } from '../lib/AuthContext';
 import { formatEventDate } from '../lib/formatEventDate';
+
+const downloadBase64Pdf = ({ base64, fileName }) => {
+    if (Platform.OS !== 'web') {
+        Alert.alert(
+            'Download unavailable',
+            'PDF reports are currently available from the web admin panel.',
+        );
+        return;
+    }
+
+    const binary = globalThis.atob(base64);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.codePointAt(i);
+    }
+
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName || 'branch-participation-report.pdf';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+};
 
 export default function DesktopAdmin() {
     const [activeTab, setActiveTab] = useState('clubs'); // 'clubs' | 'events' | 'analytics'
     const [clubs, setClubs] = useState([]);
     const [events, setEvents] = useState([]);
+    const [reportLoading, setReportLoading] = useState(false);
+    const [reportSummary, setReportSummary] = useState(null);
 
     useEffect(() => {
         if (activeTab === 'clubs') fetchClubs();
@@ -30,8 +69,46 @@ export default function DesktopAdmin() {
         setEvents(list);
     };
 
-    const { user } = useAuth(); // Get current admin user
-    const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'; // Backend URL
+    const { user } = useAuth();
+    const navigation = useNavigation();
+    const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+    const downloadBranchReport = async () => {
+        if (Platform.OS !== 'web') {
+            Alert.alert(
+                'Download unavailable',
+                'PDF reports are currently available from the web admin panel.',
+            );
+            return;
+        }
+        setReportLoading(true);
+
+        try {
+            const generateReport = httpsCallable(functions, 'generateBranchParticipationReport');
+            const response = await generateReport();
+            const report = response.data;
+
+            if (!report?.base64) {
+                throw new Error('The report did not include PDF data.');
+            }
+
+            downloadBase64Pdf({
+                base64: report.base64,
+                fileName: report.fileName,
+            });
+
+            setReportSummary(report.summary || null);
+            Alert.alert('Success', 'Branch participation report generated.');
+        } catch (error) {
+            console.error('Branch report error:', error);
+            Alert.alert(
+                'Report Failed',
+                error?.message || 'Failed to generate branch participation report.',
+            );
+        } finally {
+            setReportLoading(false);
+        }
+    };
 
     const approveClub = async (clubId, ownerId) => {
         try {
@@ -103,6 +180,12 @@ export default function DesktopAdmin() {
                 >
                     <Text style={styles.navText}>Analytics</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.navItem}
+                    onPress={() => navigation.navigate('LocationHeatmap')}
+                >
+                    <Text style={styles.navText}>Heatmap</Text>
+                </TouchableOpacity>
             </View>
 
             {/* Main Content */}
@@ -166,8 +249,56 @@ export default function DesktopAdmin() {
                     )}
 
                     {activeTab === 'analytics' && (
-                        <View>
-                            <Text>Analytics Placeholder</Text>
+                        <View style={styles.analyticsPanel}>
+                            <Text style={styles.analyticsTitle}>
+                                Branch-wise Participation Report
+                            </Text>
+                            <Text style={styles.analyticsDescription}>
+                                Generate a PDF summary of registrations and attendance grouped by
+                                academic branch for dean-level review.
+                            </Text>
+
+                            {reportSummary && (
+                                <View style={styles.summaryRow}>
+                                    <View style={styles.summaryCard}>
+                                        <Text style={styles.summaryValue}>
+                                            {reportSummary.branchCount}
+                                        </Text>
+                                        <Text style={styles.summaryLabel}>Branches</Text>
+                                    </View>
+                                    <View style={styles.summaryCard}>
+                                        <Text style={styles.summaryValue}>
+                                            {reportSummary.totalRegistrations}
+                                        </Text>
+                                        <Text style={styles.summaryLabel}>Registrations</Text>
+                                    </View>
+                                    <View style={styles.summaryCard}>
+                                        <Text style={styles.summaryValue}>
+                                            {reportSummary.totalAttendance}
+                                        </Text>
+                                        <Text style={styles.summaryLabel}>Attendance</Text>
+                                    </View>
+                                    <View style={styles.summaryCard}>
+                                        <Text style={styles.summaryValue}>
+                                            {reportSummary.eventCount}
+                                        </Text>
+                                        <Text style={styles.summaryLabel}>Events</Text>
+                                    </View>
+                                </View>
+                            )}
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.reportBtn,
+                                    reportLoading && styles.reportBtnDisabled,
+                                ]}
+                                onPress={downloadBranchReport}
+                                disabled={reportLoading}
+                            >
+                                <Text style={styles.reportBtnText}>
+                                    {reportLoading ? 'Generating PDF...' : 'Download PDF Report'}
+                                </Text>
+                            </TouchableOpacity>
                         </View>
                     )}
                 </ScrollView>
@@ -253,5 +384,59 @@ const styles = StyleSheet.create({
     approveText: {
         color: '#fff',
         fontSize: 12,
+    },
+    analyticsPanel: {
+        gap: 16,
+        maxWidth: 760,
+    },
+    analyticsTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#222',
+    },
+    analyticsDescription: {
+        fontSize: 15,
+        color: '#555',
+        lineHeight: 22,
+    },
+    summaryRow: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    summaryCard: {
+        flex: 1,
+        backgroundColor: '#f8f8f8',
+        borderWidth: 1,
+        borderColor: '#e6e6e6',
+        borderRadius: 8,
+        padding: 16,
+    },
+    summaryValue: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#222',
+    },
+    summaryLabel: {
+        color: '#666',
+        fontSize: 12,
+        marginTop: 4,
+        textTransform: 'uppercase',
+    },
+    reportBtn: {
+        backgroundColor: '#2563eb',
+        borderRadius: 8,
+        paddingHorizontal: 18,
+        paddingVertical: 14,
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        minWidth: 210,
+    },
+    reportBtnDisabled: {
+        opacity: 0.6,
+    },
+    reportBtnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14,
     },
 });
