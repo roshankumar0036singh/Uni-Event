@@ -48,28 +48,53 @@ export default function EventChatScreen({ route, navigation }) {
     // Check if user is organizer/admin to show badge
     const [isOrganizer, setIsOrganizer] = useState(false);
 
+
     useEffect(() => {
         let unsubscribeMessages;
+        let isActive = true;
 
         const checkAccessAndSubscribe = async () => {
             if (!user?.uid) {
+                if (!isActive) return;
+
+                setIsOrganizer(false);
                 setHasAccess(false);
                 setCheckingAccess(false);
                 return;
             }
 
             try {
-                setCheckingAccess(true);
+                if (isActive) setCheckingAccess(true);
 
                 const eventDoc = await getDoc(doc(db, 'events', eventId));
-                const isOwner = eventDoc.exists() && eventDoc.data().ownerId === user.uid;
-                const isAdminOrClub = role === 'admin' || role === 'club';
+
+                if (!isActive) return;
+
+                const isOwner =
+                    eventDoc.exists() && eventDoc.data().ownerId === user.uid;
+
+                const isAdmin = role === 'admin';
 
                 const participantDoc = await getDoc(
                     doc(db, 'events', eventId, 'participants', user.uid),
                 );
 
-                const allowed = participantDoc.exists() || isOwner || isAdminOrClub;
+                if (!isActive) return;
+
+                const participantData = participantDoc.exists()
+                    ? participantDoc.data()
+                    : null;
+
+                const eventScopedClubStaff =
+                    participantDoc.exists() &&
+                    (participantData?.role === 'club' ||
+                        participantData?.isStaff === true);
+
+                const allowed =
+                    participantDoc.exists() ||
+                    isOwner ||
+                    isAdmin ||
+                    eventScopedClubStaff;
 
                 setIsOrganizer(isOwner);
                 setHasAccess(allowed);
@@ -84,7 +109,9 @@ export default function EventChatScreen({ route, navigation }) {
                     orderBy('createdAt', 'desc'),
                 );
 
-                unsubscribeMessages = onSnapshot(q, snapshot => {
+                const localUnsub = onSnapshot(q, snapshot => {
+                    if (!isActive) return;
+
                     setMessages(
                         snapshot.docs.map(doc => ({
                             id: doc.id,
@@ -92,21 +119,34 @@ export default function EventChatScreen({ route, navigation }) {
                         })),
                     );
                 });
+
+                unsubscribeMessages = localUnsub;
             } catch (error) {
                 console.error('Access check failed', error);
+
+                if (!isActive) return;
+
                 setHasAccess(false);
                 setMessages([]);
             } finally {
-                setCheckingAccess(false);
+                if (isActive) {
+                    setCheckingAccess(false);
+                }
             }
         };
 
         checkAccessAndSubscribe();
 
         return () => {
-            if (unsubscribeMessages) unsubscribeMessages();
+            isActive = false;
+
+            if (unsubscribeMessages) {
+                unsubscribeMessages();
+            }
         };
     }, [eventId, user?.uid, role]);
+
+
 
     const handleSend = async () => {
         if (!inputText.trim() || !user?.uid || !hasAccess) return;
@@ -183,9 +223,9 @@ export default function EventChatScreen({ route, navigation }) {
                     >
                         {item.createdAt?.toMillis
                             ? new Date(item.createdAt.toMillis()).toLocaleTimeString([], {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                              })
+                                hour: '2-digit',
+                                minute: '2-digit',
+                            })
                             : 'Just now'}
                     </Text>
                 </View>
