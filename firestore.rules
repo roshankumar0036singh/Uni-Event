@@ -121,7 +121,6 @@ service cloud.firestore {
         allow read: if request.auth != null && (
           request.auth.uid == participantId ||
           isAdmin() ||
-          isClub() ||
           isEventOwner(database, eventId)
         );
         
@@ -142,7 +141,6 @@ service cloud.firestore {
       match /checkIns/{checkInId} {
         allow read: if request.auth != null && (
           isAdmin() ||
-          isClub() ||
           ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
           isEventOwner(database, eventId)
         );

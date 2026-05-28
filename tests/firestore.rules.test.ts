@@ -294,3 +294,103 @@ describe('Firestore Security Rules', () => {
         await assertFails(setDoc(doc(db, 'events/event1/messages/msg1'), { text: 'Hello' }));
     });
 });
+
+// =========================================================================
+    // ISSUE #342: REGRESSION TESTS FOR NEW COLLECTIONS
+    // =========================================================================
+
+    const setupIssue342Data = async () => {
+        await seedDocument('events/event342', { title: 'Test Event', ownerId: 'eventOwner' });
+        // Root collections
+        await seedDocument('certificates/rootCert', { eventId: 'event342', userId: 'student1' });
+        await seedDocument('analytics/rootStat', { eventId: 'event342' });
+        // Subcollections
+        await seedDocument('events/event342/attendance/att1', { userId: 'student1' });
+        await seedDocument('events/event342/certificates/subCert', { userId: 'student1' });
+        await seedDocument('events/event342/analytics/subStat', { metrics: true });
+    };
+
+    // --- Root Certificates ---
+    test('Admin reads root certificate -> allowed', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('admin1', { admin: true });
+        await assertSucceeds(getDoc(doc(db, 'certificates/rootCert')));
+    });
+    test('Event owner reads root certificate -> allowed', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('eventOwner');
+        await assertSucceeds(getDoc(doc(db, 'certificates/rootCert')));
+    });
+    test('Unrelated user reads root certificate -> denied', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('unrelatedUser');
+        await assertFails(getDoc(doc(db, 'certificates/rootCert')));
+    });
+
+    // --- Root Analytics ---
+    test('Admin reads root analytics -> allowed', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('admin1', { admin: true });
+        await assertSucceeds(getDoc(doc(db, 'analytics/rootStat')));
+    });
+    test('Event owner reads root analytics -> allowed', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('eventOwner');
+        await assertSucceeds(getDoc(doc(db, 'analytics/rootStat')));
+    });
+    test('Unrelated user reads root analytics -> denied', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('unrelatedUser');
+        await assertFails(getDoc(doc(db, 'analytics/rootStat')));
+    });
+
+    // --- Event Subcollection: Attendance ---
+    test('Admin reads event attendance -> allowed', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('admin1', { admin: true });
+        await assertSucceeds(getDoc(doc(db, 'events/event342/attendance/att1')));
+    });
+    test('Event owner reads event attendance -> allowed', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('eventOwner');
+        await assertSucceeds(getDoc(doc(db, 'events/event342/attendance/att1')));
+    });
+    test('Unrelated user reads event attendance -> denied', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('unrelatedUser');
+        await assertFails(getDoc(doc(db, 'events/event342/attendance/att1')));
+    });
+
+    // --- Event Subcollection: Certificates ---
+    test('Admin reads event certificates -> allowed', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('admin1', { admin: true });
+        await assertSucceeds(getDoc(doc(db, 'events/event342/certificates/subCert')));
+    });
+    test('Event owner reads event certificates -> allowed', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('eventOwner');
+        await assertSucceeds(getDoc(doc(db, 'events/event342/certificates/subCert')));
+    });
+    test('Unrelated user reads event certificates -> denied', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('unrelatedUser');
+        await assertFails(getDoc(doc(db, 'events/event342/certificates/subCert')));
+    });
+
+    // --- Event Subcollection: Analytics ---
+    test('Admin reads event analytics -> allowed', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('admin1', { admin: true });
+        await assertSucceeds(getDoc(doc(db, 'events/event342/analytics/subStat')));
+    });
+    test('Event owner reads event analytics -> allowed', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('eventOwner');
+        await assertSucceeds(getDoc(doc(db, 'events/event342/analytics/subStat')));
+    });
+    test('Unrelated user reads event analytics -> denied', async () => {
+        await setupIssue342Data();
+        const db = getFirestoreContext('unrelatedUser');
+        await assertFails(getDoc(doc(db, 'events/event342/analytics/subStat')));
+    });
