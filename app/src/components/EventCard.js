@@ -40,6 +40,7 @@ import PropTypes from 'prop-types';
 // Key: Firestore user document ID (ownerId)
 // Value: user document data object { displayName, photoURL, … }
 const profileCache = new Map();
+const profileRequestCache = new Map();
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EventCard = memo(
