@@ -146,13 +146,10 @@ export default function UserFeed() {
                 });
                 setEvents(list);
                 setLoading(false);
-                isFetchingMoreRef.current = false;
-                setIsFetchingMore(false);
                 setRefreshing(false);
-            }
-        },
-        [user, activeFilter, hasMore, isFetchingMore, lastVisible],
-    );
+            },
+            [user, activeFilter],
+        );
 
         return () => unsubscribe();
     }, [role, user]);

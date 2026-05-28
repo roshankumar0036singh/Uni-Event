@@ -9,8 +9,8 @@ jest.mock('../../lib/checkInService', () => ({
 }));
 
 jest.mock('expo-clipboard', () => ({
-  setStringAsync: jest.fn(),
-  getStringAsync: jest.fn(),
+    setStringAsync: jest.fn(),
+    getStringAsync: jest.fn(),
 }));
 
 jest.mock('expo-camera', () => ({
