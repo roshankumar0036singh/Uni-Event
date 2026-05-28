@@ -57,22 +57,63 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
-    // Enforce max 10 writes per user per minute (using request.time)
+    // Validate that updates to the rate-limit fields are strictly valid increments or resets
+    function validateRateLimitUpdate(userId) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let limitFields = ['writeCountMinute', 'eventCountDay', 'lastWriteAt', 'lastEventDay'];
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      
+      return !affected.hasAny(limitFields) || (
+        request.auth.uid == userId &&
+        (
+          !affected.hasAny(['writeCountMinute', 'lastWriteAt']) || (
+            after.lastWriteAt == request.time &&
+            (
+              !('lastWriteAt' in before) ||
+              (request.time.toMillis() - before.lastWriteAt.toMillis() > 60000 && after.writeCountMinute == 1) ||
+              (after.writeCountMinute == before.writeCountMinute + 1 && after.writeCountMinute <= 10)
+            )
+          )
+        ) && (
+          !affected.hasAny(['eventCountDay', 'lastEventDay']) || (
+            after.lastWriteAt == request.time &&
+            (
+              !('lastEventDay' in before) ||
+              (after.lastEventDay != before.lastEventDay && after.eventCountDay == 1) ||
+              (after.eventCountDay == before.eventCountDay + 1 && after.eventCountDay <= 5)
+            )
+          )
+        )
+      );
+    }
+
+    // Enforce max 10 writes per user per minute (using request.time and getAfter)
     function checkWriteRate(userId) {
       let userData = getUserData(userId);
-      return userData.role == 'admin' ||
-             !('lastWriteAt' in userData) ||
-             (request.time.toMillis() - userData.lastWriteAt.toMillis() > 60000) ||
-             userData.writeCountMinute <= 10;
+      let userAfter = getAfter(/databases/$(database)/documents/users/$(userId)).data;
+      return userData.role == 'admin' || (
+             userAfter.lastWriteAt == request.time &&
+             (
+               !('lastWriteAt' in userData) ||
+               (request.time.toMillis() - userData.lastWriteAt.toMillis() > 60000) ||
+               userData.writeCountMinute < 10
+             )
+      );
     }
 
     // Enforce max 5 event creations per user per day
     function checkEventDailyRate(userId) {
       let userData = getUserData(userId);
-      return userData.role == 'admin' ||
-             !('lastEventDay' in userData) ||
-             userData.lastEventDay != request.time.year() * 10000 + request.time.month() * 100 + request.time.day() ||
-             userData.eventCountDay <= 5;
+      let userAfter = getAfter(/databases/$(database)/documents/users/$(userId)).data;
+      return userData.role == 'admin' || (
+             userAfter.lastWriteAt == request.time &&
+             (
+               !('lastEventDay' in userData) ||
+               userData.lastEventDay != request.time.year() * 10000 + request.time.month() * 100 + request.time.day() ||
+               userData.eventCountDay < 5
+             )
+      );
     }
 
     // =========================================================================
@@ -84,7 +125,7 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && (
         isAdmin() || 
-        (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) && checkWriteRate(userId))
+        (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) && validateRateLimitUpdate(userId))
       );
     }
     

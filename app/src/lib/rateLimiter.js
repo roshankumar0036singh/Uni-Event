@@ -25,7 +25,18 @@ export async function enforceRateLimit(isEventCreation = false) {
     await runTransaction(db, async (transaction) => {
         const userSnap = await transaction.get(userRef);
         if (!userSnap.exists()) {
-            return; // Allow write if user document doesn't exist yet
+            const now = new Date();
+            const currentDayInt =
+                now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+
+            const initial = {
+                role: 'student',
+                writeCountMinute: 1,
+                lastWriteAt: serverTimestamp(),
+                ...(isEventCreation ? { eventCountDay: 1, lastEventDay: currentDayInt } : {}),
+            };
+            transaction.set(userRef, initial, { merge: true });
+            return;
         }
 
         const userData = userSnap.data();

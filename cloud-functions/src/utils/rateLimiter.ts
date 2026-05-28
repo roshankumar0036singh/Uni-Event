@@ -29,11 +29,22 @@ export async function checkAndUpdateRateLimit(
 
   return db.runTransaction(async (transaction) => {
     const userDoc = await transaction.get(userRef);
+    let userData: any = {};
     if (!userDoc.exists) {
-      return { allowed: true, statusCode: 200, message: 'User profile does not exist yet' };
+      const now = new Date();
+      const currentDayInt = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+      userData = {
+        role: 'student',
+        writeCountMinute: 1,
+        lastWriteAt: admin.firestore.Timestamp.now(),
+        eventCountDay: isEventCreation ? 1 : 0,
+        lastEventDay: currentDayInt,
+      };
+      transaction.set(userRef, userData, { merge: true });
+      return { allowed: true, statusCode: 200, message: 'Initial rate limit profile created' };
+    } else {
+      userData = userDoc.data() || {};
     }
-
-    const userData = userDoc.data() || {};
     const role = userData.role || 'student';
 
     // Admins are exempt from write rate limits

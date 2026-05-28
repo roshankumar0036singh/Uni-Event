@@ -74,7 +74,10 @@ const rateLimitMiddleware = async (req: express.Request, res: express.Response, 
     next();
   } catch (error) {
     console.error('Rate limiter middleware error:', error);
-    next(); // Fail-open to avoid service disruption
+    return res.status(503).json({
+      error: 'rate-limit-unavailable',
+      message: 'Rate limiting is temporarily unavailable. Please retry shortly.'
+    });
   }
 };
 
