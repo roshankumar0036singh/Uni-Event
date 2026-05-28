@@ -1,3 +1,4 @@
+import logger from './logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import {
@@ -11,6 +12,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo } 
 import { Platform, Alert } from 'react-native';
 import { auth, db } from './firebaseConfig';
 import PropTypes from 'prop-types';
+import { getUserLevel, getUserLevelProgress } from './userLevels';
 
 const AuthContext = createContext({});
 
@@ -48,7 +50,7 @@ export const AuthProvider = ({ children }) => {
                 setSavedAccounts(JSON.parse(json));
             }
         } catch (e) {
-            console.log('Failed to load saved accounts', e);
+            logger.debug('Failed to load saved accounts', e);
         }
     }, [getItemAsync]);
 
@@ -77,7 +79,7 @@ export const AuthProvider = ({ children }) => {
                         }
                     }
                 } catch (e) {
-                    console.log('Error fetching user role from db', e);
+                    logger.debug('Error fetching user role from db', e);
                 }
 
                 setRole(userRole);
@@ -126,7 +128,7 @@ export const AuthProvider = ({ children }) => {
                 await setItemAsync('saved_accounts', JSON.stringify(currentAccounts));
                 setSavedAccounts(currentAccounts);
             } catch (e) {
-                console.log(`Failed to save account credentials for ${provider}`, e);
+                logger.debug(`Failed to save account credentials for ${provider}`, e);
             }
         },
         [getItemAsync],
@@ -157,7 +159,7 @@ export const AuthProvider = ({ children }) => {
                 await signInWithEmailAndPassword(auth, account.email, account.password);
                 // Don't need to manually set user, onAuthStateChanged in useEffect will handle it
             } catch (e) {
-                console.error('Switch failed', e);
+                logger.error('Switch failed', e);
                 Alert.alert(
                     'Authentication Failed',
                     'Could not switch accounts automatically. Please enter your credentials manually.',
@@ -212,11 +214,17 @@ export const AuthProvider = ({ children }) => {
         return firebaseSignOut(auth);
     }, []);
 
-    const value = useMemo(
-        () => ({
+    const value = useMemo(() => {
+        const points = userData?.points ?? 0;
+        const userLevel = getUserLevel(points);
+        const levelProgress = getUserLevelProgress(points);
+
+        return {
             user,
             userData,
             role,
+            userLevel,
+            levelProgress,
             loading,
             signIn,
             signUp,
@@ -225,21 +233,20 @@ export const AuthProvider = ({ children }) => {
             switchAccount,
             removeSavedAccount,
             saveGoogleAccountCredentials: u => saveAccount(u, 'google'),
-        }),
-        [
-            user,
-            userData,
-            role,
-            loading,
-            signIn,
-            signUp,
-            signOut,
-            savedAccounts,
-            switchAccount,
-            removeSavedAccount,
-            saveAccount,
-        ],
-    );
+        };
+    }, [
+        user,
+        userData,
+        role,
+        loading,
+        signIn,
+        signUp,
+        signOut,
+        savedAccounts,
+        switchAccount,
+        removeSavedAccount,
+        saveAccount,
+    ]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -1,7 +1,7 @@
 import { makeRedirectUri, Prompt, ResponseType, useAuthRequest } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useCallback } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 // Use the same Client ID as AuthScreen to ensure consistent Redirect URI configuration
 const CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
@@ -21,10 +21,12 @@ export const useCalendarAuth = () => {
     // 🔍 DEBUG: Show Redirect URI only on Mobile Web (Ngrok)
     useEffect(() => {
         if (Platform.OS === 'web' && window.location.hostname !== 'localhost') {
-            Alert.alert(
-                'Mobile Web Calendar Debug',
-                `Generated Redirect URI:\n${redirectUri}\n\nPlease add EXACTLY this to Google Console.`,
-            );
+            if (process.env.EXPO_PUBLIC_DEBUG_MODE === 'true') {
+                console.warn(
+                    'Mobile Web Calendar Debug',
+                    `Generated Redirect URI:\n${redirectUri}\n\nPlease add EXACTLY this to Google Console.`,
+                );
+            }
         }
     }, [redirectUri]);
 

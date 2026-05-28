@@ -7,6 +7,8 @@ import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
+import { getUserLevel } from '../lib/userLevels';
+import { getSafeSelectedProfileBadge } from '../lib/profileBadges';
 
 export default function LeaderboardScreen({ navigation }) {
     const { theme } = useTheme();
@@ -69,6 +71,10 @@ export default function LeaderboardScreen({ navigation }) {
         // Privacy Logic
         const displayName = item.isAnonymous ? 'Anonymous' : item.displayName || 'Anonymous';
         const displayBranch = item.isAnonymous ? 'Hidden' : item.branch || 'Unknown Branch';
+        const levelInfo = getUserLevel(item.points || 0);
+        const profileBadge = item.isAnonymous
+            ? null
+            : getSafeSelectedProfileBadge(item.selectedProfileBadge, levelInfo.level);
 
         return (
             <View
@@ -98,6 +104,29 @@ export default function LeaderboardScreen({ navigation }) {
                     <Text style={[styles.branch, { color: theme.colors.textSecondary }]}>
                         {displayBranch}
                     </Text>
+                    <View style={styles.levelRow}>
+                        <Ionicons name={levelInfo.icon} size={13} color={theme.colors.primary} />
+                        <Text style={[styles.levelText, { color: theme.colors.primary }]}>
+                            Level {levelInfo.level} - {levelInfo.title}
+                        </Text>
+                    </View>
+                    {profileBadge && (
+                        <View
+                            style={[
+                                styles.profileBadgeRow,
+                                { backgroundColor: profileBadge.color + '18' },
+                            ]}
+                        >
+                            <Ionicons
+                                name={profileBadge.icon}
+                                size={13}
+                                color={profileBadge.color}
+                            />
+                            <Text style={[styles.profileBadgeText, { color: profileBadge.color }]}>
+                                {profileBadge.label}
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
                 <View style={styles.pointsContainer}>
@@ -188,6 +217,19 @@ const styles = StyleSheet.create({
     infoContainer: { flex: 1, marginLeft: 10 },
     name: { fontSize: 16, fontWeight: 'bold' },
     branch: { fontSize: 12 },
+    levelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+    levelText: { fontSize: 11, fontWeight: '700' },
+    profileBadgeRow: {
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    profileBadgeText: { fontSize: 11, fontWeight: '800' },
     pointsContainer: { alignItems: 'flex-end' },
     points: { fontSize: 18, fontWeight: '900' },
     pointsLabel: { fontSize: 10 },

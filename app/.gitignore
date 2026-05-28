@@ -11,6 +11,7 @@ node_modules/
 # Production
 /build
 /dist
+/firebase-debug.log
 
 # Misc
 .DS_Store

@@ -1,3 +1,4 @@
+import logger from './logger';
 // EmailJS Configuration
 // EmailJS Configuration
 const EMAILJS_SERVICE_ID = process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID;
@@ -40,15 +41,15 @@ export const sendEmail = async (
         });
 
         if (response.ok) {
-            console.log('Email sent successfully to:', toEmail);
+            logger.debug('Email sent successfully');
             return true;
         } else {
             const errorText = await response.text();
-            console.error('EmailJS Error:', errorText);
+            logger.error('EmailJS Error:', errorText);
             return false;
         }
     } catch (error) {
-        console.error('Network Error:', error);
+        logger.error('Network Error:', error);
         return false;
     }
 };
@@ -114,9 +115,29 @@ export const sendBulkCertificates = async (participants, eventTitle, date, event
     const subject = `Certificate of Participation: ${eventTitle}`;
     const message = `We are pleased to present you with this certificate for your participation in ${eventTitle}.`;
 
+    const buildLinkedInUrl = (participant, eventStartDate) => {
+        const certUrl =
+            participant.certificateUrl || eventLink || 'https://unievent-ez2w.onrender.com';
+        const org = participant.organization || 'UniEvent';
+        let issueDate = new Date();
+        if (eventStartDate) {
+            const d = new Date(eventStartDate);
+            if (!Number.isNaN(d.getTime())) issueDate = d;
+        }
+        const issueYear = issueDate.getUTCFullYear();
+        const issueMonth = issueDate.getUTCMonth() + 1;
+
+        return `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(
+            eventTitle,
+        )}&organizationName=${encodeURIComponent(org)}&issueYear=${issueYear}&issueMonth=${issueMonth}&certUrl=${encodeURIComponent(
+            certUrl,
+        )}`;
+    };
+
     for (const p of participants) {
         if (p.email) {
             // cert_display: 'block' shows the certificate section
+            const certificateUrl = buildLinkedInUrl(p, date);
             const sent = await sendEmail(
                 p.name || 'Participant',
                 p.email,
@@ -126,8 +147,10 @@ export const sendBulkCertificates = async (participants, eventTitle, date, event
                     event_title: eventTitle,
                     date: date || new Date().toLocaleDateString(),
                     cert_display: 'block',
-                    event_link: eventLink || 'https://unievent-ez2w.onrender.com',
+                    // point download CTA to per-recipient certificate URL
+                    event_link: certificateUrl,
                     download_btn_display: 'block',
+                    linkedin_url: certificateUrl,
                     browse_btn_display: 'none',
                 },
                 EMAILJS_TEMPLATE_UNIVERSAL,

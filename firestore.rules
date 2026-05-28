@@ -1,42 +1,215 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // =========================================================================
+    // DATA VALIDATION HELPER FUNCTIONS (From previous PR)
+    // =========================================================================
+
+    function isValidEventTitle(data) {
+      return !('title' in data) || (data.title is string && data.title.size() >= 3 && data.title.size() <= 200);
+    }
+
+    function isValidEventCapacity(data) {
+      return !('capacity' in data) || (data.capacity is int && data.capacity > 0);
+    }
+
+    function isValidEventDate(data) {
+      return !('date' in data) || (data.date is timestamp && data.date > request.time);
+    }
+
+    function validateEventShape(data) {
+      return isValidEventTitle(data) && isValidEventCapacity(data) && isValidEventDate(data);
+    }
+
+    function validateAttendanceStatus(data) {
+      return !('status' in data) || (data.status in ['rsvp', 'checked_in', 'cancelled']);
+    }
+
+    // =========================================================================
+    // AUTH & SAFETY HELPER FUNCTIONS
+    // =========================================================================
+    
+    function isAdmin() {
+      return request.auth != null && 'admin' in request.auth.token && request.auth.token.admin == true;
+    }
+    
+    function isClub() {
+      return request.auth != null && 'club' in request.auth.token && request.auth.token.club == true;
+    }
+
+    function isEventOwner(database, eventId) {
+      return exists(/databases/$(database)/documents/events/$(eventId)) 
+          && ('ownerId' in get(/databases/$(database)/documents/events/$(eventId)).data)
+          && request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId;
+    }
+
+    function isParticipant(database, eventId) {
+      return exists(/databases/$(database)/documents/events/$(eventId)/participants/$(request.auth.uid));
+    }
+
+    // =========================================================================
+    // ROOT-LEVEL COLLECTIONS (Certificates & Analytics added per Issue #342)
+    // =========================================================================
+
     match /users/{userId} {
       allow create: if request.auth != null && request.auth.uid == userId && !("role" in request.resource.data);
       allow read: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && (
-        request.auth.token.admin == true || 
+        isAdmin() || 
         (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
       );
     }
+    
     match /clubs/{clubId} {
       allow read: if true;
-      allow create: if request.auth != null && request.auth.token.admin == true;
-      allow update, delete: if request.auth != null && request.auth.token.admin == true;
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
     }
+
+    // ISSUE #342: Certificates Collection (Root)
+    match /certificates/{certId} {
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+        ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
+      );
+    }
+
+    // ISSUE #342: Analytics Collection (Root)
+    match /analytics/{analyticsId} {
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
+      );
+    }
+    
+    // =========================================================================
+    // EVENTS COLLECTION
+    // =========================================================================
+
     match /events/{eventId} {
-      allow read: if true;
-      allow create: if request.auth != null && (request.auth.token.admin == true || (request.auth.token.club == true && request.resource.data.ownerId == request.auth.uid));
-      allow update: if request.auth != null && (request.auth.token.admin == true || (request.auth.uid == resource.data.ownerId && request.resource.data.ownerId == resource.data.ownerId));
-      allow delete: if request.auth != null && (request.auth.token.admin == true || request.auth.uid == resource.data.ownerId);
+      // ISSUE #342: Events collection read by all authenticated users (no longer public)
+      allow read: if request.auth != null;
+      
+      // Write (Create/Update/Delete) restricted to organizers & admins
+      allow create: if request.auth != null 
+                    && (isAdmin() || isClub())
+                    && validateEventShape(request.resource.data);
+      
+      allow update: if request.auth != null 
+                    && (isAdmin() || ('ownerId' in resource.data && request.auth.uid == resource.data.ownerId))
+                    && validateEventShape(request.resource.data);
+                    
+      allow delete: if request.auth != null 
+                    && (isAdmin() || ('ownerId' in resource.data && request.auth.uid == resource.data.ownerId));
+
+      // ISSUE #342: Attendance subcollections (Participants, Check-ins, Attendance)
+      
+      // Fallback in case they use a dedicated 'attendance' subcollection
+      match /attendance/{attendanceId} {
+         allow read: if request.auth != null && (
+           isAdmin() ||
+           ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+           request.auth.uid == attendanceId ||
+           isEventOwner(database, eventId)
+         );
+      }
+
+      match /participants/{participantId} {
+        // Read restricted: Organizer OR the attendee viewing their own record
+        allow read: if request.auth != null && (
+          request.auth.uid == participantId ||
+          isAdmin() ||
+          isEventOwner(database, eventId)
+        );
+        
+        allow create: if request.auth != null &&
+          request.auth.uid == participantId &&
+          validateAttendanceStatus(request.resource.data) &&
+          !request.resource.data.keys().hasAny([
+            'isPaid', 'paymentStatus', 'paymentId', 'role', 'approved'
+          ]);
+          
+        allow delete: if request.auth != null && request.auth.uid == participantId;
+        
+        allow update: if request.auth != null && request.auth.uid == participantId &&
+          validateAttendanceStatus(request.resource.data) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buddyPreference', 'updatedAt']);
+      }
+
+      match /checkIns/{checkInId} {
+        allow read: if request.auth != null && (
+          isAdmin() ||
+          ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+          isEventOwner(database, eventId)
+        );
+        allow create, update, delete: if request.auth != null &&
+          exists(/databases/$(database)/documents/events/$(eventId)) && (
+          isAdmin() ||
+          isClub() ||
+          isEventOwner(database, eventId)
+        );
+      }
+
+      // ISSUE #342: Certificates and Analytics (as Subcollections)
+      match /certificates/{certId} {
+         allow read: if request.auth != null && (
+           isAdmin() ||
+           ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+           isEventOwner(database, eventId)
+         );
+      }
+
+      match /analytics/{docId} {
+         allow read: if request.auth != null && (
+           isAdmin() ||
+           isEventOwner(database, eventId)
+         );
+      }
+
+      // ... other event subcollections
+      match /feedback/{feedbackId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null && request.auth.uid == feedbackId;
+      }
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null && (
+          isParticipant(database, eventId) ||
+          isAdmin() ||
+          isClub()
+        );
+        allow create: if request.auth != null && (
+          isParticipant(database, eventId) ||
+          isAdmin() ||
+          isClub()
+        ) && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid);
+      }
     }
+    
+    // =========================================================================
+    // OTHER ROOT COLLECTIONS
+    // =========================================================================
+
     match /reminders/{rid} {
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && (!('userId' in request.resource.data) || request.auth.uid == request.resource.data.userId);
+      allow read, update, delete: if request.auth != null && ('userId' in resource.data) && request.auth.uid == resource.data.userId;
     }
+    
     match /admin/{doc} {
-      allow read, write: if request.auth != null && request.auth.token.admin == true;
+      allow read, write: if isAdmin();
     }
+    
     match /feedback/{docId} {
       allow create: if request.auth != null
-                    && request.resource.data.userId == request.auth.uid;
+                    && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid);
 
       allow read: if request.auth != null
-                  && (resource.data.userId == request.auth.uid
-                      || request.auth.token.admin == true);
+                  && (('userId' in resource.data && resource.data.userId == request.auth.uid)
+                      || isAdmin());
 
-      allow update, delete: if request.auth != null
-                            && request.auth.token.admin == true;
+      allow update, delete: if isAdmin();
     }
   }
 }

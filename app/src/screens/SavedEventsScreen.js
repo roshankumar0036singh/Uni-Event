@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { collection, doc, getDoc, getDocs, query } from 'firebase/firestore';
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
@@ -70,6 +71,9 @@ export default function SavedEventsScreen({ navigation }) {
         fetchSavedEvents();
     };
 
+    // 🚀 Task 3: Wrap list rendering element with useCallback to optimize functional layout memory recycling
+    const renderItem = useCallback(({ item }) => <EventCard event={item} />, []);
+
     if (loading && !refreshing) {
         return (
             <ScreenWrapper showLogo={true}>
@@ -92,9 +96,11 @@ export default function SavedEventsScreen({ navigation }) {
                     </Text>
                 </View>
 
-                <FlatList
+                {/* 🚀 Task 1: Replaced the standard native FlatList with high-efficiency Shopify FlashList */}
+                <FlashList
                     data={savedEvents}
                     keyExtractor={item => item.id}
+                    estimatedItemSize={180} // 🔥 Performance parameter pre-allocates memory for smooth 60fps scrolling
                     refreshControl={
                         <RefreshControl
                             refreshing={refreshing}
@@ -102,7 +108,7 @@ export default function SavedEventsScreen({ navigation }) {
                             colors={[theme.colors.primary]}
                         />
                     }
-                    renderItem={({ item }) => <EventCard event={item} />}
+                    renderItem={renderItem}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
                             <View style={styles.emptyIconCircle}>

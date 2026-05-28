@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { collection, limit, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     Animated,
     Alert,
@@ -22,17 +23,6 @@ import { useAuth } from '../lib/AuthContext';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
-import { useNavigation } from '@react-navigation/native';
-
-let MapView = null;
-let Marker = null;
-let Callout = null;
-if (Platform.OS !== 'web') {
-    const Maps = require('react-native-maps');
-    MapView = Maps.default;
-    Marker = Maps.Marker;
-    Callout = Maps.Callout;
-}
 
 const FILTERS = ['Upcoming', 'Past', 'Cultural', 'Sports', 'Tech', 'Workshop', 'Seminar'];
 
@@ -42,23 +32,77 @@ export default function UserFeed() {
     const [events, setEvents] = useState([]);
     const [participatingIds, setParticipatingIds] = useState([]); // Track joined events
     const [activeFilter, setActiveFilter] = useState('Upcoming');
+    const [searchHistory, setSearchHistory] = useState([]);
+    const [showHistory, setShowHistory] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedQuery, setDebouncedQuery] = useState(''); // filtering — 300ms debounced
+    const debounceTimer = useRef(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [viewMode, setViewMode] = useState('list');
-    const navigation = useNavigation();
-
-    // Feedback Modal State
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [currentFeedbackRequest, setCurrentFeedbackRequest] = useState(null);
-
     const scrollY = useRef(new Animated.Value(0)).current;
+    //  debounce effect
+    // Debounce effect — 300ms delay before dispatching query to filter (#304)
+    useEffect(() => {
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        debounceTimer.current = setTimeout(() => {
+            setDebouncedQuery(searchQuery);
+        }, 300);
+        return () => clearTimeout(debounceTimer.current);
+    }, [searchQuery]);
 
-    // Listen for my registrations
+    // Load persisted search history on component mount
+    useEffect(() => {
+        const loadHistory = async () => {
+            try {
+                const stored = await AsyncStorage.getItem('searchHistory');
+                if (stored) {
+                    setSearchHistory(JSON.parse(stored));
+                }
+            } catch (e) {
+                console.error('Failed to load search history', e);
+            }
+        };
+        loadHistory();
+    }, []);
+
+    const updateHistory = query => {
+        if (!query) return;
+        // Update in-memory only; no AsyncStorage side‑effect
+        setSearchHistory(prev => {
+            const filtered = prev.filter(q => q !== query);
+            return [query, ...filtered].slice(0, 5);
+        });
+    };
+
+    // Persist search history to AsyncStorage (called on submit/blur)
+    const persistSearchHistory = async raw => {
+        const normalized = raw?.trim();
+        if (!normalized) return;
+        setSearchHistory(prev => {
+            const filtered = prev.filter(q => q !== normalized);
+            const newHist = [normalized, ...filtered].slice(0, 5);
+            AsyncStorage.setItem('searchHistory', JSON.stringify(newHist)).catch(e =>
+                console.error('Failed to save search history', e),
+            );
+            return newHist;
+        });
+    };
+
+    // Clear history handler
+    const clearHistory = async () => {
+        try {
+            await AsyncStorage.removeItem('searchHistory');
+        } catch (e) {
+            console.error('Failed to clear search history', e);
+        }
+        setSearchHistory([]);
+    };
     useEffect(() => {
         if (!user) return;
-        const q = collection(db, 'users', user.uid, 'participating');
-        const unsub = onSnapshot(q, snap => {
+        const participatingQuery = collection(db, 'users', user.uid, 'participating');
+        const unsub = onSnapshot(participatingQuery, snap => {
             setParticipatingIds(snap.docs.map(d => d.id));
         });
         return unsub;
@@ -100,10 +144,10 @@ export default function UserFeed() {
         }
 
         // Fetching events. ideally separate query.
-        const q = query(collection(db, 'events'));
+        const eventsQuery = query(collection(db, 'events'));
 
         const unsubscribe = onSnapshot(
-            q,
+            eventsQuery,
             snapshot => {
                 const list = [];
                 snapshot.forEach(doc => {
@@ -113,11 +157,9 @@ export default function UserFeed() {
                 });
                 setEvents(list);
                 setLoading(false);
+                setRefreshing(false);
             },
-            error => {
-                console.error('Error fetching events: ', error);
-                setLoading(false);
-            },
+            [user, activeFilter],
         );
 
         return () => unsubscribe();
@@ -180,8 +222,8 @@ export default function UserFeed() {
         let filtered = events;
 
         // 0. Search Query Filtering
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
+        if (debouncedQuery.trim()) {
+            const query = debouncedQuery.toLowerCase();
             filtered = filtered.filter(
                 e =>
                     e.title?.toLowerCase().includes(query) ||
@@ -256,8 +298,8 @@ export default function UserFeed() {
         if (!user) return;
         setRefreshing(true);
         try {
-            const q = query(collection(db, 'events'));
-            const snapshot = await getDocs(q);
+            const refreshEventsQuery = query(collection(db, 'events'));
+            const snapshot = await getDocs(refreshEventsQuery);
             const list = [];
             snapshot.forEach(doc => {
                 const data = doc.data();
@@ -288,7 +330,23 @@ export default function UserFeed() {
                     placeholder="Search events..."
                     placeholderTextColor={theme.colors.textSecondary}
                     value={searchQuery}
-                    onChangeText={setSearchQuery}
+                    onChangeText={text => {
+                        setSearchQuery(text);
+                        updateHistory(text);
+                        // Hide history as soon as the user types something
+                        if (text.trim() !== '') setShowHistory(false);
+                    }}
+                    onFocus={() => {
+                        // Only show history if the input is empty
+                        if (searchQuery.trim() === '') setShowHistory(true);
+                    }}
+                    onBlur={() => {
+                        setShowHistory(false);
+                        persistSearchHistory(searchQuery);
+                    }}
+                    onSubmitEditing={() => {
+                        persistSearchHistory(searchQuery);
+                    }}
                 />
                 {searchQuery.length > 0 && (
                     <TouchableOpacity onPress={() => setSearchQuery('')}>
@@ -300,6 +358,43 @@ export default function UserFeed() {
                     </TouchableOpacity>
                 )}
             </View>
+            {/* Recent Search History */}
+            {showHistory && searchHistory.length > 0 && (
+                <View style={styles.historyContainer}>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.historyScroll}
+                    >
+                        {searchHistory.map(qh => (
+                            <TouchableOpacity
+                                key={qh}
+                                style={styles.historyChip}
+                                onPress={() => {
+                                    setSearchQuery(qh);
+                                    setShowHistory(false);
+                                }}
+                            >
+                                <Text style={styles.historyChipText}>{qh}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                    <TouchableOpacity
+                        onPress={clearHistory}
+                        style={styles.clearHistoryBtn}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear search history"
+                        accessibilityHint="Deletes all saved search history"
+                    >
+                        <Ionicons
+                            name="trash-outline"
+                            size={18}
+                            color={theme.colors.textSecondary}
+                        />
+                    </TouchableOpacity>
+                </View>
+            )}
 
             <View style={styles.filterWrapper}>
                 <ScrollView
@@ -386,60 +481,9 @@ export default function UserFeed() {
 
     const renderHeader = () => (
         <Animated.View style={{ transform: [{ translateY: headerTranslateY }] }}>
-            <View
-                style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginHorizontal: 20,
-                    marginBottom: 15,
-                }}
-            >
-                <Text style={styles.sectionTitle}>RECOMMENDED FOR YOU</Text>
-                {MapView && (
-                    <View
-                        style={{
-                            flexDirection: 'row',
-                            backgroundColor: theme.colors.surface,
-                            borderRadius: 20,
-                            overflow: 'hidden',
-                        }}
-                    >
-                        <TouchableOpacity
-                            onPress={() => setViewMode('list')}
-                            style={{
-                                paddingHorizontal: 15,
-                                paddingVertical: 8,
-                                backgroundColor:
-                                    viewMode === 'list' ? theme.colors.primary : 'transparent',
-                            }}
-                        >
-                            <Ionicons
-                                name="list"
-                                size={20}
-                                color={viewMode === 'list' ? '#fff' : theme.colors.textSecondary}
-                            />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={() => setViewMode('map')}
-                            style={{
-                                paddingHorizontal: 15,
-                                paddingVertical: 8,
-                                backgroundColor:
-                                    viewMode === 'map' ? theme.colors.primary : 'transparent',
-                            }}
-                        >
-                            <Ionicons
-                                name="map"
-                                size={20}
-                                color={viewMode === 'map' ? '#fff' : theme.colors.textSecondary}
-                            />
-                        </TouchableOpacity>
-                    </View>
-                )}
-            </View>
             {/* Recommendations Rail */}
             <View style={{ marginBottom: 20 }}>
+                <Text style={styles.sectionTitle}>RECOMMENDED FOR YOU</Text>
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -472,7 +516,7 @@ export default function UserFeed() {
                 <View style={{ paddingTop: 20 }}>
                     <SkeletonLoader />
                 </View>
-            ) : viewMode === 'list' ? (
+            ) : (
                 <Animated.SectionList
                     sections={[{ data: displayList }]}
                     keyExtractor={item => item.id}
@@ -508,153 +552,6 @@ export default function UserFeed() {
                         </View>
                     }
                 />
-            ) : (
-                MapView && (
-                    <View style={{ flex: 1 }}>
-                        <View style={{ paddingTop: 10 }}>
-                            <StickyHeader />
-                        </View>
-                        <View
-                            style={{
-                                flexDirection: 'row',
-                                justifyContent: 'flex-end',
-                                paddingHorizontal: 20,
-                                marginBottom: 10,
-                            }}
-                        >
-                            <View
-                                style={{
-                                    flexDirection: 'row',
-                                    backgroundColor: theme.colors.surface,
-                                    borderRadius: 20,
-                                    overflow: 'hidden',
-                                }}
-                            >
-                                <TouchableOpacity
-                                    onPress={() => setViewMode('list')}
-                                    style={{
-                                        paddingHorizontal: 15,
-                                        paddingVertical: 8,
-                                        backgroundColor:
-                                            viewMode === 'list'
-                                                ? theme.colors.primary
-                                                : 'transparent',
-                                    }}
-                                >
-                                    <Ionicons
-                                        name="list"
-                                        size={20}
-                                        color={
-                                            viewMode === 'list'
-                                                ? '#fff'
-                                                : theme.colors.textSecondary
-                                        }
-                                    />
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => setViewMode('map')}
-                                    style={{
-                                        paddingHorizontal: 15,
-                                        paddingVertical: 8,
-                                        backgroundColor:
-                                            viewMode === 'map'
-                                                ? theme.colors.primary
-                                                : 'transparent',
-                                    }}
-                                >
-                                    <Ionicons
-                                        name="map"
-                                        size={20}
-                                        color={
-                                            viewMode === 'map' ? '#fff' : theme.colors.textSecondary
-                                        }
-                                    />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                        <View
-                            style={{
-                                flex: 1,
-                                marginHorizontal: 20,
-                                marginBottom: 20,
-                                borderRadius: 16,
-                                overflow: 'hidden',
-                                borderWidth: 1,
-                                borderColor: theme.colors.border,
-                            }}
-                        >
-                            <MapView
-                                style={{ flex: 1 }}
-                                initialRegion={{
-                                    latitude: 28.7041,
-                                    longitude: 77.1025,
-                                    latitudeDelta: 0.01,
-                                    longitudeDelta: 0.01,
-                                }}
-                            >
-                                {displayList
-                                    .filter(
-                                        e =>
-                                            e.coordinates &&
-                                            typeof e.coordinates === 'object' &&
-                                            Number.isFinite(e.coordinates.latitude) &&
-                                            Number.isFinite(e.coordinates.longitude),
-                                    )
-                                    .map(event => (
-                                        <Marker key={event.id} coordinate={event.coordinates}>
-                                            <Callout
-                                                onPress={() =>
-                                                    navigation.navigate('EventDetail', {
-                                                        eventId: event.id,
-                                                        action: 'view',
-                                                    })
-                                                }
-                                            >
-                                                <View style={{ width: 200, padding: 5 }}>
-                                                    <Text
-                                                        style={{
-                                                            fontWeight: 'bold',
-                                                            fontSize: 16,
-                                                            marginBottom: 5,
-                                                        }}
-                                                    >
-                                                        {event.title}
-                                                    </Text>
-                                                    <Text
-                                                        style={{
-                                                            color: '#666',
-                                                            fontSize: 12,
-                                                            marginBottom: 10,
-                                                        }}
-                                                        numberOfLines={2}
-                                                    >
-                                                        {event.description}
-                                                    </Text>
-                                                    <TouchableOpacity
-                                                        style={{
-                                                            backgroundColor: theme.colors.primary,
-                                                            padding: 8,
-                                                            borderRadius: 8,
-                                                            alignItems: 'center',
-                                                        }}
-                                                    >
-                                                        <Text
-                                                            style={{
-                                                                color: '#fff',
-                                                                fontWeight: 'bold',
-                                                            }}
-                                                        >
-                                                            View Details
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </Callout>
-                                        </Marker>
-                                    ))}
-                            </MapView>
-                        </View>
-                    </View>
-                )
             )}
 
             {/* Feedback Modal */}
@@ -705,8 +602,28 @@ const styles = StyleSheet.create({
             web: { outlineStyle: 'none' },
         }),
     },
-    filterWrapper: {
-        height: 60,
+    historyContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 20,
+        marginBottom: 10,
+    },
+    historyScroll: {
+        flexGrow: 0,
+    },
+    historyChip: {
+        backgroundColor: '#eee',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 15,
+        marginRight: 8,
+    },
+    historyChipText: {
+        fontSize: 13,
+        color: '#333',
+    },
+    clearHistoryBtn: {
+        marginLeft: 8,
     },
     filterContent: {
         paddingHorizontal: 20,
