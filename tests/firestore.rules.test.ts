@@ -294,9 +294,8 @@ describe('Firestore Security Rules', () => {
         await assertFails(setDoc(doc(db, 'events/event1/messages/msg1'), { text: 'Hello' }));
     });
 });
-
 // =========================================================================
-    // ISSUE #342: REGRESSION TESTS FOR NEW COLLECTIONS
+    // ISSUE #342: REGRESSION TESTS FOR NEW COLLECTIONS (Optimized)
     // =========================================================================
 
     const setupIssue342Data = async () => {
@@ -310,87 +309,44 @@ describe('Firestore Security Rules', () => {
         await seedDocument('events/event342/analytics/subStat', { metrics: true });
     };
 
-    // --- Root Certificates ---
-    test('Admin reads root certificate -> allowed', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('admin1', { admin: true });
-        await assertSucceeds(getDoc(doc(db, 'certificates/rootCert')));
-    });
-    test('Event owner reads root certificate -> allowed', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('eventOwner');
-        await assertSucceeds(getDoc(doc(db, 'certificates/rootCert')));
-    });
-    test('Unrelated user reads root certificate -> denied', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('unrelatedUser');
-        await assertFails(getDoc(doc(db, 'certificates/rootCert')));
-    });
+    // Define all our new paths and whether they have a specific 'user' owner
+    const newCollections = [
+        { name: 'root certificate', path: 'certificates/rootCert', hasOwner: true },
+        { name: 'root analytics', path: 'analytics/rootStat', hasOwner: false },
+        { name: 'event attendance', path: 'events/event342/attendance/att1', hasOwner: true },
+        { name: 'event certificates', path: 'events/event342/certificates/subCert', hasOwner: true },
+        { name: 'event analytics', path: 'events/event342/analytics/subStat', hasOwner: false }
+    ];
 
-    // --- Root Analytics ---
-    test('Admin reads root analytics -> allowed', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('admin1', { admin: true });
-        await assertSucceeds(getDoc(doc(db, 'analytics/rootStat')));
-    });
-    test('Event owner reads root analytics -> allowed', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('eventOwner');
-        await assertSucceeds(getDoc(doc(db, 'analytics/rootStat')));
-    });
-    test('Unrelated user reads root analytics -> denied', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('unrelatedUser');
-        await assertFails(getDoc(doc(db, 'analytics/rootStat')));
-    });
+    // Dynamically generate the tests to satisfy SonarCloud duplication limits
+    newCollections.forEach(({ name, path, hasOwner }) => {
+        describe(`Access control for ${name}`, () => {
+            
+            test('Admin reads -> allowed', async () => {
+                await setupIssue342Data();
+                const db = getFirestoreContext('admin1', { admin: true });
+                await assertSucceeds(getDoc(doc(db, path)));
+            });
 
-    // --- Event Subcollection: Attendance ---
-    test('Admin reads event attendance -> allowed', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('admin1', { admin: true });
-        await assertSucceeds(getDoc(doc(db, 'events/event342/attendance/att1')));
-    });
-    test('Event owner reads event attendance -> allowed', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('eventOwner');
-        await assertSucceeds(getDoc(doc(db, 'events/event342/attendance/att1')));
-    });
-    test('Unrelated user reads event attendance -> denied', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('unrelatedUser');
-        await assertFails(getDoc(doc(db, 'events/event342/attendance/att1')));
-    });
+            test('Event owner reads -> allowed', async () => {
+                await setupIssue342Data();
+                const db = getFirestoreContext('eventOwner');
+                await assertSucceeds(getDoc(doc(db, path)));
+            });
 
-    // --- Event Subcollection: Certificates ---
-    test('Admin reads event certificates -> allowed', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('admin1', { admin: true });
-        await assertSucceeds(getDoc(doc(db, 'events/event342/certificates/subCert')));
-    });
-    test('Event owner reads event certificates -> allowed', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('eventOwner');
-        await assertSucceeds(getDoc(doc(db, 'events/event342/certificates/subCert')));
-    });
-    test('Unrelated user reads event certificates -> denied', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('unrelatedUser');
-        await assertFails(getDoc(doc(db, 'events/event342/certificates/subCert')));
-    });
+            test('Unrelated user reads -> denied', async () => {
+                await setupIssue342Data();
+                const db = getFirestoreContext('unrelatedUser');
+                await assertFails(getDoc(doc(db, path)));
+            });
 
-    // --- Event Subcollection: Analytics ---
-    test('Admin reads event analytics -> allowed', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('admin1', { admin: true });
-        await assertSucceeds(getDoc(doc(db, 'events/event342/analytics/subStat')));
-    });
-    test('Event owner reads event analytics -> allowed', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('eventOwner');
-        await assertSucceeds(getDoc(doc(db, 'events/event342/analytics/subStat')));
-    });
-    test('Unrelated user reads event analytics -> denied', async () => {
-        await setupIssue342Data();
-        const db = getFirestoreContext('unrelatedUser');
-        await assertFails(getDoc(doc(db, 'events/event342/analytics/subStat')));
+            // This fixes the CodeRabbit missing test warning!
+            if (hasOwner) {
+                test('Document owner (student1) reads -> allowed', async () => {
+                    await setupIssue342Data();
+                    const db = getFirestoreContext('student1');
+                    await assertSucceeds(getDoc(doc(db, path)));
+                });
+            }
+        });
     });
