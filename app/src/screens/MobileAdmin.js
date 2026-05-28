@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { db } from '../lib/firebaseConfig';
 import { formatEventDate } from '../lib/formatEventDate';
@@ -19,6 +20,7 @@ import { useTheme } from '../lib/ThemeContext';
 export default function MobileAdmin() {
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
+    const navigation = useNavigation();
     const [activeTab, setActiveTab] = useState('events');
     const [events, setEvents] = useState([]);
     const [requests, setRequests] = useState([]);
@@ -265,6 +267,13 @@ export default function MobileAdmin() {
                     <Text style={styles.headerTitle}>Admin Dashboard</Text>
                     <Text style={styles.headerSubtitle}>Manage platform activity</Text>
                 </View>
+                <TouchableOpacity
+                    style={styles.heatmapBtn}
+                    onPress={() => navigation.navigate('LocationHeatmap')}
+                >
+                    <Ionicons name="flame" size={20} color="#fff" />
+                    <Text style={styles.heatmapBtnText}>Heatmap</Text>
+                </TouchableOpacity>
             </View>
 
             <View style={styles.tabContainer}>
@@ -450,6 +459,17 @@ const getStyles = theme =>
         actionBtnText: { fontWeight: '700', fontSize: 14 },
         emptyContainer: { alignItems: 'center', marginTop: 60, opacity: 0.5 },
         emptyText: { marginTop: 16, fontSize: 16, color: theme.colors.textSecondary },
+
+        heatmapBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            backgroundColor: theme.colors.primary,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            borderRadius: 10,
+        },
+        heatmapBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
         // Modal Styles
         modalOverlay: {
