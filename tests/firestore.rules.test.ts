@@ -47,9 +47,10 @@ const getFirestoreContext = (userId?: string, claims?: TokenOptions) => {
 describe('Firestore Security Rules', () => {
     // ---------------- EVENTS ----------------
 
-    test('Unauthenticated user reads /events -> allowed', async () => {
+    // FIXED: Unauthenticated users are no longer allowed to read events (Issue #342)
+    test('Unauthenticated user reads /events -> denied', async () => {
         const db = getFirestoreContext();
-        await assertSucceeds(getDoc(doc(db, 'events/event1')));
+        await assertFails(getDoc(doc(db, 'events/event1')));
     });
 
     test('Unauthenticated user writes /events -> denied', async () => {
@@ -160,12 +161,13 @@ describe('Firestore Security Rules', () => {
         await assertFails(getDoc(doc(db, 'events/event1/participants/student1')));
     });
 
-    test('Participant user reads another participant -> allowed', async () => {
+    // FIXED: Participants are no longer allowed to snoop on other participants (Issue #342)
+    test('Participant user reads another participant -> denied', async () => {
         await seedDocument('events/event1/participants/student1', { joined: true });
         await seedDocument('events/event1/participants/student2', { joined: true }); // Seed membership
 
         const db = getFirestoreContext('student2');
-        await assertSucceeds(getDoc(doc(db, 'events/event1/participants/student1')));
+        await assertFails(getDoc(doc(db, 'events/event1/participants/student1')));
     });
 
     test('Unauthenticated user reads participant -> denied', async () => {
