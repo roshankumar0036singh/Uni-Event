@@ -66,7 +66,7 @@ service cloud.firestore {
           exists(/databases/$(database)/documents/events/$(eventId)/participants/$(request.auth.uid)) ||
           request.auth.token.admin == true ||
           request.auth.token.club == true
-        ) && request.resource.data.senderId == request.auth.uid;
+        ) && request.resource.data.userId == request.auth.uid;
       }
     }
     match /reminders/{rid} {
