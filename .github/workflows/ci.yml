@@ -11,6 +11,38 @@ permissions:
   pull-requests: write
 
 jobs:
+  core-flow-tests:
+    name: Core Flow Tests (Firebase emulator)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Firebase emulator flow tests with coverage
+        run: npm run test:flows
+
+      - name: Report coverage
+        if: always()
+        run: |
+          node -e "const fs=require('fs');const p='coverage/coverage-summary.json';if(!fs.existsSync(p)){console.log('No coverage summary found.');process.exit(0)};const s=require('./'+p).total;const lines=['## Core Firebase Flow Coverage','| Metric | Covered | Total | Percent |','| --- | ---: | ---: | ---: |',...['statements','branches','functions','lines'].map(k=>`| ${k} | ${s[k].covered} | ${s[k].total} | ${s[k].pct}% |`)];fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');"
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-flow-coverage
+          path: coverage
+
   # ── App: Lint + Test ─────────────────────────────────────────────
   lint-and-test:
     name: Lint & Test (app)
