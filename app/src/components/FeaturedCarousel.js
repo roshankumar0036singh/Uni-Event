@@ -8,6 +8,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { formatEventDate } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
 import { FeaturedCarouselSkeleton } from './SkeletonLoader';
 import PropTypes from 'prop-types';
@@ -52,7 +53,7 @@ export default function FeaturedCarousel({ data = [], onEventPress, isLoading = 
                                         {item.title}
                                     </Text>
                                     <Text style={styles.cardSubtitle} numberOfLines={1}>
-                                        {new Date(item.startAt).toDateString()} • {item.location}
+                                        {formatEventDate(item.startAt)} • {item.location}
                                     </Text>
                                 </View>
                             </LinearGradient>

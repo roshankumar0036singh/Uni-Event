@@ -1,176 +1,251 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Certificate of Participation</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: #f0f2f5;
+                font-family: 'Georgia', serif;
+            }
 
-<head>
-    <meta charset="UTF-8">
-    <title>Certificate of Participation</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #f0f2f5;
-            font-family: 'Georgia', serif;
-        }
+            .wrapper {
+                width: 100%;
+                table-layout: fixed;
+                background-color: #f0f2f5;
+                padding: 40px 0;
+            }
 
-        .wrapper {
-            width: 100%;
-            table-layout: fixed;
-            background-color: #f0f2f5;
-            padding: 40px 0;
-        }
+            .main-table {
+                background-color: #ffffff;
+                margin: 0 auto;
+                width: 100%;
+                max-width: 800px;
+                border-spacing: 0;
+                color: #333333;
+                border: 10px solid #2c3e50;
+                position: relative;
+            }
 
-        .main-table {
-            background-color: #ffffff;
-            margin: 0 auto;
-            width: 100%;
-            max-width: 800px;
-            border-spacing: 0;
-            color: #333333;
-            border: 10px solid #2c3e50;
-            position: relative;
-        }
+            .inner-border {
+                border: 2px solid #daa520;
+                margin: 5px;
+                padding: 40px;
+                text-align: center;
+            }
 
-        .inner-border {
-            border: 2px solid #daa520;
-            margin: 5px;
-            padding: 40px;
-            text-align: center;
-        }
+            .header-logo {
+                font-size: 40px;
+                color: #daa520;
+                margin-bottom: 20px;
+            }
 
-        .header-logo {
-            font-size: 40px;
-            color: #daa520;
-            margin-bottom: 20px;
-        }
+            .title {
+                font-size: 36px;
+                font-weight: bold;
+                color: #2c3e50;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                margin-bottom: 30px;
+            }
 
-        .title {
-            font-size: 36px;
-            font-weight: bold;
-            color: #2c3e50;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-bottom: 30px;
-        }
+            .presented-text {
+                font-size: 16px;
+                font-style: italic;
+                color: #7f8c8d;
+                margin-bottom: 20px;
+                font-family: sans-serif;
+            }
 
-        .presented-text {
-            font-size: 16px;
-            font-style: italic;
-            color: #7f8c8d;
-            margin-bottom: 20px;
-            font-family: sans-serif;
-        }
+            .participant-name {
+                font-size: 32px;
+                font-weight: bold;
+                color: #e67e22;
+                margin: 10px 0 30px;
+                border-bottom: 1px solid #ddd;
+                display: inline-block;
+                padding-bottom: 5px;
+                min-width: 300px;
+            }
 
-        .participant-name {
-            font-size: 32px;
-            font-weight: bold;
-            color: #e67e22;
-            margin: 10px 0 30px;
-            border-bottom: 1px solid #ddd;
-            display: inline-block;
-            padding-bottom: 5px;
-            min-width: 300px;
-        }
+            .event-text {
+                font-size: 16px;
+                color: #7f8c8d;
+                font-family: sans-serif;
+            }
 
-        .event-text {
-            font-size: 16px;
-            color: #7f8c8d;
-            font-family: sans-serif;
-        }
+            .event-title {
+                font-size: 24px;
+                font-weight: bold;
+                color: #2c3e50;
+                margin: 15px 0 40px;
+            }
 
-        .event-title {
-            font-size: 24px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin: 15px 0 40px;
-        }
+            .footer {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 50px;
+                padding: 0 50px;
+            }
 
-        .footer {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 50px;
-            padding: 0 50px;
-        }
+            .signature {
+                text-align: center;
+            }
 
-        .signature {
-            text-align: center;
-        }
+            .sign-line {
+                width: 200px;
+                border-top: 1px solid #333;
+                margin-top: 10px;
+                margin-bottom: 5px;
+            }
 
-        .sign-line {
-            width: 200px;
-            border-top: 1px solid #333;
-            margin-top: 10px;
-            margin-bottom: 5px;
-        }
+            .sign-label {
+                font-size: 12px;
+                color: #7f8c8d;
+                font-family: sans-serif;
+                text-transform: uppercase;
+            }
 
-        .sign-label {
-            font-size: 12px;
-            color: #7f8c8d;
-            font-family: sans-serif;
-            text-transform: uppercase;
-        }
+            .logo-watermark {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                opacity: 0.05;
+                font-size: 300px;
+                z-index: 0;
+                pointer-events: none;
+            }
+        </style>
+    </head>
 
-        .logo-watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            opacity: 0.05;
-            font-size: 300px;
-            z-index: 0;
-            pointer-events: none;
-        }
-    </style>
-</head>
+    <body>
+        <div class="wrapper">
+            <table class="main-table">
+                <tr>
+                    <td>
+                        <div class="inner-border">
+                            <!-- Watermark -->
+                            <div class="logo-watermark">♔</div>
 
-<body>
-    <div class="wrapper">
-        <table class="main-table">
-            <tr>
-                <td>
-                    <div class="inner-border">
-                        <!-- Watermark -->
-                        <div class="logo-watermark">♔</div>
+                            <div class="header-logo">♛</div>
 
-                        <div class="header-logo">♛</div>
+                            <div class="title">Certificate of Participation</div>
 
-                        <div class="title">Certificate of Participation</div>
+                            <div class="presented-text">
+                                This certificate is proudly presented to
+                            </div>
 
-                        <div class="presented-text">This certificate is proudly presented to</div>
+                            <div class="participant-name">{{to_name}}</div>
 
-                        <div class="participant-name">{{to_name}}</div>
+                            <div class="event-text">
+                                for successfully participating in the event
+                            </div>
 
-                        <div class="event-text">for successfully participating in the event</div>
+                            <div class="event-title">{{event_title}}</div>
 
-                        <div class="event-title">{{event_title}}</div>
+                            <div class="presented-text">
+                                We appreciate your presence and contribution!
+                            </div>
 
-                        <div class="presented-text">We appreciate your presence and contribution!</div>
+                            <div style="margin-top: 30px">
+                                <a
+                                    href="{{cert_url}}"
+                                    style="
+                                        display: {{download_btn_display}};
+                                        padding: 10px 16px;
+                                        background: #2c6cdf;
+                                        color: #fff;
+                                        border-radius: 6px;
+                                        text-decoration: none;
+                                        margin-right: 10px;
+                                    "
+                                    >Download Certificate</a
+                                >
+                                <a
+                                    href="{{linkedin_url}}"
+                                    style="
+                                        display: {{download_btn_display}};
+                                        padding: 10px 16px;
+                                        background: #0077b5;
+                                        color: #fff;
+                                        border-radius: 6px;
+                                        text-decoration: none;
+                                    "
+                                    >Add to LinkedIn</a
+                                >
+                            </div>
 
-                        <table width="100%" style="margin-top: 60px;">
-                            <tr>
-                                <td align="center" width="50%">
-                                    <div class="sign-text"
-                                        style="font-family: 'Brush Script MT', cursive; font-size: 24px; color: #2c3e50;">
-                                        UniEvent Team</div>
-                                    <div class="sign-line"
-                                        style="width: 150px; border-top: 1px solid #999; margin: 5px auto;"></div>
-                                    <div class="sign-label" style="font-size: 10px; color: #999; letter-spacing: 1px;">
-                                        ORGANIZER</div>
-                                </td>
-                                <td align="center" width="50%">
-                                    <div class="sign-text"
-                                        style="font-family: monospace; font-size: 14px; color: #2c3e50;">{{date}}</div>
-                                    <div class="sign-line"
-                                        style="width: 150px; border-top: 1px solid #999; margin: 5px auto;"></div>
-                                    <div class="sign-label" style="font-size: 10px; color: #999; letter-spacing: 1px;">
-                                        DATE</div>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-                </td>
-            </tr>
-        </table>
-    </div>
-</body>
-
+                            <table style="width: 100%; margin-top: 60px">
+                                <tr>
+                                    <th style="width: 50%; text-align: center">
+                                        <div
+                                            class="sign-text"
+                                            style="
+                                                font-family: 'Brush Script MT', cursive;
+                                                font-size: 24px;
+                                                color: #2c3e50;
+                                            "
+                                        >
+                                            UniEvent Team
+                                        </div>
+                                        <div
+                                            class="sign-line"
+                                            style="
+                                                width: 150px;
+                                                border-top: 1px solid #999;
+                                                margin: 5px auto;
+                                            "
+                                        ></div>
+                                        <div
+                                            class="sign-label"
+                                            style="
+                                                font-size: 10px;
+                                                color: #999;
+                                                letter-spacing: 1px;
+                                            "
+                                        >
+                                            ORGANIZER
+                                        </div>
+                                    </th>
+                                    <th style="width: 50%; text-align: center">
+                                        <div
+                                            class="sign-text"
+                                            style="
+                                                font-family: monospace;
+                                                font-size: 14px;
+                                                color: #2c3e50;
+                                            "
+                                        >
+                                            {{date}}
+                                        </div>
+                                        <div
+                                            class="sign-line"
+                                            style="
+                                                width: 150px;
+                                                border-top: 1px solid #999;
+                                                margin: 5px auto;
+                                            "
+                                        ></div>
+                                        <div
+                                            class="sign-label"
+                                            style="
+                                                font-size: 10px;
+                                                color: #999;
+                                                letter-spacing: 1px;
+                                            "
+                                        >
+                                            DATE
+                                        </div>
+                                    </th>
+                                </tr>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </body>
 </html>

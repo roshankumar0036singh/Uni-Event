@@ -1,7 +1,26 @@
-import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
+
+// Initialize only once (important for tests + Firebase runtime)
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 const db = admin.firestore();
+
+/**
+ * Calculates reputation points:
+ * - Attendance: 10 points each
+ * - Registration: 2 points each
+ * - Reminder: 1 point each
+ */
+export const calculatePoints = (
+  attendanceCount: number,
+  registrationCount: number,
+  remindersSet: number,
+) => {
+  return attendanceCount * 10 + registrationCount * 2 + remindersSet;
+};
 
 /**
  * Calculates reputation for all users/students.
@@ -35,8 +54,11 @@ export const calculateReputation = functions.https.onCall(async (_data, context)
 
         const remindersSet = userData.reputation?.remindersSet || userData.remindersSet || 0;
 
-        const points = attendanceCount * 10 + registrationCount * 2 + remindersSet;
-
+        const points = calculatePoints(
+            attendanceCount,
+            registrationCount,
+            remindersSet,
+            );
         batch.update(userDoc.ref, {
             'reputation.points': points,
             'reputation.attendanceCount': attendanceCount,

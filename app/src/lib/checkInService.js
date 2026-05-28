@@ -17,7 +17,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  */
 export const validateTicket = async (ticketId, eventId) => {
     try {
-        // Fetch ticket from Firestore
         const ticketRef = doc(db, 'tickets', ticketId);
         const ticketSnap = await getDoc(ticketRef);
 
@@ -31,7 +30,6 @@ export const validateTicket = async (ticketId, eventId) => {
 
         const ticketData = ticketSnap.data();
 
-        // Verify ticket belongs to this event
         if (ticketData.eventId !== eventId) {
             return {
                 valid: false,
@@ -40,7 +38,6 @@ export const validateTicket = async (ticketId, eventId) => {
             };
         }
 
-        // Check if ticket is paid
         if (ticketData.status !== 'paid') {
             return {
                 valid: false,
@@ -49,18 +46,18 @@ export const validateTicket = async (ticketId, eventId) => {
             };
         }
 
-        // Check if already checked in
         if (ticketData.checkInStatus === 'checked-in') {
             return {
                 valid: false,
                 error: 'Already checked in',
-                message: `This attendee was already checked in at ${new Date(ticketData.checkedInAt?.toMillis()).toLocaleTimeString()}.`,
+                message: `This attendee was already checked in at ${new Date(
+                    ticketData.checkedInAt?.toMillis(),
+                ).toLocaleTimeString()}.`,
                 alreadyCheckedIn: true,
                 ticketData,
             };
         }
 
-        // Ticket is valid
         return {
             valid: true,
             ticketData: {
@@ -74,6 +71,42 @@ export const validateTicket = async (ticketId, eventId) => {
             valid: false,
             error: 'Validation failed',
             message: 'Unable to validate ticket. Please check your connection.',
+        };
+    }
+};
+
+/**
+ * Safe location helper
+ */
+const getLocation = async () => {
+    try {
+        return await new Promise(resolve => {
+            navigator.geolocation.getCurrentPosition(
+                position => {
+                    resolve({
+                        latitude: position.coords.latitude,
+
+                        longitude: position.coords.longitude,
+                    });
+                },
+                () => {
+                    resolve({
+                        latitude: null,
+                        longitude: null,
+                    });
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0,
+                },
+            );
+        });
+    } catch (error) {
+        console.error('Location error:', error);
+        return {
+            latitude: null,
+            longitude: null,
         };
     }
 };
@@ -154,11 +187,12 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
 };
 
 /**
- * Get attendance statistics for an event
+ * Get attendance statistics
  */
 export const getAttendanceStats = async eventId => {
     try {
         const eventRef = doc(db, 'events', eventId);
+
         const eventSnap = await getDoc(eventRef);
 
         if (!eventSnap.exists()) {
@@ -166,18 +200,24 @@ export const getAttendanceStats = async eventId => {
         }
 
         const eventData = eventSnap.data();
+
         const stats = eventData.stats || {};
 
         const totalRegistrations = stats.totalRegistrations || 0;
+
         const totalCheckedIn = stats.totalCheckedIn || 0;
+
         const checkInRate =
             totalRegistrations > 0 ? ((totalCheckedIn / totalRegistrations) * 100).toFixed(1) : 0;
 
         return {
             totalRegistrations,
             totalCheckedIn,
-            checkInRate: parseFloat(checkInRate),
+
+            checkInRate: Number.parseFloat(checkInRate),
+
             lastCheckInAt: stats.lastCheckInAt,
+
             pending: totalRegistrations - totalCheckedIn,
         };
     } catch (error) {
