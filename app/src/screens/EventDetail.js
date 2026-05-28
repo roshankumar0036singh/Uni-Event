@@ -29,6 +29,7 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Switch,
 } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import FeedbackModal from '../components/FeedbackModal';
@@ -39,11 +40,18 @@ import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
-import { cancelScheduledNotification, scheduleEventReminder } from '../lib/notificationService';
+import participantService from '../lib/participantService';
+import {
+    cancelScheduledNotification,
+    scheduleEventReminder,
+    triggerBuddyMatchNotification,
+} from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkCertificates } from '../lib/EmailService';
 import { getEarlyBirdInfo, getTimestampMs } from '../lib/earlyBird';
+import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
 import PropTypes from 'prop-types';
+import logger from '../lib/logger';
 
 // Constants to eliminate SonarQube Magic Numbers
 const RSVP_POINTS_CHANGE = 10;
@@ -62,6 +70,7 @@ export default function EventDetail({ route, navigation }) {
     const [sendingCertificates, setSendingCertificates] = useState(false);
     const [rsvpStatus, setRsvpStatus] = useState(null);
     const [participantCount, setParticipantCount] = useState(0);
+    const [participants, setParticipants] = useState([]);
     const [hasGivenFeedback, setHasGivenFeedback] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [showAppealModal, setShowAppealModal] = useState(false);
@@ -94,13 +103,36 @@ export default function EventDetail({ route, navigation }) {
             setShowAppealModal(false);
             Alert.alert('Submitted', 'Appeal sent to admin for review.');
         } catch (_e) {
-            console.error('Error submitting appeal:', _e);
+            logger.error('Error submitting appeal:', _e);
             Alert.alert('Error', 'Failed to submit appeal');
         } finally {
             setSendingAppeal(false);
         }
     };
+    const handleToggleBuddyDetail = async value => {
+        if (!user || !eventId) return;
+        try {
+            const participantRef = doc(db, 'events', eventId, 'participants', user.uid);
+            await updateDoc(participantRef, {
+                lookingForBuddy: value,
+            });
+
+            if (value) {
+                const otherBuddies = participants.filter(
+                    p => p.id !== user.uid && p.lookingForBuddy === true,
+                );
+                if (otherBuddies.length > 0) {
+                    await triggerBuddyMatchNotification(event, otherBuddies.length);
+                }
+            }
+        } catch (error) {
+            logger.error('Error toggling buddy preference:', error);
+            Alert.alert('Error', 'Failed to update buddy preference');
+        }
+    };
+
     const [hostName, setHostName] = useState('Organizer');
+    const [isVerifiedOrganizer, setIsVerifiedOrganizer] = useState(false);
     const [reminderId, setReminderId] = useState(null); // Firestore Doc ID if set
     const [isBookmarked, setIsBookmarked] = useState(false);
 
@@ -117,15 +149,31 @@ export default function EventDetail({ route, navigation }) {
 
     useEffect(() => {
         if (event?.ownerId) {
-            getDoc(doc(db, 'users', event.ownerId)).then(snap => {
-                if (snap.exists()) {
-                    setHostName(snap.data().displayName || event.organizerName || 'Organizer');
-                }
-            });
+            getDoc(doc(db, 'users', event.ownerId))
+                .then(snap => {
+                    if (snap.exists()) {
+                        const userData = snap.data();
+
+                        setHostName(userData.displayName || event.organizerName || 'Organizer');
+
+                        setIsVerifiedOrganizer(userData.verificationStatus === 'verified');
+                    } else {
+                        setHostName(event.organizerName || 'Organizer');
+                        setIsVerifiedOrganizer(false);
+                    }
+                })
+                .catch(() => {
+                    setHostName(event.organizerName || 'Organizer');
+                    setIsVerifiedOrganizer(false);
+                });
         } else if (event?.organizerName) {
             setHostName(event.organizerName);
+            setIsVerifiedOrganizer(false);
+        } else {
+            setHostName('Organizer');
+            setIsVerifiedOrganizer(false);
         }
-    }, [event]);
+    }, [event?.ownerId, event?.organizerName]);
 
     // Increment View Count (Unique per User)
     useEffect(() => {
@@ -150,7 +198,7 @@ export default function EventDetail({ route, navigation }) {
                     });
                 }
             } catch (error) {
-                console.log('Error recording view:', error);
+                logger.debug('Error recording view:', error);
             }
         };
 
@@ -175,17 +223,18 @@ export default function EventDetail({ route, navigation }) {
             setLoading(false);
         });
 
-        const unsubParticipants = onSnapshot(
-            collection(db, `events/${eventId}/participants`),
-            snapshot => {
-                setParticipantCount(snapshot.size);
-                if (user) {
-                    const myDoc = snapshot.docs.find(d => d.id === user.uid);
-                    if (myDoc) setRsvpStatus('going');
-                    else setRsvpStatus(null);
-                }
-            },
-        );
+        const unsubParticipants = participantService.subscribeParticipants(db, eventId, data => {
+            const list = Array.isArray(data) ? data : [];
+            setParticipantCount(list.length);
+            setParticipants(list);
+            if (user) {
+                const myDoc = list.find(d => d.id === user.uid);
+                if (myDoc) setRsvpStatus('going');
+                else setRsvpStatus(null);
+            } else {
+                setRsvpStatus(null);
+            }
+        });
 
         if (user) {
             getDoc(doc(db, `events/${eventId}/feedback`, user.uid)).then(snap => {
@@ -231,16 +280,16 @@ export default function EventDetail({ route, navigation }) {
         }
 
         try {
-            console.log('Toggling bookmark for event:', eventId, 'Current state:', isBookmarked);
+            logger.debug('Toggling bookmark for event:', eventId, 'Current state:', isBookmarked);
             const bookmarkRef = doc(db, 'users', user.uid, 'savedEvents', eventId);
 
             if (isBookmarked) {
-                console.log('Removing bookmark...');
+                logger.debug('Removing bookmark...');
                 await deleteDoc(bookmarkRef);
                 setIsBookmarked(false);
                 Alert.alert('Removed', 'Event removed from saved events.');
             } else {
-                console.log('Adding bookmark...');
+                logger.debug('Adding bookmark...');
                 await setDoc(bookmarkRef, {
                     eventId: eventId,
                     savedAt: new Date().toISOString(),
@@ -248,9 +297,9 @@ export default function EventDetail({ route, navigation }) {
                 setIsBookmarked(true);
                 Alert.alert('Saved', 'Event saved for later!');
             }
-            console.log('Bookmark toggled successfully. New state:', !isBookmarked);
+            logger.debug('Bookmark toggled successfully. New state:', !isBookmarked);
         } catch (e) {
-            console.error('Bookmark error:', e);
+            logger.error('Bookmark error:', e);
             Alert.alert('Error', `Failed to save event: ${e.message}`);
         }
     };
@@ -303,7 +352,7 @@ export default function EventDetail({ route, navigation }) {
                 });
             }
         } catch (error) {
-            console.error('Error sharing:', error);
+            logger.error('Error sharing:', error);
         }
     };
 
@@ -339,7 +388,7 @@ export default function EventDetail({ route, navigation }) {
                 }
             }
         } catch (e) {
-            console.error(e);
+            logger.error(e);
             Alert.alert('Error', 'Action failed.');
         }
     };
@@ -381,28 +430,58 @@ export default function EventDetail({ route, navigation }) {
         const ref = doc(db, 'events', eventId, 'participants', user.uid);
         const userRef = doc(db, 'users', user.uid, 'participating', eventId);
         const userProfileRef = doc(db, 'users', user.uid);
+        const eventRef = doc(db, 'events', eventId);
 
         try {
             await runTransaction(db, async transaction => {
                 const participantDoc = await transaction.get(ref);
                 const userDoc = await transaction.get(userProfileRef);
+                const eventSnap = await transaction.get(eventRef);
                 const userData = userDoc.exists() ? userDoc.data() : {};
+                if (!eventSnap.exists()) {
+                    throw new Error('Event not found');
+                }
+
+                const eventData = eventSnap.data() || {};
 
                 if (participantDoc.exists()) {
+                    const participantData = participantDoc.data() || {};
+                    const nextPreview = buildPreviewUpdate({
+                        eventData,
+                        participant: {
+                            userId: user.uid,
+                            name: participantData.name || user.displayName || 'Anonymous',
+                            email: participantData.email || user.email,
+                            branch: participantData.branch || 'Unknown',
+                            year: participantData.year || 'Unknown',
+                        },
+                        delta: -1,
+                    });
+                    const eventUpdates = buildCounterUpdates({
+                        branch: participantData.branch || 'Unknown',
+                        year: participantData.year || 'Unknown',
+                        delta: -1,
+                        eventData,
+                    });
+                    eventUpdates.participantsPreview = nextPreview;
+
                     // Withdraw RSVP
                     transaction.delete(ref);
                     transaction.delete(userRef);
                     transaction.update(userProfileRef, { points: increment(-RSVP_POINTS_CHANGE) });
+                    transaction.update(eventRef, eventUpdates);
                 } else {
-                    // Add RSVP
-                    transaction.set(ref, {
+                    const participantPayload = {
                         userId: user.uid,
                         email: user.email,
                         name: user.displayName || 'Anonymous',
                         branch: userData.branch || 'Unknown',
                         year: userData.year || 'Unknown',
                         joinedAt: new Date().toISOString(),
-                    });
+                    };
+
+                    // Add RSVP
+                    transaction.set(ref, participantPayload);
                     transaction.set(userRef, {
                         eventId: eventId,
                         joinedAt: new Date().toISOString(),
@@ -414,6 +493,20 @@ export default function EventDetail({ route, navigation }) {
                         userUpdate.badges = arrayUnion(`early_bird_${eventId}`);
                     }
                     transaction.update(userProfileRef, userUpdate);
+
+                    const nextPreview = buildPreviewUpdate({
+                        eventData,
+                        participant: participantPayload,
+                        delta: 1,
+                    });
+                    const eventUpdates = buildCounterUpdates({
+                        branch: participantPayload.branch,
+                        year: participantPayload.year,
+                        delta: 1,
+                        eventData,
+                    });
+                    eventUpdates.participantsPreview = nextPreview;
+                    transaction.update(eventRef, eventUpdates);
                 }
             });
 
@@ -435,7 +528,7 @@ export default function EventDetail({ route, navigation }) {
                 );
             }
         } catch (e) {
-            console.error('RSVP Error: ', e);
+            logger.error('RSVP Error: ', e);
             Alert.alert('Error', 'Failed to update RSVP');
         }
     };
@@ -463,24 +556,17 @@ export default function EventDetail({ route, navigation }) {
 
         setSendingCertificates(true);
         try {
-            // Fetch Participants
-            console.log(`Fetching participants for event: ${event.id}`);
-            const participantsRef = collection(db, `events/${event.id}/participants`);
-            const snapshot = await getDocs(participantsRef);
-            console.log(`Snapshot size: ${snapshot.size}`);
-
-            const participants = snapshot.docs
-                .map(doc => {
-                    const data = doc.data();
-                    console.log(`Participant: ${data.name}, Email: ${data.email}`);
-                    return {
-                        name: data.name,
-                        email: data.email,
-                    };
-                })
+            // Fetch Participants via participantService
+            logger.debug(`Fetching participants for event: ${event.id}`);
+            const snapshotData = await (
+                await import('../lib/participantService')
+            ).default.fetchParticipantsOnce(db, event.id);
+            const participants = (snapshotData || [])
+                .map(d => ({ name: d.name, email: d.email }))
                 .filter(p => p.email && p.email !== '-');
+            logger.debug(`Valid participants count: ${participants.length}`);
 
-            console.log(`Valid participants count: ${participants.length}`);
+            logger.debug(`Valid participants count: ${participants.length}`);
 
             if (participants.length === 0) {
                 Alert.alert('Error', 'No participants found with valid emails.');
@@ -489,7 +575,7 @@ export default function EventDetail({ route, navigation }) {
             }
 
             // Send certificates via EmailJS (Frontend)
-            console.log('Calling sendBulkCertificates...');
+            logger.debug('Calling sendBulkCertificates...');
             const eventLink = `https://unievent-ez2w.onrender.com/event/${event.id}`;
             const count = await sendBulkCertificates(
                 participants,
@@ -497,7 +583,7 @@ export default function EventDetail({ route, navigation }) {
                 new Date(event.startAt).toLocaleDateString(),
                 eventLink,
             );
-            console.log(`Sent count: ${count}`);
+            logger.debug(`Sent count: ${count}`);
 
             // Update event status
             await updateDoc(doc(db, 'events', event.id), {
@@ -507,7 +593,7 @@ export default function EventDetail({ route, navigation }) {
 
             Alert.alert('Success', `Certificates sent to ${count} participants.`);
         } catch (e) {
-            console.error('Certificate Send Error:', e);
+            logger.error('Certificate Send Error:', e);
             Alert.alert('Error', 'Failed to send certificates via EmailJS');
         } finally {
             setSendingCertificates(false);
@@ -786,7 +872,7 @@ export default function EventDetail({ route, navigation }) {
                 }
             }
         } catch (e) {
-            console.error('Certificate Error:', e);
+            logger.error('Certificate Error:', e);
             Alert.alert('Error', 'Failed to generate certificate: ' + e.message);
         } finally {
             setSendingCertificates(false); // Reset loading state
@@ -810,13 +896,13 @@ export default function EventDetail({ route, navigation }) {
 
             await Linking.openURL(finalUrl);
         } catch (error) {
-            console.log(error);
+            logger.debug(error);
             Alert.alert('Error', 'Failed to open LinkedIn');
         }
     };
 
     const handleSendCertificates = async () => {
-        console.log('Send Certificates Button Clicked');
+        logger.debug('Send Certificates Button Clicked');
         sendCertificates();
     };
 
@@ -835,7 +921,7 @@ export default function EventDetail({ route, navigation }) {
             setHasGivenFeedback(true);
             Alert.alert('Thank You', 'Feedback submitted!');
         } catch (error) {
-            console.error(error);
+            logger.error(error);
             Alert.alert('Error', 'Failed to submit feedback');
         }
     };
@@ -1410,9 +1496,20 @@ export default function EventDetail({ route, navigation }) {
                                 >
                                     Hosted by
                                 </Text>
-                                <Text style={[styles.hostName, { color: theme.colors.text }]}>
-                                    {hostName}
-                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Text style={[styles.hostName, { color: theme.colors.text }]}>
+                                        {hostName}
+                                    </Text>
+
+                                    {isVerifiedOrganizer && (
+                                        <Ionicons
+                                            name="checkmark-circle"
+                                            size={18}
+                                            color="#3B82F6"
+                                            style={{ marginLeft: 6 }}
+                                        />
+                                    )}
+                                </View>
                             </View>
                             <Ionicons
                                 name="chevron-forward"
@@ -1510,6 +1607,211 @@ export default function EventDetail({ route, navigation }) {
                             </Text>
                         </TouchableOpacity>
                     </View>
+                    {rsvpStatus === 'going' && !isOwner && !isSuspended && (
+                        <View
+                            style={[
+                                styles.buddyCard,
+                                { backgroundColor: theme.colors.surface, ...theme.shadows.small },
+                            ]}
+                        >
+                            <View style={styles.buddyHeader}>
+                                <View style={styles.buddyHeaderTitleRow}>
+                                    <Ionicons
+                                        name="people"
+                                        size={24}
+                                        color={theme.colors.primary}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.buddyCardTitle,
+                                            { color: theme.colors.text },
+                                        ]}
+                                    >
+                                        Buddy Matching
+                                    </Text>
+                                </View>
+                                <Switch
+                                    value={
+                                        participants.find(p => p.id === user?.uid)
+                                            ?.lookingForBuddy || false
+                                    }
+                                    onValueChange={handleToggleBuddyDetail}
+                                    trackColor={{
+                                        false: theme.colors.border,
+                                        true: theme.colors.primary + '80',
+                                    }}
+                                    thumbColor={
+                                        participants.find(p => p.id === user?.uid)
+                                            ?.lookingForBuddy || false
+                                            ? theme.colors.primary
+                                            : '#999'
+                                    }
+                                />
+                            </View>
+
+                            {participants.find(p => p.id === user?.uid)?.lookingForBuddy ||
+                            false ? (
+                                <View style={styles.buddyContent}>
+                                    {participants.filter(
+                                        p => p.id !== user?.uid && p.lookingForBuddy === true,
+                                    ).length > 0 ? (
+                                        <View>
+                                            <Text
+                                                style={[
+                                                    styles.buddyMatchHeading,
+                                                    { color: theme.colors.success },
+                                                ]}
+                                            >
+                                                Buddy Matches Found!
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.buddyMeetupSpot,
+                                                    { color: theme.colors.text },
+                                                ]}
+                                            >
+                                                {event.eventMode === 'online'
+                                                    ? 'Meetup Spot: We suggest connecting in the event chat room!'
+                                                    : `Meetup Spot: Near the Main Entrance Lobby / Registration Desk of ${event.location || 'the venue'}. Look for the 'Buddy Meetup' sign!`}
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.buddyListLabel,
+                                                    { color: theme.colors.textSecondary },
+                                                ]}
+                                            >
+                                                Other students looking for buddies:
+                                            </Text>
+                                            <View style={styles.buddyList}>
+                                                {participants
+                                                    .filter(
+                                                        p =>
+                                                            p.id !== user?.uid &&
+                                                            p.lookingForBuddy === true,
+                                                    )
+                                                    .map(buddy => (
+                                                        <View
+                                                            key={buddy.id}
+                                                            style={[
+                                                                styles.buddyItem,
+                                                                {
+                                                                    borderColor:
+                                                                        theme.colors.border,
+                                                                },
+                                                            ]}
+                                                        >
+                                                            <View
+                                                                style={[
+                                                                    styles.buddyAvatar,
+                                                                    {
+                                                                        backgroundColor:
+                                                                            theme.colors.primary +
+                                                                            '20',
+                                                                    },
+                                                                ]}
+                                                            >
+                                                                <Text
+                                                                    style={[
+                                                                        styles.buddyAvatarText,
+                                                                        {
+                                                                            color: theme.colors
+                                                                                .primary,
+                                                                        },
+                                                                    ]}
+                                                                >
+                                                                    {buddy.name?.[0]?.toUpperCase() ||
+                                                                        'B'}
+                                                                </Text>
+                                                            </View>
+                                                            <View style={styles.buddyInfo}>
+                                                                <Text
+                                                                    style={[
+                                                                        styles.buddyName,
+                                                                        {
+                                                                            color: theme.colors
+                                                                                .text,
+                                                                        },
+                                                                    ]}
+                                                                >
+                                                                    {buddy.name || 'Anonymous'}
+                                                                </Text>
+                                                                <Text
+                                                                    style={[
+                                                                        styles.buddyDetails,
+                                                                        {
+                                                                            color: theme.colors
+                                                                                .textSecondary,
+                                                                        },
+                                                                    ]}
+                                                                >
+                                                                    {buddy.branch ||
+                                                                        'Unknown Branch'}{' '}
+                                                                    • Year {buddy.year || 'Unknown'}
+                                                                </Text>
+                                                            </View>
+                                                        </View>
+                                                    ))}
+                                            </View>
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.buddyChatBtn,
+                                                    { backgroundColor: theme.colors.primary },
+                                                ]}
+                                                onPress={() =>
+                                                    navigation.navigate('EventChat', {
+                                                        eventId: event.id,
+                                                        title: event.title,
+                                                    })
+                                                }
+                                            >
+                                                <Ionicons
+                                                    name="chatbubbles"
+                                                    size={18}
+                                                    color="#fff"
+                                                />
+                                                <Text style={styles.buddyChatBtnText}>
+                                                    Say Hello in Event Chat
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    ) : (
+                                        <View style={styles.buddyWaiting}>
+                                            <Text
+                                                style={[
+                                                    styles.buddyStatusHeading,
+                                                    { color: theme.colors.primary },
+                                                ]}
+                                            >
+                                                Looking for a Buddy... 🔍
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.buddyWaitingText,
+                                                    { color: theme.colors.textSecondary },
+                                                ]}
+                                            >
+                                                We&apos;ll notify you as soon as someone else
+                                                toggles this! In the meantime, the designated Meetup
+                                                Spot is near the Main Lobby.
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                            ) : (
+                                <View style={styles.buddyPromo}>
+                                    <Text
+                                        style={[
+                                            styles.buddyPromoText,
+                                            { color: theme.colors.textSecondary },
+                                        ]}
+                                    >
+                                        Going alone? Toggle buddy matching to find other students to
+                                        meet before the event!
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    )}
 
                     {/* Event Details Card */}
                     <View style={[styles.detailsCard, { backgroundColor: theme.colors.surface }]}>
@@ -2372,6 +2674,113 @@ const getStyles = theme =>
         passPrice: {
             fontSize: 28,
             fontWeight: '800',
+        },
+        buddyCard: {
+            padding: 20,
+            borderRadius: 20,
+            marginBottom: 20,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+        },
+        buddyHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 10,
+        },
+        buddyHeaderTitleRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+        },
+        buddyCardTitle: {
+            fontSize: 18,
+            fontWeight: '700',
+        },
+        buddyContent: {
+            marginTop: 10,
+        },
+        buddyMatchHeading: {
+            fontSize: 16,
+            fontWeight: '700',
+            marginBottom: 8,
+        },
+        buddyMeetupSpot: {
+            fontSize: 14,
+            fontWeight: '600',
+            lineHeight: 20,
+            marginBottom: 12,
+        },
+        buddyListLabel: {
+            fontSize: 13,
+            fontWeight: '600',
+            marginBottom: 8,
+        },
+        buddyList: {
+            gap: 10,
+            marginBottom: 16,
+        },
+        buddyItem: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            padding: 10,
+            borderRadius: 12,
+            borderWidth: 1,
+        },
+        buddyAvatar: {
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        buddyAvatarText: {
+            fontSize: 16,
+            fontWeight: '700',
+        },
+        buddyInfo: {
+            flex: 1,
+        },
+        buddyName: {
+            fontSize: 14,
+            fontWeight: '600',
+        },
+        buddyDetails: {
+            fontSize: 12,
+        },
+        buddyChatBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            paddingVertical: 12,
+            borderRadius: 12,
+            marginTop: 4,
+        },
+        buddyChatBtnText: {
+            color: '#fff',
+            fontWeight: '700',
+            fontSize: 14,
+        },
+        buddyWaiting: {
+            paddingVertical: 10,
+        },
+        buddyStatusHeading: {
+            fontSize: 15,
+            fontWeight: '700',
+            marginBottom: 6,
+        },
+        buddyWaitingText: {
+            fontSize: 13,
+            lineHeight: 18,
+        },
+        buddyPromo: {
+            paddingTop: 4,
+        },
+        buddyPromoText: {
+            fontSize: 13,
+            lineHeight: 18,
         },
     });
 

@@ -3,37 +3,40 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { Resend } from 'resend';
+import { getParticipantContacts, Participant } from './lib/participants';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendCertificatesForEvent(eventId: string, ownerId: string) {
     // 1. Fetch Event Details
     const eventDoc = await admin.firestore().collection('events').doc(eventId).get();
-    if (!eventDoc.exists) throw new Error("Event not found");
+    if (!eventDoc.exists) throw new Error('Event not found');
     const event = eventDoc.data();
 
     if (event?.ownerId !== ownerId) {
-        throw new Error("Unauthorized: Only the event owner can send certificates.");
+        throw new Error('Unauthorized: Only the event owner can send certificates.');
     }
 
-    // 2. Fetch Participants
-    const participantsSnap = await admin.firestore().collection(`events/${eventId}/participants`).get();
-    if (participantsSnap.empty) throw new Error("No participants registered for this event.");
+    // 2. Fetch Participants (use shared helper)
+    const participants: Participant[] = await getParticipantContacts(admin.firestore(), eventId);
+    if (!participants || participants.length === 0)
+        throw new Error('No participants registered for this event.');
 
-    const participants = participantsSnap.docs.map(doc => doc.data());
-    
     // 3. Load Template
     // Using a reliable path for assets
     const templatePath = path.join(__dirname, '../assets/certificate_template.pdf');
     let templateBytes;
-    
+
     try {
         templateBytes = fs.readFileSync(templatePath);
     } catch (e) {
-        throw new Error("Certificate Template not found. Please ensure 'assets/certificate_template.pdf' exists in cloud-functions.");
+        throw new Error(
+            "Certificate Template not found. Please ensure 'assets/certificate_template.pdf' exists in cloud-functions.",
+        );
     }
 
     const results = [];
+    let sentCount = 0;
 
     // 4. Process Each Participant
     for (const p of participants) {
@@ -62,7 +65,7 @@ export async function sendCertificatesForEvent(eventId: string, ownerId: string)
 
             // Draw Event Name
             const eventNameSize = 20;
-            const eventName = event.title || "Event";
+            const eventName = event.title || 'Event';
             const eventWidth = regularFont.widthOfTextAtSize(eventName, eventNameSize);
             firstPage.drawText(eventName, {
                 x: (width - eventWidth) / 2,
@@ -94,20 +97,22 @@ export async function sendCertificatesForEvent(eventId: string, ownerId: string)
                 results.push({ email: p.email, status: 'failed', error });
             } else {
                 console.log(`Sent to ${p.email}`);
+                sentCount += 1;
                 results.push({ email: p.email, status: 'success', id: data?.id });
             }
-
         } catch (err) {
             console.error(`Error processing ${p.email}:`, err);
             results.push({ email: p.email, status: 'error', error: (err as any).message });
         }
     }
 
-    // 5. Update Event Status
-    await admin.firestore().collection('events').doc(eventId).update({
-        certificatesSent: true,
-        certificatesSentAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    // 5. Update Event Status only if at least one certificate was delivered
+    if (sentCount > 0) {
+        await admin.firestore().collection('events').doc(eventId).update({
+            certificatesSent: true,
+            certificatesSentAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
 
-    return { total: participants.length, results };
+    return { total: participants.length, sentCount, results };
 }

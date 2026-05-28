@@ -1,9 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 // import { Picker } from '@react-native-picker/picker'; // Removed native picker
-import { LinearGradient } from 'expo-linear-gradient';
 import { updateProfile } from 'firebase/auth';
 import { addDoc, collection, doc, getCountFromServer, getDoc, updateDoc } from 'firebase/firestore';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
     Alert,
@@ -22,9 +21,15 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
-import TopContributors from '../components/TopContributors';
 import PropTypes from 'prop-types';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getUserLevel, getUserLevelProgress } from '../lib/userLevels';
+import {
+    getSafeSelectedProfileBadge,
+    getUnlockedProfileBadges,
+    PROFILE_BADGES,
+    canUseProfileBadge,
+} from '../lib/profileBadges';
 
 // Helper to get ordinal year labels
 const getYearLabel = y => {
@@ -41,24 +46,59 @@ const getYearLabel = y => {
 };
 
 // Helper for menu items
-const MenuItem = ({ icon, label, onPress, theme, styles, showChevron = true, rightElement }) => (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-        <View style={[styles.menuIconContainer, { backgroundColor: theme.colors.primary + '20' }]}>
-            <Ionicons name={icon} size={20} color={theme.colors.primary} />
+const MenuItem = ({
+    icon,
+    label,
+    description,
+    onPress,
+    theme,
+    styles,
+    width = '50%',
+    showChevron = true,
+    rightElement,
+}) => (
+    <TouchableOpacity onPress={onPress} style={[styles.bentoMenuItem, { width }]}>
+        <View style={styles.bentoTop}>
+            <View
+                style={[
+                    styles.menuIconContainer,
+                    {
+                        backgroundColor: theme.colors.primary + '20',
+                    },
+                ]}
+            >
+                <Ionicons name={icon} size={20} color={theme.colors.primary} />
+            </View>
+            <View style={styles.bentoContent}>
+                <Text style={styles.bentoLabel}>{label}</Text>
+            </View>
+            {rightElement}
         </View>
-        <Text style={styles.menuText}>{label}</Text>
-        {rightElement}
-        {showChevron && !rightElement && (
-            <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-        )}
+        <View>
+            {description && <Text style={styles.bentoDescription}>{description}</Text>}
+            {showChevron && (
+                <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                    style={styles.bentoChevron}
+                />
+            )}
+        </View>
     </TouchableOpacity>
 );
 
 const StatCard = ({ label, value, icon, theme, styles }) => (
     <View style={[styles.statCard, { backgroundColor: theme.colors.surface }]}>
-        <Ionicons name={icon} size={20} color={theme.colors.primary} style={{ marginBottom: 5 }} />
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
+        <View style={styles.statCardRow}>
+            <View style={[styles.statIconSection]}>
+                <Ionicons name={icon} size={20} color={theme.colors.primary} style={{}} />
+            </View>
+            <View style={styles.statContentSection}>
+                <Text style={styles.statValue}>{value}</Text>
+                <Text style={styles.statLabel}>{label}</Text>
+            </View>
+        </View>
     </View>
 );
 
@@ -95,6 +135,78 @@ const LevelProgressCard = ({ levelInfo, progressInfo, points, theme, styles }) =
     </View>
 );
 
+const ActiveProfileBadge = ({ badge, onPress, styles }) => (
+    <TouchableOpacity
+        style={[styles.activeProfileBadge, { borderColor: badge.color + '80' }]}
+        onPress={onPress}
+        activeOpacity={0.85}
+    >
+        <View style={[styles.activeProfileBadgeIcon, { backgroundColor: badge.color + '20' }]}>
+            <Ionicons name={badge.icon} size={18} color={badge.color} />
+        </View>
+        <View style={{ flex: 1 }}>
+            <Text style={styles.activeProfileBadgeTitle}>{badge.label}</Text>
+            <Text style={styles.activeProfileBadgeText}>Profile badge</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={badge.color} />
+    </TouchableOpacity>
+);
+
+const ProfileBadgeShelf = ({
+    badges,
+    selectedBadgeId,
+    onSelectBadge,
+    onManagePress,
+    styles,
+    disabled,
+}) => (
+    <View style={styles.profileBadgeShelf}>
+        <View style={styles.profileBadgeShelfHeader}>
+            <Text style={styles.profileBadgeShelfTitle}>Unlocked badges</Text>
+            <TouchableOpacity onPress={onManagePress} activeOpacity={0.8}>
+                <Text style={styles.profileBadgeShelfAction}>Manage</Text>
+            </TouchableOpacity>
+        </View>
+        <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.profileBadgeShelfList}
+        >
+            {badges.map(badge => {
+                const isSelected = badge.id === selectedBadgeId;
+
+                return (
+                    <TouchableOpacity
+                        key={badge.id}
+                        style={[
+                            styles.profileBadgeShelfItem,
+                            {
+                                borderColor: isSelected ? badge.color : 'transparent',
+                                backgroundColor: badge.color + (isSelected ? '24' : '14'),
+                            },
+                        ]}
+                        onPress={() => onSelectBadge(badge)}
+                        activeOpacity={disabled ? 1 : 0.85}
+                        disabled={disabled}
+                    >
+                        <Ionicons name={badge.icon} size={20} color={badge.color} />
+                        {isSelected && (
+                            <View
+                                style={[
+                                    styles.profileBadgeShelfCheck,
+                                    { backgroundColor: badge.color },
+                                ]}
+                            >
+                                <Ionicons name="checkmark" size={10} color="#fff" />
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                );
+            })}
+        </ScrollView>
+    </View>
+);
+
 LevelProgressCard.propTypes = {
     levelInfo: PropTypes.shape({
         icon: PropTypes.string,
@@ -112,6 +224,31 @@ LevelProgressCard.propTypes = {
     points: PropTypes.number,
     theme: PropTypes.object,
     styles: PropTypes.object,
+};
+
+ActiveProfileBadge.propTypes = {
+    badge: PropTypes.shape({
+        color: PropTypes.string,
+        icon: PropTypes.string,
+        label: PropTypes.string,
+    }),
+    onPress: PropTypes.func,
+    styles: PropTypes.object,
+};
+
+ProfileBadgeShelf.propTypes = {
+    badges: PropTypes.arrayOf(
+        PropTypes.shape({
+            color: PropTypes.string,
+            icon: PropTypes.string,
+            id: PropTypes.string,
+        }),
+    ),
+    selectedBadgeId: PropTypes.string,
+    onSelectBadge: PropTypes.func,
+    onManagePress: PropTypes.func,
+    styles: PropTypes.object,
+    disabled: PropTypes.bool,
 };
 
 const BRANCHES = ['CSE', 'ETC', 'EE', 'ME', 'Civil'];
@@ -133,13 +270,24 @@ export default function ProfileScreen({ navigation }) {
     const [eventsCount, setEventsCount] = useState(0);
     const [rating, setRating] = useState(0);
     const [badges, setBadges] = useState([]);
+    const [selectedProfileBadge, setSelectedProfileBadge] = useState('fresh-face');
     const [isEditing, setIsEditing] = useState(false);
     const [showRequestModal, setShowRequestModal] = useState(false);
+    const [showBadgeModal, setShowBadgeModal] = useState(false);
     const [requestSubject, setRequestSubject] = useState('Request Club Access');
     const [requestMessage, setRequestMessage] = useState('');
     const [loading, setLoading] = useState(false);
+    const updatingBadgeRef = useRef(null);
     const levelInfo = useMemo(() => getUserLevel(points), [points]);
     const progressInfo = useMemo(() => getUserLevelProgress(points), [points]);
+    const activeProfileBadge = useMemo(
+        () => getSafeSelectedProfileBadge(selectedProfileBadge, levelInfo.level),
+        [selectedProfileBadge, levelInfo.level],
+    );
+    const unlockedProfileBadges = useMemo(
+        () => getUnlockedProfileBadges(levelInfo.level),
+        [levelInfo.level],
+    );
 
     const fetchUserData = useCallback(async () => {
         if (!user?.uid) return;
@@ -156,6 +304,7 @@ export default function ProfileScreen({ navigation }) {
                 setBranch(data.branch || 'CSE');
                 setPoints(data.points ?? 0);
                 setBadges(data.badges || []);
+                setSelectedProfileBadge(data.selectedProfileBadge || 'fresh-face');
 
                 // Fetch Club Rating (for club/admin users) from reputation field
                 if (role === 'club' || role === 'admin') {
@@ -281,6 +430,41 @@ export default function ProfileScreen({ navigation }) {
         }
     };
 
+    const handleSelectProfileBadge = async badge => {
+        if (loading || updatingBadgeRef.current) return;
+
+        if (badge.id === activeProfileBadge.id) {
+            setShowBadgeModal(false);
+            return;
+        }
+
+        if (!canUseProfileBadge(badge.id, levelInfo.level)) {
+            Alert.alert('Locked Badge', `Reach Level ${badge.requiredLevel} to unlock this badge.`);
+            return;
+        }
+
+        try {
+            updatingBadgeRef.current = badge.id;
+            setLoading(true);
+            await updateDoc(doc(db, 'users', user.uid), {
+                selectedProfileBadge: badge.id,
+            });
+            if (updatingBadgeRef.current !== badge.id) return;
+
+            setSelectedProfileBadge(badge.id);
+            setShowBadgeModal(false);
+            Alert.alert('Badge Updated', `${badge.label} is now shown on your profile.`);
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to update profile badge');
+        } finally {
+            if (updatingBadgeRef.current === badge.id) {
+                updatingBadgeRef.current = null;
+                setLoading(false);
+            }
+        }
+    };
+
     return (
         <ScreenWrapper>
             <ScrollView
@@ -288,54 +472,68 @@ export default function ProfileScreen({ navigation }) {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Header Profile Section */}
-                <View style={styles.header}>
-                    <View style={styles.avatarContainer}>
-                        <LinearGradient
-                            colors={[
-                                theme.colors.primary || '#6200ee',
-                                theme.colors.secondary || '#03dac6',
-                            ]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.avatarGradientBorder}
-                        >
-                            <View
-                                style={[
-                                    styles.avatarInner,
-                                    { backgroundColor: theme.colors.background },
-                                ]}
-                            >
-                                <Text style={styles.avatarText}>
-                                    {name?.[0]?.toUpperCase() ||
-                                        user?.email?.[0]?.toUpperCase() ||
-                                        'U'}
-                                </Text>
+                <LinearGradient
+                    colors={[
+                        theme.colors.surface + '15',
+                        'rgba(255, 183, 77, 0.10)',
+                        theme.colors.primary + '20',
+                    ]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0.57, y: 1 }}
+                    style={styles.header}
+                >
+                    <View style={styles.profileTopRow}>
+                        <View style={styles.profileLeft}>
+                            <View style={styles.avatarContainer}>
+                                <View style={styles.avatarInner}>
+                                    <Text style={styles.avatarText}>
+                                        {name?.[0]?.toUpperCase() ||
+                                            user?.email?.[0]?.toUpperCase() ||
+                                            'U'}
+                                    </Text>
+                                </View>
                             </View>
-                        </LinearGradient>
+                            <View style={styles.profileInfo}>
+                                <Text style={styles.profileName}>{name || 'User'}</Text>
+                                <Text style={styles.profileEmail}>{user?.email}</Text>
+                            </View>
+                        </View>
+                        {!isEditing && (
+                            <TouchableOpacity
+                                style={styles.editIconBtn}
+                                onPress={() => setIsEditing(true)}
+                            >
+                                <MaterialIcons name="edit" size={18} color="#fff" />
+                            </TouchableOpacity>
+                        )}
                     </View>
 
-                    <View style={{ alignItems: 'center', marginTop: 10 }}>
-                        <Text style={styles.profileName}>{name || 'User'}</Text>
+                    <View style={styles.profileContent}>
+                        {headline ? (
+                            <Text style={styles.profileHeadline} numberOfLines={3}>
+                                {headline}
+                            </Text>
+                        ) : null}
                         {bio ? (
                             <Text style={styles.profileBio} numberOfLines={3}>
                                 {bio}
                             </Text>
                         ) : null}
-                        <Text style={styles.profileEmail}>{user?.email}</Text>
+                        <ActiveProfileBadge
+                            badge={activeProfileBadge}
+                            onPress={() => setShowBadgeModal(true)}
+                            styles={styles}
+                        />
+                        <ProfileBadgeShelf
+                            badges={unlockedProfileBadges}
+                            selectedBadgeId={activeProfileBadge.id}
+                            onSelectBadge={handleSelectProfileBadge}
+                            onManagePress={() => setShowBadgeModal(true)}
+                            styles={styles}
+                            disabled={loading}
+                        />
                     </View>
-
-                    {!isEditing && (
-                        <TouchableOpacity
-                            style={styles.editIconBtn}
-                            onPress={() => setIsEditing(true)}
-                        >
-                            <Ionicons name="pencil" size={18} color="#fff" />
-                            <Text style={{ color: '#fff', fontWeight: 'bold', marginLeft: 4 }}>
-                                Edit
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
+                </LinearGradient>
 
                 {/* Stats Row */}
                 {!isEditing && (
@@ -700,80 +898,93 @@ export default function ProfileScreen({ navigation }) {
                         {/* Activity Section */}
                         <View style={styles.menuGroup}>
                             <Text style={styles.groupTitle}>Activity</Text>
-                            <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-                                {role === 'admin' && (
-                                    <>
+                            {role === 'admin' && (
+                                <>
+                                    <View style={styles.bentoRow}>
                                         <MenuItem
                                             icon="calendar-outline"
                                             label="My Created Events"
+                                            description="Manage your hosted events"
+                                            width="48%"
                                             onPress={() => navigation.navigate('MyEvents')}
                                             theme={theme}
                                             styles={styles}
                                         />
-                                        <View style={styles.divider} />
                                         <MenuItem
                                             icon="notifications-outline"
                                             label="Send Daily Update"
+                                            description="Notify users instantly"
+                                            width="48%"
                                             onPress={handleSendDailyDigest}
                                             theme={theme}
                                             styles={styles}
                                         />
-                                        <View style={styles.divider} />
-                                    </>
-                                )}
+                                    </View>
+                                </>
+                            )}
+                            <View style={styles.bentoRow}>
                                 <MenuItem
                                     icon="heart-outline"
                                     label="My Calendar"
+                                    description="Track upcoming events"
+                                    width="48%"
                                     onPress={() => navigation.navigate('MyRegisteredEvents')}
                                     theme={theme}
                                     styles={styles}
                                 />
-                                <View style={styles.divider} />
                                 <MenuItem
                                     icon="bookmark-outline"
                                     label="Saved Events"
+                                    description="Your bookmarked events"
+                                    width="48%"
                                     onPress={() => navigation.navigate('SavedEvents')}
                                     theme={theme}
                                     styles={styles}
                                 />
-                                <View style={styles.divider} />
+                            </View>
+                            <View style={styles.bentoRow}>
                                 <MenuItem
-                                    icon="sparkles-outline"
+                                    icon="trophy-outline"
                                     label="My Wrapped"
+                                    description="Your yearly event recap"
+                                    width="48%"
                                     onPress={() => navigation.navigate('Wrapped')}
                                     theme={theme}
                                     styles={styles}
                                 />
-                                <View style={styles.divider} />
                                 <MenuItem
                                     icon="wallet-outline"
                                     label="My Wallet"
+                                    description="Rewards and transactions"
+                                    width="48%"
                                     onPress={() => navigation.navigate('Wallet')}
                                     theme={theme}
                                     styles={styles}
                                 />
-                                {role !== 'club' && role !== 'admin' && (
-                                    <>
-                                        <View style={styles.divider} />
-                                        <MenuItem
-                                            icon="briefcase-outline"
-                                            label="Request Organizer Access"
-                                            onPress={() => setShowRequestModal(true)}
-                                            theme={theme}
-                                            styles={styles}
-                                        />
-                                    </>
-                                )}
                             </View>
+                            {role !== 'club' && role !== 'admin' && (
+                                <>
+                                    <MenuItem
+                                        icon="briefcase-outline"
+                                        label="Request Organizer Access"
+                                        description="Apply to create and manage events"
+                                        width="100%"
+                                        onPress={() => setShowRequestModal(true)}
+                                        theme={theme}
+                                        styles={styles}
+                                    />
+                                </>
+                            )}
                         </View>
 
                         {/* Settings Section */}
                         <View style={styles.menuGroup}>
                             <Text style={styles.groupTitle}>Settings</Text>
-                            <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+                            <View style={styles.bentoRow}>
                                 <MenuItem
                                     icon="moon-outline"
                                     label="Dark Mode"
+                                    width="100%"
                                     theme={theme}
                                     styles={styles}
                                     showChevron={false}
@@ -789,116 +1000,114 @@ export default function ProfileScreen({ navigation }) {
                                         />
                                     }
                                 />
-                                {/* Account Switching Horizontal Scroll inside Menu */}
-                                <View style={styles.divider} />
-                                <View style={{ padding: 15 }}>
-                                    <Text style={[styles.label, { marginBottom: 10 }]}>
-                                        Switch Accounts
-                                    </Text>
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                        {/* Active Account */}
+                            </View>
+
+                            {/* Account Switching Horizontal Scroll inside Menu */}
+                            <View
+                                style={{
+                                    padding: 18,
+                                    backgroundColor: theme.colors.surface,
+                                    borderRadius: 20,
+                                    borderWidth: 1,
+                                    borderColor: theme.colors.border,
+                                }}
+                            >
+                                <Text style={[styles.switchAccountLabel, { marginBottom: 10 }]}>
+                                    Switch Accounts
+                                </Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                    {/* Active Account */}
+                                    <View
+                                        style={[
+                                            styles.accountAvatarSmall,
+                                            styles.activeAccountBorder,
+                                            { borderColor: theme.colors.primary },
+                                        ]}
+                                    >
+                                        <Text style={styles.accountAvatarText}>
+                                            {name?.[0]?.toUpperCase() || 'U'}
+                                        </Text>
+                                    </View>
+
+                                    {/* Saved Accounts */}
+                                    {savedAccounts
+                                        .filter(acc => acc.email !== user?.email)
+                                        .map((acc, i) => (
+                                            <TouchableOpacity
+                                                key={i}
+                                                onPress={() => switchAccount(acc.email)}
+                                                onLongPress={() => removeSavedAccount(acc.email)}
+                                                activeOpacity={0.7}
+                                            >
+                                                <View
+                                                    style={[
+                                                        styles.accountAvatarSmall,
+                                                        {
+                                                            backgroundColor:
+                                                                theme.colors.primary + '40',
+                                                            borderWidth: 1,
+                                                            borderColor:
+                                                                theme.colors.primary + '60',
+                                                        },
+                                                    ]}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.accountAvatarText,
+                                                            { color: theme.colors.primary },
+                                                        ]}
+                                                    >
+                                                        {acc.displayName?.[0]?.toUpperCase() ||
+                                                            acc.email?.[0]?.toUpperCase()}
+                                                    </Text>
+                                                </View>
+                                            </TouchableOpacity>
+                                        ))}
+
+                                    {/* Add Account Button */}
+                                    <TouchableOpacity onPress={() => signOut()} activeOpacity={0.7}>
                                         <View
                                             style={[
                                                 styles.accountAvatarSmall,
-                                                styles.activeAccountBorder,
-                                                { borderColor: theme.colors.primary },
+                                                {
+                                                    backgroundColor: 'transparent',
+                                                    borderWidth: 2,
+                                                    borderColor: theme.colors.textSecondary,
+                                                    borderStyle: 'dashed',
+                                                },
                                             ]}
                                         >
-                                            <Text style={styles.accountAvatarText}>
-                                                {name?.[0]?.toUpperCase() || 'U'}
-                                            </Text>
+                                            <Ionicons
+                                                name="add"
+                                                size={20}
+                                                color={theme.colors.textSecondary}
+                                            />
                                         </View>
-
-                                        {/* Saved Accounts */}
-                                        {savedAccounts
-                                            .filter(acc => acc.email !== user?.email)
-                                            .map((acc, i) => (
-                                                <TouchableOpacity
-                                                    key={i}
-                                                    onPress={() => switchAccount(acc.email)}
-                                                    onLongPress={() =>
-                                                        removeSavedAccount(acc.email)
-                                                    }
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <View
-                                                        style={[
-                                                            styles.accountAvatarSmall,
-                                                            {
-                                                                backgroundColor:
-                                                                    theme.colors.primary + '40',
-                                                                borderWidth: 1,
-                                                                borderColor:
-                                                                    theme.colors.primary + '60',
-                                                            },
-                                                        ]}
-                                                    >
-                                                        <Text
-                                                            style={[
-                                                                styles.accountAvatarText,
-                                                                { color: theme.colors.primary },
-                                                            ]}
-                                                        >
-                                                            {acc.displayName?.[0]?.toUpperCase() ||
-                                                                acc.email?.[0]?.toUpperCase()}
-                                                        </Text>
-                                                    </View>
-                                                </TouchableOpacity>
-                                            ))}
-
-                                        {/* Add Account Button */}
-                                        <TouchableOpacity
-                                            onPress={() => signOut()}
-                                            activeOpacity={0.7}
-                                        >
-                                            <View
-                                                style={[
-                                                    styles.accountAvatarSmall,
-                                                    {
-                                                        backgroundColor: 'transparent',
-                                                        borderWidth: 2,
-                                                        borderColor: theme.colors.textSecondary,
-                                                        borderStyle: 'dashed',
-                                                    },
-                                                ]}
-                                            >
-                                                <Ionicons
-                                                    name="add"
-                                                    size={20}
-                                                    color={theme.colors.textSecondary}
-                                                />
-                                            </View>
-                                        </TouchableOpacity>
-                                    </ScrollView>
-                                    <Text
-                                        style={[
-                                            styles.helperText,
-                                            { color: theme.colors.textSecondary, marginTop: 8 },
-                                        ]}
-                                    >
-                                        Tap to switch • Long press to remove
-                                    </Text>
-                                </View>
+                                    </TouchableOpacity>
+                                </ScrollView>
+                                <Text style={styles.helperText}>
+                                    Tap to switch • Long press to remove
+                                </Text>
                             </View>
                         </View>
 
                         {/* Support Section */}
                         <View style={styles.menuGroup}>
                             <Text style={styles.groupTitle}>Support</Text>
-                            <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-                                <MenuItem
-                                    icon="bug-outline"
-                                    label="Report a Bug"
-                                    onPress={() => navigation.navigate('ReportBug')}
-                                    theme={theme}
-                                    styles={styles}
-                                />
-                            </View>
+                            <MenuItem
+                                icon="bug-outline"
+                                label="Report a Bug"
+                                description="Report issues and share feedback"
+                                width="100%"
+                                onPress={() => navigation.navigate('ReportBug')}
+                                theme={theme}
+                                styles={styles}
+                            />
                         </View>
 
                         {/* Logout Button */}
                         <TouchableOpacity style={styles.logoutBtn} onPress={signOut}>
-                            <Ionicons name="log-out-outline" size={20} color={theme.colors.error} />
+                            <Ionicons name="log-out-outline" size={20} color={'#FF5A3C'} />
                             <Text style={styles.logoutText}>Sign Out</Text>
                         </TouchableOpacity>
 
@@ -912,10 +1121,8 @@ export default function ProfileScreen({ navigation }) {
                         >
                             v1.0.0
                         </Text>
-                        <View style={{ height: 50 }} />
                     </View>
                 )}
-                <TopContributors />
             </ScrollView>
 
             <Modal visible={showRequestModal} transparent animationType="slide">
@@ -1013,6 +1220,100 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                 </View>
             </Modal>
+
+            <Modal visible={showBadgeModal} transparent animationType="slide">
+                <View style={styles.modalBackdrop}>
+                    <View style={[styles.badgeModal, { backgroundColor: theme.colors.background }]}>
+                        <View style={styles.badgeModalHeader}>
+                            <View>
+                                <Text style={styles.badgeModalTitle}>Choose Profile Badge</Text>
+                                <Text style={styles.badgeModalSubtitle}>
+                                    Level {levelInfo.level} unlocks{' '}
+                                    {
+                                        PROFILE_BADGES.filter(
+                                            badge => badge.requiredLevel <= levelInfo.level,
+                                        ).length
+                                    }{' '}
+                                    badges
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                style={styles.badgeModalClose}
+                                onPress={() => setShowBadgeModal(false)}
+                            >
+                                <Ionicons name="close" size={22} color={theme.colors.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView
+                            contentContainerStyle={styles.profileBadgeGrid}
+                            showsVerticalScrollIndicator={false}
+                        >
+                            {PROFILE_BADGES.map(badge => {
+                                const isUnlocked = canUseProfileBadge(badge.id, levelInfo.level);
+                                const isSelected = activeProfileBadge.id === badge.id;
+
+                                return (
+                                    <TouchableOpacity
+                                        key={badge.id}
+                                        style={[
+                                            styles.profileBadgeOption,
+                                            {
+                                                backgroundColor: theme.colors.surface,
+                                                borderColor: isSelected
+                                                    ? badge.color
+                                                    : theme.colors.border,
+                                                opacity: isUnlocked ? 1 : 0.55,
+                                            },
+                                        ]}
+                                        disabled={!isUnlocked || loading}
+                                        activeOpacity={isUnlocked && !loading ? 0.85 : 1}
+                                        onPress={() => handleSelectProfileBadge(badge)}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.profileBadgeOptionIcon,
+                                                { backgroundColor: badge.color + '20' },
+                                            ]}
+                                        >
+                                            <Ionicons
+                                                name={isUnlocked ? badge.icon : 'lock-closed'}
+                                                size={24}
+                                                color={badge.color}
+                                            />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.profileBadgeOptionTitle}>
+                                                {badge.label}
+                                            </Text>
+                                            <Text style={styles.profileBadgeOptionDescription}>
+                                                {badge.description}
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.profileBadgeOptionMeta,
+                                                    { color: badge.color },
+                                                ]}
+                                            >
+                                                {isUnlocked
+                                                    ? `Unlocked at Level ${badge.requiredLevel}`
+                                                    : `Unlocks at Level ${badge.requiredLevel}`}
+                                            </Text>
+                                        </View>
+                                        {isSelected && (
+                                            <Ionicons
+                                                name="checkmark-circle"
+                                                size={22}
+                                                color={badge.color}
+                                            />
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
         </ScreenWrapper>
     );
 }
@@ -1020,75 +1321,172 @@ export default function ProfileScreen({ navigation }) {
 const getStyles = theme =>
     StyleSheet.create({
         header: {
+            marginTop: 10,
+            marginBottom: 20,
+            marginHorizontal: 16,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            borderRadius: 20,
+            padding: 18,
+        },
+        profileTopRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            width: '100%',
+        },
+        profileLeft: {
+            flexDirection: 'row',
             alignItems: 'center',
-            paddingVertical: 30,
-            marginBottom: 10,
+            flex: 1,
+            paddingRight: 12,
         },
         avatarContainer: {
-            marginBottom: 15,
-            ...theme.shadows.medium,
-        },
-        avatarGradientBorder: {
-            width: 100,
-            height: 100,
-            borderRadius: 50,
+            width: 70,
+            height: 70,
+            borderRadius: 40,
+            borderWidth: 2,
+            borderColor: 'rgba(255,255,255,0.06)',
             padding: 3,
+            flexDirection: 'row',
             justifyContent: 'center',
             alignItems: 'center',
+            marginRight: 15,
         },
         avatarInner: {
             width: '100%',
             height: '100%',
-            borderRadius: 50,
+            borderRadius: 40,
             justifyContent: 'center',
             alignItems: 'center',
+            backgroundColor: theme.colors.primary,
         },
         avatarText: {
-            fontSize: 36,
-            fontWeight: 'bold',
-            color: theme.colors.primary,
-        },
-        profileName: {
-            fontSize: 26,
+            fontSize: 32,
             fontWeight: 'bold',
             color: theme.colors.text,
-            marginBottom: 4,
+        },
+        profileInfo: {
+            flex: 1,
+            overflow: 'hidden',
+            paddingRight: 8,
+        },
+        profileName: {
+            fontSize: 22,
+            fontWeight: '700',
+            color: theme.colors.text,
+            marginBottom: 2,
         },
         profileEmail: {
-            fontSize: 13,
+            fontSize: 12,
             color: theme.colors.textSecondary,
             marginBottom: 10,
         },
-        profileBio: {
-            fontSize: 16,
-            textAlign: 'center',
-            color: theme.colors.primary, // Highlight bio
-            paddingHorizontal: 20,
+        profileContent: {
+            flex: 1,
+        },
+        profileHeadline: {
+            fontSize: 18,
+            textAlign: 'left',
+            color: theme.colors.primary,
             marginTop: 4,
             marginBottom: 4,
             lineHeight: 22,
-            fontWeight: '500',
+            fontWeight: '600',
         },
-        roleBadge: {
-            paddingHorizontal: 12,
-            paddingVertical: 4,
-            borderRadius: 20,
-        },
-        roleText: {
+        profileBio: {
             fontSize: 12,
-            fontWeight: 'bold',
+            textAlign: 'left',
+            color: theme.colors.textSecondary,
+            marginTop: 2,
         },
-        editIconBtn: {
-            position: 'absolute',
-            top: 20,
-            right: 20,
-            backgroundColor: theme.colors.primary,
+        activeProfileBadge: {
+            alignSelf: 'flex-start',
+            minWidth: 210,
+            maxWidth: '100%',
             flexDirection: 'row',
             alignItems: 'center',
-            paddingVertical: 6,
-            paddingHorizontal: 12,
-            borderRadius: 20,
-            ...theme.shadows.default,
+            borderWidth: 1.5,
+            borderRadius: 18,
+            paddingVertical: 8,
+            paddingHorizontal: 10,
+            marginTop: 2,
+            backgroundColor: theme.colors.surface,
+            ...theme.shadows.small,
+        },
+        activeProfileBadgeIcon: {
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 10,
+        },
+        activeProfileBadgeTitle: {
+            color: theme.colors.text,
+            fontSize: 13,
+            fontWeight: '800',
+        },
+        activeProfileBadgeText: {
+            color: theme.colors.textSecondary,
+            fontSize: 11,
+            marginTop: 1,
+        },
+        profileBadgeShelf: {
+            width: '100%',
+            marginTop: 12,
+            paddingHorizontal: theme.spacing.m,
+        },
+        profileBadgeShelfHeader: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 8,
+        },
+        profileBadgeShelfTitle: {
+            color: theme.colors.textSecondary,
+            fontSize: 12,
+            fontWeight: '800',
+            textTransform: 'uppercase',
+        },
+        profileBadgeShelfAction: {
+            color: theme.colors.primary,
+            fontSize: 12,
+            fontWeight: '800',
+        },
+        profileBadgeShelfList: {
+            gap: 8,
+            paddingRight: theme.spacing.m,
+        },
+        profileBadgeShelfItem: {
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+            borderWidth: 1.5,
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+        },
+        profileBadgeShelfCheck: {
+            position: 'absolute',
+            right: -2,
+            bottom: -2,
+            width: 16,
+            height: 16,
+            borderRadius: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1.5,
+            borderColor: theme.colors.background,
+        },
+        editIconBtn: {
+            backgroundColor: theme.colors.primary + '20',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: 38,
+            height: 38,
+            borderRadius: 40,
         },
         statsRow: {
             flexDirection: 'row',
@@ -1099,16 +1497,39 @@ const getStyles = theme =>
         },
         statCard: {
             flex: 1,
-            padding: 15,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
             borderRadius: 16,
             alignItems: 'center',
             ...theme.shadows.small,
+        },
+        statCardRow: {
+            width: '100%',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+        },
+        statIconSection: {
+            width: 40,
+            height: 40,
+            borderRadius: 14,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: theme.colors.primary + '20',
+        },
+        statContentSection: {
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
         },
         statValue: {
             fontSize: 18,
             fontWeight: 'bold',
             color: theme.colors.text,
             marginBottom: 2,
+            textAlign: 'center',
         },
         statLabel: {
             fontSize: 12,
@@ -1178,14 +1599,17 @@ const getStyles = theme =>
             marginLeft: 5,
             textTransform: 'uppercase',
         },
-        card: {
-            borderRadius: 16,
-            overflow: 'hidden',
+        bentoMenuItem: {
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            borderRadius: 20,
+            padding: 18,
+            backgroundColor: theme.colors.surface,
+            ...theme.shadows.small,
         },
-        menuItem: {
+        bentoTop: {
             flexDirection: 'row',
-            alignItems: 'center',
-            padding: 16,
+            alignItems: 'flex-start',
         },
         menuIconContainer: {
             width: 36,
@@ -1193,18 +1617,42 @@ const getStyles = theme =>
             borderRadius: 10,
             justifyContent: 'center',
             alignItems: 'center',
-            marginRight: 15,
         },
-        menuText: {
+        bentoContent: {
             flex: 1,
-            fontSize: 16,
-            color: theme.colors.text,
-            fontWeight: '500',
+            marginLeft: 18,
+            justifyContent: 'space-between',
+            height: '100%',
         },
-        divider: {
-            height: 1,
-            backgroundColor: theme.colors.border,
-            marginLeft: 60,
+        bentoLabel: {
+            fontSize: 16,
+            fontWeight: '700',
+            color: theme.colors.text,
+        },
+        bentoDescription: {
+            marginTop: 8,
+            fontSize: 12,
+            lineHeight: 18,
+            color: theme.colors.textSecondary,
+        },
+        bentoChevron: {
+            alignSelf: 'flex-end',
+            marginTop: 10,
+        },
+        bentoRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginBottom: 14,
+        },
+        switchAccountLabel: {
+            fontSize: 16,
+            fontWeight: '700',
+            color: theme.colors.text,
+            marginBottom: 12,
+        },
+        helperText: {
+            color: theme.colors.textSecondary,
+            marginTop: 10,
         },
         formContainer: {
             paddingHorizontal: theme.spacing.m,
@@ -1273,6 +1721,75 @@ const getStyles = theme =>
             fontSize: 12,
             fontWeight: 'bold',
         },
+        modalBackdrop: {
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.55)',
+            justifyContent: 'flex-end',
+        },
+        badgeModal: {
+            maxHeight: '82%',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            padding: 20,
+        },
+        badgeModalHeader: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 16,
+        },
+        badgeModalTitle: {
+            color: theme.colors.text,
+            fontSize: 20,
+            fontWeight: '900',
+        },
+        badgeModalSubtitle: {
+            color: theme.colors.textSecondary,
+            fontSize: 12,
+            marginTop: 4,
+        },
+        badgeModalClose: {
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: theme.colors.surface,
+        },
+        profileBadgeGrid: {
+            paddingBottom: 24,
+            gap: 10,
+        },
+        profileBadgeOption: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderWidth: 1.5,
+            borderRadius: 16,
+            padding: 12,
+        },
+        profileBadgeOptionIcon: {
+            width: 48,
+            height: 48,
+            borderRadius: 16,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 12,
+        },
+        profileBadgeOptionTitle: {
+            color: theme.colors.text,
+            fontSize: 15,
+            fontWeight: '800',
+        },
+        profileBadgeOptionDescription: {
+            color: theme.colors.textSecondary,
+            fontSize: 12,
+            marginTop: 2,
+        },
+        profileBadgeOptionMeta: {
+            fontSize: 11,
+            fontWeight: '800',
+            marginTop: 5,
+        },
 
         formActions: {
             flexDirection: 'row',
@@ -1300,33 +1817,36 @@ const getStyles = theme =>
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 16,
-            borderRadius: 16,
-            backgroundColor: '#ffebee',
-            borderWidth: 1,
-            borderColor: '#ffcdd2',
+            paddingVertical: 18,
+            borderRadius: 20,
             marginBottom: 20,
+            backgroundColor: 'rgba(120, 20, 20, 0.18)',
+            borderWidth: 1,
+            borderColor: 'rgba(255, 90, 90, 0.15)',
+            gap: 10,
+            ...theme.shadows.small,
         },
         logoutText: {
-            color: theme.colors.error,
-            fontWeight: 'bold',
-            fontSize: 16,
-            marginLeft: 8,
+            color: '#FF5A3C',
+            fontWeight: '700',
+            fontSize: 17,
         },
     });
 
 MenuItem.propTypes = {
     icon: PropTypes.any,
     label: PropTypes.any,
+    description: PropTypes.any,
     onPress: PropTypes.any,
     theme: PropTypes.object,
     styles: PropTypes.object,
     showChevron: PropTypes.any,
     rightElement: PropTypes.object,
+    width: PropTypes.string,
 };
 StatCard.propTypes = {
     label: PropTypes.any,
-    value: PropTypes.number,
+    value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     icon: PropTypes.any,
     theme: PropTypes.object,
     styles: PropTypes.object,

@@ -22,15 +22,33 @@ try {
     }
 
     let content = fs.readFileSync(filePath, 'utf8');
-
-    // Simple and safe: just replace the string literal 'node:sea' with something harmless
     let changed = false;
 
+    const oldFilter = `!["sys"].includes(x)`;
+    const newFilter = `!["sys","sea"].includes(x)`;
+
+    if (content.includes(oldFilter) && !content.includes(newFilter)) {
+        content = content.replace(oldFilter, newFilter);
+        changed = true;
+        console.log('Patched: excluded "sea" from NODE_STDLIB_MODULES filter');
+    }
+
+    // ── Fix 2: Also handle the mkdir path for any module with ':' ──
+    // Patch tapNodeShims to skip modules that would create invalid Windows paths
+    const oldMkdir = `if (!_fs.default.existsSync(shimPath))`;
+    const newMkdir = `if (!_fs.default.existsSync(shimPath) && !moduleId.includes(':') && !/^sea$/i.test(moduleId))`;
+
+    if (content.includes(oldMkdir) && !content.includes('moduleId.includes')) {
+        content = content.replace(oldMkdir, newMkdir);
+        changed = true;
+        console.log('Patched: skip mkdir for modules with ":" in name');
+    }
+
+    // ── Fix 3: Legacy literal string replacement (just in case) ──
     if (content.includes("'node:sea'")) {
         content = content.replace(/'node:sea'/g, "'_node_sea_disabled'");
         changed = true;
     }
-
     if (content.includes('"node:sea"')) {
         content = content.replace(/"node:sea"/g, '"_node_sea_disabled"');
         changed = true;
@@ -38,7 +56,7 @@ try {
 
     if (changed) {
         fs.writeFileSync(filePath, content);
-        console.log('Patched node:sea successfully!');
+        console.log('✅ Patched externals.js successfully!');
     } else {
         console.log('No node:sea found or already patched.');
     }
