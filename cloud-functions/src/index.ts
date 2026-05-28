@@ -15,3 +15,4 @@ export * from './feedbackSentimentAnalysis';
 export * from './computeShowUpRatios';
 export * from './branchReport';
 export * from './postEventFeedback';
+export * from './sendBulkEmails';

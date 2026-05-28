@@ -615,7 +615,7 @@ export default function EventDetail({ route, navigation }) {
             Alert.alert('Success', `Certificates sent to ${count} participants.`);
         } catch (e) {
             logger.error('Certificate Send Error:', e);
-            Alert.alert('Error', 'Failed to send certificates via EmailJS');
+            Alert.alert('Error', e.message || 'Failed to send certificates');
         } finally {
             setSendingCertificates(false);
         }

@@ -97,7 +97,7 @@ export default function AttendanceDashboard({ route, navigation }) {
             Alert.alert('Success', `Feedback request sent to ${count} participants.`);
         } catch (e) {
             console.error(e);
-            Alert.alert('Error', 'Failed to send requests.');
+            Alert.alert('Error', e.message || 'Failed to send requests.');
         } finally {
             setSending(false);
         }
@@ -143,7 +143,7 @@ export default function AttendanceDashboard({ route, navigation }) {
             setAnnouncementMessage('');
         } catch (error) {
             console.error(error);
-            Alert.alert('Error', 'Failed to send.');
+            Alert.alert('Error', error.message || 'Failed to send.');
         } finally {
             setSending(false);
         }
