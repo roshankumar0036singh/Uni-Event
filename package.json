@@ -1,14 +1,17 @@
 {
-    "scripts": {
-        "build": "tsc -p cloud-functions/tsconfig.json",
-        "test:rules": "firebase emulators:exec --only firestore \"jest tests/firestore.rules.test.ts --runInBand\""
-    },
-    "devDependencies": {
-        "@firebase/rules-unit-testing": "^5.0.1",
-        "@types/jest": "^30.0.0",
-        "@types/node": "^25.8.0",
-        "firebase-tools": "^15.18.0",
-        "jest": "^30.4.2",
-        "ts-jest": "^29.4.9"
-    }
+  "scripts": {
+    "build": "tsc -p cloud-functions/tsconfig.json",
+    "test:rules": "firebase emulators:exec --only firestore \"jest tests/firestore.rules.test.ts --runInBand\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.8.0",
+    "firebase-tools": "^15.18.0",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.9"
+  },
+  "dependencies": {
+    "expo-clipboard": "^56.0.3"
+  }
 }

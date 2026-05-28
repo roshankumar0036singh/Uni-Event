@@ -15,9 +15,7 @@ service cloud.firestore {
     }
 
     function isValidEventDate(data) {
-      return !('date' in data) || 
-             (data.date is timestamp && data.date > request.time) ||
-             (data.date is string && timestamp.value(data.date) > request.time);
+      return !('date' in data) || (data.date is timestamp && data.date > request.time);
     }
 
     function validateEventShape(data) {
