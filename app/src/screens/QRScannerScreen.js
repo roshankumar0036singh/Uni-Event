@@ -16,7 +16,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import WebQRScanner from '../components/WebQRScanner';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
-import { queueOfflineCheckIn, checkInAttendee } from '../lib/checkInService';
+import { queueOfflineCheckIn, checkInAttendee, checkInParticipant } from '../lib/checkInService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 import * as Clipboard from 'expo-clipboard';
@@ -119,22 +119,29 @@ export default function QRScannerScreen({ navigation, route }) {
             const userData = userSnap.data();
 
             try {
-                const ticketPayload = {
-                    id: ticketData?.ticketId || scannedUserId,
+                const checkInPayload = {
+                    id: ticketData?.ticketId,
                     userId: scannedUserId,
                     userName: userData.name || ticketData?.attendeeName,
                     userEmail: userData.email || ticketData?.attendeeEmail || '',
-                    userYear: userData.year || ticketData?.year || 'N/A',
-                    userBranch: userData.branch || ticketData?.branch || 'N/A',
+                    userYear: userData.year || ticketData?.year,
+                    userBranch: userData.branch || ticketData?.branch,
                     receiverId: scannedUserId,
                 };
 
-                const result = await checkInAttendee(
-                    ticketPayload,
-                    eventId,
-                    user.uid,
-                    userData.name || 'Organizer',
-                );
+                const result = ticketData?.ticketId
+                    ? await checkInAttendee(
+                          checkInPayload,
+                          eventId,
+                          user.uid,
+                          userData.name || 'Organizer',
+                      )
+                    : await checkInParticipant(
+                          checkInPayload,
+                          eventId,
+                          user.uid,
+                          userData.name || 'Organizer',
+                      );
 
                 if (!result.success) {
                     setScanResult({

@@ -6,6 +6,7 @@ import QRScannerScreen from '../QRScannerScreen';
 jest.mock('../../lib/checkInService', () => ({
     queueOfflineCheckIn: jest.fn(),
     checkInAttendee: jest.fn(),
+    checkInParticipant: jest.fn(),
 }));
 
 jest.mock('expo-clipboard', () => ({
