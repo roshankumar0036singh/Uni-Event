@@ -3,37 +3,64 @@
  * For web, we'll download files directly to the browser
  */
 
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { Alert } from 'react-native';
+import { collection, limit, orderBy, query, startAfter } from 'firebase/firestore';
 import { db } from './firebaseConfig';
+import { fetchPagedDocuments } from './firestoreBatchedFetch';
+
+const REPORT_PAGE_SIZE = 100;
+
+const showSlowQueryWarning = (label, durationMs, totalDocs) => {
+    const message = `${label} took ${durationMs}ms while loading ${totalDocs} attendance records.`;
+    console.warn(message);
+    Alert.alert('Slow attendance query', message);
+};
 
 /**
  * Export attendance data as CSV (Web version - direct download)
  */
 export const exportAttendanceCSV = async (eventId, eventTitle) => {
     try {
-        // Fetch all check-ins
-        const q = query(
-            collection(db, 'events', eventId, 'checkIns'),
-            orderBy('checkedInAt', 'asc'),
-        );
+        const checkInsRef = collection(db, 'events', eventId, 'checkIns');
+        let csvContent = 'Name,Email,Year,Branch,Ticket ID,Check-In Time\n';
 
-        const snapshot = await getDocs(q);
+        const queryStats = await fetchPagedDocuments({
+            pageSize: REPORT_PAGE_SIZE,
+            buildQuery: ({ lastDoc, pageSize }) =>
+                lastDoc
+                    ? query(
+                          checkInsRef,
+                          orderBy('checkedInAt', 'asc'),
+                          startAfter(lastDoc),
+                          limit(pageSize),
+                      )
+                    : query(checkInsRef, orderBy('checkedInAt', 'asc'), limit(pageSize)),
+            onPage: async docs => {
+                docs.forEach(doc => {
+                    const data = doc.data();
+                    const checkInTime = data.checkedInAt?.toDate
+                        ? data.checkedInAt.toDate().toLocaleString()
+                        : 'N/A';
 
-        if (snapshot.empty) {
+                    csvContent += `"${String(data.userName || 'N/A').replace(/"/g, '""')}","${String(
+                        data.userEmail || 'N/A',
+                    ).replace(/"/g, '""')}","${String(data.userYear || 'N/A').replace(
+                        /"/g,
+                        '""',
+                    )}","${String(data.userBranch || 'N/A').replace(/"/g, '""')}","${String(
+                        data.ticketId || 'N/A',
+                    ).replace(/"/g, '""')}","${String(checkInTime).replace(/"/g, '""')}"\n`;
+                });
+            },
+        });
+
+        if (queryStats.totalDocs === 0) {
             throw new Error('No attendance data to export');
         }
 
-        // Build CSV content
-        let csvContent = 'Name,Email,Year,Branch,Ticket ID,Check-In Time\n';
-
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            const checkInTime = data.checkedInAt?.toDate
-                ? data.checkedInAt.toDate().toLocaleString()
-                : 'N/A';
-
-            csvContent += `"${data.userName || 'N/A'}","${data.userEmail || 'N/A'}",${data.userYear || 'N/A'},"${data.userBranch || 'N/A'}","${data.ticketId || 'N/A'}","${checkInTime}"\n`;
-        });
+        if (queryStats.isSlow) {
+            showSlowQueryWarning('Attendance CSV export', queryStats.durationMs, queryStats.totalDocs);
+        }
 
         // Create and download file (Web)
         const fileName = `attendance_${eventTitle.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.csv`;
@@ -66,25 +93,37 @@ export const exportAttendanceCSV = async (eventId, eventTitle) => {
  */
 export const exportAttendancePDF = async (eventId, eventTitle, eventData) => {
     try {
-        // Fetch all check-ins
-        const q = query(
-            collection(db, 'events', eventId, 'checkIns'),
-            orderBy('checkedInAt', 'asc'),
-        );
+        const checkInsRef = collection(db, 'events', eventId, 'checkIns');
+        const checkIns = [];
 
-        const snapshot = await getDocs(q);
+        const queryStats = await fetchPagedDocuments({
+            pageSize: REPORT_PAGE_SIZE,
+            buildQuery: ({ lastDoc, pageSize }) =>
+                lastDoc
+                    ? query(
+                          checkInsRef,
+                          orderBy('checkedInAt', 'asc'),
+                          startAfter(lastDoc),
+                          limit(pageSize),
+                      )
+                    : query(checkInsRef, orderBy('checkedInAt', 'asc'), limit(pageSize)),
+            onPage: async docs => {
+                docs.forEach(doc => {
+                    checkIns.push({ id: doc.id, ...doc.data() });
+                });
+            },
+        });
 
-        if (snapshot.empty) {
+        if (queryStats.totalDocs === 0) {
             throw new Error('No attendance data to export');
         }
 
-        const checkIns = [];
-        snapshot.forEach(doc => {
-            checkIns.push({ id: doc.id, ...doc.data() });
-        });
+        if (queryStats.isSlow) {
+            showSlowQueryWarning('Attendance PDF export', queryStats.durationMs, queryStats.totalDocs);
+        }
 
         // Calculate stats
-        const totalRegistrations = eventData?.stats?.totalRegistrations || 0;
+        const totalRegistrations = eventData?.stats?.totalRegistrations || eventData?.participantCount || 0;
         const totalCheckedIn = checkIns.length;
         const checkInRate =
             totalRegistrations > 0 ? ((totalCheckedIn / totalRegistrations) * 100).toFixed(1) : 0;
