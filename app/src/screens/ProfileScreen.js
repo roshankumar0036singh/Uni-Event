@@ -343,6 +343,15 @@ export default function ProfileScreen({ navigation }) {
 
     const handleSave = async () => {
         if (!name) return Alert.alert('Error', 'Name cannot be empty');
+
+        const urlPattern = /^https?:\/\/.+/;
+        if (instagram && !urlPattern.test(instagram.trim())) {
+            return Alert.alert('Invalid URL', 'Instagram link must start with https://');
+        }
+        if (linkedin && !urlPattern.test(linkedin.trim())) {
+            return Alert.alert('Invalid URL', 'LinkedIn link must start with https://');
+        }
+
         setLoading(true);
         try {
             await updateProfile(user, { displayName: name });
