@@ -125,7 +125,7 @@ const EventCard = memo(
                 console.error('Spam button trigger rejected processing error:', error);
                 Alert.alert(
                     'Registration Failed',
-                    'Unable to register for this event. Please verify your internet connection and try again.'
+                    'Unable to register for this event. Please verify your internet connection and try again.',
                 );
             } finally {
                 isProcessingRef.current = false;
@@ -407,7 +407,9 @@ const EventCard = memo(
                                 style={[
                                     styles.registerBtn,
                                     {
-                                        backgroundColor: isProcessing ? theme.colors.border : theme.colors.primary,
+                                        backgroundColor: isProcessing
+                                            ? theme.colors.border
+                                            : theme.colors.primary,
                                         ...theme.shadows.default,
                                     },
                                 ]}
