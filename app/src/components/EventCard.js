@@ -11,8 +11,18 @@ import {
     where,
     getDocs,
 } from 'firebase/firestore';
-import React, { useEffect, useState, memo } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View, Switch, Platform } from 'react-native';
+import React, { useEffect, useRef, useState, memo } from 'react';
+import {
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    Switch,
+    Platform,
+    ActivityIndicator,
+    Alert,
+} from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme as globalTheme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
@@ -21,6 +31,7 @@ import { ShimmerItem } from './SkeletonLoader';
 import { useAuth } from '../lib/AuthContext';
 import { triggerBuddyMatchNotification } from '../lib/notificationService';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
+import { safeToggleEventAction } from '../lib/participantService';
 import PropTypes from 'prop-types';
 
 const EventCard = memo(
@@ -41,6 +52,12 @@ const EventCard = memo(
         const [bannerLoaded, setBannerLoaded] = useState(false);
         const [flyerLoaded, setFlyerLoaded] = useState(false);
         const [lookingForBuddy, setLookingForBuddy] = useState(false);
+
+        // 🔒 UI Loading State
+        const [isProcessing, setIsProcessing] = useState(false);
+        // 🔒 Synchronous lock reference to block multi-taps inside the same render frame
+        const isProcessingRef = useRef(false);
+
         useEffect(() => {
             if (!isRegistered || !user || !event?.id) return;
 
@@ -94,9 +111,30 @@ const EventCard = memo(
             }
         }, [event?.ownerId, event?.organization]);
 
+        // 🚀 Gated same-frame input execution track blocker handler
+        const handleRegisterPress = async () => {
+            if (isProcessingRef.current || !user || !event?.id) return;
+
+            isProcessingRef.current = true;
+            setIsProcessing(true);
+
+            try {
+                await safeToggleEventAction(db, user.uid, event.id, true);
+                navigation.navigate('EventDetail', { eventId: event.id });
+            } catch (error) {
+                console.error('Spam button trigger rejected processing error:', error);
+                Alert.alert(
+                    'Registration Failed',
+                    'Unable to register for this event. Please verify your internet connection and try again.'
+                );
+            } finally {
+                isProcessingRef.current = false;
+                setIsProcessing(false);
+            }
+        };
+
         if (!event) return null;
 
-        // Fallback for second image if not present in data
         const flyerUrl =
             event.detailImageUrl ||
             event.bannerUrl ||
@@ -134,7 +172,7 @@ const EventCard = memo(
                                 event.bannerUrl ||
                                 'https://dummyimage.com/800x400/cccccc/000000.png&text=No+Image',
                         }}
-                        style={[styles.bannerImage, isRecommended && { height: 140 }]} // Compact height for recommended
+                        style={[styles.bannerImage, isRecommended && { height: 140 }]}
                         resizeMode="cover"
                         onLoadEnd={() => setBannerLoaded(true)}
                     />
@@ -172,8 +210,6 @@ const EventCard = memo(
                             <Text style={styles.onlineText}>SUSPENDED</Text>
                         </View>
                     )}
-
-                    {/* Removed Top Pick badge from banner - moved to details row */}
                 </View>
 
                 {/* 2. CONTENT CONTAINER */}
@@ -252,7 +288,7 @@ const EventCard = memo(
                                 </Text>
                             </View>
 
-                            {/* Top Pick Badge - Moved here */}
+                            {/* Top Pick Badge */}
                             {isRecommended && (
                                 <View
                                     style={{
@@ -371,15 +407,18 @@ const EventCard = memo(
                                 style={[
                                     styles.registerBtn,
                                     {
-                                        backgroundColor: theme.colors.primary,
+                                        backgroundColor: isProcessing ? theme.colors.border : theme.colors.primary,
                                         ...theme.shadows.default,
                                     },
                                 ]}
-                                onPress={() =>
-                                    navigation.navigate('EventDetail', { eventId: event.id })
-                                }
+                                disabled={isProcessing}
+                                onPress={handleRegisterPress}
                             >
-                                <Text style={styles.registerText}>REGISTER</Text>
+                                {isProcessing ? (
+                                    <ActivityIndicator size="small" color="#ffffff" />
+                                ) : (
+                                    <Text style={styles.registerText}>REGISTER</Text>
+                                )}
                             </TouchableOpacity>
                         ))}
                 </View>
@@ -414,7 +453,7 @@ const styles = StyleSheet.create({
         right: 16,
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 20, // Pill
+        borderRadius: 20,
         ...globalTheme.shadows.small,
     },
     categoryText: {
@@ -429,7 +468,7 @@ const styles = StyleSheet.create({
         left: 16,
         paddingHorizontal: 10,
         paddingVertical: 6,
-        borderRadius: 20, // Pill
+        borderRadius: 20,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
@@ -496,11 +535,10 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
     },
-    // New Ribbon Style for Price
     priceBadge: {
         paddingVertical: 6,
         paddingHorizontal: 12,
-        borderRadius: 20, // Pill
+        borderRadius: 20,
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.1)',
     },
