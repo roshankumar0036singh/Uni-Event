@@ -1,4 +1,4 @@
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import logger from './logger';
 
@@ -55,7 +55,9 @@ export const clusterPoints = (points, radiusKm = DEFAULT_CLUSTER_RADIUS_KM) => {
 
 export const fetchHeatmapData = async () => {
     try {
-        const snapshot = await getDocs(collection(db, 'events'));
+        const eventsRef = collection(db, 'events');
+        const q = query(eventsRef, where('coordinates', '!=', null));
+        const snapshot = await getDocs(q);
         const points = [];
 
         snapshot.forEach(doc => {

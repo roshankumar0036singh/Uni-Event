@@ -3,13 +3,11 @@ import { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
-    FlatList,
     Platform,
     RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
-    TouchableOpacity,
     View,
 } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -44,7 +42,7 @@ export default function LocationHeatmapScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [heatmapData, setHeatmapData] = useState({ points: [], clusters: [], maxWeight: 1, total: 0 });
-    const [showMap, setShowMap] = useState(Platform.OS !== 'web');
+    const showMap = Platform.OS !== 'web';
 
     const loadData = useCallback(async () => {
         const data = await fetchHeatmapData();
@@ -76,11 +74,8 @@ export default function LocationHeatmapScreen() {
                         {item.events[0]?.location || `Cluster ${index + 1}`}
                     </Text>
                     <Text style={styles.venueSubtitle}>
-                        {item.weight} event{item.weight !== 1 ? 's' : ''} ·{' '}
-                        {(
-                            item.events.reduce((s, e) => s + (e.category ? 1 : 0), 0) /
-                            Math.max(item.weight, 1)
-                        ).toFixed(0)}{' '}
+                        {item.weight} event{item.weight === 1 ? '' : 's'} ·{' '}
+                        {[...new Set(item.events.map(e => e.category).filter(Boolean))].length}{' '}
                         categories
                     </Text>
                     <View style={styles.categoryRow}>
@@ -123,13 +118,13 @@ export default function LocationHeatmapScreen() {
                         longitudeDelta: 0.05,
                     }}
                 >
-                    {clusters.map((cluster, idx) => {
+                    {clusters.map((cluster) => {
                         const color = getDensityColor(cluster.weight, maxWeight);
                         const opacity = getDensityOpacity(cluster.weight, maxWeight);
                         const radius = Math.max(200, Math.min(800, 200 + (cluster.weight / maxWeight) * 600));
                         return (
                             <Circle
-                                key={idx}
+                                key={`${cluster.latitude},${cluster.longitude}`}
                                 center={{ latitude: cluster.latitude, longitude: cluster.longitude }}
                                 radius={radius}
                                 strokeWidth={0}
@@ -181,7 +176,7 @@ export default function LocationHeatmapScreen() {
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Event Location Heatmap</Text>
                     <Text style={styles.headerSubtitle}>
-                        {total} event{total !== 1 ? 's' : ''} at {clusters.length} location{clusters.length !== 1 ? 's' : ''}
+                        {total} event{total === 1 ? '' : 's'} at {clusters.length} location{clusters.length === 1 ? '' : 's'}
                     </Text>
                 </View>
 

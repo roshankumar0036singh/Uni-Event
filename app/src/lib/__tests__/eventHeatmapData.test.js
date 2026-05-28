@@ -27,7 +27,7 @@ describe('clusterPoints', () => {
             { latitude: 28.7041, longitude: 77.1025 },
             { latitude: 28.7042, longitude: 77.1026 },
             { latitude: 28.7043, longitude: 77.1024 },
-            { latitude: 28.7100, longitude: 77.1100 },
+            { latitude: 28.71, longitude: 77.11 },
         ];
         const clusters = clusterPoints(points, 0.5);
         expect(clusters.length).toBe(2);
@@ -40,7 +40,7 @@ describe('clusterPoints', () => {
     it('returns each point as its own cluster when far apart', () => {
         const points = [
             { latitude: 28.7041, longitude: 77.1025 },
-            { latitude: 19.0760, longitude: 72.8777 },
+            { latitude: 19.076, longitude: 72.8777 },
         ];
         const clusters = clusterPoints(points, 0.3);
         expect(clusters.length).toBe(2);
@@ -52,7 +52,7 @@ describe('clusterPoints', () => {
         const points = [
             { latitude: 28.7041, longitude: 77.1025 },
             { latitude: 28.7042, longitude: 77.1026 },
-            { latitude: 19.0760, longitude: 72.8777 },
+            { latitude: 19.076, longitude: 72.8777 },
         ];
         const clusters = clusterPoints(points, 0.5);
         expect(clusters[0].weight).toBe(2);
