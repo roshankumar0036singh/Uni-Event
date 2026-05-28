@@ -74,6 +74,13 @@ export default function DesktopAdmin() {
     const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
     const downloadBranchReport = async () => {
+        if (Platform.OS !== 'web') {
+            Alert.alert(
+                'Download unavailable',
+                'PDF reports are currently available from the web admin panel.',
+            );
+            return;
+        }
         setReportLoading(true);
 
         try {

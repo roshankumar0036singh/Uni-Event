@@ -24,8 +24,8 @@ const normalizeBranch = (value: unknown) => {
   if (typeof value !== "string" && typeof value !== "number") return "Unknown";
 
   const raw = String(value).trim();
-    if (!raw) return "Unknown";
-   return raw.replace(/[./#[\]$]/g, "_");
+  if (!raw) return "Unknown";
+  return raw.replace(/[./#[\]$]/g, "_");
 };
 
 const toDateInput = (value: unknown, fieldName: string) => {
@@ -322,10 +322,10 @@ export const generateBranchParticipationReport = functions.https.onCall(
       const event = eventDoc.data() || {};
       const branchCounts = event.branchCounts;
 
-       const branchCountEntries =
+      const branchCountEntries =
         branchCounts &&
-        typeof branchCounts === "object" &&
-        !Array.isArray(branchCounts)
+          typeof branchCounts === "object" &&
+          !Array.isArray(branchCounts)
           ? Object.entries(branchCounts).filter(([, count]) => Number(count) > 0)
           : [];
       if (branchCountEntries.length > 0) {
@@ -348,12 +348,12 @@ export const generateBranchParticipationReport = functions.https.onCall(
       const checkInsSnap = await eventDoc.ref.collection("checkIns").get();
       checkInsSnap.forEach(checkInDoc => {
         const checkIn = checkInDoc.data() || {};
-        const stats = ensureStats(
-          statsByBranch,
-          checkIn.userBranch || checkIn.branch
-        );
-        stats.attendance += 1;
-        stats.events.add(eventDoc.id);
+        const branch = normalizeBranch(checkIn.userBranch || checkIn.branch);
+        const stats = statsByBranch.get(branch);
+        if (stats) {
+          stats.attendance += 1;
+          stats.events.add(eventDoc.id);
+        }
       });
     }
 
