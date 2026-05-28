@@ -10,6 +10,36 @@ import PropTypes from 'prop-types';
 import { getUserLevel } from '../lib/userLevels';
 import { getSafeSelectedProfileBadge } from '../lib/profileBadges';
 
+const LeaderboardListHeader = ({ theme, togglePrivacy, isAnonymous }) => (
+    <View style={{ marginBottom: 20 }}>
+        <Text style={[styles.title, { color: theme.colors.text, marginBottom: 15 }]}>
+            Leaderboard
+        </Text>
+
+        {/* Privacy Toggle */}
+        <View style={[styles.toggleCard, { backgroundColor: theme.colors.surface }]}>
+            <View style={{ flex: 1 }}>
+                <Text style={[styles.toggleTitle, { color: theme.colors.text }]}>Go Anonymous</Text>
+                <Text style={[styles.toggleSubtitle, { color: theme.colors.textSecondary }]}>
+                    Hide your name from others on the leaderboard.
+                </Text>
+            </View>
+            <Switch
+                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                thumbColor={'#fff'}
+                onValueChange={togglePrivacy}
+                value={isAnonymous}
+            />
+        </View>
+    </View>
+);
+
+LeaderboardListHeader.propTypes = {
+    theme: PropTypes.object.isRequired,
+    togglePrivacy: PropTypes.func.isRequired,
+    isAnonymous: PropTypes.bool.isRequired,
+};
+
 export default function LeaderboardScreen({ navigation }) {
     const { theme } = useTheme();
     const { user } = useAuth();
@@ -141,32 +171,6 @@ export default function LeaderboardScreen({ navigation }) {
         );
     };
 
-    const ListHeader = () => (
-        <View style={{ marginBottom: 20 }}>
-            <Text style={[styles.title, { color: theme.colors.text, marginBottom: 15 }]}>
-                Leaderboard
-            </Text>
-
-            {/* Privacy Toggle */}
-            <View style={[styles.toggleCard, { backgroundColor: theme.colors.surface }]}>
-                <View style={{ flex: 1 }}>
-                    <Text style={[styles.toggleTitle, { color: theme.colors.text }]}>
-                        Go Anonymous
-                    </Text>
-                    <Text style={[styles.toggleSubtitle, { color: theme.colors.textSecondary }]}>
-                        Hide your name from others on the leaderboard.
-                    </Text>
-                </View>
-                <Switch
-                    trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                    thumbColor={'#fff'}
-                    onValueChange={togglePrivacy}
-                    value={isAnonymous}
-                />
-            </View>
-        </View>
-    );
-
     if (loading)
         return (
             <ScreenWrapper showLogo={true}>
@@ -185,7 +189,13 @@ export default function LeaderboardScreen({ navigation }) {
                     data={users}
                     keyExtractor={item => item.id}
                     renderItem={renderItem}
-                    ListHeaderComponent={ListHeader}
+                    ListHeaderComponent={() => (
+                        <LeaderboardListHeader
+                            theme={theme}
+                            togglePrivacy={togglePrivacy}
+                            isAnonymous={isAnonymous}
+                        />
+                    )}
                     contentContainerStyle={{ paddingBottom: 100 }}
                     style={{ flex: 1 }}
                     showsVerticalScrollIndicator={false}

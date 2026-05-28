@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { collection, limit, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PropTypes from 'prop-types';
 import {
     Animated,
     Alert,
@@ -25,6 +26,153 @@ import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 
 const FILTERS = ['Upcoming', 'Past', 'Cultural', 'Sports', 'Tech', 'Workshop', 'Seminar'];
+
+const UserFeedStickyHeader = ({
+    theme,
+    searchQuery,
+    setSearchQuery,
+    updateHistory,
+    setShowHistory,
+    showHistory,
+    searchHistory,
+    clearHistory,
+    persistSearchHistory,
+    activeFilter,
+    setActiveFilter,
+}) => (
+    <View style={{ backgroundColor: theme.colors.background, paddingBottom: 10 }}>
+        <View
+            style={[
+                styles.searchContainer,
+                { backgroundColor: theme.colors.surface, ...theme.shadows.small },
+            ]}
+        >
+            <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
+            <TextInput
+                style={[styles.searchInput, { color: theme.colors.text }]}
+                placeholder="Search events..."
+                placeholderTextColor={theme.colors.textSecondary}
+                value={searchQuery}
+                onChangeText={text => {
+                    setSearchQuery(text);
+                    updateHistory(text);
+                    if (text.trim() !== '') setShowHistory(false);
+                }}
+                onFocus={() => {
+                    if (searchQuery.trim() === '') setShowHistory(true);
+                }}
+                onBlur={() => {
+                    setShowHistory(false);
+                    persistSearchHistory(searchQuery);
+                }}
+                onSubmitEditing={() => {
+                    persistSearchHistory(searchQuery);
+                }}
+            />
+            {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+            )}
+        </View>
+        {showHistory && searchHistory.length > 0 && (
+            <View style={styles.historyContainer}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.historyScroll}
+                >
+                    {searchHistory.map(qh => (
+                        <TouchableOpacity
+                            key={qh}
+                            style={styles.historyChip}
+                            onPress={() => {
+                                setSearchQuery(qh);
+                                setShowHistory(false);
+                            }}
+                        >
+                            <Text style={styles.historyChipText}>{qh}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+                <TouchableOpacity
+                    onPress={clearHistory}
+                    style={styles.clearHistoryBtn}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel="Clear search history"
+                    accessibilityHint="Deletes all saved search history"
+                >
+                    <Ionicons name="trash-outline" size={18} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+            </View>
+        )}
+
+        <View style={styles.filterWrapper}>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterContent}
+            >
+                {FILTERS.map(f => {
+                    const isActive = activeFilter === f;
+                    return (
+                        <TouchableOpacity
+                            key={f}
+                            onPress={() => setActiveFilter(f)}
+                            style={{
+                                marginRight: 10,
+                                borderRadius: 25,
+                                ...theme.shadows.small,
+                            }}
+                        >
+                            {isActive ? (
+                                <LinearGradient
+                                    colors={[
+                                        theme.colors.primary,
+                                        theme.colors.secondary || '#FFC107',
+                                    ]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.chip}
+                                >
+                                    <Text style={[styles.chipText, { color: '#fff' }]}>{f}</Text>
+                                </LinearGradient>
+                            ) : (
+                                <View
+                                    style={[styles.chip, { backgroundColor: theme.colors.surface }]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.chipText,
+                                            { color: theme.colors.textSecondary },
+                                        ]}
+                                    >
+                                        {f}
+                                    </Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
+        </View>
+    </View>
+);
+
+UserFeedStickyHeader.propTypes = {
+    theme: PropTypes.object.isRequired,
+    searchQuery: PropTypes.string.isRequired,
+    setSearchQuery: PropTypes.func.isRequired,
+    updateHistory: PropTypes.func.isRequired,
+    setShowHistory: PropTypes.func.isRequired,
+    showHistory: PropTypes.bool.isRequired,
+    searchHistory: PropTypes.array.isRequired,
+    clearHistory: PropTypes.func.isRequired,
+    persistSearchHistory: PropTypes.func.isRequired,
+    activeFilter: PropTypes.string.isRequired,
+    setActiveFilter: PropTypes.func.isRequired,
+};
 
 export default function UserFeed() {
     const { user, userData, role } = useAuth();
@@ -224,7 +372,7 @@ export default function UserFeed() {
         }
 
         // 1. Strict Profile Filtering (Department & Year)
-        if (role === 'student' && userData && userData.branch && userData.year) {
+        if (role === 'student' && userData?.branch && userData?.year) {
             // Only filter if we have complete user data
             filtered = filtered.filter(e => {
                 // Check Department
@@ -306,144 +454,6 @@ export default function UserFeed() {
         }
     };
 
-    const StickyHeader = () => (
-        <View style={{ backgroundColor: theme.colors.background, paddingBottom: 10 }}>
-            {/* Search Bar - Floating Pill */}
-            <View
-                style={[
-                    styles.searchContainer,
-                    { backgroundColor: theme.colors.surface, ...theme.shadows.small },
-                ]}
-            >
-                <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
-                <TextInput
-                    style={[styles.searchInput, { color: theme.colors.text }]}
-                    placeholder="Search events..."
-                    placeholderTextColor={theme.colors.textSecondary}
-                    value={searchQuery}
-                    onChangeText={text => {
-                        setSearchQuery(text);
-                        updateHistory(text);
-                        // Hide history as soon as the user types something
-                        if (text.trim() !== '') setShowHistory(false);
-                    }}
-                    onFocus={() => {
-                        // Only show history if the input is empty
-                        if (searchQuery.trim() === '') setShowHistory(true);
-                    }}
-                    onBlur={() => {
-                        setShowHistory(false);
-                        persistSearchHistory(searchQuery);
-                    }}
-                    onSubmitEditing={() => {
-                        persistSearchHistory(searchQuery);
-                    }}
-                />
-                {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                        <Ionicons
-                            name="close-circle"
-                            size={20}
-                            color={theme.colors.textSecondary}
-                        />
-                    </TouchableOpacity>
-                )}
-            </View>
-            {/* Recent Search History */}
-            {showHistory && searchHistory.length > 0 && (
-                <View style={styles.historyContainer}>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={styles.historyScroll}
-                    >
-                        {searchHistory.map(qh => (
-                            <TouchableOpacity
-                                key={qh}
-                                style={styles.historyChip}
-                                onPress={() => {
-                                    setSearchQuery(qh);
-                                    setShowHistory(false);
-                                }}
-                            >
-                                <Text style={styles.historyChipText}>{qh}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                    <TouchableOpacity
-                        onPress={clearHistory}
-                        style={styles.clearHistoryBtn}
-                        accessible={true}
-                        accessibilityRole="button"
-                        accessibilityLabel="Clear search history"
-                        accessibilityHint="Deletes all saved search history"
-                    >
-                        <Ionicons
-                            name="trash-outline"
-                            size={18}
-                            color={theme.colors.textSecondary}
-                        />
-                    </TouchableOpacity>
-                </View>
-            )}
-
-            <View style={styles.filterWrapper}>
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.filterContent}
-                >
-                    {FILTERS.map(f => {
-                        const isActive = activeFilter === f;
-                        return (
-                            <TouchableOpacity
-                                key={f}
-                                onPress={() => setActiveFilter(f)}
-                                style={{
-                                    marginRight: 10,
-                                    borderRadius: 25,
-                                    ...theme.shadows.small,
-                                }}
-                            >
-                                {isActive ? (
-                                    <LinearGradient
-                                        colors={[
-                                            theme.colors.primary,
-                                            theme.colors.secondary || '#FFC107',
-                                        ]}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 0 }}
-                                        style={styles.chip}
-                                    >
-                                        <Text style={[styles.chipText, { color: '#fff' }]}>
-                                            {f}
-                                        </Text>
-                                    </LinearGradient>
-                                ) : (
-                                    <View
-                                        style={[
-                                            styles.chip,
-                                            { backgroundColor: theme.colors.surface },
-                                        ]}
-                                    >
-                                        <Text
-                                            style={[
-                                                styles.chipText,
-                                                { color: theme.colors.textSecondary },
-                                            ]}
-                                        >
-                                            {f}
-                                        </Text>
-                                    </View>
-                                )}
-                            </TouchableOpacity>
-                        );
-                    })}
-                </ScrollView>
-            </View>
-        </View>
-    );
-
     const renderEvent = ({ item }) => (
         <View style={{ paddingHorizontal: 20 }}>
             <EventCard
@@ -512,7 +522,21 @@ export default function UserFeed() {
                     sections={[{ data: displayList }]}
                     keyExtractor={item => item.id}
                     renderItem={renderEvent}
-                    renderSectionHeader={StickyHeader}
+                    renderSectionHeader={() => (
+                        <UserFeedStickyHeader
+                            theme={theme}
+                            searchQuery={searchQuery}
+                            setSearchQuery={setSearchQuery}
+                            updateHistory={updateHistory}
+                            setShowHistory={setShowHistory}
+                            showHistory={showHistory}
+                            searchHistory={searchHistory}
+                            clearHistory={clearHistory}
+                            persistSearchHistory={persistSearchHistory}
+                            activeFilter={activeFilter}
+                            setActiveFilter={setActiveFilter}
+                        />
+                    )}
                     ListHeaderComponent={renderHeader}
                     stickySectionHeadersEnabled={true}
                     refreshControl={

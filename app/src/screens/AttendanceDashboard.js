@@ -307,7 +307,7 @@ export default function AttendanceDashboard({ route, navigation }) {
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
+            link.remove();
         } else {
             // Use standard share on mobile
             await Share.share({ message: csvContent, title: fileName });

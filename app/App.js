@@ -45,6 +45,8 @@ import UserFeed from './src/screens/UserFeed';
 import WalletScreen from './src/screens/WalletScreen';
 import WrappedScreen from './src/screens/WrappedScreen';
 
+const CustomTabBarWrapper = props => <CustomTabBar {...props} />;
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -121,7 +123,7 @@ function TabNavigator() {
 
     return (
         <Tab.Navigator
-            tabBar={props => <CustomTabBar {...props} />}
+            tabBar={CustomTabBarWrapper}
             screenOptions={{
                 headerShown: false,
                 tabBarStyle: {

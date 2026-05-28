@@ -93,7 +93,7 @@ export default function ClubProfileScreen({ route, navigation }) {
         };
 
         fetchClub();
-        return () => unsubscribeClub && unsubscribeClub();
+        return () => unsubscribeClub?.();
     }, [clubId, clubName, navigation]);
 
     // Fetch Events by this Club
@@ -119,7 +119,7 @@ export default function ClubProfileScreen({ route, navigation }) {
 
     // Calculate Average Rating from club's reputation field
     const { avgRating, totalRatings } = useMemo(() => {
-        if (!club || !club.reputation) return { avgRating: 0, totalRatings: 0 };
+        if (!club?.reputation) return { avgRating: 0, totalRatings: 0 };
 
         const reputation = club.reputation;
         if (reputation.totalRatings && reputation.totalRatings > 0) {

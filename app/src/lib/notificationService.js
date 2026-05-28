@@ -99,7 +99,7 @@ export async function registerForPushNotificationsAsync() {
 
 // Schedule a local notification
 export async function scheduleEventReminder(event) {
-    if (!event || !event.startAt) return;
+    if (!event?.startAt) return;
 
     const eventDate = new Date(event.startAt);
     const triggerDate = new Date(eventDate.getTime() - 10 * 60000); // 10 minutes before

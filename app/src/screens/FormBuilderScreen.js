@@ -225,7 +225,7 @@ export default function FormBuilderScreen({ navigation, route }) {
                             >
                                 {PRESETS.map((preset, idx) => (
                                     <TouchableOpacity
-                                        key={idx}
+                                        key={preset.label}
                                         style={styles.presetChip}
                                         onPress={() => applyPreset(preset)}
                                     >
