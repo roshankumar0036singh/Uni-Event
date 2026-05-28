@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -34,14 +34,14 @@ import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { safeToggleEventAction } from '../lib/participantService';
 import PropTypes from 'prop-types';
 
-// ─── Module-level profile cache ───────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Module-level profile cache ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 // Declared at file root so the Map is shared across every EventCard instance
 // and survives re-renders for the full lifetime of the app session.
 // Key: Firestore user document ID (ownerId)
-// Value: user document data object { displayName, photoURL, … }
+// Value: user document data object { displayName, photoURL, ΓÇª }
 const profileCache = new Map();
 const profileRequestCache = new Map();
-// ─────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 const EventCard = memo(
     ({
@@ -62,9 +62,9 @@ const EventCard = memo(
         const [flyerLoaded, setFlyerLoaded] = useState(false);
         const [lookingForBuddy, setLookingForBuddy] = useState(false);
 
-        // 🔒 UI Loading State
+        // ≡ƒöÆ UI Loading State
         const [isProcessing, setIsProcessing] = useState(false);
-        // 🔒 Synchronous lock reference to block multi-taps inside the same render frame
+        // ≡ƒöÆ Synchronous lock reference to block multi-taps inside the same render frame
         const isProcessingRef = useRef(false);
 
         useEffect(() => {
@@ -110,11 +110,11 @@ const EventCard = memo(
             setFlyerLoaded(false);
         }, [event?.detailImageUrl, event?.bannerUrl]);
 
-        // ── Host profile fetch with in-memory memoization cache ───────────────
+        // ─────────────────────────────────────────────────────────────────────
         useEffect(() => {
             if (!event?.ownerId) return;
 
-            // Cache hit: apply memoized data and short-circuit — no network call
+            // Cache hit: apply memoized data and short-circuit ΓÇö no network call
             if (profileCache.has(event.ownerId)) {
                 const cached = profileCache.get(event.ownerId);
                 setHostName(cached.displayName || event.organization || 'Club Name');
@@ -142,7 +142,7 @@ const EventCard = memo(
         }, [event?.ownerId, event?.organization]);
         // ─────────────────────────────────────────────────────────────────────
 
-        // 🚀 Gated same-frame input execution track blocker handler
+        // ≡ƒÜÇ Gated same-frame input execution track blocker handler
         const handleRegisterPress = async () => {
             if (isProcessingRef.current || !user || !event?.id) return;
 
@@ -289,7 +289,7 @@ const EventCard = memo(
                                 <Text
                                     style={[styles.infoText, { color: theme.colors.textSecondary }]}
                                 >
-                                    {formatEventDate(event.startAt)} •{' '}
+                                    {formatEventDate(event.startAt)} ΓÇó{' '}
                                     {formatEventTime(event.startAt)}
                                 </Text>
                             </View>
@@ -361,7 +361,7 @@ const EventCard = memo(
                                         borderColor: '#EAB308',
                                     }}
                                 >
-                                    <Text style={{ fontSize: 10, lineHeight: 14 }}>🐦</Text>
+                                    <Text style={{ fontSize: 10, lineHeight: 14 }}>≡ƒÉª</Text>
                                     <Text
                                         style={{
                                             fontSize: 10,
@@ -382,7 +382,7 @@ const EventCard = memo(
                             style={[styles.priceBadge, { backgroundColor: theme.colors.secondary }]}
                         >
                             <Text style={styles.priceText}>
-                                {event.isPaid ? `₹${currentPrice}` : 'FREE'}
+                                {event.isPaid ? `Γé╣${currentPrice}` : 'FREE'}
                             </Text>
                         </View>
                     </View>
