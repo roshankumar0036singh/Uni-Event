@@ -75,10 +75,16 @@ export default function QRScannerScreen({ navigation, route }) {
         try {
             let scannedUserId;
             let ticketData;
+            const operatorName = user?.displayName || user?.name || user?.email || 'Organizer';
 
             try {
                 ticketData = JSON.parse(data);
                 scannedUserId = ticketData.userId;
+
+                if (!scannedUserId) {
+                    setScanResult({ status: 'error', message: 'Invalid QR code format.' });
+                    return;
+                }
 
                 if (ticketData.eventId !== eventId) {
                     setScanResult({
@@ -95,12 +101,15 @@ export default function QRScannerScreen({ navigation, route }) {
 
             console.log(`Scanned user: ${scannedUserId} for event: ${eventId}`);
 
-            let userSnap;
+            const hasTicketId = Boolean(ticketData?.ticketId);
+            let userData = {};
             try {
                 const userRef = doc(db, 'users', scannedUserId);
-                userSnap = await getDoc(userRef);
+                const userSnap = await getDoc(userRef);
 
-                if (!userSnap.exists()) {
+                if (userSnap.exists()) {
+                    userData = userSnap.data() || {};
+                } else if (hasTicketId) {
                     setScanResult({ status: 'error', message: 'Invalid User QR Code' });
                     return;
                 }
@@ -113,35 +122,27 @@ export default function QRScannerScreen({ navigation, route }) {
                     await handleOfflineCheckIn(eventId, scannedUserId, ticketData, null);
                     return;
                 }
-                throw err;
+                if (!hasTicketId) {
+                    console.warn('User profile unavailable; validating free RSVP participant.');
+                } else {
+                    throw err;
+                }
             }
-
-            const userData = userSnap.data();
 
             try {
                 const checkInPayload = {
                     id: ticketData?.ticketId,
                     userId: scannedUserId,
-                    userName: userData.name || ticketData?.attendeeName,
-                    userEmail: userData.email || ticketData?.attendeeEmail || '',
-                    userYear: userData.year || ticketData?.year,
-                    userBranch: userData.branch || ticketData?.branch,
+                    userName: userData?.name || ticketData?.attendeeName,
+                    userEmail: userData?.email || ticketData?.attendeeEmail || '',
+                    userYear: userData?.year || ticketData?.year,
+                    userBranch: userData?.branch || ticketData?.branch,
                     receiverId: scannedUserId,
                 };
 
                 const result = ticketData?.ticketId
-                    ? await checkInAttendee(
-                          checkInPayload,
-                          eventId,
-                          user.uid,
-                          userData.name || 'Organizer',
-                      )
-                    : await checkInParticipant(
-                          checkInPayload,
-                          eventId,
-                          user.uid,
-                          userData.name || 'Organizer',
-                      );
+                    ? await checkInAttendee(checkInPayload, eventId, user.uid, operatorName)
+                    : await checkInParticipant(checkInPayload, eventId, user.uid, operatorName);
 
                 if (!result.success) {
                     setScanResult({

@@ -15,6 +15,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const PARTICIPANT_NOT_FOUND_ERROR = 'Participant not found';
 const PARTICIPANT_ALREADY_CHECKED_IN_ERROR = 'Participant already checked in';
 
+const firstPresent = (...values) =>
+    values.find(value => value !== undefined && value !== null && value !== '');
+
+const buildParticipantAttendeeData = (participant, participantData) => ({
+    ...participantData,
+    userName: firstPresent(participant.name, participant.userName, participantData.userName),
+    userEmail: firstPresent(participant.email, participant.userEmail, participantData.userEmail),
+    userYear: firstPresent(participant.year, participant.userYear, participantData.userYear),
+    userBranch: firstPresent(
+        participant.branch,
+        participant.userBranch,
+        participantData.userBranch,
+    ),
+});
+
 const buildCheckInRecord = ({
     attendeeData,
     userId,
@@ -177,6 +192,7 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
 export const checkInParticipant = async (participantData, eventId, organizerId, organizerName) => {
     try {
         const userId = participantData.userId;
+        let checkedInName = participantData.userName || participantData.name || 'Guest';
 
         if (!userId) {
             throw new Error(PARTICIPANT_NOT_FOUND_ERROR);
@@ -201,10 +217,8 @@ export const checkInParticipant = async (participantData, eventId, organizerId, 
 
             const participant = participantSnap.data() || {};
             const checkedInAt = serverTimestamp();
-            const attendeeData = {
-                ...participant,
-                ...participantData,
-            };
+            const attendeeData = buildParticipantAttendeeData(participant, participantData);
+            checkedInName = attendeeData.userName || attendeeData.name || 'Guest';
 
             transaction.set(
                 checkInRef,
@@ -243,7 +257,7 @@ export const checkInParticipant = async (participantData, eventId, organizerId, 
 
         return {
             success: true,
-            message: `${participantData.userName || participantData.name || 'Guest'} checked in successfully!`,
+            message: `${checkedInName} checked in successfully!`,
         };
     } catch (error) {
         logger.error('Participant check-in error:', error);
@@ -252,7 +266,7 @@ export const checkInParticipant = async (participantData, eventId, organizerId, 
             return {
                 success: false,
                 error: 'Already checked in',
-                message: 'This attendee is already checked in.',
+                message: 'This participant is already checked in.',
             };
         }
 
@@ -260,7 +274,7 @@ export const checkInParticipant = async (participantData, eventId, organizerId, 
             return {
                 success: false,
                 error: 'Participant not found',
-                message: 'This attendee is not registered for this event.',
+                message: 'This participant is not registered for this event.',
             };
         }
 
@@ -404,6 +418,12 @@ const syncOfflineCheckInItem = async (item, eventId, organizerId) => {
 
         if (item.ticketId) {
             await updateDoc(doc(db, 'tickets', item.ticketId), {
+                checkInStatus: 'checked-in',
+                checkedInAt: offlineCheckedInAt,
+                checkedInBy: organizerId,
+            }).catch(() => {});
+        } else {
+            await updateDoc(doc(db, 'events', eventId, 'participants', item.userId), {
                 checkInStatus: 'checked-in',
                 checkedInAt: offlineCheckedInAt,
                 checkedInBy: organizerId,

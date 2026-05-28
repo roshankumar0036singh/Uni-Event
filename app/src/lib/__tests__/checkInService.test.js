@@ -1,5 +1,6 @@
-import { checkInParticipant } from '../checkInService';
-import { doc, increment, runTransaction } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { checkInParticipant, syncOfflineCheckIns } from '../checkInService';
+import { doc, getDoc, increment, runTransaction, setDoc, updateDoc } from 'firebase/firestore';
 
 let mockTransaction;
 
@@ -65,6 +66,10 @@ describe('checkInParticipant', () => {
         };
 
         jest.clearAllMocks();
+        setDoc.mockResolvedValue(undefined);
+        updateDoc.mockResolvedValue(undefined);
+        AsyncStorage.setItem.mockResolvedValue(undefined);
+        AsyncStorage.removeItem.mockResolvedValue(undefined);
         setTransactionSnapshots();
     });
 
@@ -82,7 +87,7 @@ describe('checkInParticipant', () => {
 
         expect(result).toEqual({
             success: true,
-            message: 'QR Name checked in successfully!',
+            message: 'Registered Name checked in successfully!',
         });
 
         expect(runTransaction).toHaveBeenCalledTimes(1);
@@ -96,8 +101,8 @@ describe('checkInParticipant', () => {
             doc({}, 'events', 'event-1', 'checkIns', 'user-1'),
             expect.objectContaining({
                 userId: 'user-1',
-                userName: 'QR Name',
-                userEmail: 'qr@example.com',
+                userName: 'Registered Name',
+                userEmail: 'registered@example.com',
                 userYear: '3',
                 userBranch: 'CSE',
                 ticketId: null,
@@ -141,9 +146,50 @@ describe('checkInParticipant', () => {
         expect(result).toEqual({
             success: false,
             error: 'Already checked in',
-            message: 'This attendee is already checked in.',
+            message: 'This participant is already checked in.',
         });
         expect(mockTransaction.set).not.toHaveBeenCalled();
         expect(mockTransaction.update).not.toHaveBeenCalled();
+    });
+
+    it('marks free RSVP participants checked in when syncing offline scans', async () => {
+        AsyncStorage.getItem.mockResolvedValueOnce(
+            JSON.stringify([
+                {
+                    userId: 'user-1',
+                    userName: 'Offline Attendee',
+                    userEmail: 'offline@example.com',
+                    queuedAt: '2026-05-28T10:00:00.000Z',
+                    ticketId: null,
+                },
+            ]),
+        );
+        getDoc.mockResolvedValueOnce(snapshot(false));
+
+        const result = await syncOfflineCheckIns('event-1', 'organizer-1');
+
+        expect(result).toEqual({
+            success: true,
+            syncedCount: 1,
+        });
+        expect(setDoc).toHaveBeenCalledWith(
+            doc({}, 'events', 'event-1', 'checkIns', 'user-1'),
+            expect.objectContaining({
+                userId: 'user-1',
+                userName: 'Offline Attendee',
+                ticketId: null,
+                status: 'checked-in',
+                checkedInBy: 'organizer-1',
+            }),
+        );
+        expect(updateDoc).toHaveBeenCalledWith(
+            doc({}, 'events', 'event-1', 'participants', 'user-1'),
+            expect.objectContaining({
+                checkInStatus: 'checked-in',
+                checkedInBy: 'organizer-1',
+            }),
+        );
+        expect(updateDoc.mock.calls.some(([ref]) => ref.path.startsWith('tickets/'))).toBe(false);
+        expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@offline_checkins_event-1');
     });
 });
