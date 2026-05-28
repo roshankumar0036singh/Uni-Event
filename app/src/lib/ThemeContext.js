@@ -20,7 +20,7 @@ export const ThemeProvider = ({ children }) => {
     // Animated value for smooth color transitions (0 = light, 1 = dark)
     const themeAnimationProgress = useMemo(
         () => new Animated.Value(systemScheme === 'dark' ? 1 : 0),
-        [],
+        [systemScheme],
     );
 
     useEffect(() => {

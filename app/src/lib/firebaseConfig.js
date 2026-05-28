@@ -32,16 +32,12 @@ if (!firebaseConfig.apiKey) {
 
 const app = initializeApp(firebaseConfig);
 
-let auth;
-if (Platform.OS === 'web') {
-    auth = initializeAuth(app, {
-        persistence: browserLocalPersistence,
-    });
-} else {
-    auth = initializeAuth(app, {
-        persistence: getReactNativePersistence(ReactNativeAsyncStorage),
-    });
-}
+const auth = initializeAuth(app, {
+    persistence:
+        Platform.OS === 'web'
+            ? browserLocalPersistence
+            : getReactNativePersistence(ReactNativeAsyncStorage),
+});
 
 export { auth };
 

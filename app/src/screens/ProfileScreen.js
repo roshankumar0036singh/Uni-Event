@@ -1,5 +1,4 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-// import { Picker } from '@react-native-picker/picker'; // Removed native picker
 import { updateProfile } from 'firebase/auth';
 import { addDoc, collection, doc, getCountFromServer, getDoc, updateDoc } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
