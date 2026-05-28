@@ -5,40 +5,66 @@ const SERVICE_ID = process.env.EMAILJS_SERVICE_ID;
 const PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY;
 const TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_FEEDBACK;
 
-// Returns true if email was sent successfully, false if it failed
-async function sendEmail(name: string, email: string, eventTitle: string, eventId: string): Promise<boolean> {
-    const feedbackLink = `https://unievent-ez2w.onrender.com/event/${eventId}/feedback`;
+// Step 1: Send one email
+async function sendEmail(name: string, email: string, eventTitle: string, eventId: string) {
+    const payload = {
+        service_id: SERVICE_ID,
+        template_id: TEMPLATE_ID,
+        user_id: PUBLIC_KEY,
+        template_params: {
+            to_name: name || "Participant",
+            to_email: email,
+            subject: `Feedback Request: ${eventTitle}`,
+            message: `Thank you for attending ${eventTitle}. Please share your feedback!`,
+            event_title: eventTitle,
+            feedback_link: `https://unievent-ez2w.onrender.com/event/${eventId}/feedback`,
+        },
+    };
 
     try {
-        const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                service_id: SERVICE_ID,
-                template_id: TEMPLATE_ID,
-                user_id: PUBLIC_KEY,
-                template_params: {
-                    to_name: name || "Participant",
-                    to_email: email,
-                    subject: `Feedback Request: ${eventTitle}`,
-                    message: `Thank you for attending ${eventTitle}. Please share your feedback!`,
-                    event_title: eventTitle,
-                    feedback_link: feedbackLink,
-                },
-            }),
+            body: JSON.stringify(payload),
         });
-
-        if (response.ok) return true;
-
-        console.error(`Email failed for ${email}: ${await response.text()}`);
-        return false;
-
-    } catch (e) {
-        console.error(`Email error for ${email}:`, e);
+        return res.ok;
+    } catch {
         return false;
     }
 }
 
+// Step 2: Get event end time (returns null if invalid)
+function getEndTime(event: admin.firestore.DocumentData): Date | null {
+    const date = event.endAt?.toDate ? event.endAt.toDate() : new Date(event.endAt);
+    return date && !Number.isNaN(date.getTime()) ? date : null;
+}
+
+// Step 3: Claim event so no other function run processes it twice
+async function claimEvent(ref: admin.firestore.DocumentReference): Promise<boolean> {
+    try {
+        await ref.firestore.runTransaction(async (t) => {
+            const snap = await t.get(ref);
+            if (snap.data()?.feedbackRequestSent === true) throw new Error("claimed");
+            t.update(ref, { feedbackRequestSent: true });
+        });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// Step 4: Send emails to all participants of an event
+async function notifyParticipants(db: admin.firestore.Firestore, eventId: string, eventTitle: string) {
+    const snap = await db.collection(`events/${eventId}/participants`).get();
+    for (const p of snap.docs) {
+        const { name, email } = p.data();
+        if (email && email !== "-") {
+            await sendEmail(name, email, eventTitle, eventId);
+        }
+    }
+}
+
+// Main Cloud Function — runs every 60 minutes
 export const sendPostEventFeedback = functions.pubsub
     .schedule("every 60 minutes")
     .onRun(async () => {
@@ -50,69 +76,24 @@ export const sendPostEventFeedback = functions.pubsub
             .where("feedbackRequestSent", "in", [false, null])
             .get();
 
-        if (events.empty) {
-            console.log("No events to process.");
-            return null;
-        }
+        if (events.empty) return null;
 
         for (const eventDoc of events.docs) {
             const event = eventDoc.data();
-            const rawEnd = event.endAt?.toDate ? event.endAt.toDate() : new Date(event.endAt);
 
-            // Skip if endAt is missing or invalid
-            if (!rawEnd || isNaN(rawEnd.getTime())) {
-                console.log(`Skipping "${event.title}" — invalid or missing endAt`);
-                continue;
-            }
+            // Skip if end time is invalid
+            const endTime = getEndTime(event);
+            if (!endTime || now <= endTime) continue;
 
-            // Skip if event hasn't ended yet
-            if (now <= rawEnd) continue;
+            // Skip if already claimed by another run
+            const claimed = await claimEvent(eventDoc.ref);
+            if (!claimed) continue;
 
-            // Claim the event first to prevent duplicate emails
-            // if the function runs twice at the same time
-            try {
-                await db.runTransaction(async (transaction) => {
-                    const freshDoc = await transaction.get(eventDoc.ref);
-                    if (freshDoc.data()?.feedbackRequestSent === true) {
-                        throw new Error("already_claimed");
-                    }
-                    transaction.update(eventDoc.ref, { feedbackRequestSent: true });
-                });
-            } catch (e: any) {
-                if (e?.message === "already_claimed") {
-                    console.log(`Skipping "${event.title}" — already claimed`);
-                    continue;
-                }
-                console.error(`Transaction failed for "${event.title}":`, e);
-                continue;
-            }
+            // Send emails and save timestamp
+            await notifyParticipants(db, eventDoc.id, event.title);
+            await eventDoc.ref.update({ feedbackRequestSentAt: new Date().toISOString() });
 
-            console.log(`Sending feedback emails for: ${event.title}`);
-
-            const participantsSnap = await db
-                .collection(`events/${eventDoc.id}/participants`)
-                .get();
-
-            let allSent = true;
-
-            for (const p of participantsSnap.docs) {
-                const name = p.data().name;
-                const email = p.data().email;
-
-                if (email && email !== "-") {
-                    const success = await sendEmail(name, email, event.title, eventDoc.id);
-                    if (!success) allSent = false;
-                }
-            }
-
-            if (allSent) {
-                await eventDoc.ref.update({
-                    feedbackRequestSentAt: new Date().toISOString(),
-                });
-                console.log(`Done with: ${event.title}`);
-            } else {
-                console.log(`Some emails failed for: ${event.title}`);
-            }
+            console.log(`Done: ${event.title}`);
         }
 
         return null;
