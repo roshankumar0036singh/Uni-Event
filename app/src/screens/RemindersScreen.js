@@ -66,10 +66,10 @@ export default function RemindersScreen({ navigation }) {
             const ed = eventMap[data.eventId] || {};
             list.push({
                 id: docSnap.id,
+                ...data,
                 eventTitle: ed.title || 'Event',
                 eventLocation: ed.location || '',
                 bannerUrl: ed.bannerUrl || null,
-                ...data,
             });
         });
 
