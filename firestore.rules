@@ -1,53 +1,123 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // =========================================================================
+    // DATA VALIDATION HELPER FUNCTIONS
+    // =========================================================================
+
+    function isValidEventTitle(data) {
+      return !('title' in data) || (data.title is string && data.title.size() >= 3 && data.title.size() <= 200);
+    }
+
+    function isValidEventCapacity(data) {
+      return !('capacity' in data) || (data.capacity is int && data.capacity > 0);
+    }
+
+    function isValidEventDate(data) {
+      return !('date' in data) || 
+             (data.date is timestamp && data.date > request.time) ||
+             (data.date is string && timestamp.value(data.date) > request.time);
+    }
+
+    function validateEventShape(data) {
+      return isValidEventTitle(data) && isValidEventCapacity(data) && isValidEventDate(data);
+    }
+
+    function validateAttendanceStatus(data) {
+      return !('status' in data) || (data.status in ['rsvp', 'checked_in', 'cancelled']);
+    }
+
+    // =========================================================================
+    // AUTH & SAFETY HELPER FUNCTIONS
+    // =========================================================================
+    
+    function isAdmin() {
+      return request.auth != null && 'admin' in request.auth.token && request.auth.token.admin == true;
+    }
+    
+    function isClub() {
+      return request.auth != null && 'club' in request.auth.token && request.auth.token.club == true;
+    }
+
+    function isEventOwner(database, eventId) {
+      return exists(/databases/$(database)/documents/events/$(eventId)) 
+          && ('ownerId' in get(/databases/$(database)/documents/events/$(eventId)).data)
+          && request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId;
+    }
+
+    function isParticipant(database, eventId) {
+      return exists(/databases/$(database)/documents/events/$(eventId)/participants/$(request.auth.uid));
+    }
+
+    // =========================================================================
+    // ROUTE MATCHERS
+    // =========================================================================
+
     match /users/{userId} {
       allow create: if request.auth != null && request.auth.uid == userId && !("role" in request.resource.data);
       allow read: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && (
-        request.auth.token.admin == true || 
+        isAdmin() || 
         (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
       );
     }
+    
     match /clubs/{clubId} {
       allow read: if true;
-      allow create: if request.auth != null && request.auth.token.admin == true;
-      allow update, delete: if request.auth != null && request.auth.token.admin == true;
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin();
     }
+    
     match /events/{eventId} {
       allow read: if true;
-      allow create: if request.auth != null && (request.auth.token.admin == true || request.auth.token.club == true);
-      allow update, delete: if request.auth != null && (request.auth.token.admin == true || request.auth.uid == resource.data.ownerId);
+      
+      allow create: if request.auth != null 
+                    && (isAdmin() || isClub())
+                    && validateEventShape(request.resource.data);
+      
+      allow update: if request.auth != null 
+                    && (isAdmin() || ('ownerId' in resource.data && request.auth.uid == resource.data.ownerId))
+                    && validateEventShape(request.resource.data);
+                    
+      allow delete: if request.auth != null 
+                    && (isAdmin() || ('ownerId' in resource.data && request.auth.uid == resource.data.ownerId));
 
       match /participants/{participantId} {
         allow read: if request.auth != null && (
           request.auth.uid == participantId ||
-          request.auth.token.admin == true ||
-          request.auth.token.club == true ||
-          request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId
+          isAdmin() ||
+          isClub() ||
+          isEventOwner(database, eventId) ||
+          isParticipant(database, eventId)
         );
+        
         allow create: if request.auth != null &&
           request.auth.uid == participantId &&
+          validateAttendanceStatus(request.resource.data) &&
           !request.resource.data.keys().hasAny([
             'isPaid', 'paymentStatus', 'paymentId', 'role', 'approved'
           ]);
+          
         allow delete: if request.auth != null && request.auth.uid == participantId;
+        
         allow update: if request.auth != null && request.auth.uid == participantId &&
+          validateAttendanceStatus(request.resource.data) &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buddyPreference', 'updatedAt']);
       }
 
       match /checkIns/{checkInId} {
         allow read: if request.auth != null && (
-          request.auth.token.admin == true ||
-          request.auth.token.club == true ||
-          request.auth.uid == resource.data.userId ||
-          request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId
+          isAdmin() ||
+          isClub() ||
+          ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+          isEventOwner(database, eventId)
         );
         allow create, update, delete: if request.auth != null &&
           exists(/databases/$(database)/documents/events/$(eventId)) && (
-          request.auth.token.admin == true ||
-          request.auth.token.club == true ||
-          request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId
+          isAdmin() ||
+          isClub() ||
+          isEventOwner(database, eventId)
         );
       }
 
@@ -58,34 +128,36 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read: if request.auth != null && (
-          exists(/databases/$(database)/documents/events/$(eventId)/participants/$(request.auth.uid)) ||
-          request.auth.token.admin == true ||
-          request.auth.token.club == true
+          isParticipant(database, eventId) ||
+          isAdmin() ||
+          isClub()
         );
         allow create: if request.auth != null && (
-          exists(/databases/$(database)/documents/events/$(eventId)/participants/$(request.auth.uid)) ||
-          request.auth.token.admin == true ||
-          request.auth.token.club == true
-        ) && request.resource.data.userId == request.auth.uid;
+          isParticipant(database, eventId) ||
+          isAdmin() ||
+          isClub()
+        ) && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid);
       }
     }
+    
     match /reminders/{rid} {
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && (!('userId' in request.resource.data) || request.auth.uid == request.resource.data.userId);
+      allow read, update, delete: if request.auth != null && ('userId' in resource.data) && request.auth.uid == resource.data.userId;
     }
+    
     match /admin/{doc} {
-      allow read, write: if request.auth != null && request.auth.token.admin == true;
+      allow read, write: if isAdmin();
     }
+    
     match /feedback/{docId} {
       allow create: if request.auth != null
-                    && request.resource.data.userId == request.auth.uid;
+                    && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid);
 
       allow read: if request.auth != null
-                  && (resource.data.userId == request.auth.uid
-                      || request.auth.token.admin == true);
+                  && (('userId' in resource.data && resource.data.userId == request.auth.uid)
+                      || isAdmin());
 
-      allow update, delete: if request.auth != null
-                            && request.auth.token.admin == true;
+      allow update, delete: if isAdmin();
     }
   }
 }
