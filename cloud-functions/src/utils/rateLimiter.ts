@@ -6,6 +6,44 @@ export interface RateLimitResult {
   message: string;
 }
 
+// Helper to evaluate and update minute rate limit
+function evaluateMinuteLimit(userData: any, nowMillis: number): { allowed: boolean; writeCountMinute: number } {
+  let writeCountMinute = userData.writeCountMinute || 0;
+  const lastWriteAt = userData.lastWriteAt;
+
+  if (!lastWriteAt) {
+    return { allowed: true, writeCountMinute: 1 };
+  }
+
+  const lastWriteMillis = lastWriteAt.toDate 
+    ? lastWriteAt.toDate().getTime() 
+    : new Date(lastWriteAt).getTime();
+    
+  if (nowMillis - lastWriteMillis <= 60000) {
+    if (writeCountMinute >= 10) {
+      return { allowed: false, writeCountMinute };
+    }
+    return { allowed: true, writeCountMinute: writeCountMinute + 1 };
+  }
+
+  return { allowed: true, writeCountMinute: 1 };
+}
+
+// Helper to evaluate and update daily event limit
+function evaluateDailyEventLimit(userData: any, currentDayInt: number): { allowed: boolean; eventCountDay: number } {
+  let eventCountDay = userData.eventCountDay || 0;
+  const lastEventDay = userData.lastEventDay || 0;
+
+  if (lastEventDay === currentDayInt) {
+    if (eventCountDay >= 5) {
+      return { allowed: false, eventCountDay };
+    }
+    return { allowed: true, eventCountDay: eventCountDay + 1 };
+  }
+
+  return { allowed: true, eventCountDay: 1 };
+}
+
 /**
  * Checks and updates the database write rate-limiting state stored in the user's document.
  * This runs inside an atomic transaction to prevent write count race conditions.
@@ -30,7 +68,10 @@ export async function checkAndUpdateRateLimit(
   return db.runTransaction(async (transaction) => {
     const userDoc = await transaction.get(userRef);
     let userData: any = {};
-    if (!userDoc.exists) {
+
+    if (userDoc.exists) {
+      userData = userDoc.data() || {};
+    } else {
       const now = new Date();
       const currentDayInt = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
       userData = {
@@ -42,9 +83,8 @@ export async function checkAndUpdateRateLimit(
       };
       transaction.set(userRef, userData, { merge: true });
       return { allowed: true, statusCode: 200, message: 'Initial rate limit profile created' };
-    } else {
-      userData = userDoc.data() || {};
     }
+
     const role = userData.role || 'student';
 
     // Admins are exempt from write rate limits
@@ -54,62 +94,34 @@ export async function checkAndUpdateRateLimit(
 
     const now = new Date();
     const nowMillis = now.getTime();
-    
-    // YYYYMMDD integer calculation for daily reset
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
-    const currentDayInt = year * 10000 + month * 100 + day;
+    const currentDayInt = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
 
-    let writeCountMinute = userData.writeCountMinute || 0;
-    const lastWriteAt = userData.lastWriteAt;
-    let eventCountDay = userData.eventCountDay || 0;
-    const lastEventDay = userData.lastEventDay || 0;
-
-    const updates: any = {};
-
-    // 1. General Write Limit Assessment (Max 10 writes per user per minute)
-    if (lastWriteAt) {
-      const lastWriteMillis = lastWriteAt.toDate 
-        ? lastWriteAt.toDate().getTime() 
-        : new Date(lastWriteAt).getTime();
-        
-      if (nowMillis - lastWriteMillis <= 60000) {
-        if (writeCountMinute >= 10) {
-          return {
-            allowed: false,
-            statusCode: 429,
-            message: 'Too Many Requests: Database write rate limit exceeded (Max 10 per minute).'
-          };
-        }
-        writeCountMinute += 1;
-      } else {
-        // Reset minute counter (time delta > 60s)
-        writeCountMinute = 1;
-      }
-    } else {
-      writeCountMinute = 1;
+    // 1. Evaluate Minute Limit
+    const minResult = evaluateMinuteLimit(userData, nowMillis);
+    if (!minResult.allowed) {
+      return {
+        allowed: false,
+        statusCode: 429,
+        message: 'Too Many Requests: Database write rate limit exceeded (Max 10 per minute).'
+      };
     }
-    
-    updates.writeCountMinute = writeCountMinute;
-    updates.lastWriteAt = admin.firestore.FieldValue.serverTimestamp();
 
-    // 2. Per-Collection Event Creation Assessment (Max 5 events per user per day)
+    const updates: any = {
+      writeCountMinute: minResult.writeCountMinute,
+      lastWriteAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    // 2. Evaluate Daily Event Limit
     if (isEventCreation) {
-      if (lastEventDay === currentDayInt) {
-        if (eventCountDay >= 5) {
-          return {
-            allowed: false,
-            statusCode: 429,
-            message: 'Too Many Requests: Daily event creation limit exceeded (Max 5 per day).'
-          };
-        }
-        eventCountDay += 1;
-      } else {
-        // Reset daily event counter (new calendar day)
-        eventCountDay = 1;
+      const dailyResult = evaluateDailyEventLimit(userData, currentDayInt);
+      if (!dailyResult.allowed) {
+        return {
+          allowed: false,
+          statusCode: 429,
+          message: 'Too Many Requests: Daily event creation limit exceeded (Max 5 per day).'
+        };
       }
-      updates.eventCountDay = eventCountDay;
+      updates.eventCountDay = dailyResult.eventCountDay;
       updates.lastEventDay = currentDayInt;
     }
 
