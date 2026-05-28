@@ -25,11 +25,11 @@ const downloadBase64Pdf = ({ base64, fileName }) => {
         return;
     }
 
-    const binary = window.atob(base64);
+    const binary = globalThis.atob(base64);
     const bytes = new Uint8Array(binary.length);
 
     for (let i = 0; i < binary.length; i += 1) {
-        bytes[i] = binary.charCodeAt(i);
+        bytes[i] = binary.codePointAt(i);
     }
 
     const blob = new Blob([bytes], { type: 'application/pdf' });
@@ -39,7 +39,7 @@ const downloadBase64Pdf = ({ base64, fileName }) => {
     link.download = fileName || 'branch-participation-report.pdf';
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
     URL.revokeObjectURL(url);
 };
 

@@ -126,12 +126,16 @@ const buildPdf = async (
     });
     y -= 26;
 
-    const period =
-      meta.fromDate || meta.toDate
-        ? `${meta.fromDate ? meta.fromDate.toLocaleDateString("en-US") : "Beginning"} - ${
-            meta.toDate ? meta.toDate.toLocaleDateString("en-US") : "Present"
-          }`
-        : "All available events";
+    let period = "All available events";
+    if (meta.fromDate || meta.toDate) {
+      const periodStart = meta.fromDate
+        ? meta.fromDate.toLocaleDateString("en-US")
+        : "Beginning";
+      const periodEnd = meta.toDate
+        ? meta.toDate.toLocaleDateString("en-US")
+        : "Present";
+      period = `${periodStart} - ${periodEnd}`;
+    }
 
     drawText(page, `Period: ${period}`, margin, y, {
       size: 10,
