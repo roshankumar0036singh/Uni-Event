@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -355,7 +355,7 @@ const EventCard = memo(
                                         borderColor: '#EAB308',
                                     }}
                                 >
-                                    <Text style={{ fontSize: 10, lineHeight: 14 }}>🐦</Text>
+                                    <Text style={{ fontSize: 10, lineHeight: 14 }}>ðŸ¦</Text>
                                     <Text
                                         style={{
                                             fontSize: 10,
@@ -637,3 +637,4 @@ EventCard.propTypes = {
 };
 
 export default EventCard;
+
