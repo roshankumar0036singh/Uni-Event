@@ -35,11 +35,21 @@ export default function UserFeed() {
     const [searchHistory, setSearchHistory] = useState([]);
     const [showHistory, setShowHistory] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedQuery, setDebouncedQuery] = useState(''); // filtering — 300ms debounced
+const debounceTimer = useRef(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [currentFeedbackRequest, setCurrentFeedbackRequest] = useState(null);
     const scrollY = useRef(new Animated.Value(0)).current;
+    //  debounce effect
+useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+        setDebouncedQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(debounceTimer.current);
+}, [searchQuery]);
 
     // Load persisted search history on component mount
     useEffect(() => {
@@ -211,8 +221,9 @@ export default function UserFeed() {
         let filtered = events;
 
         // 0. Search Query Filtering
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
+
+if (debouncedQuery.trim()) {
+    const query = debouncedQuery.toLowerCase();
             filtered = filtered.filter(
                 e =>
                     e.title?.toLowerCase().includes(query) ||
