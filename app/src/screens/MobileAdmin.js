@@ -12,6 +12,7 @@ import {
     View,
 } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
+import EmptyState from '../components/EmptyState';
 import { db } from '../lib/firebaseConfig';
 import { formatEventDate } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
@@ -304,16 +305,15 @@ export default function MobileAdmin() {
                 renderItem={listRenderItem}
                 contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="search-outline" size={64} color="#666" />
-                        <Text style={styles.emptyText}>
-                            {activeTab === 'events'
+                    <EmptyState
+                        message={
+                            activeTab === 'events'
                                 ? 'No active events found'
                                 : activeTab === 'requests'
                                   ? 'No pending club requests'
-                                  : 'No pending appeals'}
-                        </Text>
-                    </View>
+                                  : 'No pending appeals'
+                        }
+                    />
                 }
             />
 

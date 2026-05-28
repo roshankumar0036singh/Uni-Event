@@ -5,6 +5,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import ScreenWrapper from '../components/ScreenWrapper';
+import EmptyState from '../components/EmptyState';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { theme as staticTheme } from '../lib/theme';
@@ -90,9 +91,10 @@ export default function ParticipatingEventsScreen({ navigation }) {
                 estimatedItemSize={160} // 🔥 Performance size optimization parameter allows smooth 60fps item rendering
                 contentContainerStyle={{ padding: staticTheme.spacing.m }}
                 ListEmptyComponent={
-                    <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>
-                        You haven&apos;t joined any events yet.
-                    </Text>
+                    <EmptyState
+                        message="No joined events"
+                        subMessage="You haven't joined any events yet."
+                    />
                 }
                 renderItem={renderItem}
             />

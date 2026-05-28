@@ -3,6 +3,7 @@ import { collection, documentId, getDocs, onSnapshot, query, where } from 'fireb
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
+import EmptyState from '../components/EmptyState';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
@@ -110,16 +111,11 @@ export default function MyRegisteredEventsScreen() {
                 }
                 renderItem={({ item }) => <EventCard event={item} />}
                 ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                        <Ionicons
-                            name="calendar-outline"
-                            size={64}
-                            color={theme.colors.textSecondary}
-                        />
-                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                            You haven&apos;t registered for any events yet.
-                        </Text>
-                    </View>
+                    <EmptyState
+                        isSmall={true}
+                        message="No registered events"
+                        subMessage="You haven't registered for any events yet."
+                    />
                 }
             />
         </View>

@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { EventListSkeleton } from '../components/SkeletonLoader';
 import EventCard from '../components/EventCard';
+import EmptyState from '../components/EmptyState';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
@@ -407,18 +408,7 @@ export default function ClubProfileScreen({ route, navigation }) {
                     {activeTab === 'events' ? (
                         <View>
                             {events.length === 0 ? (
-                                <View style={styles.empty}>
-                                    <Ionicons
-                                        name="calendar-outline"
-                                        size={64}
-                                        color={theme.colors.textSecondary}
-                                    />
-                                    <Text
-                                        style={{ color: theme.colors.textSecondary, marginTop: 10 }}
-                                    >
-                                        No events yet.
-                                    </Text>
-                                </View>
+                                <EmptyState message="No events yet." />
                             ) : (
                                 events.map(event => <EventCard key={event.id} event={event} />)
                             )}

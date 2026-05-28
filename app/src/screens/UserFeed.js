@@ -19,6 +19,7 @@ import {
 import EventCard from '../components/EventCard';
 import FeedbackModal from '../components/FeedbackModal';
 import SkeletonLoader from '../components/SkeletonLoader';
+import EmptyState from '../components/EmptyState';
 import { useAuth } from '../lib/AuthContext';
 import { submitFeedback } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
@@ -527,20 +528,18 @@ export default function UserFeed() {
                         useNativeDriver: true,
                     })}
                     contentContainerStyle={{ paddingBottom: 100 }}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Ionicons
-                                name="search-outline"
-                                size={64}
-                                color={theme.colors.textSecondary}
-                                style={{ opacity: 0.5 }}
+                    ListFooterComponent={
+                        displayList.length === 0 ? (
+                            <EmptyState
+                                isSmall={true}
+                                message="No events found"
+                                subMessage={
+                                    searchQuery
+                                        ? `We couldn't find anything for "${searchQuery}"`
+                                        : 'There are currently no events to display.'
+                                }
                             />
-                            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                                {searchQuery
-                                    ? `No events found for "${searchQuery}"`
-                                    : 'No events found.'}
-                            </Text>
-                        </View>
+                        ) : null
                     }
                 />
             )}

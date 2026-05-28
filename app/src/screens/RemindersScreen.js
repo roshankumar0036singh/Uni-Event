@@ -22,6 +22,7 @@ import {
     View,
 } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
+import EmptyState from '../components/EmptyState';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
@@ -272,19 +273,10 @@ export default function RemindersScreen({ navigation }) {
                         );
                     }}
                     ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <View style={styles.emptyIconCircle}>
-                                <Ionicons
-                                    name="notifications-off-outline"
-                                    size={40}
-                                    color={theme.colors.textSecondary}
-                                />
-                            </View>
-                            <Text style={styles.emptyText}>No reminders set</Text>
-                            <Text style={styles.emptySubText}>
-                                Tap the bell icon on any event to get notified.
-                            </Text>
-                        </View>
+                        <EmptyState
+                            message="No reminders set"
+                            subMessage="Tap the bell icon on any event to get notified."
+                        />
                     }
                     contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 16 }}
                 />

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import EventCard from '../components/EventCard';
 import ScreenWrapper from '../components/ScreenWrapper';
+import EmptyState from '../components/EmptyState';
 import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
 import { db } from '../lib/firebaseConfig';
@@ -192,15 +193,10 @@ export default function MyEventsScreen({ navigation }) {
                     />
                 }
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Ionicons
-                            name="calendar-outline"
-                            size={64}
-                            color={theme.colors.textSecondary}
-                        />
-                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                            You haven&apos;t created any events yet.
-                        </Text>
+                    <EmptyState
+                        message="No events created"
+                        subMessage="You haven't created any events yet."
+                    >
                         <TouchableOpacity
                             style={[
                                 styles.createBtnSmall,
@@ -210,7 +206,7 @@ export default function MyEventsScreen({ navigation }) {
                         >
                             <Text style={styles.createBtnText}>Create Layout</Text>
                         </TouchableOpacity>
-                    </View>
+                    </EmptyState>
                 }
                 renderItem={renderItem}
             />

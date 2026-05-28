@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import ScreenWrapper from '../components/ScreenWrapper';
+import EmptyState from '../components/EmptyState';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
@@ -110,23 +111,10 @@ export default function SavedEventsScreen({ navigation }) {
                     }
                     renderItem={renderItem}
                     ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <View style={styles.emptyIconCircle}>
-                                <Ionicons
-                                    name="bookmark-outline"
-                                    size={48}
-                                    color={theme.colors.textSecondary}
-                                />
-                            </View>
-                            <Text style={[styles.emptyText, { color: theme.colors.text }]}>
-                                No saved events
-                            </Text>
-                            <Text
-                                style={[styles.emptySubText, { color: theme.colors.textSecondary }]}
-                            >
-                                Tap the bookmark icon on any event to save it for later
-                            </Text>
-                        </View>
+                        <EmptyState
+                            message="No saved events"
+                            subMessage="Tap the bookmark icon on any event to save it for later"
+                        />
                     }
                     contentContainerStyle={{ paddingBottom: 20 }}
                     showsVerticalScrollIndicator={false}
