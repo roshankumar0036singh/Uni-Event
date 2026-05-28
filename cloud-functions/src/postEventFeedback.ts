@@ -50,7 +50,7 @@ async function claimEvent(ref: admin.firestore.DocumentReference): Promise<boole
         return true;
     } catch (e: any) {
         if (e?.message === "claimed") return false;
-        throw e; // rethrow unexpected errors
+        throw e;
     }
 }
 
@@ -77,7 +77,7 @@ export const sendPostEventFeedback = functions.pubsub
             .where("feedbackRequestSent", "in", [false, null])
             .get();
 
-        if (events.empty) return null;
+        if (events.empty) return;
 
         for (const eventDoc of events.docs) {
             const event = eventDoc.data();
@@ -93,6 +93,4 @@ export const sendPostEventFeedback = functions.pubsub
 
             console.log(`Done: ${event.title}`);
         }
-
-        return null;
     });
