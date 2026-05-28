@@ -40,6 +40,20 @@ import PropTypes from 'prop-types';
 const profileCache = new Map();
 const profileRequestCache = new Map();
 
+/**
+ * formatMetric — adaptive pluralization helper for metric badges (Issue #308)
+ * Returns a grammatically correct string for any numeric metric.
+ *
+ * @param {number|undefined|null} value  - Raw numeric value from the database
+ * @param {string} singular              - Singular label, e.g. "View"
+ * @param {string} plural                - Plural label,   e.g. "Views"
+ * @returns {string}                     - e.g. "1 View", "0 Views", "42 Views"
+ */
+const formatMetric = (value, singular, plural) => {
+    const count = value ?? 0;
+    return `${count} ${count === 1 ? singular : plural}`;
+};
+
 const EventCard = memo(
     ({
         event,
@@ -304,6 +318,8 @@ const EventCard = memo(
                                     {event.eventMode === 'online' ? 'Online' : event.location}
                                 </Text>
                             </View>
+
+                            {/* ✅ Issue #308 — views metric now uses formatMetric for correct pluralization */}
                             <View style={styles.infoItem}>
                                 <Ionicons
                                     name="eye-outline"
@@ -313,7 +329,7 @@ const EventCard = memo(
                                 <Text
                                     style={[styles.infoText, { color: theme.colors.textSecondary }]}
                                 >
-                                    {event.views || 0} Views
+                                    {formatMetric(event.views, 'View', 'Views')}
                                 </Text>
                             </View>
 
@@ -357,7 +373,7 @@ const EventCard = memo(
                                         borderColor: '#EAB308',
                                     }}
                                 >
-                                    <Text style={{ fontSize: 10, lineHeight: 14 }}>ðŸ¦</Text>
+                                    <Text style={{ fontSize: 10, lineHeight: 14 }}>🐦</Text>
                                     <Text
                                         style={{
                                             fontSize: 10,
@@ -377,7 +393,7 @@ const EventCard = memo(
                             style={[styles.priceBadge, { backgroundColor: theme.colors.secondary }]}
                         >
                             <Text style={styles.priceText}>
-                                {event.isPaid ? `\u20B9${currentPrice}` : 'FREE'}
+                                {event.isPaid ? `₹${currentPrice}` : 'FREE'}
                             </Text>
                         </View>
                     </View>
