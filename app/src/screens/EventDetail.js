@@ -1005,7 +1005,7 @@ export default function EventDetail({ route, navigation }) {
         }
         const isExpired = deadline && new Date() > deadline;
         const isEarlyBirdTicket =
-            ticket.isEarlyBird || (ticket.name && ticket.name.toLowerCase().includes('early'));
+            ticket.isEarlyBird || ticket.name?.toLowerCase().includes('early');
         const isFree = !ticket.price || ticket.price === 0;
         const accentColor = isEarlyBirdTicket ? '#EAB308' : theme.colors.primary;
         const benefitsOpen = expandedBenefits.has(idx);
@@ -1318,6 +1318,35 @@ export default function EventDetail({ route, navigation }) {
             </View>
         );
     };
+
+    let certificateButtonText = 'Send Certificates';
+    if (sendingCertificates) {
+        certificateButtonText = 'Sending...';
+    } else if (event?.certificatesSent) {
+        certificateButtonText = 'Certificates Sent';
+    }
+
+    const eventEnded = new Date(event.endAt) < new Date();
+    let primaryBtnOnPress = toggleRsvp;
+    if (eventEnded) {
+        primaryBtnOnPress =
+            rsvpStatus === 'going' && event.certificatesSent ? handleDownloadCertificate : null;
+    }
+
+    let primaryBtnText;
+    if (eventEnded) {
+        if (rsvpStatus === 'going') {
+            primaryBtnText = event.certificatesSent ? 'Download Certificate' : 'Event Ended';
+        } else {
+            primaryBtnText = 'Closed';
+        }
+    } else if (rsvpStatus === 'going') {
+        primaryBtnText = 'Registered \u2713';
+    } else if (event.isPaid) {
+        primaryBtnText = `Book Ticket (\u20B9${event.price})`;
+    } else {
+        primaryBtnText = 'RSVP Now';
+    }
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -2216,11 +2245,7 @@ export default function EventDetail({ route, navigation }) {
                                                 },
                                             ]}
                                         >
-                                            {sendingCertificates
-                                                ? 'Sending...'
-                                                : event.certificatesSent
-                                                  ? 'Certificates Sent'
-                                                  : 'Send Certificates'}
+                                            {certificateButtonText}
                                         </Text>
                                     </TouchableOpacity>
                                 )}
@@ -2311,13 +2336,7 @@ export default function EventDetail({ route, navigation }) {
                                     borderColor: theme.colors.textSecondary,
                                 },
                         ]}
-                        onPress={
-                            new Date(event.endAt) < new Date()
-                                ? rsvpStatus === 'going' && event.certificatesSent
-                                    ? handleDownloadCertificate
-                                    : null
-                                : toggleRsvp
-                        }
+                        onPress={primaryBtnOnPress}
                         disabled={
                             new Date(event.endAt) < new Date() &&
                             !(rsvpStatus === 'going' && event.certificatesSent)
@@ -2333,17 +2352,7 @@ export default function EventDetail({ route, navigation }) {
                                     },
                             ]}
                         >
-                            {new Date(event.endAt) < new Date()
-                                ? rsvpStatus === 'going'
-                                    ? event.certificatesSent
-                                        ? 'Download Certificate'
-                                        : 'Event Ended'
-                                    : 'Closed'
-                                : rsvpStatus === 'going'
-                                  ? 'Registered ✓'
-                                  : event.isPaid
-                                    ? `Book Ticket (₹${event.price})`
-                                    : 'RSVP Now'}
+                            {primaryBtnText}
                         </Text>
                     </TouchableOpacity>
                 </View>

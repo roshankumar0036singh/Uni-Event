@@ -116,10 +116,7 @@ describe('usePushNotifications', () => {
     });
 
     test('handles non-device environment', async () => {
-        Object.defineProperty(Device, 'isDevice', {
-            configurable: true,
-            value: false,
-        });
+        jest.spyOn(Device, 'isDevice', 'get').mockReturnValue(false);
 
         const { getByTestId } = render(<TestComponent />);
 

@@ -117,6 +117,13 @@ export default function WrappedConfetti({ visible, onComplete }) {
         rippleLoopsRef.current.forEach(loop => loop.start());
 
         // 4. Confetti burst
+        const fadeOutParticle = p => {
+            Animated.timing(p.opacity, {
+                toValue: 0,
+                duration: 500,
+                useNativeDriver: true,
+            }).start();
+        };
         const burstTimeout = setTimeout(() => {
             const angles = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
             particles.forEach((p, i) => {
@@ -150,13 +157,7 @@ export default function WrappedConfetti({ visible, onComplete }) {
                         duration: 700,
                         useNativeDriver: true,
                     }),
-                ]).start(() => {
-                    Animated.timing(p.opacity, {
-                        toValue: 0,
-                        duration: 500,
-                        useNativeDriver: true,
-                    }).start();
-                });
+                ]).start(() => fadeOutParticle(p));
             });
         }, 300);
         timeoutIdsRef.current.push(burstTimeout);
