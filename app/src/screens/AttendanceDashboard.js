@@ -37,6 +37,7 @@ import { useTheme } from '../lib/ThemeContext';
 import { sendBulkAnnouncement, sendBulkFeedbackRequest } from '../lib/EmailService';
 import PropTypes from 'prop-types';
 import { COLLECTIONS, getEventCheckInsPath, getEventFeedbackPath } from '../lib/firestorePaths';
+import { useAuth } from '../lib/AuthContext';
 
 export default function AttendanceDashboard({ route, navigation }) {
     const { width: screenWidth } = useWindowDimensions();

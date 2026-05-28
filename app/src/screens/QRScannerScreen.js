@@ -19,7 +19,7 @@ import { db } from '../lib/firebaseConfig';
 import { queueOfflineCheckIn, checkInAttendee } from '../lib/checkInService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
-import * as Clipboard from "expo-clipboard";
+import * as Clipboard from 'expo-clipboard';
 
 const { width } = Dimensions.get('window');
 
@@ -172,7 +172,7 @@ export default function QRScannerScreen({ navigation, route }) {
         if (!eventUrl) {
             Alert.alert('Missing Link', 'Event URL is unavailable.');
             return;
-       }
+        }
         try {
             await Clipboard.setStringAsync(eventUrl);
             setCopied(true);
@@ -180,36 +180,31 @@ export default function QRScannerScreen({ navigation, route }) {
             setTimeout(() => {
                 setCopied(false);
             }, 2000);
-
         } catch (error) {
-            Alert.alert(
-                'Copy Failed',
-                error?.message || 'Unable to copy event link.'
-            );
+            Alert.alert('Copy Failed', error?.message || 'Unable to copy event link.');
         }
-    }
+    };
 
     const handleShare = async () => {
         if (!eventUrl) {
-           Alert.alert('Missing Link', 'Event URL is unavailable.');
+            Alert.alert('Missing Link', 'Event URL is unavailable.');
             return;
         }
         const message = `Join ${eventTitle}\n${eventUrl}`;
         try {
-            if (Platform.OS === "web") {
+            if (Platform.OS === 'web') {
                 if (navigator.share) {
                     await navigator.share({
                         title: eventTitle,
                         text: message,
                         url: eventUrl,
-                    })
-                }
-                else {
+                    });
+                } else {
                     await Clipboard.setStringAsync(message);
 
                     Alert.alert(
                         'Copied!',
-                        'Event link copied to clipboard. You can now share it manually.'
+                        'Event link copied to clipboard. You can now share it manually.',
                     );
                 }
 
@@ -222,12 +217,9 @@ export default function QRScannerScreen({ navigation, route }) {
                 title: eventTitle,
             });
         } catch (error) {
-            Alert.alert(
-                'Share Failed',
-                error?.message || 'Unable to share event link.'
-            );
+            Alert.alert('Share Failed', error?.message || 'Unable to share event link.');
         }
-    }
+    };
 
     if (hasPermission === null) {
         return (
@@ -273,20 +265,14 @@ export default function QRScannerScreen({ navigation, route }) {
 
             <View style={styles.shareContainer}>
                 <TouchableOpacity
-                    style={[
-                        styles.shareButton,
-                        copied && { backgroundColor: '#0bdd43' }
-                    ]}
+                    style={[styles.shareButton, copied && { backgroundColor: '#0bdd43' }]}
                     onPress={handleCopyLink}
                 >
                     <Ionicons name="copy-outline" size={20} color="#fff" />
-                    <Text style={styles.shareButtonText}>{copied ? "Copied!" : "Copy Link"}</Text>
+                    <Text style={styles.shareButtonText}>{copied ? 'Copied!' : 'Copy Link'}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={styles.shareButton}
-                    onPress={handleShare}
-                >
+                <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
                     <Ionicons name="share-social-outline" size={20} color="#fff" />
                     <Text style={styles.shareButtonText}>Share</Text>
                 </TouchableOpacity>
@@ -400,7 +386,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        backgroundColor: "#333",
+        backgroundColor: '#333',
         paddingHorizontal: 18,
         paddingVertical: 12,
         borderRadius: 12,

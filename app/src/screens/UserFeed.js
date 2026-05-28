@@ -151,7 +151,7 @@ export default function UserFeed() {
                 setRefreshing(false);
             }
         },
-        [user, activeFilter, hasMore, isFetchingMore, lastVisible]
+        [user, activeFilter, hasMore, isFetchingMore, lastVisible],
     );
 
         return () => unsubscribe();
