@@ -12,11 +12,7 @@ import {
 } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useTheme } from '../lib/ThemeContext';
-import {
-    fetchHeatmapData,
-    getDensityColor,
-    getDensityOpacity,
-} from '../lib/eventHeatmapData';
+import { fetchHeatmapData, getDensityColor, getDensityOpacity } from '../lib/eventHeatmapData';
 
 let MapView = null;
 let Circle = null;
@@ -41,7 +37,12 @@ export default function LocationHeatmapScreen() {
 
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [heatmapData, setHeatmapData] = useState({ points: [], clusters: [], maxWeight: 1, total: 0 });
+    const [heatmapData, setHeatmapData] = useState({
+        points: [],
+        clusters: [],
+        maxWeight: 1,
+        total: 0,
+    });
     const showMap = Platform.OS !== 'web';
 
     const loadData = useCallback(async () => {
@@ -79,11 +80,13 @@ export default function LocationHeatmapScreen() {
                         categories
                     </Text>
                     <View style={styles.categoryRow}>
-                        {[...new Set(item.events.map(e => e.category).filter(Boolean))].slice(0, 3).map(cat => (
-                            <View key={cat} style={[styles.miniChip, { borderColor: color }]}>
-                                <Text style={[styles.miniChipText, { color }]}>{cat}</Text>
-                            </View>
-                        ))}
+                        {[...new Set(item.events.map(e => e.category).filter(Boolean))]
+                            .slice(0, 3)
+                            .map(cat => (
+                                <View key={cat} style={[styles.miniChip, { borderColor: color }]}>
+                                    <Text style={[styles.miniChipText, { color }]}>{cat}</Text>
+                                </View>
+                            ))}
                     </View>
                 </View>
                 <View style={styles.densityBar}>
@@ -118,17 +121,28 @@ export default function LocationHeatmapScreen() {
                         longitudeDelta: 0.05,
                     }}
                 >
-                    {clusters.map((cluster) => {
+                    {clusters.map(cluster => {
                         const color = getDensityColor(cluster.weight, maxWeight);
                         const opacity = getDensityOpacity(cluster.weight, maxWeight);
-                        const radius = Math.max(200, Math.min(800, 200 + (cluster.weight / maxWeight) * 600));
+                        const radius = Math.max(
+                            200,
+                            Math.min(800, 200 + (cluster.weight / maxWeight) * 600),
+                        );
                         return (
                             <Circle
                                 key={`${cluster.latitude},${cluster.longitude}`}
-                                center={{ latitude: cluster.latitude, longitude: cluster.longitude }}
+                                center={{
+                                    latitude: cluster.latitude,
+                                    longitude: cluster.longitude,
+                                }}
                                 radius={radius}
                                 strokeWidth={0}
-                                fillColor={color + Math.round(opacity * 255).toString(16).padStart(2, '0')}
+                                fillColor={
+                                    color +
+                                    Math.round(opacity * 255)
+                                        .toString(16)
+                                        .padStart(2, '0')
+                                }
                             />
                         );
                     })}
@@ -176,13 +190,12 @@ export default function LocationHeatmapScreen() {
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Event Location Heatmap</Text>
                     <Text style={styles.headerSubtitle}>
-                        {total} event{total === 1 ? '' : 's'} at {clusters.length} location{clusters.length === 1 ? '' : 's'}
+                        {total} event{total === 1 ? '' : 's'} at {clusters.length} location
+                        {clusters.length === 1 ? '' : 's'}
                     </Text>
                 </View>
 
-                {MapView && Circle && clusters.length > 0 && showMap && (
-                    renderMap()
-                )}
+                {MapView && Circle && clusters.length > 0 && showMap && renderMap()}
 
                 {(!MapView || !showMap) && (
                     <View style={styles.summaryCard}>
@@ -198,7 +211,12 @@ export default function LocationHeatmapScreen() {
                                     <View
                                         style={[
                                             styles.legendSwatch,
-                                            { backgroundColor: getDensityColor(d.minRatio + 0.1, 1) },
+                                            {
+                                                backgroundColor: getDensityColor(
+                                                    d.minRatio + 0.1,
+                                                    1,
+                                                ),
+                                            },
                                         ]}
                                     />
                                     <Text style={styles.legendLabel}>{d.label}</Text>
@@ -211,7 +229,9 @@ export default function LocationHeatmapScreen() {
                 {clusters.length > 0 ? (
                     <View style={styles.venueList}>
                         <Text style={styles.sectionTitle}>Top Venues</Text>
-                        {clusters.map((cluster, idx) => renderClusterItem({ item: cluster, index: idx }))}
+                        {clusters.map((cluster, idx) =>
+                            renderClusterItem({ item: cluster, index: idx }),
+                        )}
                     </View>
                 ) : (
                     <View style={styles.emptyContainer}>
@@ -309,6 +329,16 @@ const useStyles = theme =>
         },
         densityFill: { height: '100%', borderRadius: 2 },
         emptyContainer: { alignItems: 'center', marginTop: 60, padding: 20 },
-        emptyText: { fontSize: 16, fontWeight: '600', color: theme.colors.textSecondary, marginTop: 16 },
-        emptySubtext: { fontSize: 13, color: theme.colors.textSecondary, marginTop: 8, textAlign: 'center' },
+        emptyText: {
+            fontSize: 16,
+            fontWeight: '600',
+            color: theme.colors.textSecondary,
+            marginTop: 16,
+        },
+        emptySubtext: {
+            fontSize: 13,
+            color: theme.colors.textSecondary,
+            marginTop: 8,
+            textAlign: 'center',
+        },
     });

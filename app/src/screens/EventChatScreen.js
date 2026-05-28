@@ -48,7 +48,6 @@ export default function EventChatScreen({ route, navigation }) {
     // Check if user is organizer/admin to show badge
     const [isOrganizer, setIsOrganizer] = useState(false);
 
-
     useEffect(() => {
         let unsubscribeMessages;
         let isActive = true;
@@ -70,8 +69,7 @@ export default function EventChatScreen({ route, navigation }) {
 
                 if (!isActive) return;
 
-                const isOwner =
-                    eventDoc.exists() && eventDoc.data().ownerId === user.uid;
+                const isOwner = eventDoc.exists() && eventDoc.data().ownerId === user.uid;
 
                 const isAdmin = role === 'admin';
 
@@ -81,20 +79,14 @@ export default function EventChatScreen({ route, navigation }) {
 
                 if (!isActive) return;
 
-                const participantData = participantDoc.exists()
-                    ? participantDoc.data()
-                    : null;
+                const participantData = participantDoc.exists() ? participantDoc.data() : null;
 
                 const eventScopedClubStaff =
                     participantDoc.exists() &&
-                    (participantData?.role === 'club' ||
-                        participantData?.isStaff === true);
+                    (participantData?.role === 'club' || participantData?.isStaff === true);
 
                 const allowed =
-                    participantDoc.exists() ||
-                    isOwner ||
-                    isAdmin ||
-                    eventScopedClubStaff;
+                    participantDoc.exists() || isOwner || isAdmin || eventScopedClubStaff;
 
                 setIsOrganizer(isOwner);
                 setHasAccess(allowed);
@@ -145,8 +137,6 @@ export default function EventChatScreen({ route, navigation }) {
             }
         };
     }, [eventId, user?.uid, role]);
-
-
 
     const handleSend = async () => {
         if (!inputText.trim() || !user?.uid || !hasAccess) return;
@@ -223,9 +213,9 @@ export default function EventChatScreen({ route, navigation }) {
                     >
                         {item.createdAt?.toMillis
                             ? new Date(item.createdAt.toMillis()).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                            })
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                              })
                             : 'Just now'}
                     </Text>
                 </View>

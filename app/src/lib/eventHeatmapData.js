@@ -11,9 +11,7 @@ const haversineDistance = (p1, p2) => {
     const dLng = toRad(p2.longitude - p1.longitude);
     const a =
         Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(p1.latitude)) *
-            Math.cos(toRad(p2.latitude)) *
-            Math.sin(dLng / 2) ** 2;
+        Math.cos(toRad(p1.latitude)) * Math.cos(toRad(p2.latitude)) * Math.sin(dLng / 2) ** 2;
     return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
