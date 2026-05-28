@@ -12,6 +12,7 @@ import {
     View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { formatEventDate } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
@@ -63,7 +64,7 @@ export default function TicketScreen({ route, navigation }) {
                                 {ticketData.eventTitle}
                             </Text>
                             <Text style={[styles.subText, { color: theme.colors.textSecondary }]}>
-                                {new Date(ticketData.eventDate).toDateString()}
+                                {formatEventDate(ticketData.eventDate)}
                             </Text>
                             <Text style={[styles.subText, { color: theme.colors.textSecondary }]}>
                                 {ticketData.eventLocation}

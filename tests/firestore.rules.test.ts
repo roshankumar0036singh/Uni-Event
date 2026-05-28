@@ -153,8 +153,16 @@ describe('Firestore Security Rules', () => {
 
     // ---------------- EVENT PARTICIPANTS ----------------
 
-    test('Authenticated user reads participant -> allowed', async () => {
+    test('Non-participant user reads participant -> denied', async () => {
         await seedDocument('events/event1/participants/student1', { joined: true });
+
+        const db = getFirestoreContext('student2');
+        await assertFails(getDoc(doc(db, 'events/event1/participants/student1')));
+    });
+
+    test('Participant user reads another participant -> allowed', async () => {
+        await seedDocument('events/event1/participants/student1', { joined: true });
+        await seedDocument('events/event1/participants/student2', { joined: true }); // Seed membership
 
         const db = getFirestoreContext('student2');
         await assertSucceeds(getDoc(doc(db, 'events/event1/participants/student1')));
@@ -173,26 +181,26 @@ describe('Firestore Security Rules', () => {
     });
 
     test('Participant updates own record -> allowed', async () => {
-        await seedDocument('events/event1/participants/student1', { joined: true });
+        await seedDocument('events/event1/participants/student1', { status: 'attending' });
 
         const db = getFirestoreContext('student1');
         await assertSucceeds(
             setDoc(
                 doc(db, 'events/event1/participants/student1'),
-                { joined: false },
+                { status: 'cancelled' },
                 { merge: true },
             ),
         );
     });
 
     test("Participant updates another user's record -> denied", async () => {
-        await seedDocument('events/event1/participants/student1', { joined: true });
+        await seedDocument('events/event1/participants/student1', { status: 'attending' });
 
         const db = getFirestoreContext('student2');
         await assertFails(
             setDoc(
                 doc(db, 'events/event1/participants/student1'),
-                { joined: false },
+                { status: 'cancelled' },
                 { merge: true },
             ),
         );
@@ -259,8 +267,9 @@ describe('Firestore Security Rules', () => {
 
     // ---------------- EVENT MESSAGES ----------------
 
-    test('Authenticated user reads event message -> allowed', async () => {
+    test('Authenticated participant reads event message -> allowed', async () => {
         await seedDocument('events/event1/messages/msg1', { text: 'Hello' });
+        await seedDocument('events/event1/participants/student1', { joined: true }); // Make student1 a participant
 
         const db = getFirestoreContext('student1');
         await assertSucceeds(getDoc(doc(db, 'events/event1/messages/msg1')));
@@ -271,7 +280,9 @@ describe('Firestore Security Rules', () => {
         await assertFails(getDoc(doc(db, 'events/event1/messages/msg1')));
     });
 
-    test('Authenticated user creates event message -> allowed', async () => {
+    test('Authenticated participant creates event message -> allowed', async () => {
+        await seedDocument('events/event1/participants/student1', { joined: true }); // Make student1 a participant
+        
         const db = getFirestoreContext('student1');
         await assertSucceeds(setDoc(doc(db, 'events/event1/messages/msg1'), { text: 'Hello' }));
     });
