@@ -16,7 +16,10 @@ const TAB_ICONS = {
 
 const getTabIcon = (routeName, isFocused) => {
     const icon = TAB_ICONS[routeName];
-    return icon ? (isFocused ? icon.focused : icon.unfocused) : 'ellipse-outline';
+    if (!icon) {
+        return 'ellipse-outline';
+    }
+    return isFocused ? icon.focused : icon.unfocused;
 };
 
 export default function CustomTabBar({ state, descriptors, navigation }) {
