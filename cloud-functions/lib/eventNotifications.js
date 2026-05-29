@@ -56,7 +56,14 @@ async function buildMessagesForEvent(db, eventDoc) {
     const participantIds = participantsSnapshot.docs.map(doc => doc.id);
     if (participantIds.length === 0)
         return [];
-    const userDocs = await Promise.all(participantIds.map(uid => db.collection('users').doc(uid).get()));
+    const userDocs = [];
+    const BATCH_SIZE = 90;
+    for (let i = 0; i < participantIds.length; i += BATCH_SIZE) {
+        const batchIds = participantIds.slice(i, i + BATCH_SIZE);
+        const refs = batchIds.map(uid => db.collection('users').doc(uid));
+        const batchDocs = await db.getAll(...refs);
+        userDocs.push(...batchDocs);
+    }
     return userDocs.flatMap(userDoc => {
         var _a;
         if (!userDoc.exists)
@@ -77,18 +84,19 @@ async function buildMessagesForEvent(db, eventDoc) {
 }
 async function sendPushNotifications(messages) {
     const chunks = expo.chunkPushNotifications(messages);
+    const allErrors = [];
     for (const chunk of chunks) {
         const tickets = await expo.sendPushNotificationsAsync(chunk);
-        const errors = [];
         tickets.forEach((t, i) => {
             if (t.status === 'error') {
-                errors.push({ ticket: t, index: i });
+                allErrors.push({ ticket: t, message: chunk[i] });
             }
         });
-        if (errors.length > 0) {
-            console.error('Push ticket errors:', JSON.stringify(errors, null, 2));
-            throw new Error('One or more push notifications failed');
-        }
+    }
+    if (allErrors.length > 0) {
+        console.error('Push ticket errors:', JSON.stringify(allErrors, null, 2));
+        // Note: We intentionally do not throw here for token-level errors (e.g. DeviceNotRegistered)
+        // so that the event gets marked as notified and we don't spam successful recipients with retries.
     }
 }
 /**

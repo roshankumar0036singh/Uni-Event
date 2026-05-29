@@ -113,11 +113,12 @@ async function generatePdfBuffer(
     return Buffer.from(pdfBytes);
 }
 
-async function uploadPdfAndGetUrl(bucket: any, storagePath: string, pdfBuffer: Buffer) {
+async function uploadPdfAndGetUrl(bucket: any, storagePath: string, pdfBuffer: Buffer, eventId: string, participantId: string) {
     const file = bucket.file(storagePath);
     await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
-    const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: '2499-12-31' });
-    return signedUrl;
+    
+    const baseUrl = process.env.API_BASE_URL || 'https://unievent-ez2w.onrender.com';
+    return `${baseUrl}/api/certificate?eventId=${eventId}&participantId=${participantId}`;
 }
 
 async function persistCertificateUrl(eventId: string, participantId: string, signedUrl: string) {
@@ -248,7 +249,7 @@ async function processParticipant(
         const bucket = admin.storage().bucket();
         const participantId = getParticipantId(participant);
         const storagePath = `certificates/${eventId}/${participantId}.pdf`;
-        const signedUrl = await uploadPdfAndGetUrl(bucket, storagePath, pdfBuffer);
+        const signedUrl = await uploadPdfAndGetUrl(bucket, storagePath, pdfBuffer, eventId, participantId);
 
         // Persist before sending email. If persist fails, do not send the email.
         await persistCertificateUrl(eventId, participantId, signedUrl);
@@ -361,7 +362,7 @@ export async function sendCertificatesForEvent(eventId: string, ownerId: string)
 
     if (
         results.length === participants.length &&
-        results.every(result => result.status === 'success')
+        results.every(result => result.status === 'success' || result.status === 'skipped')
     ) {
         await admin.firestore().collection('events').doc(eventId).update({
             certificatesSent: true,

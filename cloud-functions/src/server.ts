@@ -158,6 +158,50 @@ app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, 
 app.get('/', (req, res) => {
   res.send('UniEvent Backend is Running');
 });
+
+// Certificate Verification Endpoint
+app.get('/api/certificate', async (req: express.Request, res: express.Response) => {
+  const { eventId, participantId } = req.query;
+  if (!eventId || !participantId) {
+    res.status(400).send('Missing eventId or participantId');
+    return;
+  }
+
+  try {
+    const participantRef = admin.firestore().collection(`events/${eventId}/participants`).doc(participantId as string);
+    const doc = await participantRef.get();
+    
+    if (!doc.exists) {
+      res.status(404).send('Certificate not found');
+      return;
+    }
+    
+    const data = doc.data();
+    if (data?.certificateRevoked) {
+      res.status(403).send('Certificate has been revoked by the owner.');
+      return;
+    }
+
+    const storagePath = `certificates/${eventId}/${participantId}.pdf`;
+    const file = admin.storage().bucket().file(storagePath);
+    const [exists] = await file.exists();
+    if (!exists) {
+      res.status(404).send('Certificate file not found in storage');
+      return;
+    }
+
+    // Generate a short-lived (15 min) signed URL and redirect
+    const [url] = await file.getSignedUrl({ 
+      action: 'read', 
+      expires: Date.now() + 15 * 60 * 1000 
+    });
+    
+    res.redirect(url);
+  } catch (error) {
+    console.error("Error serving certificate:", error);
+    res.status(500).send('Internal Server Error');
+  }
+});
 app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, async (req: express.Request, res: express.Response) => {
   try {
     // Optional: Check if admin
@@ -183,45 +227,66 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, a
     const count = snapshot.size;
 
     if (count > 0) {
-      const usersSnapshot = await db.collection('users').get();
-      const messages: any[] = [];
-      const batch = db.batch();
-
-      // Lazy import Expo to ensure it works
+      const PAGE_SIZE = 500;
+      let lastDoc: admin.firestore.DocumentSnapshot | null = null;
+      let processedCount = 0;
       const { Expo } = require('expo-server-sdk');
       const expo = new Expo();
 
-      usersSnapshot.forEach(userDoc => {
-        const userData = userDoc.data();
-        const pushToken = userData.pushToken;
+      while (true) {
+        let query: admin.firestore.Query = db
+          .collection('users')
+          .orderBy(admin.firestore.FieldPath.documentId())
+          .limit(PAGE_SIZE);
 
-        // In-App
-        const notifRef = userDoc.ref.collection('notifications').doc();
-        batch.set(notifRef, {
-          title: 'Daily Digest 📅',
-          body: `There are ${count} events happening today!`,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          read: false
-        });
+        if (lastDoc) {
+          query = query.startAfter(lastDoc);
+        }
 
-        if (pushToken && Expo.isExpoPushToken(pushToken)) {
-          messages.push({
-            to: pushToken,
-            sound: 'default',
+        const usersSnapshot = await query.get();
+        if (usersSnapshot.empty) break;
+
+        const batch = db.batch();
+        const messages: any[] = [];
+
+        usersSnapshot.forEach(userDoc => {
+          const userData = userDoc.data();
+          if (userData.digestOptIn === false) return;
+
+          const pushToken = userData.pushToken;
+          
+          // In-App
+          const notifRef = userDoc.ref.collection('notifications').doc();
+          batch.set(notifRef, {
             title: 'Daily Digest 📅',
             body: `There are ${count} events happening today!`,
-            data: { url: '/home' },
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            read: false
           });
-        }
-      });
 
-      await batch.commit();
+          if (pushToken && Expo.isExpoPushToken(pushToken)) {
+            messages.push({
+              to: pushToken,
+              sound: 'default',
+              title: 'Daily Digest 📅',
+              body: `There are ${count} events happening today!`,
+              data: { url: '/home' },
+            });
+          }
+        });
 
-      if (messages.length > 0) {
-        let chunks = expo.chunkPushNotifications(messages);
-        for (let chunk of chunks) {
-          try { await expo.sendPushNotificationsAsync(chunk); } catch (e) { console.error(e); }
+        await batch.commit();
+
+        if (messages.length > 0) {
+          let chunks = expo.chunkPushNotifications(messages);
+          for (let chunk of chunks) {
+            try { await expo.sendPushNotificationsAsync(chunk); } catch (e) { console.error(e); }
+          }
         }
+
+        processedCount += usersSnapshot.size;
+        lastDoc = usersSnapshot.docs[usersSnapshot.docs.length - 1];
+        if (usersSnapshot.size < PAGE_SIZE) break;
       }
     }
 

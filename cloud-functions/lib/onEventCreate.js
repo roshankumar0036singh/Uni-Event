@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onEventCreate = void 0;
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 const functions = __importStar(require("firebase-functions"));
 const { Expo } = require('expo-server-sdk');
 const expo = new Expo();
@@ -70,7 +71,7 @@ exports.onEventCreate = functions.firestore
             title: 'New Event Alert! 📢',
             body: `Check out: "${eventData.title}"`,
             eventId: eventId,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
             read: false
         });
         // 2. Push Notification

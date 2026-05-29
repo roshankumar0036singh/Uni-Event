@@ -71,23 +71,35 @@ export const resolveEventStartAt = async (
     eventStartAt: unknown,
     eventCache: Map<string, Date | null>,
 ): Promise<Date | null> => {
-    const directDate = toDate(eventStartAt);
-    if (directDate) {
-        return directDate;
+    // Priority 1: Authoritative DB lookup (mitigates client spoofing)
+    if (eventId) {
+        if (!eventCache.has(eventId)) {
+            const eventSnap = await db.collection('events').doc(eventId).get();
+            const authoritativeDate = eventSnap.exists ? toDate(eventSnap.data()?.startAt) : null;
+            eventCache.set(eventId, authoritativeDate);
+        }
+
+        const cachedDate = eventCache.get(eventId);
+        if (cachedDate) {
+            // Only warn if client spoofed a totally different date
+            const clientDate = toDate(eventStartAt);
+            if (clientDate && clientDate.getTime() !== cachedDate.getTime()) {
+                console.warn(`User spoofing detected for event ${eventId}. Using authoritative date.`);
+            }
+            return cachedDate;
+        }
     }
-    if (!eventId) {
-        return null;
-    }
-    if (eventCache.has(eventId)) {
-        return eventCache.get(eventId) ?? null;
-    }
-    const eventSnap = await db.collection('events').doc(eventId).get();
-    const resolved = eventSnap.exists ? toDate(eventSnap.data()?.startAt) : null;
-    eventCache.set(eventId, resolved);
-    return resolved;
+
+    // Priority 2: Client-provided fallback
+    return toDate(eventStartAt);
 };
 
-export const updateBucket = async (userId: string, eventStartAt: Date, deltas: BucketDeltas) => {
+export const updateBucket = (
+    userId: string,
+    eventStartAt: Date,
+    deltas: BucketDeltas,
+    idempotencyKey?: string
+) => {
     const monthKey = getMonthKeyFromDate(eventStartAt);
     const bucketRef = db
         .collection('users')
@@ -95,87 +107,87 @@ export const updateBucket = async (userId: string, eventStartAt: Date, deltas: B
         .collection(REPUTATION_BUCKETS_COLLECTION)
         .doc(monthKey);
 
-    const updates: FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData> = {
-        monthKey,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    const buildUpdates = () => {
+        const updates: FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData> = {
+            monthKey,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        if (deltas.registrations) updates.registrations = admin.firestore.FieldValue.increment(deltas.registrations);
+        if (deltas.attendances) updates.attendances = admin.firestore.FieldValue.increment(deltas.attendances);
+        if (deltas.reminders) updates.reminders = admin.firestore.FieldValue.increment(deltas.reminders);
+        return updates;
     };
-    if (deltas.registrations) {
-        updates.registrations = admin.firestore.FieldValue.increment(deltas.registrations);
-    }
-    if (deltas.attendances) {
-        updates.attendances = admin.firestore.FieldValue.increment(deltas.attendances);
-    }
-    if (deltas.reminders) {
-        updates.reminders = admin.firestore.FieldValue.increment(deltas.reminders);
+
+    if (!idempotencyKey) {
+        return bucketRef.set(buildUpdates(), { merge: true });
     }
 
-    return bucketRef.set(updates, { merge: true });
+    const processedRef = bucketRef.collection('processedTriggers').doc(idempotencyKey);
+    return db.runTransaction(async (transaction) => {
+        const processedDoc = await transaction.get(processedRef);
+        if (processedDoc.exists) return;
+        transaction.set(bucketRef, buildUpdates(), { merge: true });
+        transaction.set(processedRef, { processedAt: admin.firestore.FieldValue.serverTimestamp() });
+    });
 };
 
 export const runReputationRefresh = async () => {
-    const usersSnapshot = await db.collection('users').get();
     const now = new Date();
-    let batch = db.batch();
-    let opCount = 0;
     let updatedUsers = 0;
 
-    for (const userDoc of usersSnapshot.docs) {
-        const bucketsSnapshot = await userDoc.ref
-            .collection(REPUTATION_BUCKETS_COLLECTION)
-            .get();
+    await paginateQuery(db.collection('users'), async (docs) => {
+        const batch = db.batch();
 
-        let attendanceCount = 0;
-        let registrationCount = 0;
-        let remindersSet = 0;
-        let points = 0;
+        await Promise.all(docs.map(async (userDoc) => {
+            const bucketsSnapshot = await userDoc.ref
+                .collection(REPUTATION_BUCKETS_COLLECTION)
+                .get();
 
-        for (const bucketDoc of bucketsSnapshot.docs) {
-            const bucketData = bucketDoc.data() || {};
-            const monthKey =
-                typeof bucketData.monthKey === 'string' ? bucketData.monthKey : bucketDoc.id;
-            const monthStart = getMonthStartFromKey(monthKey);
-            if (!monthStart) {
-                continue;
+            let attendanceCount = 0;
+            let registrationCount = 0;
+            let remindersSet = 0;
+            let points = 0;
+
+            for (const bucketDoc of bucketsSnapshot.docs) {
+                const bucketData = bucketDoc.data() || {};
+                const monthKey =
+                    typeof bucketData.monthKey === 'string' ? bucketData.monthKey : bucketDoc.id;
+                const monthStart = getMonthStartFromKey(monthKey);
+                if (!monthStart) {
+                    continue;
+                }
+
+                const ageMonths = Math.max(
+                    0,
+                    (now.getTime() - monthStart.getTime()) / (MS_PER_DAY * DAYS_PER_MONTH),
+                );
+                const decay = Math.pow(2, -ageMonths / HALF_LIFE_MONTHS);
+
+                const registrations = Number(bucketData.registrations || 0);
+                const attendances = Number(bucketData.attendances || 0);
+                const reminders = Number(bucketData.reminders || 0);
+
+                registrationCount += registrations;
+                attendanceCount += attendances;
+                remindersSet += reminders;
+
+                points += registrations * REGISTRATION_POINTS * decay;
+                points += attendances * ATTENDANCE_POINTS * decay;
+                points += reminders * REMINDER_POINTS * decay;
             }
+            
+            batch.update(userDoc.ref, {
+                'reputation.points': points,
+                'reputation.attendanceCount': attendanceCount,
+                'reputation.registrationCount': registrationCount,
+                'reputation.remindersSet': remindersSet,
+                'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+            });
+            updatedUsers += 1;
+        }));
 
-            const ageMonths = Math.max(
-                0,
-                (now.getTime() - monthStart.getTime()) / (MS_PER_DAY * DAYS_PER_MONTH),
-            );
-            const decay = Math.pow(2, -ageMonths / HALF_LIFE_MONTHS);
-
-            const registrations = Number(bucketData.registrations || 0);
-            const attendances = Number(bucketData.attendances || 0);
-            const reminders = Number(bucketData.reminders || 0);
-
-            registrationCount += registrations;
-            attendanceCount += attendances;
-            remindersSet += reminders;
-
-            points += registrations * REGISTRATION_POINTS * decay;
-            points += attendances * ATTENDANCE_POINTS * decay;
-            points += reminders * REMINDER_POINTS * decay;
-        }
-        batch.update(userDoc.ref, {
-            'reputation.points': points,
-            'reputation.attendanceCount': attendanceCount,
-            'reputation.registrationCount': registrationCount,
-            'reputation.remindersSet': remindersSet,
-            'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
-        });
-        opCount += 1;
-        updatedUsers += 1;
-
-        if (opCount === 500) {
-            await batch.commit();
-            batch = db.batch();
-            opCount = 0;
-        }
-    }
-
-    if (opCount > 0) {
         await batch.commit();
-    }
+    });
 
     return updatedUsers;
 };
@@ -266,7 +278,7 @@ export const onParticipatingCreate = functions.firestore
             return null;
         }
 
-        await updateBucket(userId, eventStartAt, { registrations: 1 });
+        await updateBucket(userId, eventStartAt, { registrations: 1 }, `participating_create_${eventId}`);
         return null;
     });
 
@@ -287,7 +299,7 @@ export const onParticipatingDelete = functions.firestore
             return null;
         }
 
-        await updateBucket(userId, eventStartAt, { registrations: -1 });
+        await updateBucket(userId, eventStartAt, { registrations: -1 }, `participating_delete_${eventId}`);
         return null;
     });
 
@@ -308,7 +320,7 @@ export const onCheckInCreate = functions.firestore
             return null;
         }
 
-        await updateBucket(userId, eventStartAt, { attendances: 1 });
+        await updateBucket(userId, eventStartAt, { attendances: 1 }, `checkin_create_${eventId}`);
         return null;
     });
 
@@ -329,13 +341,13 @@ export const onCheckInDelete = functions.firestore
             return null;
         }
 
-        await updateBucket(userId, eventStartAt, { attendances: -1 });
+        await updateBucket(userId, eventStartAt, { attendances: -1 }, `checkin_delete_${eventId}`);
         return null;
     });
 
 export const onReminderCreate = functions.firestore
     .document('reminders/{reminderId}')
-    .onCreate(async (snap, _context) => {
+    .onCreate(async (snap, context) => {
         const data = snap.data();
         const userId = data?.userId;
         const eventId = data?.eventId;
@@ -347,13 +359,13 @@ export const onReminderCreate = functions.firestore
             return null;
         }
 
-        await updateBucket(userId, eventStartAt, { reminders: 1 });
+        await updateBucket(userId, eventStartAt, { reminders: 1 }, `reminder_create_${context.params.reminderId}`);
         return null;
     });
 
 export const onReminderDelete = functions.firestore
     .document('reminders/{reminderId}')
-    .onDelete(async (snap, _context) => {
+    .onDelete(async (snap, context) => {
         const data = snap.data();
         const userId = data?.userId;
         const eventId = data?.eventId;
@@ -365,7 +377,7 @@ export const onReminderDelete = functions.firestore
             return null;
         }
 
-        await updateBucket(userId, eventStartAt, { reminders: -1 });
+        await updateBucket(userId, eventStartAt, { reminders: -1 }, `reminder_delete_${context.params.reminderId}`);
         return null;
     });
 

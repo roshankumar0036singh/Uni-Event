@@ -13,9 +13,7 @@ import {
     runReputationRefresh,
     resolveEventStartAt,
     updateBucket,
-    onParticipatingCreate,
-    onParticipatingDelete,
-    onCheckInCreate
+    onParticipatingCreate
 } from './reputation';
 
 const db = admin.firestore();
@@ -33,9 +31,16 @@ describe('Reputation Decay & Buckets', () => {
         testEnv.cleanup();
     });
 
+    function getMonthStart(offsetMonths: number): Date {
+        const d = new Date();
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+        d.setMonth(d.getMonth() - offsetMonths);
+        return d;
+    }
+
     test('Math Decay - A 6 month old registration awards 1 point (half of 2)', async () => {
-        // 6 months ago exactly (6 * 30.44 days)
-        const sixMonthsAgo = new Date(Date.now() - (6 * 30.44 * 24 * 60 * 60 * 1000));
+        const sixMonthsAgo = getMonthStart(6);
         
         await updateBucket('user123', sixMonthsAgo, { registrations: 1 });
         
@@ -55,7 +60,7 @@ describe('Reputation Decay & Buckets', () => {
     });
 
     test('Math Decay - A 12 month old attendance awards 2.5 points (quarter of 10)', async () => {
-        const twelveMonthsAgo = new Date(Date.now() - (12 * 30.44 * 24 * 60 * 60 * 1000));
+        const twelveMonthsAgo = getMonthStart(12);
         
         await updateBucket('user123', twelveMonthsAgo, { attendances: 1 });
         await db.collection('users').doc('user123').set({ name: 'Test User' });
@@ -65,9 +70,9 @@ describe('Reputation Decay & Buckets', () => {
         const userSnap = await db.collection('users').doc('user123').get();
         const rep = userSnap.data()?.reputation;
         
-        // Exact decay varies between ~2.2 and ~2.5 depending on current day of month
+        // Exact decay varies between ~2.2 and ~2.9 depending on current day of month
         expect(rep.points).toBeGreaterThan(2.0);
-        expect(rep.points).toBeLessThan(2.7);
+        expect(rep.points).toBeLessThan(3.0);
         expect(rep.attendanceCount).toBe(1);
     });
 

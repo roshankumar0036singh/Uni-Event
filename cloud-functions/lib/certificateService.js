@@ -106,11 +106,11 @@ async function generatePdfBuffer(templateBytes, participantName, eventName) {
     const pdfBytes = await pdfDoc.save();
     return Buffer.from(pdfBytes);
 }
-async function uploadPdfAndGetUrl(bucket, storagePath, pdfBuffer) {
+async function uploadPdfAndGetUrl(bucket, storagePath, pdfBuffer, eventId, participantId) {
     const file = bucket.file(storagePath);
     await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
-    const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: '2499-12-31' });
-    return signedUrl;
+    const baseUrl = process.env.API_BASE_URL || 'https://unievent-ez2w.onrender.com';
+    return `${baseUrl}/api/certificate?eventId=${eventId}&participantId=${participantId}`;
 }
 async function persistCertificateUrl(eventId, participantId, signedUrl) {
     const participantRef = admin
@@ -203,7 +203,7 @@ async function processParticipant(participant, eventId, eventTitle, organization
         const bucket = admin.storage().bucket();
         const participantId = getParticipantId(participant);
         const storagePath = `certificates/${eventId}/${participantId}.pdf`;
-        const signedUrl = await uploadPdfAndGetUrl(bucket, storagePath, pdfBuffer);
+        const signedUrl = await uploadPdfAndGetUrl(bucket, storagePath, pdfBuffer, eventId, participantId);
         // Persist before sending email. If persist fails, do not send the email.
         await persistCertificateUrl(eventId, participantId, signedUrl);
         const linkedinUrl = buildLinkedInUrl(eventTitle, organizationName, signedUrl, eventStartDate);
@@ -276,7 +276,7 @@ async function sendCertificatesForEvent(eventId, ownerId) {
         results.push(outcome);
     }
     if (results.length === participants.length &&
-        results.every(result => result.status === 'success')) {
+        results.every(result => result.status === 'success' || result.status === 'skipped')) {
         await admin.firestore().collection('events').doc(eventId).update({
             certificatesSent: true,
             certificatesSentAt: admin.firestore.FieldValue.serverTimestamp(),

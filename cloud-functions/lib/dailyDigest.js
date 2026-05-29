@@ -32,15 +32,12 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendDailyDigest = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const expo_server_sdk_1 = __importDefault(require("expo-server-sdk"));
-const expo = new expo_server_sdk_1.default();
+const expo_server_sdk_1 = require("expo-server-sdk");
+const expo = new expo_server_sdk_1.Expo();
 const PAGE_SIZE = 500;
 exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
@@ -92,7 +89,7 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
                 read: false
             });
             const pushToken = userData.pushToken;
-            if (pushToken && expo_server_sdk_1.default.isExpoPushToken(pushToken)) {
+            if (pushToken && expo_server_sdk_1.Expo.isExpoPushToken(pushToken)) {
                 pageMessages.push({
                     to: pushToken,
                     sound: 'default',
