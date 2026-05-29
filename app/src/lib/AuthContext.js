@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }) => {
     }, [getItemAsync]);
 
     useEffect(() => {
-        if (globalThis.window !== undefined && globalThis.Cypress) {
+        if ('window' in globalThis && globalThis.Cypress) {
             globalThis.setMockUser = (mockUser, mockRole = 'student', mockData = {}) => {
                 setUser(mockUser);
                 setRole(mockRole);
