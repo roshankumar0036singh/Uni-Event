@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { collection, limit, onSnapshot, query, where, getDocs } from 'firebase/firestore';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PropTypes from 'prop-types';
 import {
@@ -520,6 +520,37 @@ export default function UserFeed() {
         </Animated.View>
     );
 
+    const renderStickyHeader = useCallback(
+        () => (
+            <UserFeedStickyHeader
+                theme={theme}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                updateHistory={updateHistory}
+                setShowHistory={setShowHistory}
+                showHistory={showHistory}
+                searchHistory={searchHistory}
+                clearHistory={clearHistory}
+                persistSearchHistory={persistSearchHistory}
+                activeFilter={activeFilter}
+                setActiveFilter={setActiveFilter}
+            />
+        ),
+        [
+            theme,
+            searchQuery,
+            setSearchQuery,
+            updateHistory,
+            setShowHistory,
+            showHistory,
+            searchHistory,
+            clearHistory,
+            persistSearchHistory,
+            activeFilter,
+            setActiveFilter,
+        ],
+    );
+
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {loading ? (
@@ -531,21 +562,7 @@ export default function UserFeed() {
                     sections={[{ data: displayList }]}
                     keyExtractor={item => item.id}
                     renderItem={renderEvent}
-                    renderSectionHeader={() => (
-                        <UserFeedStickyHeader
-                            theme={theme}
-                            searchQuery={searchQuery}
-                            setSearchQuery={setSearchQuery}
-                            updateHistory={updateHistory}
-                            setShowHistory={setShowHistory}
-                            showHistory={showHistory}
-                            searchHistory={searchHistory}
-                            clearHistory={clearHistory}
-                            persistSearchHistory={persistSearchHistory}
-                            activeFilter={activeFilter}
-                            setActiveFilter={setActiveFilter}
-                        />
-                    )}
+                    renderSectionHeader={renderStickyHeader}
                     ListHeaderComponent={renderHeader}
                     stickySectionHeadersEnabled={true}
                     refreshControl={

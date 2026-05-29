@@ -152,6 +152,23 @@ export default function MobileAdmin() {
         fetchData();
     };
 
+    const renderEmptyComponent = useCallback(() => {
+        let emptyMessage;
+        if (activeTab === 'events') {
+            emptyMessage = 'No active events found';
+        } else if (activeTab === 'requests') {
+            emptyMessage = 'No pending club requests';
+        } else {
+            emptyMessage = 'No pending appeals';
+        }
+        return (
+            <View style={styles.emptyContainer}>
+                <Ionicons name="search-outline" size={64} color="#666" />
+                <Text style={styles.emptyText}>{emptyMessage}</Text>
+            </View>
+        );
+    }, [activeTab, styles]);
+
     const renderEventItem = ({ item }) => (
         <View style={styles.card}>
             <View style={styles.cardHeader}>
@@ -312,22 +329,7 @@ export default function MobileAdmin() {
                 onRefresh={onRefresh}
                 renderItem={listRenderItem}
                 contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-                ListEmptyComponent={() => {
-                    let emptyMessage;
-                    if (activeTab === 'events') {
-                        emptyMessage = 'No active events found';
-                    } else if (activeTab === 'requests') {
-                        emptyMessage = 'No pending club requests';
-                    } else {
-                        emptyMessage = 'No pending appeals';
-                    }
-                    return (
-                        <View style={styles.emptyContainer}>
-                            <Ionicons name="search-outline" size={64} color="#666" />
-                            <Text style={styles.emptyText}>{emptyMessage}</Text>
-                        </View>
-                    );
-                }}
+                ListEmptyComponent={renderEmptyComponent}
             />
 
             <Modal

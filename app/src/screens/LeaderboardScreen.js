@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, limit, onSnapshot, orderBy, query, updateDoc, doc } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View, Switch, Alert } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
@@ -71,7 +71,7 @@ export default function LeaderboardScreen({ navigation }) {
         return () => unsubscribe();
     }, []);
 
-    const togglePrivacy = async value => {
+    const togglePrivacy = useCallback(async value => {
         if (!user) return;
         try {
             const userRef = doc(db, 'users', user.uid);
@@ -80,7 +80,18 @@ export default function LeaderboardScreen({ navigation }) {
             console.error('Privacy toggle error:', _error);
             Alert.alert('Error', 'Failed to update privacy setting.');
         }
-    };
+    }, [user]);
+
+    const renderHeader = useCallback(
+        () => (
+            <LeaderboardListHeader
+                theme={theme}
+                togglePrivacy={togglePrivacy}
+                isAnonymous={isAnonymous}
+            />
+        ),
+        [theme, togglePrivacy, isAnonymous],
+    );
 
     const renderItem = ({ item }) => {
         const isMe = item.id === user?.uid;
@@ -171,6 +182,17 @@ export default function LeaderboardScreen({ navigation }) {
         );
     };
 
+    const renderHeader = useCallback(
+        () => (
+            <LeaderboardListHeader
+                theme={theme}
+                togglePrivacy={togglePrivacy}
+                isAnonymous={isAnonymous}
+            />
+        ),
+        [theme, togglePrivacy, isAnonymous],
+    );
+
     if (loading)
         return (
             <ScreenWrapper showLogo={true}>
@@ -189,13 +211,7 @@ export default function LeaderboardScreen({ navigation }) {
                     data={users}
                     keyExtractor={item => item.id}
                     renderItem={renderItem}
-                    ListHeaderComponent={() => (
-                        <LeaderboardListHeader
-                            theme={theme}
-                            togglePrivacy={togglePrivacy}
-                            isAnonymous={isAnonymous}
-                        />
-                    )}
+                    ListHeaderComponent={renderHeader}
                     contentContainerStyle={{ paddingBottom: 100 }}
                     style={{ flex: 1 }}
                     showsVerticalScrollIndicator={false}

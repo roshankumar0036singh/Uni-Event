@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, documentId, getDocs, onSnapshot, query, where } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import { useAuth } from '../lib/AuthContext';
@@ -79,6 +79,8 @@ export default function MyRegisteredEventsScreen() {
         setRefreshNonce(n => n + 1);
     };
 
+    const renderItem = useCallback(({ item }) => <EventCard event={item} />, []);
+
     if (loading) {
         return (
             <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
@@ -108,7 +110,7 @@ export default function MyRegisteredEventsScreen() {
                         tintColor={theme.colors.primary}
                     />
                 }
-                renderItem={({ item }) => <EventCard event={item} />}
+                renderItem={renderItem}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
                         <Ionicons

@@ -1006,9 +1006,6 @@ export default function EventDetail({ route, navigation }) {
         const isExpired = deadline && new Date() > deadline;
         const isEarlyBirdTicket =
             ticket.isEarlyBird || ticket.name?.toLowerCase().includes('early');
-        const isFree = !ticket.price || ticket.price === 0;
-            ticket.isEarlyBird || (ticket.name && ticket.name.toLowerCase().includes('early'));
-        const isFree = !ticket.price || Number(ticket.price) <= 0;
         const accentColor = isEarlyBirdTicket ? '#EAB308' : theme.colors.primary;
         const benefitsOpen = expandedBenefits.has(idx);
         const hasBenefits = ticket.benefits && ticket.benefits.length > 0;
@@ -1278,10 +1275,12 @@ export default function EventDetail({ route, navigation }) {
                                 {isEarlyBirdTicket ? 'Early Bird Price' : 'Price'}
                             </Text>
                             <Text style={{ fontSize: 28, fontWeight: '800', color: accentColor }}>
-                                {isFree ? 'Free' : '\u20B9' + ticket.price}
+                                {!ticket.price || ticket.price === 0
+                                    ? 'Free'
+                                    : '\u20B9' + ticket.price}
                             </Text>
                         </View>
-                        {!isExpired && !isFree && (
+                        {!isExpired && ticket.price && ticket.price !== 0 && (
                             <View
                                 style={{
                                     backgroundColor: accentColor + '15',
@@ -1299,7 +1298,7 @@ export default function EventDetail({ route, navigation }) {
                                 </Text>
                             </View>
                         )}
-                        {!isExpired && isFree && (
+                        {!isExpired && (!ticket.price || ticket.price === 0) && (
                             <View
                                 style={{
                                     backgroundColor: '#22C55E15',

@@ -1,4 +1,4 @@
-﻿import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -197,6 +197,152 @@ const EventCard = memo(
         const isLive = new Date() >= new Date(event.startAt) && new Date() <= new Date(event.endAt);
         const isOnlineBadge = !isLive && event.eventMode === 'online';
 
+        const renderBannerBadges = () => (
+            <>
+                {isLive && (
+                    <View style={[styles.onlineBadge, { backgroundColor: theme.colors.error }]}>
+                        <Ionicons name="radio-button-on" size={12} color="#fff" />
+                        <Text style={styles.onlineText}>LIVE</Text>
+                    </View>
+                )}
+                {isOnlineBadge && (
+                    <View style={[styles.onlineBadge, { backgroundColor: theme.colors.primary }]}>
+                        <Ionicons name="videocam" size={12} color="#fff" />
+                        <Text style={styles.onlineText}>ONLINE</Text>
+                    </View>
+                )}
+                {event.status === 'suspended' && (
+                    <View style={[styles.onlineBadge, { backgroundColor: '#FF4444' }]}>
+                        <Ionicons name="alert-circle" size={12} color="#fff" />
+                        <Text style={styles.onlineText}>SUSPENDED</Text>
+                    </View>
+                )}
+            </>
+        );
+
+        const renderInfoBadges = () => (
+            <>
+                {isRecommended && (
+                    <View
+                        style={{
+                            backgroundColor: '#FFD700',
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 12,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            alignSelf: 'flex-start',
+                            marginTop: 4,
+                            ...theme.shadows.small,
+                        }}
+                    >
+                        <Ionicons name="star" size={12} color="#000" />
+                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#000' }}>
+                            TOP PICK
+                        </Text>
+                    </View>
+                )}
+                {isEarlyBird && !isRegistered && (
+                    <View
+                        style={{
+                            backgroundColor: '#EAB30820',
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 20,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            alignSelf: 'flex-start',
+                            marginTop: 4,
+                            borderWidth: 1,
+                            borderColor: '#EAB308',
+                        }}
+                    >
+                        <Text style={{ fontSize: 10, lineHeight: 14 }}>🐦</Text>
+                        <Text
+                            style={{
+                                fontSize: 10,
+                                fontWeight: '700',
+                                color: '#EAB308',
+                                letterSpacing: 0.5,
+                                lineHeight: 14,
+                            }}
+                        >
+                            EARLY BIRD
+                        </Text>
+                    </View>
+                )}
+            </>
+        );
+
+        const renderFooter = () => {
+            if (!showRegisterButton) return null;
+            if (isRegistered) {
+                return (
+                    <View style={styles.registeredRow}>
+                        <View
+                            style={[
+                                styles.registerBtnCompact,
+                                {
+                                    backgroundColor: theme.colors.success,
+                                    ...theme.shadows.small,
+                                },
+                            ]}
+                        >
+                            <Ionicons
+                                name="checkmark-circle"
+                                size={14}
+                                color="#fff"
+                                style={{ marginRight: 4 }}
+                            />
+                            <Text style={styles.registerTextCompact}>REGISTERED</Text>
+                        </View>
+                        <View style={styles.buddyToggleContainer}>
+                            <Text style={[styles.buddyToggleLabel, { color: theme.colors.text }]}>
+                                Find A Buddy!
+                            </Text>
+                            <Switch
+                                value={lookingForBuddy}
+                                onValueChange={handleToggleBuddy}
+                                trackColor={{
+                                    false: theme.colors.border,
+                                    true: theme.colors.primary + '80',
+                                }}
+                                thumbColor={lookingForBuddy ? theme.colors.primary : '#999'}
+                                style={
+                                    Platform.OS === 'ios'
+                                        ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }
+                                        : {}
+                                }
+                            />
+                        </View>
+                    </View>
+                );
+            }
+            return (
+                <TouchableOpacity
+                    style={[
+                        styles.registerBtn,
+                        {
+                            backgroundColor: isProcessing
+                                ? theme.colors.border
+                                : theme.colors.primary,
+                            ...theme.shadows.default,
+                        },
+                    ]}
+                    disabled={isProcessing}
+                    onPress={handleRegisterPress}
+                >
+                    {isProcessing ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                        <Text style={styles.registerText}>REGISTER</Text>
+                    )}
+                </TouchableOpacity>
+            );
+        };
+
         return (
             <TouchableOpacity
                 style={[
@@ -236,28 +382,7 @@ const EventCard = memo(
                             {event.category}
                         </Text>
                     </View>
-
-                    {isLive && (
-                        <View style={[styles.onlineBadge, { backgroundColor: theme.colors.error }]}>
-                            <Ionicons name="radio-button-on" size={12} color="#fff" />
-                            <Text style={styles.onlineText}>LIVE</Text>
-                        </View>
-                    )}
-                    {isOnlineBadge && (
-                        <View
-                            style={[styles.onlineBadge, { backgroundColor: theme.colors.primary }]}
-                        >
-                            <Ionicons name="videocam" size={12} color="#fff" />
-                            <Text style={styles.onlineText}>ONLINE</Text>
-                        </View>
-                    )}
-
-                    {event.status === 'suspended' && (
-                        <View style={[styles.onlineBadge, { backgroundColor: '#FF4444' }]}>
-                            <Ionicons name="alert-circle" size={12} color="#fff" />
-                            <Text style={styles.onlineText}>SUSPENDED</Text>
-                        </View>
-                    )}
+                    {renderBannerBadges()}
                 </View>
 
                 <View style={styles.contentContainer}>
@@ -277,7 +402,6 @@ const EventCard = memo(
                             onLoadEnd={() => setFlyerLoaded(true)}
                         />
                     </View>
-
                     <View style={styles.headerInfo}>
                         <Text
                             style={[styles.title, { color: theme.colors.text }]}
@@ -289,7 +413,6 @@ const EventCard = memo(
                             Hosted by {hostName}
                         </Text>
                     </View>
-
                     <View style={styles.detailsRow}>
                         <View style={styles.infoBlock}>
                             <View style={styles.infoItem}>
@@ -332,63 +455,8 @@ const EventCard = memo(
                                     {formatMetric(event.views, 'View', 'Views')}
                                 </Text>
                             </View>
-
-                            {isRecommended && (
-                                <View
-                                    style={{
-                                        backgroundColor: '#FFD700',
-                                        paddingHorizontal: 8,
-                                        paddingVertical: 4,
-                                        borderRadius: 12,
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        gap: 4,
-                                        alignSelf: 'flex-start',
-                                        marginTop: 4,
-                                        ...theme.shadows.small,
-                                    }}
-                                >
-                                    <Ionicons name="star" size={12} color="#000" />
-                                    <Text
-                                        style={{ fontSize: 10, fontWeight: 'bold', color: '#000' }}
-                                    >
-                                        TOP PICK
-                                    </Text>
-                                </View>
-                            )}
-
-                            {isEarlyBird && !isRegistered && (
-                                <View
-                                    style={{
-                                        backgroundColor: '#EAB30820',
-                                        paddingHorizontal: 8,
-                                        paddingVertical: 3,
-                                        borderRadius: 20,
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        gap: 4,
-                                        alignSelf: 'flex-start',
-                                        marginTop: 4,
-                                        borderWidth: 1,
-                                        borderColor: '#EAB308',
-                                    }}
-                                >
-                                    <Text style={{ fontSize: 10, lineHeight: 14 }}>🐦</Text>
-                                    <Text
-                                        style={{
-                                            fontSize: 10,
-                                            fontWeight: '700',
-                                            color: '#EAB308',
-                                            letterSpacing: 0.5,
-                                            lineHeight: 14,
-                                        }}
-                                    >
-                                        EARLY BIRD
-                                    </Text>
-                                </View>
-                            )}
+                            {renderInfoBadges()}
                         </View>
-
                         <View
                             style={[styles.priceBadge, { backgroundColor: theme.colors.secondary }]}
                         >
@@ -397,73 +465,7 @@ const EventCard = memo(
                             </Text>
                         </View>
                     </View>
-
-                    {showRegisterButton &&
-                        (isRegistered ? (
-                            <View style={styles.registeredRow}>
-                                <View
-                                    style={[
-                                        styles.registerBtnCompact,
-                                        {
-                                            backgroundColor: theme.colors.success,
-                                            ...theme.shadows.small,
-                                        },
-                                    ]}
-                                >
-                                    <Ionicons
-                                        name="checkmark-circle"
-                                        size={14}
-                                        color="#fff"
-                                        style={{ marginRight: 4 }}
-                                    />
-                                    <Text style={styles.registerTextCompact}>REGISTERED</Text>
-                                </View>
-                                <View style={styles.buddyToggleContainer}>
-                                    <Text
-                                        style={[
-                                            styles.buddyToggleLabel,
-                                            { color: theme.colors.text },
-                                        ]}
-                                    >
-                                        Find A Buddy!
-                                    </Text>
-                                    <Switch
-                                        value={lookingForBuddy}
-                                        onValueChange={handleToggleBuddy}
-                                        trackColor={{
-                                            false: theme.colors.border,
-                                            true: theme.colors.primary + '80',
-                                        }}
-                                        thumbColor={lookingForBuddy ? theme.colors.primary : '#999'}
-                                        style={
-                                            Platform.OS === 'ios'
-                                                ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }
-                                                : {}
-                                        }
-                                    />
-                                </View>
-                            </View>
-                        ) : (
-                            <TouchableOpacity
-                                style={[
-                                    styles.registerBtn,
-                                    {
-                                        backgroundColor: isProcessing
-                                            ? theme.colors.border
-                                            : theme.colors.primary,
-                                        ...theme.shadows.default,
-                                    },
-                                ]}
-                                disabled={isProcessing}
-                                onPress={handleRegisterPress}
-                            >
-                                {isProcessing ? (
-                                    <ActivityIndicator size="small" color="#ffffff" />
-                                ) : (
-                                    <Text style={styles.registerText}>REGISTER</Text>
-                                )}
-                            </TouchableOpacity>
-                        ))}
+                    {renderFooter()}
                 </View>
             </TouchableOpacity>
         );

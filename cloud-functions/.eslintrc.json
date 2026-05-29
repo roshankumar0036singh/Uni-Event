@@ -21,9 +21,7 @@
         "lib/**",
         "node_modules/**",
         "coverage/**",
-        "*.js",
-        "babel.config.js",
-        "jest.config.js"
+        "*.js"
     ],
     "rules": {
         "max-len": ["warn", { "code": 120, "ignoreUrls": true, "ignoreStrings": true, "ignoreTemplateLiterals": true }],

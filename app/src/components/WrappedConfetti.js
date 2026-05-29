@@ -124,41 +124,42 @@ export default function WrappedConfetti({ visible, onComplete }) {
                 useNativeDriver: true,
             }).start();
         };
+        const animateParticle = (p, i, angles) => {
+            const angle = (angles[i] * Math.PI) / 180;
+            const distance = 130 + Math.random() * 80;
+            Animated.parallel([
+                Animated.timing(p.opacity, {
+                    toValue: 1,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(p.scale, {
+                    toValue: 1,
+                    friction: 4,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(p.x, {
+                    toValue: Math.cos(angle) * distance,
+                    duration: 700,
+                    easing: Easing.out(Easing.back(1.2)),
+                    useNativeDriver: true,
+                }),
+                Animated.timing(p.y, {
+                    toValue: Math.sin(angle) * distance,
+                    duration: 700,
+                    easing: Easing.out(Easing.back(1.2)),
+                    useNativeDriver: true,
+                }),
+                Animated.timing(p.rotate, {
+                    toValue: 1,
+                    duration: 700,
+                    useNativeDriver: true,
+                }),
+            ]).start(() => fadeOutParticle(p));
+        };
         const burstTimeout = setTimeout(() => {
             const angles = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
-            particles.forEach((p, i) => {
-                const angle = (angles[i] * Math.PI) / 180;
-                const distance = 130 + Math.random() * 80;
-                Animated.parallel([
-                    Animated.timing(p.opacity, {
-                        toValue: 1,
-                        duration: 200,
-                        useNativeDriver: true,
-                    }),
-                    Animated.spring(p.scale, {
-                        toValue: 1,
-                        friction: 4,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(p.x, {
-                        toValue: Math.cos(angle) * distance,
-                        duration: 700,
-                        easing: Easing.out(Easing.back(1.2)),
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(p.y, {
-                        toValue: Math.sin(angle) * distance,
-                        duration: 700,
-                        easing: Easing.out(Easing.back(1.2)),
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(p.rotate, {
-                        toValue: 1,
-                        duration: 700,
-                        useNativeDriver: true,
-                    }),
-                ]).start(() => fadeOutParticle(p));
-            });
+            particles.forEach((p, i) => animateParticle(p, i, angles));
         }, 300);
         timeoutIdsRef.current.push(burstTimeout);
 
