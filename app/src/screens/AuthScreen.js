@@ -31,7 +31,7 @@ function getEmulatorGooglePassword() {
     if (!pwd) {
         throw new Error(
             'EXPO_PUBLIC_EMULATOR_GOOGLE_PASSWORD is not set. ' +
-            'Add it to your .env file for emulator Google sign-in.',
+                'Add it to your .env file for emulator Google sign-in.',
         );
     }
     return pwd;
@@ -143,7 +143,12 @@ async function handleEmulatorGoogleSignIn(accessToken, signIn, signUp) {
  * Handles Google Sign-In via a real Firebase credential.
  * Creates a Firestore user document on first sign-in.
  */
-async function handleCredentialSignIn(id_token, accessToken, firebaseAuth, saveGoogleAccountCredentials) {
+async function handleCredentialSignIn(
+    id_token,
+    accessToken,
+    firebaseAuth,
+    saveGoogleAccountCredentials,
+) {
     try {
         const credential = GoogleAuthProvider.credential(id_token || null, accessToken || null);
         const userCredential = await signInWithCredential(firebaseAuth, credential);
@@ -244,7 +249,10 @@ export default function AuthScreen() {
 
         if (process.env.EXPO_PUBLIC_USE_EMULATORS === 'true') {
             if (!accessToken) {
-                Alert.alert('Auth Error', 'Google sign-in requires an access token in emulator mode.');
+                Alert.alert(
+                    'Auth Error',
+                    'Google sign-in requires an access token in emulator mode.',
+                );
                 setLoading(false);
                 return;
             }
@@ -371,9 +379,7 @@ export default function AuthScreen() {
                                         styles.inputContainer,
                                         {
                                             backgroundColor: theme.colors.surface,
-                                            borderColor: nameError
-                                                ? 'red'
-                                                : theme.colors.border,
+                                            borderColor: nameError ? 'red' : theme.colors.border,
                                         },
                                     ]}
                                 >
@@ -433,9 +439,7 @@ export default function AuthScreen() {
                                 keyboardType="email-address"
                             />
                         </View>
-                        {emailError ? (
-                            <Text style={styles.errorText}>{emailError}</Text>
-                        ) : null}
+                        {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
                         <View
                             style={[
