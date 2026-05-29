@@ -35,9 +35,5 @@ cloud-functions/firebase-*-debug.log
 cloud-functions/firebase-export-*/
 cloud-functions/emulator-data/
 
-# Puppeteer capture outputs (generated artifacts, not source)
-scratch/body.html
-scratch/screenshot.png
-scratch/package.json
-scratch/package-lock.json
-scratch/node_modules/
+# Scratch / local dev tooling (not part of the contribution)
+scratch/
