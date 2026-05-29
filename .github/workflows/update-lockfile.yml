@@ -21,20 +21,17 @@ jobs:
 
             - uses: actions/setup-node@v4
               with:
-                  node-version: 18
+                  node-version: 22
 
             - name: Update root lockfile
-              if: hashFiles('package.json') != ''
               run: npm install --package-lock-only --ignore-scripts
 
             - name: Update app lockfile
-              if: hashFiles('app/package.json') != ''
               run: |
                   cd app
                   npm install --package-lock-only --ignore-scripts
 
             - name: Update cloud-functions lockfile
-              if: hashFiles('cloud-functions/package.json') != ''
               run: |
                   cd cloud-functions
                   npm install --package-lock-only --ignore-scripts
