@@ -46,6 +46,11 @@ import UserFeed from './src/screens/UserFeed';
 import WalletScreen from './src/screens/WalletScreen';
 import WrappedScreen from './src/screens/WrappedScreen';
 
+const LazyScreenFallback = ({ color }) => (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={color} />
+    </View>
+);
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -263,7 +268,7 @@ function Navigation() {
                             options={{ title: 'Appearance' }}
                         >
                             {(props) => (
-                                <Suspense fallback={<ActivityIndicator size="large" color={theme.colors.primary} style={{ flex: 1 }} />}>
+                                <Suspense fallback={<LazyScreenFallback color={theme.colors.primary} />}>
                                     <AppearanceScreen {...props} />
                                 </Suspense>
                             )}
@@ -323,7 +328,7 @@ function Navigation() {
                             options={{ title: 'Report a Bug' }}
                         >
                             {(props) => (
-                                <Suspense fallback={<ActivityIndicator size="large" color={theme.colors.primary} style={{ flex: 1 }} />}>
+                                <Suspense fallback={<LazyScreenFallback color={theme.colors.primary} />}>
                                     <ReportBugScreen {...props} />
                                 </Suspense>
                             )}
@@ -333,7 +338,7 @@ function Navigation() {
                             options={{ title: 'Event Heatmap' }}
                         >
                             {(props) => (
-                                <Suspense fallback={<ActivityIndicator size="large" color={theme.colors.primary} style={{ flex: 1 }} />}>
+                                <Suspense fallback={<LazyScreenFallback color={theme.colors.primary} />}>
                                     <LocationHeatmapScreen {...props} />
                                 </Suspense>
                             )}
