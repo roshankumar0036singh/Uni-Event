@@ -54,6 +54,7 @@ import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { predictAttendance } from '../lib/capacityPredictor';
 import PropTypes from 'prop-types';
 import logger from '../lib/logger';
+import { BASE_URL } from '../lib/config';
 
 // Constants to eliminate SonarQube Magic Numbers
 const RSVP_POINTS_CHANGE = 10;
@@ -326,7 +327,7 @@ export default function EventDetail({ route, navigation }) {
 
     const shareEvent = async () => {
         try {
-            const eventUrl = `https://unievent-ez2w.onrender.com/event/${eventId}`; // Replace with your actual domain
+            const eventUrl = `${BASE_URL}/event/${eventId}`;
             const shareMessage = `🎉 Check out this event: ${event.title}\n\n📅 ${formatEventDate(event.startAt)} at ${formatEventTime(event.startAt)}\n📍 ${event.location || 'Online'}\n\n${eventUrl}`;
 
             // For web, use Web Share API if available
@@ -596,7 +597,7 @@ export default function EventDetail({ route, navigation }) {
 
             // Send certificates via EmailJS (Frontend)
             logger.debug('Calling sendBulkCertificates...');
-            const eventLink = `https://unievent-ez2w.onrender.com/event/${event.id}`;
+            const eventLink = `${BASE_URL}/event/${event.id}`;
             const count = await sendBulkCertificates(
                 participants,
                 event.title,

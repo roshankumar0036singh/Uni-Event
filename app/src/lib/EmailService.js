@@ -1,4 +1,5 @@
 import logger from './logger';
+import { BASE_URL } from './config';
 // EmailJS Configuration
 // EmailJS Configuration
 const EMAILJS_SERVICE_ID = process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID;
@@ -70,7 +71,7 @@ export const sendBulkAnnouncement = async (participants, subject, message) => {
 
                 {
                     cert_display: 'none',
-                    event_link: 'https://unievent-ez2w.onrender.com', // Default to home/browse
+                    event_link: BASE_URL, // Default to home/browse
                     download_btn_display: 'none',
                     browse_btn_display: 'block',
                 },
@@ -87,7 +88,7 @@ export const sendBulkAnnouncement = async (participants, subject, message) => {
  */
 export const sendBulkFeedbackRequest = async (participants, eventTitle, eventId) => {
     let successCount = 0;
-    const feedbackLink = `https://unievent-ez2w.onrender.com/event/${eventId}/feedback`;
+    const feedbackLink = `${BASE_URL}/event/${eventId}/feedback`;
     const subject = `Feedback Request: ${eventTitle}`;
     const message = `Thank you for attending ${eventTitle}. Please take a moment to share your feedback.`;
 
@@ -117,7 +118,7 @@ export const sendBulkCertificates = async (participants, eventTitle, date, event
 
     const buildLinkedInUrl = (participant, eventStartDate) => {
         const certUrl =
-            participant.certificateUrl || eventLink || 'https://unievent-ez2w.onrender.com';
+            participant.certificateUrl || eventLink || BASE_URL;
         const org = participant.organization || 'UniEvent';
         let issueDate = new Date();
         if (eventStartDate) {
