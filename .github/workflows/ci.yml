@@ -7,8 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   core-flow-tests:
@@ -47,6 +46,9 @@ jobs:
   lint-and-test:
     name: Lint & Test (app)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     defaults:
       run:
         working-directory: ./app
