@@ -1,4 +1,4 @@
-import { calculatePoints } from './reputation';
+import {calculatePoints} from './reputation';
 
 describe('calculatePoints', () => {
   it('calculates correct weighted points', () => {

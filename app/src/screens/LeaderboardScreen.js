@@ -71,16 +71,19 @@ export default function LeaderboardScreen({ navigation }) {
         return () => unsubscribe();
     }, []);
 
-    const togglePrivacy = useCallback(async value => {
-        if (!user) return;
-        try {
-            const userRef = doc(db, 'users', user.uid);
-            await updateDoc(userRef, { isAnonymous: value });
-        } catch (_error) {
-            console.error('Privacy toggle error:', _error);
-            Alert.alert('Error', 'Failed to update privacy setting.');
-        }
-    }, [user]);
+    const togglePrivacy = useCallback(
+        async value => {
+            if (!user) return;
+            try {
+                const userRef = doc(db, 'users', user.uid);
+                await updateDoc(userRef, { isAnonymous: value });
+            } catch (_error) {
+                console.error('Privacy toggle error:', _error);
+                Alert.alert('Error', 'Failed to update privacy setting.');
+            }
+        },
+        [user],
+    );
 
     const renderHeader = useCallback(
         () => (
@@ -181,17 +184,6 @@ export default function LeaderboardScreen({ navigation }) {
             </View>
         );
     };
-
-    const renderHeader = useCallback(
-        () => (
-            <LeaderboardListHeader
-                theme={theme}
-                togglePrivacy={togglePrivacy}
-                isAnonymous={isAnonymous}
-            />
-        ),
-        [theme, togglePrivacy, isAnonymous],
-    );
 
     if (loading)
         return (

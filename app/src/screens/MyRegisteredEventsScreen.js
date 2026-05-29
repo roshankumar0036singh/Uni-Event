@@ -2,8 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, documentId, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import usePullToRefresh from '../hooks/usePullToRefresh';
@@ -122,7 +120,6 @@ export default function MyRegisteredEventsScreen() {
                 onScroll={handleScroll}
                 onScrollEndDrag={handleScrollEndDrag}
                 scrollEventThrottle={16}
-                renderItem={({ item }) => <EventCard event={item} />}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
                         <Ionicons

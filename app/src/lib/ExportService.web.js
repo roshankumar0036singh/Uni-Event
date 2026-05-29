@@ -4,7 +4,7 @@ import { prepareParticipantsWorkbook } from './exportUtils';
 /**
  * WEB VERSION: Exports an array of participant objects to an Excel file and downloads it.
  */
-export const exportParticipantsToExcel = (participants, eventTitle) => {
+export const exportParticipantsToExcel = async (participants, eventTitle) => {
     try {
         const { workbook, fileName } = prepareParticipantsWorkbook(participants, eventTitle);
 

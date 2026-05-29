@@ -11,7 +11,9 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
 jest.mock('expo-device', () => ({
-    isDevice: true,
+    get isDevice() {
+        return true;
+    },
 }));
 
 jest.mock('expo-constants', () => ({
