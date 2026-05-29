@@ -6,6 +6,7 @@ on:
             - main
         paths:
             - 'package.json'
+            - 'app/package.json'
             - 'cloud-functions/package.json'
 
 permissions:
@@ -17,18 +18,28 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
 
             - uses: actions/setup-node@v4
               with:
                   node-version: 18
 
             - name: Update root lockfile
-              run: npm install
+              if: hashFiles('package.json') != ''
+              run: npm install --package-lock-only --ignore-scripts
+
+            - name: Update app lockfile
+              if: hashFiles('app/package.json') != ''
+              run: |
+                  cd app
+                  npm install --package-lock-only --ignore-scripts
 
             - name: Update cloud-functions lockfile
+              if: hashFiles('cloud-functions/package.json') != ''
               run: |
                   cd cloud-functions
-                  npm install
+                  npm install --package-lock-only --ignore-scripts
 
             - uses: stefanzweifel/git-auto-commit-action@v5
               with:
