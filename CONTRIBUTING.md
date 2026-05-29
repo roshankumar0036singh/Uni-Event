@@ -46,3 +46,20 @@ This project and everyone participating in it is governed by the [Code of Conduc
 ## Setup Local Environment
 
 Please refer to the [README.md](README.md) for instructions on setting up your local environment.
+
+## Git Hooks
+
+This project uses Husky for local Git hooks.
+
+### Setup
+
+```bash
+npm install
+```
+
+Hooks are installed automatically through the `prepare` script.
+
+### Hooks
+
+- pre-commit: runs lint-staged checks before commits.
+- pre-push: reserved for future validations such as TypeScript checks.

@@ -34,3 +34,8 @@ cloud-functions/firebase-debug.log
 cloud-functions/firebase-*-debug.log
 cloud-functions/firebase-export-*/
 cloud-functions/emulator-data/
+
+# Generated lockfiles
+package-lock.json
+app/package-lock.json
+cloud-functions/package-lock.json
