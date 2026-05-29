@@ -43,6 +43,7 @@ const admin = __importStar(require("firebase-admin"));
 const rateLimiter_1 = require("./utils/rateLimiter");
 const dailyDigest_1 = require("./dailyDigest");
 const push_1 = require("./utils/push");
+const expo_server_sdk_1 = require("expo-server-sdk");
 // Load environment variables
 dotenv_1.default.config();
 // Initialize Firebase Admin (ensure service account is available or uses default credentials)
@@ -237,8 +238,6 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, a
             const PAGE_SIZE = 500;
             let lastDoc = null;
             let processedCount = 0;
-            const { Expo } = require('expo-server-sdk');
-            const expo = new Expo();
             while (true) {
                 let query = db
                     .collection('users')
@@ -265,7 +264,7 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, a
                         createdAt: admin.firestore.FieldValue.serverTimestamp(),
                         read: false
                     });
-                    if (pushToken && Expo.isExpoPushToken(pushToken)) {
+                    if (pushToken && expo_server_sdk_1.Expo.isExpoPushToken(pushToken)) {
                         messages.push({
                             to: pushToken,
                             sound: 'default',

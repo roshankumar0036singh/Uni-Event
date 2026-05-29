@@ -5,6 +5,7 @@ import * as admin from 'firebase-admin';
 import { checkAndUpdateRateLimit } from './utils/rateLimiter';
 import { getTodayEventCount } from './dailyDigest';
 import { sendPushNotifications } from './utils/push';
+import { Expo } from 'expo-server-sdk';
 // Load environment variables
 dotenv.config();
 
