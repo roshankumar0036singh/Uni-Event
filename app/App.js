@@ -18,6 +18,7 @@ import ScreenWrapper from './src/components/ScreenWrapper';
 import { AuthProvider, useAuth } from './src/lib/AuthContext';
 import { ThemeProvider, useTheme } from './src/lib/ThemeContext';
 import { db } from './src/lib/firebaseConfig';
+import { BASE_URL } from './src/lib/config';
 import { registerForPushNotificationsAsync } from './src/lib/notificationService';
 import AdminDashboard from './src/screens/AdminDashboard';
 const AppearanceScreen = lazy(() => import('./src/screens/AppearanceScreen'));
@@ -179,7 +180,7 @@ function TabNavigator() {
 }
 
 const linking = {
-    prefixes: ['https://unievent-ez2w.onrender.com', 'unievent://', 'http://localhost:19006'],
+    prefixes: [BASE_URL, 'unievent://', 'http://localhost:19006'],
     config: {
         screens: {
             Main: {
