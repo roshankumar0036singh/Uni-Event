@@ -12,17 +12,7 @@ import {
     getDocs,
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState, memo } from 'react';
-import {
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-    Switch,
-    Platform,
-    ActivityIndicator,
-    Alert,
-} from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, Switch, Platform } from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme as globalTheme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
@@ -31,7 +21,6 @@ import { ShimmerItem } from './SkeletonLoader';
 import { useAuth } from '../lib/AuthContext';
 import { triggerBuddyMatchNotification } from '../lib/notificationService';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
-import { safeToggleEventAction } from '../lib/participantService';
 import PropTypes from 'prop-types';
 
 // Module-level profile cache registry
@@ -72,11 +61,9 @@ const EventCard = memo(
         const [bannerLoaded, setBannerLoaded] = useState(false);
         const [flyerLoaded, setFlyerLoaded] = useState(false);
         const [lookingForBuddy, setLookingForBuddy] = useState(false);
-
-        // UI Loading State
-        const [isProcessing, setIsProcessing] = useState(false);
-        // Synchronous lock reference to block multi-taps inside the same render frame
-        const isProcessingRef = useRef(false);
+        const [isNavigatingToDetail, setIsNavigatingToDetail] = useState(false);
+        const navigationLockRef = useRef(false);
+        const navigationUnlockTimerRef = useRef(null);
 
         useEffect(() => {
             if (!isRegistered || !user || !event?.id) return;
@@ -163,26 +150,29 @@ const EventCard = memo(
             };
         }, [event?.ownerId, event?.organization]);
 
-        // Gated same-frame input execution track blocker handler
-        const handleRegisterPress = async () => {
-            if (isProcessingRef.current || !user || !event?.id) return;
+        useEffect(
+            () => () => {
+                if (navigationUnlockTimerRef.current) {
+                    clearTimeout(navigationUnlockTimerRef.current);
+                }
+            },
+            [],
+        );
 
-            isProcessingRef.current = true;
-            setIsProcessing(true);
+        const navigateToDetail = () => {
+            if (!event?.id || navigationLockRef.current) return;
 
-            try {
-                await safeToggleEventAction(db, user.uid, event.id, true);
-                navigation.navigate('EventDetail', { eventId: event.id });
-            } catch (error) {
-                console.error('Spam button trigger rejected processing error:', error);
-                Alert.alert(
-                    'Registration Failed',
-                    'Unable to register for this event. Please verify your internet connection and try again.',
-                );
-            } finally {
-                isProcessingRef.current = false;
-                setIsProcessing(false);
-            }
+            navigationLockRef.current = true;
+            setIsNavigatingToDetail(true);
+            navigation.navigate('EventDetail', { eventId: event.id });
+            navigationUnlockTimerRef.current = setTimeout(() => {
+                navigationLockRef.current = false;
+                setIsNavigatingToDetail(false);
+            }, 1000);
+        };
+
+        const handleRegisterPress = () => {
+            navigateToDetail();
         };
 
         if (!event) return null;
@@ -325,20 +315,18 @@ const EventCard = memo(
                     style={[
                         styles.registerBtn,
                         {
-                            backgroundColor: isProcessing
+                            backgroundColor: isNavigatingToDetail
                                 ? theme.colors.border
                                 : theme.colors.primary,
                             ...theme.shadows.default,
                         },
                     ]}
-                    disabled={isProcessing}
+                    accessibilityState={{ disabled: isNavigatingToDetail }}
+                    disabled={isNavigatingToDetail}
                     onPress={handleRegisterPress}
+                    testID="event-card-register-button"
                 >
-                    {isProcessing ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                        <Text style={styles.registerText}>REGISTER</Text>
-                    )}
+                    <Text style={styles.registerText}>REGISTER</Text>
                 </TouchableOpacity>
             );
         };
@@ -351,7 +339,7 @@ const EventCard = memo(
                     style,
                 ]}
                 activeOpacity={0.9}
-                onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
+                onPress={navigateToDetail}
             >
                 <View style={[styles.bannerContainer, isRecommended && { height: 140 }]}>
                     {!bannerLoaded && (
