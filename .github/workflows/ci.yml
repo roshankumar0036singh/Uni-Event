@@ -8,6 +8,10 @@ on:
 
 permissions:
   contents: read
+<<<<<<< Updated upstream
+=======
+  pull-requests: read
+>>>>>>> Stashed changes
 
 jobs:
   core-flow-tests:
@@ -47,8 +51,13 @@ jobs:
     name: Lint & Test (app)
     runs-on: ubuntu-latest
     permissions:
+<<<<<<< Updated upstream
       contents: write
       pull-requests: write
+=======
+      contents: read
+      pull-requests: read
+>>>>>>> Stashed changes
     defaults:
       run:
         working-directory: ./app
@@ -66,11 +75,39 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Jest tests
+        run: npm test -- --ci --passWithNoTests
+
+  auto-format:
+    name: Auto-format app
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./app
+        run: npm ci
+
       - name: Auto-format with Prettier
+        working-directory: ./app
         run: npx prettier --write .
 
       - name: Create PR for formatted files
-        if: github.event_name == 'push'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -82,9 +119,3 @@ jobs:
             This PR was created automatically by the CI workflow.
           delete-branch: true
           labels: formatting, automated
-
-      - name: Run ESLint
-        run: npm run lint
-
-      - name: Run Jest tests
-        run: npm test -- --ci --passWithNoTests
