@@ -1,0 +1,35 @@
+name: Update package-lock.json
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - 'package.json'
+            - 'cloud-functions/package.json'
+
+permissions:
+    contents: write
+
+jobs:
+    update-lockfile:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 18
+
+            - name: Update root lockfile
+              run: npm install
+
+            - name: Update cloud-functions lockfile
+              run: |
+                  cd cloud-functions
+                  npm install
+
+            - uses: stefanzweifel/git-auto-commit-action@v5
+              with:
+                  commit_message: 'chore: update package-lock.json'

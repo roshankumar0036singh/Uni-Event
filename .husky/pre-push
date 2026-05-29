@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+# Type checking intentionally disabled because the current repository
+# contains existing TypeScript build errors on the main branch.

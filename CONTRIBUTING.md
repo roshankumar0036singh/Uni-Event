@@ -12,13 +12,13 @@ This project and everyone participating in it is governed by the [Code of Conduc
 
 ### Reporting Bugs
 
--   **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/roshankumar0036singh/Uni-Event/issues).
--   If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/roshankumar0036singh/Uni-Event/issues/new). Be sure to include a **title and clear description**, as many relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
+- **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/roshankumar0036singh/Uni-Event/issues).
+- If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/roshankumar0036singh/Uni-Event/issues/new). Be sure to include a **title and clear description**, as many relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
 
 ### Suggesting Enhancements
 
--   Open a new issue with a clear title and detailed description of the suggested enhancement.
--   Explain why this enhancement would be useful to most users.
+- Open a new issue with a clear title and detailed description of the suggested enhancement.
+- Explain why this enhancement would be useful to most users.
 
 ### Pull Requests
 
@@ -33,16 +33,37 @@ This project and everyone participating in it is governed by the [Code of Conduc
 
 ### Git Commit Messages
 
--   Use the present tense ("Add feature" not "Added feature")
--   Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
--   Limit the first line to 72 characters or less
--   Reference issues and pull requests liberally after the first line
+- Use the present tense ("Add feature" not "Added feature")
+- Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
+- Limit the first line to 72 characters or less
+- Reference issues and pull requests liberally after the first line
 
 ### JavaScript Styleguide
 
--   All JavaScript must adhere to standard JavaScript style guidelines.
--   Run linting before committing.
+- All JavaScript must adhere to standard JavaScript style guidelines.
+- Run linting before committing.
 
 ## Setup Local Environment
 
 Please refer to the [README.md](README.md) for instructions on setting up your local environment.
+
+## Local Hooks
+
+This project uses Husky and lint-staged to run local checks before commits.
+
+After installing dependencies:
+
+```bash
+npm install
+```
+
+the hooks are installed automatically through the `prepare` script.
+
+### Pre-commit
+
+The pre-commit hook runs:
+
+- lint-staged
+- Automatic formatting on staged files
+
+If any checks fail, fix the reported issues before committing.
