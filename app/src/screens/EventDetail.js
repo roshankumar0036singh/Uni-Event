@@ -1336,19 +1336,19 @@ export default function EventDetail({ route, navigation }) {
             : null;
     }
 
-    let primaryActionText = 'RSVP Now';
+    let primaryActionText;
     if (new Date(event?.endAt) < new Date()) {
         if (rsvpStatus === 'going') {
             primaryActionText = event?.certificatesSent ? 'Download Certificate' : 'Event Ended';
         } else {
             primaryActionText = 'Closed';
         }
+    } else if (rsvpStatus === 'going') {
+        primaryActionText = 'Registered ✓';
+    } else if (event?.isPaid) {
+        primaryActionText = `Book Ticket (₹${event?.price})`;
     } else {
-        if (rsvpStatus === 'going') {
-            primaryActionText = 'Registered ✓';
-        } else if (event?.isPaid) {
-            primaryActionText = `Book Ticket (₹${event?.price})`;
-        }
+        primaryActionText = 'RSVP Now';
     }
 
     return (

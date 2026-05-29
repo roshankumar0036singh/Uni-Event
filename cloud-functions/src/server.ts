@@ -175,7 +175,7 @@ app.get('/api/certificate', async (req: express.Request, res: express.Response) 
   }
 
   try {
-    const participantRef = admin.firestore().collection(`events/${eventId}/participants`).doc(participantId as string);
+    const participantRef = admin.firestore().collection(`events/${eventId}/participants`).doc(participantId);
     const doc = await participantRef.get();
     
     if (!doc.exists) {

@@ -71,8 +71,8 @@ describe('Reputation Decay & Buckets', () => {
         const rep = userSnap.data()?.reputation;
         
         // Exact decay varies between ~2.2 and ~2.9 depending on current day of month
-        expect(rep.points).toBeGreaterThan(2.0);
-        expect(rep.points).toBeLessThan(3.0);
+        expect(rep.points).toBeGreaterThan(2);
+        expect(rep.points).toBeLessThan(3);
         expect(rep.attendanceCount).toBe(1);
     });
 
