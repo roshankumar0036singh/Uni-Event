@@ -25,6 +25,7 @@ import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
 import { extractTags } from '../lib/tagExtractor';
 import { predictAttendance } from '../lib/capacityPredictor';
+import { enforceRateLimit } from '../lib/rateLimiter';
 import PropTypes from 'prop-types';
 
 let MapView = null;
@@ -241,6 +242,18 @@ export default function CreateEvent({ navigation, route }) {
         }
         setLoading(true);
         try {
+            // Symmetrical, client-side rate-limiting checks prior to side-effects
+            try {
+                await enforceRateLimit(!isEditMode);
+            } catch (rateLimitErr) {
+                if (rateLimitErr.status === 429) {
+                    Alert.alert('Too Many Requests', rateLimitErr.message);
+                    setLoading(false);
+                    return;
+                }
+                throw rateLimitErr;
+            }
+
             let bannerUrl = imageUri;
             if (imageUri && imageUri !== event?.bannerUrl && !imageUri.startsWith('http')) {
                 // Only upload if changed and local file
