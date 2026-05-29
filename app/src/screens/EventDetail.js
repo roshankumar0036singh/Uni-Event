@@ -1008,7 +1008,7 @@ export default function EventDetail({ route, navigation }) {
         }
         const isExpired = deadline && new Date() > deadline;
         const isEarlyBirdTicket =
-            ticket.isEarlyBird || ticket.name?.toLowerCase().includes('early');
+            ticket.isEarlyBird || /\bearly\b/i.test(ticket.name ?? '');
         const isFree = !ticket.price || Number(ticket.price) <= 0;
         const accentColor = isEarlyBirdTicket ? '#EAB308' : theme.colors.primary;
         const benefitsOpen = expandedBenefits.has(idx);
@@ -1346,7 +1346,7 @@ export default function EventDetail({ route, navigation }) {
     } else if (rsvpStatus === 'going') {
         primaryActionText = 'Registered ✓';
     } else if (event?.isPaid) {
-        primaryActionText = `Book Ticket (₹${event?.price})`;
+        primaryActionText = `Book Ticket (₹${ebInfo.currentPrice ?? event?.price ?? 0})`;
     } else {
         primaryActionText = 'RSVP Now';
     }

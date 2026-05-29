@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import express from 'express';
 import * as admin from 'firebase-admin';
 import { checkAndUpdateRateLimit } from './utils/rateLimiter';
-
+import { getTodayEventCount, sendPushMessages } from './dailyDigest';
 // Load environment variables
 dotenv.config();
 
@@ -210,31 +210,7 @@ app.get('/api/certificate', async (req: express.Request, res: express.Response) 
   }
 });
 
-async function getTodayEventCount(db: admin.firestore.Firestore): Promise<number> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const snapshot = await db.collection('events')
-      .where('startAt', '>=', today.toISOString())
-      .where('startAt', '<', tomorrow.toISOString())
-      .get();
-
-    return snapshot.size;
-}
-
-async function sendPushMessages(expo: any, messages: any[]) {
-    if (messages.length === 0) return;
-    const chunks = expo.chunkPushNotifications(messages);
-    for (const chunk of chunks) {
-        try {
-            await expo.sendPushNotificationsAsync(chunk);
-        } catch (e) {
-            console.error("Error sending digest chunks", e);
-        }
-    }
-}
 app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, async (req: express.Request, res: express.Response) => {
   try {
     // Optional: Check if admin

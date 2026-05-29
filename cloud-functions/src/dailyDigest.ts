@@ -5,7 +5,7 @@ const expo = new Expo();
 
 const PAGE_SIZE = 500;
 
-async function getTodayEventCount(db: admin.firestore.Firestore): Promise<number> {
+export async function getTodayEventCount(db: admin.firestore.Firestore): Promise<number> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -19,12 +19,12 @@ async function getTodayEventCount(db: admin.firestore.Firestore): Promise<number
     return snapshot.size;
 }
 
-async function sendPushMessages(pageMessages: any[]) {
+export async function sendPushMessages(expoInstance: any, pageMessages: any[]) {
     if (pageMessages.length === 0) return;
-    const chunks = expo.chunkPushNotifications(pageMessages);
+    const chunks = expoInstance.chunkPushNotifications(pageMessages);
     for (const chunk of chunks) {
         try {
-            await expo.sendPushNotificationsAsync(chunk);
+            await expoInstance.sendPushNotificationsAsync(chunk);
         } catch (error) {
             console.error("Error sending digest chunks", error);
         }
@@ -96,7 +96,7 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
         });
 
         await batch.commit();
-        await sendPushMessages(pageMessages);
+        await sendPushMessages(expo, pageMessages);
 
         processedCount += usersSnapshot.size;
         lastDoc = usersSnapshot.docs[usersSnapshot.docs.length - 1];
