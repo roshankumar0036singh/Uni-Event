@@ -1428,14 +1428,13 @@ export default function EventDetail({ route, navigation }) {
                                 <View style={[styles.priceBadge, { backgroundColor: '#F59E0B' }]}>
                                     <Ionicons name="cash" size={14} color="#fff" />
                                     <Text style={styles.priceText}>
-                                        ₹{getEarlyBirdInfo(event).currentPrice}
-                                        {getEarlyBirdInfo(event).isEligible &&
-                                            getEarlyBirdInfo(event).isExplicit && (
-                                                <Text style={{ fontSize: 10, opacity: 0.8 }}>
-                                                    {' '}
-                                                    (Early Bird)
-                                                </Text>
-                                            )}
+                                        ₹{ebInfo?.currentPrice ?? event.price}
+                                        {ebInfo?.isEligible && ebInfo?.isExplicit && (
+                                            <Text style={{ fontSize: 10, opacity: 0.8 }}>
+                                                {' '}
+                                                (Early Bird)
+                                            </Text>
+                                        )}
                                     </Text>
                                 </View>
                             ) : (
@@ -1445,7 +1444,7 @@ export default function EventDetail({ route, navigation }) {
                                 </View>
                             )}
                             {/* Early Bird indicator */}
-                            {getEarlyBirdInfo(event).isEligible && rsvpStatus !== 'going' && (
+                            {ebInfo?.isEligible && rsvpStatus !== 'going' && (
                                 <View style={[styles.priceBadge, { backgroundColor: '#EAB308' }]}>
                                     <Text style={styles.priceText}>🐦 Early Bird</Text>
                                 </View>
