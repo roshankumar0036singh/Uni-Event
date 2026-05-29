@@ -51,6 +51,11 @@ const LazyScreenFallback = ({ color }) => (
         <ActivityIndicator size="large" color={color} />
     </View>
 );
+
+LazyScreenFallback.propTypes = {
+    color: PropTypes.string.isRequired,
+};
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
