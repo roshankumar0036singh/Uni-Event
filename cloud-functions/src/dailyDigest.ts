@@ -5,6 +5,32 @@ const expo = new Expo();
 
 const PAGE_SIZE = 500;
 
+async function getTodayEventCount(db: admin.firestore.Firestore): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const snapshot = await db.collection('events')
+        .where('startAt', '>=', today.toISOString())
+        .where('startAt', '<', tomorrow.toISOString())
+        .get();
+
+    return snapshot.size;
+}
+
+async function sendPushMessages(pageMessages: any[]) {
+    if (pageMessages.length === 0) return;
+    const chunks = expo.chunkPushNotifications(pageMessages);
+    for (const chunk of chunks) {
+        try {
+            await expo.sendPushNotificationsAsync(chunk);
+        } catch (error) {
+            console.error("Error sending digest chunks", error);
+        }
+    }
+}
+
 export const sendDailyDigest = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
@@ -14,18 +40,7 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
     }
 
     const db = admin.firestore();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const eventsRef = db.collection('events');
-    const snapshot = await eventsRef
-        .where('startAt', '>=', today.toISOString())
-        .where('startAt', '<', tomorrow.toISOString())
-        .get();
-
-    const count = snapshot.size;
+    const count = await getTodayEventCount(db);
 
     if (count === 0) {
         return { success: true, message: "No events today.", count: 0, processed: 0 };
@@ -81,20 +96,9 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
         });
 
         await batch.commit();
-
-        if (pageMessages.length > 0) {
-            let chunks = expo.chunkPushNotifications(pageMessages);
-            for (let chunk of chunks) {
-                try {
-                    await expo.sendPushNotificationsAsync(chunk);
-                } catch (error) {
-                    console.error("Error sending digest chunks", error);
-                }
-            }
-        }
+        await sendPushMessages(pageMessages);
 
         processedCount += usersSnapshot.size;
-
         lastDoc = usersSnapshot.docs[usersSnapshot.docs.length - 1];
 
         if (usersSnapshot.size < PAGE_SIZE) {

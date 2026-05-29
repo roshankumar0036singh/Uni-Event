@@ -404,8 +404,15 @@ export const getOfflineCheckInCount = async eventId => {
 
 const syncOfflineCheckInItem = async (item, eventId, organizerId, eventStartAt) => {
     const checkInRef = doc(db, 'events', eventId, 'checkIns', item.userId);
-    const checkInSnap = await getDoc(checkInRef);
-    if (!checkInSnap || !checkInSnap.exists()) {
+    let checkInSnap;
+    try {
+        checkInSnap = await getDoc(checkInRef);
+    } catch (err) {
+        console.error('Error fetching check-in status during offline sync:', err);
+        return;
+    }
+    
+    if (!checkInSnap?.exists()) {
         const offlineCheckedInAt = item.queuedAt
             ? Timestamp.fromDate(new Date(item.queuedAt))
             : serverTimestamp();

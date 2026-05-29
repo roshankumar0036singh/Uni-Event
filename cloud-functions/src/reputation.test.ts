@@ -18,6 +18,13 @@ import {
 
 const db = admin.firestore();
 
+function getMonthStart(offsetMonths: number): Date {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    d.setMonth(d.getMonth() - offsetMonths);
+    return d;
+}
 describe('Reputation Decay & Buckets', () => {
     beforeEach(async () => {
         // Clear the emulator database before each test
@@ -31,13 +38,6 @@ describe('Reputation Decay & Buckets', () => {
         testEnv.cleanup();
     });
 
-    function getMonthStart(offsetMonths: number): Date {
-        const d = new Date();
-        d.setDate(1);
-        d.setHours(0, 0, 0, 0);
-        d.setMonth(d.getMonth() - offsetMonths);
-        return d;
-    }
 
     test('Math Decay - A 6 month old registration awards 1 point (half of 2)', async () => {
         const sixMonthsAgo = getMonthStart(6);

@@ -127,7 +127,14 @@ export const updateBucket = (
         const processedDoc = await transaction.get(processedRef);
         if (processedDoc.exists) return;
         transaction.set(bucketRef, buildUpdates(), { merge: true });
-        transaction.set(processedRef, { processedAt: admin.firestore.FieldValue.serverTimestamp() });
+        
+        const expireAt = new Date();
+        expireAt.setDate(expireAt.getDate() + 30);
+        
+        transaction.set(processedRef, { 
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            expireAt
+        });
     });
 };
 
@@ -278,7 +285,7 @@ export const onParticipatingCreate = functions.firestore
             return null;
         }
 
-        await updateBucket(userId, eventStartAt, { registrations: 1 }, `participating_create_${eventId}`);
+        await updateBucket(userId, eventStartAt, { registrations: 1 }, `participating_create_${context.eventId}`);
         return null;
     });
 
@@ -299,7 +306,7 @@ export const onParticipatingDelete = functions.firestore
             return null;
         }
 
-        await updateBucket(userId, eventStartAt, { registrations: -1 }, `participating_delete_${eventId}`);
+        await updateBucket(userId, eventStartAt, { registrations: -1 }, `participating_delete_${context.eventId}`);
         return null;
     });
 
@@ -320,7 +327,7 @@ export const onCheckInCreate = functions.firestore
             return null;
         }
 
-        await updateBucket(userId, eventStartAt, { attendances: 1 }, `checkin_create_${eventId}`);
+        await updateBucket(userId, eventStartAt, { attendances: 1 }, `checkin_create_${context.eventId}`);
         return null;
     });
 
@@ -341,7 +348,7 @@ export const onCheckInDelete = functions.firestore
             return null;
         }
 
-        await updateBucket(userId, eventStartAt, { attendances: -1 }, `checkin_delete_${eventId}`);
+        await updateBucket(userId, eventStartAt, { attendances: -1 }, `checkin_delete_${context.eventId}`);
         return null;
     });
 
@@ -359,7 +366,7 @@ export const onReminderCreate = functions.firestore
             return null;
         }
 
-        await updateBucket(userId, eventStartAt, { reminders: 1 }, `reminder_create_${context.params.reminderId}`);
+        await updateBucket(userId, eventStartAt, { reminders: 1 }, `reminder_create_${context.eventId}`);
         return null;
     });
 
@@ -377,7 +384,7 @@ export const onReminderDelete = functions.firestore
             return null;
         }
 
-        await updateBucket(userId, eventStartAt, { reminders: -1 }, `reminder_delete_${context.params.reminderId}`);
+        await updateBucket(userId, eventStartAt, { reminders: -1 }, `reminder_delete_${context.eventId}`);
         return null;
     });
 

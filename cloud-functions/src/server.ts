@@ -32,12 +32,13 @@ if (admin.apps.length === 0) {
 }
 
 const app = express();
+app.disable('x-powered-by');
 app.use(cors({ origin: true }));
 app.use(express.json());
 
 // Auth Middleware to mimic Firebase Callable Context
 const validateFirebaseIdToken = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if ((!req.headers.authorization || !req.headers.authorization.startsWith('Bearer '))) {
+  if (!req.headers.authorization?.startsWith('Bearer ')) {
     res.status(403).send('Unauthorized');
     return;
   }
@@ -162,8 +163,14 @@ app.get('/', (req, res) => {
 // Certificate Verification Endpoint
 app.get('/api/certificate', async (req: express.Request, res: express.Response) => {
   const { eventId, participantId } = req.query;
-  if (!eventId || !participantId) {
-    res.status(400).send('Missing eventId or participantId');
+
+  if (typeof eventId !== 'string' || typeof participantId !== 'string') {
+    res.status(400).send('Invalid eventId or participantId format');
+    return;
+  }
+
+  if (eventId.includes('/') || participantId.includes('/')) {
+    res.status(400).send('Invalid eventId or participantId content');
     return;
   }
 
@@ -202,6 +209,32 @@ app.get('/api/certificate', async (req: express.Request, res: express.Response) 
     res.status(500).send('Internal Server Error');
   }
 });
+
+async function getTodayEventCount(db: admin.firestore.Firestore): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const snapshot = await db.collection('events')
+      .where('startAt', '>=', today.toISOString())
+      .where('startAt', '<', tomorrow.toISOString())
+      .get();
+
+    return snapshot.size;
+}
+
+async function sendPushMessages(expo: any, messages: any[]) {
+    if (messages.length === 0) return;
+    const chunks = expo.chunkPushNotifications(messages);
+    for (const chunk of chunks) {
+        try {
+            await expo.sendPushNotificationsAsync(chunk);
+        } catch (e) {
+            console.error("Error sending digest chunks", e);
+        }
+    }
+}
 app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, async (req: express.Request, res: express.Response) => {
   try {
     // Optional: Check if admin
@@ -213,18 +246,7 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, a
     }
 
     const db = admin.firestore();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const eventsRef = db.collection('events');
-    const snapshot = await eventsRef
-      .where('startAt', '>=', today.toISOString())
-      .where('startAt', '<', tomorrow.toISOString())
-      .get();
-
-    const count = snapshot.size;
+    const count = await getTodayEventCount(db);
 
     if (count > 0) {
       const PAGE_SIZE = 500;
@@ -276,13 +298,7 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, a
         });
 
         await batch.commit();
-
-        if (messages.length > 0) {
-          let chunks = expo.chunkPushNotifications(messages);
-          for (let chunk of chunks) {
-            try { await expo.sendPushNotificationsAsync(chunk); } catch (e) { console.error(e); }
-          }
-        }
+        await sendPushMessages(expo, messages);
 
         processedCount += usersSnapshot.size;
         lastDoc = usersSnapshot.docs[usersSnapshot.docs.length - 1];

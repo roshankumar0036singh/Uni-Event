@@ -241,7 +241,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                         </ScrollView>
                     </View>
                 );
-            case 'date':
+            case 'date': {
                 const currentDate = responses[field.id]
                     ? new Date(responses[field.id])
                     : new Date();
@@ -278,6 +278,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                         )}
                     </View>
                 );
+            }
             default:
                 return null;
         }
