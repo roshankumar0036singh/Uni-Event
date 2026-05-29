@@ -241,10 +241,16 @@ export const checkInParticipant = async (participantData, eventId, organizerId, 
                 { merge: true },
             );
 
-            transaction.update(eventRef, {
-                'stats.totalCheckedIn': increment(1),
-                'stats.lastCheckInAt': serverTimestamp(),
-            });
+            transaction.set(
+                eventRef,
+                {
+                    stats: {
+                        totalCheckedIn: increment(1),
+                        lastCheckInAt: serverTimestamp(),
+                    },
+                },
+                { merge: true },
+            );
 
             transaction.set(
                 userRef,

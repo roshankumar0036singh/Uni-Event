@@ -121,12 +121,15 @@ describe('checkInParticipant', () => {
             }),
             { merge: true },
         );
-        expect(mockTransaction.update).toHaveBeenCalledWith(
+        expect(mockTransaction.set).toHaveBeenCalledWith(
             doc({}, 'events', 'event-1'),
             expect.objectContaining({
-                'stats.totalCheckedIn': increment(1),
-                'stats.lastCheckInAt': 'mock-timestamp',
+                stats: {
+                    totalCheckedIn: increment(1),
+                    lastCheckInAt: 'mock-timestamp',
+                },
             }),
+            { merge: true },
         );
     });
 
