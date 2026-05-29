@@ -81,6 +81,7 @@ describe('EmailService', () => {
 
         const result = await sendBulkAnnouncement(participants, 'Announcement', 'Message');
         expect(result).toBe(2);
+        expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'sendBulkEmails');
         expect(mockSendBulkEmails).toHaveBeenCalledTimes(1);
         expect(mockSendBulkEmails.mock.calls[0][0].participants).toEqual(participants);
     });
@@ -90,6 +91,7 @@ describe('EmailService', () => {
 
         const result = await sendBulkFeedbackRequest(mockParticipants, 'Tech Fest', 'event123');
         expect(result).toBe(1);
+        expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'sendBulkEmails');
         expect(mockSendBulkEmails).toHaveBeenCalledTimes(1);
     });
 
@@ -103,6 +105,7 @@ describe('EmailService', () => {
             'https://example.com',
         );
         expect(result).toBe(1);
+        expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'sendBulkEmails');
         expect(mockSendBulkEmails).toHaveBeenCalledTimes(1);
     });
 });
