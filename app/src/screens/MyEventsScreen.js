@@ -6,14 +6,15 @@ import {
     ActivityIndicator,
     Alert,
     Platform,
-    RefreshControl,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import EventCard from '../components/EventCard';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
+import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
 import { db } from '../lib/firebaseConfig';
@@ -26,6 +27,10 @@ export default function MyEventsScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [refreshNonce, setRefreshNonce] = useState(0);
+    const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
+        setRefreshing(true);
+        setRefreshNonce(n => n + 1);
+    });
 
     useEffect(() => {
         if (!user) return;
@@ -80,11 +85,6 @@ export default function MyEventsScreen({ navigation }) {
                 },
             ]);
         }
-    };
-
-    const onRefresh = () => {
-        setRefreshing(true);
-        setRefreshNonce(n => n + 1);
     };
 
     // 🚀 Task 3: Wrap component renderer with useCallback to avoid functional rebuilds on updates
@@ -183,14 +183,9 @@ export default function MyEventsScreen({ navigation }) {
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.list}
                 estimatedItemSize={220} // 🔥 Critical allocation property ensures high performance recycling allocation
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={[theme.colors.primary]}
-                        tintColor={theme.colors.primary}
-                    />
-                }
+                onScroll={handleScroll}
+                onScrollEndDrag={handleScrollEndDrag}
+                scrollEventThrottle={16}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons
@@ -213,6 +208,11 @@ export default function MyEventsScreen({ navigation }) {
                     </View>
                 }
                 renderItem={renderItem}
+            />
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
             />
 
             {/* Floating Action Button */}

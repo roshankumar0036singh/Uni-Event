@@ -4,13 +4,14 @@ import {
     ActivityIndicator,
     Dimensions,
     Platform,
-    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     View,
 } from 'react-native';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
+import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useTheme } from '../lib/ThemeContext';
 import { fetchHeatmapData, getDensityColor, getDensityOpacity } from '../lib/eventHeatmapData';
 
@@ -56,10 +57,10 @@ export default function LocationHeatmapScreen() {
         loadData();
     }, [loadData]);
 
-    const onRefresh = () => {
+    const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
         setRefreshing(true);
         loadData();
-    };
+    });
 
     const { clusters, maxWeight, total } = heatmapData;
 
@@ -179,13 +180,9 @@ export default function LocationHeatmapScreen() {
         <ScreenWrapper>
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor={theme.colors.primary}
-                    />
-                }
+                onScroll={handleScroll}
+                onScrollEndDrag={handleScrollEndDrag}
+                scrollEventThrottle={16}
             >
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Event Location Heatmap</Text>
@@ -245,6 +242,11 @@ export default function LocationHeatmapScreen() {
                     </View>
                 )}
             </ScrollView>
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
+            />
         </ScreenWrapper>
     );
 }

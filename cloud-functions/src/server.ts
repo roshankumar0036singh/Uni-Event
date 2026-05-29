@@ -2,6 +2,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import * as admin from 'firebase-admin';
+import { checkAndUpdateRateLimit } from './utils/rateLimiter';
 
 // Load environment variables
 dotenv.config();
@@ -52,8 +53,36 @@ const validateFirebaseIdToken = async (req: express.Request, res: express.Respon
   }
 };
 
+// Rate Limiting Middleware for Server Endpoints
+const rateLimitMiddleware = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const user = (req as any).user;
+  if (!user) {
+    return next();
+  }
+
+  try {
+    // Determine if the operation is event creation or regular write
+    const isEventCreation = req.path === '/api/createEvent';
+    const limitResult = await checkAndUpdateRateLimit(user.uid, isEventCreation);
+    
+    if (!limitResult.allowed) {
+      return res.status(limitResult.statusCode).json({
+        error: 'too-many-requests',
+        message: limitResult.message
+      });
+    }
+    next();
+  } catch (error) {
+    console.error('Rate limiter middleware error:', error);
+    return res.status(503).json({
+      error: 'rate-limit-unavailable',
+      message: 'Rate limiting is temporarily unavailable. Please retry shortly.'
+    });
+  }
+};
+
 // setRole Implementation (adapted from setRole.ts logic)
-app.post('/api/setRole', validateFirebaseIdToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/setRole', validateFirebaseIdToken, rateLimitMiddleware, async (req: express.Request, res: express.Response) => {
   const user = (req as any).user;
 
   // 1. Check Auth (already done by middleware, but check existence)
@@ -104,7 +133,7 @@ app.post('/api/setRole', validateFirebaseIdToken, async (req: express.Request, r
 // Send Certificates Endpoint
 import { sendCertificatesForEvent } from './certificateService';
 
-app.post('/api/sendCertificates', validateFirebaseIdToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, async (req: express.Request, res: express.Response) => {
   const user = (req as any).user;
   const { eventId } = req.body;
 
@@ -129,7 +158,7 @@ app.post('/api/sendCertificates', validateFirebaseIdToken, async (req: express.R
 app.get('/', (req, res) => {
   res.send('UniEvent Backend is Running');
 });
-app.post('/api/sendDailyDigest', validateFirebaseIdToken, async (req: express.Request, res: express.Response) => {
+app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, async (req: express.Request, res: express.Response) => {
   try {
     // Optional: Check if admin
     const user = (req as any).user;
