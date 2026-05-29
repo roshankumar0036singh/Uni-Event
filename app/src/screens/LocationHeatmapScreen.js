@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
+import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useTheme } from '../lib/ThemeContext';
 import { fetchHeatmapData, getDensityColor, getDensityOpacity } from '../lib/eventHeatmapData';
 
@@ -44,8 +45,6 @@ export default function LocationHeatmapScreen() {
         total: 0,
     });
     const showMap = Platform.OS !== 'web';
-    const [pullDistance, setPullDistance] = useState(0);
-    const lastPullRef = useRef(0);
 
     const loadData = useCallback(async () => {
         const data = await fetchHeatmapData();
@@ -58,23 +57,10 @@ export default function LocationHeatmapScreen() {
         loadData();
     }, [loadData]);
 
-    const onRefresh = () => {
+    const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
         setRefreshing(true);
         loadData();
-    };
-
-    const handleScroll = useCallback(e => {
-        const offsetY = e.nativeEvent.contentOffset.y;
-        lastPullRef.current = Math.max(0, -offsetY);
-        setPullDistance(lastPullRef.current);
-    }, []);
-
-    const handleScrollEndDrag = useCallback(() => {
-        if (lastPullRef.current >= 80 && !refreshing) {
-            setRefreshing(true);
-            loadData();
-        }
-    }, [refreshing, loadData]);
+    });
 
     const { clusters, maxWeight, total } = heatmapData;
 

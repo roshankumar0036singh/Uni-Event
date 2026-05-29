@@ -89,9 +89,9 @@ export default function LiquidPullToRefresh({ pullDistance, isRefreshing, color 
             const count = 10;
             const baseParticles = Array.from({ length: count }, (_, i) => ({
                 id: i,
-                angle: (i / count) * Math.PI * 2 + Math.random() * 0.4,
-                maxRadius: 25 + Math.random() * 45,
-                size: 2 + Math.random() * 4,
+                angle: (i / count) * Math.PI * 2 + i * 0.06,
+                maxRadius: 25 + ((i * 7) % 40),
+                size: 2 + (i % 4),
             }));
 
             const startTime = Date.now();

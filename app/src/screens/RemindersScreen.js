@@ -9,7 +9,7 @@ import {
     getDocs,
     onSnapshot,
 } from 'firebase/firestore';
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
+import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
@@ -130,6 +131,10 @@ export default function RemindersScreen({ navigation }) {
         }
     };
 
+    const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
+        handleRefresh();
+    });
+
     const handleDelete = async item => {
         // Directly delete without confirmation as requested
         await performDelete(item);
@@ -152,21 +157,6 @@ export default function RemindersScreen({ navigation }) {
             Alert.alert('Error', `Could not delete reminder: ${error.message}`);
         }
     };
-
-    const [pullDistance, setPullDistance] = useState(0);
-    const lastPullRef = useRef(0);
-
-    const handleScroll = useCallback(e => {
-        const offsetY = e.nativeEvent.contentOffset.y;
-        lastPullRef.current = Math.max(0, -offsetY);
-        setPullDistance(lastPullRef.current);
-    }, []);
-
-    const handleScrollEndDrag = useCallback(() => {
-        if (lastPullRef.current >= 80 && !refreshing) {
-            handleRefresh();
-        }
-    }, [refreshing, handleRefresh]);
 
     const getRelativeTime = dateStr => {
         const date = dateStr?.toDate ? dateStr.toDate() : new Date(dateStr);

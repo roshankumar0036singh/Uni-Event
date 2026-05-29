@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { collection, doc, getDoc, getDocs, query } from 'firebase/firestore';
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
+import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
@@ -19,21 +20,10 @@ export default function SavedEventsScreen({ navigation }) {
     const [savedEvents, setSavedEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [pullDistance, setPullDistance] = useState(0);
-    const lastPullRef = useRef(0);
-
-    const handleScroll = useCallback(e => {
-        const offsetY = e.nativeEvent.contentOffset.y;
-        lastPullRef.current = Math.max(0, -offsetY);
-        setPullDistance(lastPullRef.current);
-    }, []);
-
-    const handleScrollEndDrag = useCallback(() => {
-        if (lastPullRef.current >= 80 && !refreshing) {
-            setRefreshing(true);
-            fetchSavedEvents();
-        }
-    }, [refreshing, fetchSavedEvents]);
+    const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
+        setRefreshing(true);
+        fetchSavedEvents();
+    });
 
     const fetchSavedEvents = useCallback(async () => {
         if (!user) return;
@@ -81,11 +71,6 @@ export default function SavedEventsScreen({ navigation }) {
     useEffect(() => {
         fetchSavedEvents();
     }, [fetchSavedEvents]);
-
-    const handleRefresh = () => {
-        setRefreshing(true);
-        fetchSavedEvents();
-    };
 
     // 🚀 Task 3: Wrap list rendering element with useCallback to optimize functional layout memory recycling
     const renderItem = useCallback(({ item }) => <EventCard event={item} />, []);
