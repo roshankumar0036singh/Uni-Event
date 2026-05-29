@@ -26,7 +26,16 @@ WebBrowser.maybeCompleteAuthSession();
 
 const MIN_PASSWORD_LENGTH = 6;
 const EMAIL_REGEX = /^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
-const EMULATOR_GOOGLE_PASSWORD = process.env.EXPO_PUBLIC_EMULATOR_GOOGLE_PASSWORD || 'emulator-password';
+function getEmulatorGooglePassword() {
+    const pwd = process.env.EXPO_PUBLIC_EMULATOR_GOOGLE_PASSWORD;
+    if (!pwd) {
+        throw new Error(
+            'EXPO_PUBLIC_EMULATOR_GOOGLE_PASSWORD is not set. ' +
+            'Add it to your .env file for emulator Google sign-in.',
+        );
+    }
+    return pwd;
+}
 
 const FIREBASE_ERROR_MESSAGES = {
     'auth/email-already-in-use': 'An account with this email already exists.',
@@ -113,10 +122,10 @@ async function handleEmulatorGoogleSignIn(accessToken, signIn, signUp) {
         }
 
         try {
-            await signIn(googleUser.email, EMULATOR_GOOGLE_PASSWORD);
+            await signIn(googleUser.email, getEmulatorGooglePassword());
         } catch (e) {
             if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
-                await signUp(googleUser.email, EMULATOR_GOOGLE_PASSWORD, {
+                await signUp(googleUser.email, getEmulatorGooglePassword(), {
                     displayName: googleUser.name,
                     photoURL: googleUser.picture,
                     provider: 'google',
