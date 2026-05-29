@@ -268,6 +268,11 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null && ('userId' in resource.data) && request.auth.uid == resource.data.userId;
     }
     
+    // Audit Log Collection (admin only)
+    match /auditLog/{logId} {
+      allow read: if isAdmin();
+    }
+
     // Global Administration Controls
     match /admin/{doc} {
       allow read, write: if isAdmin();
