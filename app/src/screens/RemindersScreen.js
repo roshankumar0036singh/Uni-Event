@@ -47,38 +47,36 @@ export default function RemindersScreen({ navigation }) {
 
     const processRemindersSnapshot = async snapshot => {
         const list = [];
-        await Promise.all(
-            snapshot.docs.map(async docSnap => {
-                const data = docSnap.data();
-                let eventTitle = 'Event';
-                let eventLocation = '';
-                let bannerUrl = null;
-                try {
-                    const eventDoc = await getDoc(doc(db, 'events', data.eventId));
-                    if (eventDoc.exists()) {
-                        const ed = eventDoc.data();
-                        eventTitle = ed.title;
-                        eventLocation = ed.location;
-                        bannerUrl = ed.bannerUrl;
-                    }
-                } catch (e) {
-                    console.error('Error fetching event details for reminder:', e);
-                }
 
-                list.push({
-                    id: docSnap.id,
-                    eventTitle,
-                    eventLocation,
-                    bannerUrl,
-                    ...data,
-                });
+        const eventIds = [...new Set(snapshot.docs.map(d => d.data().eventId).filter(Boolean))];
+        const eventMap = {};
+        await Promise.all(
+            eventIds.map(async id => {
+                try {
+                    const snap = await getDoc(doc(db, 'events', id));
+                    if (snap.exists()) eventMap[id] = snap.data();
+                } catch (e) {
+                    console.error('Error fetching event for reminder:', e);
+                }
             }),
         );
 
+        snapshot.docs.forEach(docSnap => {
+            const data = docSnap.data();
+            const ed = eventMap[data.eventId] || {};
+            list.push({
+                id: docSnap.id,
+                ...data,
+                eventTitle: ed.title || 'Event',
+                eventLocation: ed.location || '',
+                bannerUrl: ed.bannerUrl || null,
+            });
+        });
+
         list.sort((a, b) => {
             const da = a.remindAt?.toDate ? a.remindAt.toDate() : new Date(a.remindAt);
-            const db = b.remindAt?.toDate ? b.remindAt.toDate() : new Date(b.remindAt);
-            return da - db;
+            const db2 = b.remindAt?.toDate ? b.remindAt.toDate() : new Date(b.remindAt);
+            return da - db2;
         });
 
         return list;

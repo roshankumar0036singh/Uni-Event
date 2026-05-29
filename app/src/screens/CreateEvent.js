@@ -276,7 +276,7 @@ export default function CreateEvent({ navigation, route }) {
                 startAt: startDate.toISOString(),
                 endAt: endDate.toISOString(),
                 isPaid,
-                price: isPaid ? price : '0',
+                price: isPaid ? Math.max(0, Number.parseFloat(price) || 0) : 0,
                 upiId: isPaid ? upiId : null,
                 registrationLink,
                 target: {
