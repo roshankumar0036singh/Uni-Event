@@ -15,15 +15,17 @@ import {
     Alert,
     FlatList,
     Image,
-    RefreshControl,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
+import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
+import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { cancelScheduledNotification } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
@@ -46,38 +48,36 @@ export default function RemindersScreen({ navigation }) {
 
     const processRemindersSnapshot = async snapshot => {
         const list = [];
-        await Promise.all(
-            snapshot.docs.map(async docSnap => {
-                const data = docSnap.data();
-                let eventTitle = 'Event';
-                let eventLocation = '';
-                let bannerUrl = null;
-                try {
-                    const eventDoc = await getDoc(doc(db, 'events', data.eventId));
-                    if (eventDoc.exists()) {
-                        const ed = eventDoc.data();
-                        eventTitle = ed.title;
-                        eventLocation = ed.location;
-                        bannerUrl = ed.bannerUrl;
-                    }
-                } catch (e) {
-                    console.error('Error fetching event details for reminder:', e);
-                }
 
-                list.push({
-                    id: docSnap.id,
-                    eventTitle,
-                    eventLocation,
-                    bannerUrl,
-                    ...data,
-                });
+        const eventIds = [...new Set(snapshot.docs.map(d => d.data().eventId).filter(Boolean))];
+        const eventMap = {};
+        await Promise.all(
+            eventIds.map(async id => {
+                try {
+                    const snap = await getDoc(doc(db, 'events', id));
+                    if (snap.exists()) eventMap[id] = snap.data();
+                } catch (e) {
+                    console.error('Error fetching event for reminder:', e);
+                }
             }),
         );
 
+        snapshot.docs.forEach(docSnap => {
+            const data = docSnap.data();
+            const ed = eventMap[data.eventId] || {};
+            list.push({
+                id: docSnap.id,
+                ...data,
+                eventTitle: ed.title || 'Event',
+                eventLocation: ed.location || '',
+                bannerUrl: ed.bannerUrl || null,
+            });
+        });
+
         list.sort((a, b) => {
             const da = a.remindAt?.toDate ? a.remindAt.toDate() : new Date(a.remindAt);
-            const db = b.remindAt?.toDate ? b.remindAt.toDate() : new Date(b.remindAt);
-            return da - db;
+            const db2 = b.remindAt?.toDate ? b.remindAt.toDate() : new Date(b.remindAt);
+            return da - db2;
         });
 
         return list;
@@ -130,6 +130,10 @@ export default function RemindersScreen({ navigation }) {
             }
         }
     };
+
+    const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
+        handleRefresh();
+    });
 
     const handleDelete = async item => {
         // Directly delete without confirmation as requested
@@ -189,9 +193,9 @@ export default function RemindersScreen({ navigation }) {
                 <FlatList
                     data={reminders}
                     keyExtractor={item => item.id}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-                    }
+                    onScroll={handleScroll}
+                    onScrollEndDrag={handleScrollEndDrag}
+                    scrollEventThrottle={16}
                     renderItem={({ item }) => {
                         const dateObj = item.remindAt?.toDate
                             ? item.remindAt.toDate()
@@ -241,11 +245,7 @@ export default function RemindersScreen({ navigation }) {
                                             color={theme.colors.textSecondary}
                                         />
                                         <Text style={styles.dateText}>
-                                            {dateObj.toLocaleDateString()} •{' '}
-                                            {dateObj.toLocaleTimeString([], {
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
+                                            {formatEventDate(dateObj)} • {formatEventTime(dateObj)}
                                         </Text>
                                     </View>
 
@@ -292,6 +292,11 @@ export default function RemindersScreen({ navigation }) {
                     contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 16 }}
                 />
             )}
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
+            />
         </ScreenWrapper>
     );
 }

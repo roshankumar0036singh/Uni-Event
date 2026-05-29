@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -11,8 +11,18 @@ import {
     where,
     getDocs,
 } from 'firebase/firestore';
-import React, { useEffect, useState, memo } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View, Switch, Platform } from 'react-native';
+import React, { useEffect, useRef, useState, memo } from 'react';
+import {
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    Switch,
+    Platform,
+    ActivityIndicator,
+    Alert,
+} from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme as globalTheme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
@@ -20,7 +30,29 @@ import { getEarlyBirdInfo } from '../lib/earlyBird';
 import { ShimmerItem } from './SkeletonLoader';
 import { useAuth } from '../lib/AuthContext';
 import { triggerBuddyMatchNotification } from '../lib/notificationService';
+import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
+import { safeToggleEventAction } from '../lib/participantService';
 import PropTypes from 'prop-types';
+
+// Module-level profile cache registry
+// profileCache: resolved data keyed by ownerId
+// profileRequestCache: in-flight promises to prevent duplicate concurrent reads
+const profileCache = new Map();
+const profileRequestCache = new Map();
+
+/**
+ * formatMetric — adaptive pluralization helper for metric badges (Issue #308)
+ * Returns a grammatically correct string for any numeric metric.
+ *
+ * @param {number|undefined|null} value  - Raw numeric value from the database
+ * @param {string} singular              - Singular label, e.g. "View"
+ * @param {string} plural                - Plural label,   e.g. "Views"
+ * @returns {string}                     - e.g. "1 View", "0 Views", "42 Views"
+ */
+const formatMetric = (value, singular, plural) => {
+    const count = value ?? 0;
+    return `${count} ${count === 1 ? singular : plural}`;
+};
 
 const EventCard = memo(
     ({
@@ -40,6 +72,12 @@ const EventCard = memo(
         const [bannerLoaded, setBannerLoaded] = useState(false);
         const [flyerLoaded, setFlyerLoaded] = useState(false);
         const [lookingForBuddy, setLookingForBuddy] = useState(false);
+
+        // UI Loading State
+        const [isProcessing, setIsProcessing] = useState(false);
+        // Synchronous lock reference to block multi-taps inside the same render frame
+        const isProcessingRef = useRef(false);
+
         useEffect(() => {
             if (!isRegistered || !user || !event?.id) return;
 
@@ -84,31 +122,71 @@ const EventCard = memo(
         }, [event?.detailImageUrl, event?.bannerUrl]);
 
         useEffect(() => {
-            if (event?.ownerId) {
-                getDoc(doc(db, 'users', event.ownerId)).then(snap => {
-                    if (snap.exists()) {
-                        setHostName(snap.data().displayName || event.organization || 'Club Name');
-                    }
-                });
+            if (!event?.ownerId) return;
+
+            // Reset immediately to prevent stale FlashList cells showing previous host
+            setHostName(event?.organization || 'Club Name');
+
+            // Cache hit: apply memoized data and short-circuit, no network call
+            if (profileCache.has(event.ownerId)) {
+                const cached = profileCache.get(event.ownerId);
+                setHostName(cached.displayName || event.organization || 'Club Name');
+                return;
             }
+
+            let cancelled = false;
+
+            // In-flight cache: reuse existing promise if another card already fired
+            // getDoc for this ownerId, preventing duplicate concurrent Firestore reads
+            if (!profileRequestCache.has(event.ownerId)) {
+                profileRequestCache.set(event.ownerId, getDoc(doc(db, 'users', event.ownerId)));
+            }
+
+            profileRequestCache
+                .get(event.ownerId)
+                .then(snap => {
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        profileCache.set(event.ownerId, data);
+                        profileRequestCache.delete(event.ownerId);
+                        if (!cancelled) {
+                            setHostName(data.displayName || event.organization || 'Club Name');
+                        }
+                    }
+                })
+                .catch(() => {
+                    profileRequestCache.delete(event.ownerId);
+                });
+
+            return () => {
+                cancelled = true;
+            };
         }, [event?.ownerId, event?.organization]);
+
+        // Gated same-frame input execution track blocker handler
+        const handleRegisterPress = async () => {
+            if (isProcessingRef.current || !user || !event?.id) return;
+
+            isProcessingRef.current = true;
+            setIsProcessing(true);
+
+            try {
+                await safeToggleEventAction(db, user.uid, event.id, true);
+                navigation.navigate('EventDetail', { eventId: event.id });
+            } catch (error) {
+                console.error('Spam button trigger rejected processing error:', error);
+                Alert.alert(
+                    'Registration Failed',
+                    'Unable to register for this event. Please verify your internet connection and try again.',
+                );
+            } finally {
+                isProcessingRef.current = false;
+                setIsProcessing(false);
+            }
+        };
 
         if (!event) return null;
 
-        const dateObj = new Date(event.startAt);
-
-        // Format Date: "OCT 15"
-        const month = dateObj.toLocaleString('default', { month: 'short' }).toUpperCase();
-        const day = dateObj.getDate();
-
-        // Format Time: "7 PM"
-        const time = dateObj.toLocaleString('default', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-        });
-
-        // Fallback for second image if not present in data
         const flyerUrl =
             event.detailImageUrl ||
             event.bannerUrl ||
@@ -129,7 +207,6 @@ const EventCard = memo(
                 activeOpacity={0.9}
                 onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
             >
-                {/* 1. MAIN BANNER IMAGE (Top Layer) */}
                 <View style={[styles.bannerContainer, isRecommended && { height: 140 }]}>
                     {!bannerLoaded && (
                         <ShimmerItem
@@ -146,7 +223,7 @@ const EventCard = memo(
                                 event.bannerUrl ||
                                 'https://dummyimage.com/800x400/cccccc/000000.png&text=No+Image',
                         }}
-                        style={[styles.bannerImage, isRecommended && { height: 140 }]} // Compact height for recommended
+                        style={[styles.bannerImage, isRecommended && { height: 140 }]}
                         resizeMode="cover"
                         onLoadEnd={() => setBannerLoaded(true)}
                     />
@@ -154,14 +231,12 @@ const EventCard = memo(
                         colors={['transparent', 'rgba(0,0,0,0.4)']}
                         style={StyleSheet.absoluteFillObject}
                     />
-                    {/* Category Tag on Banner */}
                     <View style={[styles.categoryBadge, { backgroundColor: theme.colors.surface }]}>
                         <Text style={[styles.categoryText, { color: theme.colors.text }]}>
                             {event.category}
                         </Text>
                     </View>
 
-                    {/* Live / Online Badge */}
                     {isLive && (
                         <View style={[styles.onlineBadge, { backgroundColor: theme.colors.error }]}>
                             <Ionicons name="radio-button-on" size={12} color="#fff" />
@@ -177,20 +252,15 @@ const EventCard = memo(
                         </View>
                     )}
 
-                    {/* SUSPENDED Badge */}
                     {event.status === 'suspended' && (
                         <View style={[styles.onlineBadge, { backgroundColor: '#FF4444' }]}>
                             <Ionicons name="alert-circle" size={12} color="#fff" />
                             <Text style={styles.onlineText}>SUSPENDED</Text>
                         </View>
                     )}
-
-                    {/* Removed Top Pick badge from banner - moved to details row */}
                 </View>
 
-                {/* 2. CONTENT CONTAINER */}
                 <View style={styles.contentContainer}>
-                    {/* FLYER IMAGE (Overlapping) */}
                     <View
                         style={[
                             styles.flyerContainer,
@@ -208,7 +278,6 @@ const EventCard = memo(
                         />
                     </View>
 
-                    {/* HEADER INFO (Right of Flyer) */}
                     <View style={styles.headerInfo}>
                         <Text
                             style={[styles.title, { color: theme.colors.text }]}
@@ -221,9 +290,7 @@ const EventCard = memo(
                         </Text>
                     </View>
 
-                    {/* DETAILS ROW (Below Flyer) */}
                     <View style={styles.detailsRow}>
-                        {/* Date & Location */}
                         <View style={styles.infoBlock}>
                             <View style={styles.infoItem}>
                                 <Ionicons
@@ -234,7 +301,8 @@ const EventCard = memo(
                                 <Text
                                     style={[styles.infoText, { color: theme.colors.textSecondary }]}
                                 >
-                                    {month} {day} • {time}
+                                    {formatEventDate(event.startAt)}{' '}
+                                    {formatEventTime(event.startAt)}
                                 </Text>
                             </View>
                             <View style={styles.infoItem}>
@@ -250,6 +318,8 @@ const EventCard = memo(
                                     {event.eventMode === 'online' ? 'Online' : event.location}
                                 </Text>
                             </View>
+
+                            {/* ✅ Issue #308 — views metric now uses formatMetric for correct pluralization */}
                             <View style={styles.infoItem}>
                                 <Ionicons
                                     name="eye-outline"
@@ -259,11 +329,10 @@ const EventCard = memo(
                                 <Text
                                     style={[styles.infoText, { color: theme.colors.textSecondary }]}
                                 >
-                                    {event.views || 0} Views
+                                    {formatMetric(event.views, 'View', 'Views')}
                                 </Text>
                             </View>
 
-                            {/* Top Pick Badge - Moved here */}
                             {isRecommended && (
                                 <View
                                     style={{
@@ -288,7 +357,6 @@ const EventCard = memo(
                                 </View>
                             )}
 
-                            {/* Early Bird Badge */}
                             {isEarlyBird && !isRegistered && (
                                 <View
                                     style={{
@@ -321,7 +389,6 @@ const EventCard = memo(
                             )}
                         </View>
 
-                        {/* Price Badge */}
                         <View
                             style={[styles.priceBadge, { backgroundColor: theme.colors.secondary }]}
                         >
@@ -331,7 +398,6 @@ const EventCard = memo(
                         </View>
                     </View>
 
-                    {/* FOOTER ACTION */}
                     {showRegisterButton &&
                         (isRegistered ? (
                             <View style={styles.registeredRow}>
@@ -382,15 +448,20 @@ const EventCard = memo(
                                 style={[
                                     styles.registerBtn,
                                     {
-                                        backgroundColor: theme.colors.primary,
+                                        backgroundColor: isProcessing
+                                            ? theme.colors.border
+                                            : theme.colors.primary,
                                         ...theme.shadows.default,
                                     },
                                 ]}
-                                onPress={() =>
-                                    navigation.navigate('EventDetail', { eventId: event.id })
-                                }
+                                disabled={isProcessing}
+                                onPress={handleRegisterPress}
                             >
-                                <Text style={styles.registerText}>REGISTER</Text>
+                                {isProcessing ? (
+                                    <ActivityIndicator size="small" color="#ffffff" />
+                                ) : (
+                                    <Text style={styles.registerText}>REGISTER</Text>
+                                )}
                             </TouchableOpacity>
                         ))}
                 </View>
@@ -425,7 +496,7 @@ const styles = StyleSheet.create({
         right: 16,
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 20, // Pill
+        borderRadius: 20,
         ...globalTheme.shadows.small,
     },
     categoryText: {
@@ -440,7 +511,7 @@ const styles = StyleSheet.create({
         left: 16,
         paddingHorizontal: 10,
         paddingVertical: 6,
-        borderRadius: 20, // Pill
+        borderRadius: 20,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
@@ -507,11 +578,10 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
     },
-    // New Ribbon Style for Price
     priceBadge: {
         paddingVertical: 6,
         paddingHorizontal: 12,
-        borderRadius: 20, // Pill
+        borderRadius: 20,
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.1)',
     },

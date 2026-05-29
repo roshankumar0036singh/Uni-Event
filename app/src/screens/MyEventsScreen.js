@@ -1,19 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { collection, deleteDoc, doc, onSnapshot, query, where } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    FlatList,
     Platform,
-    RefreshControl,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import EventCard from '../components/EventCard';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
+import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
 import { db } from '../lib/firebaseConfig';
@@ -26,6 +27,10 @@ export default function MyEventsScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [refreshNonce, setRefreshNonce] = useState(0);
+    const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
+        setRefreshing(true);
+        setRefreshNonce(n => n + 1);
+    });
 
     useEffect(() => {
         if (!user) return;
@@ -82,62 +87,67 @@ export default function MyEventsScreen({ navigation }) {
         }
     };
 
-    const onRefresh = () => {
-        setRefreshing(true);
-        setRefreshNonce(n => n + 1);
-    };
+    // 🚀 Task 3: Wrap component renderer with useCallback to avoid functional rebuilds on updates
+    const renderItem = useCallback(
+        ({ item }) => (
+            <View style={styles.cardContainer}>
+                <EventCard event={item} showRegisterButton={false} style={{ marginBottom: 0 }} />
 
-    const renderItem = ({ item }) => (
-        <View style={styles.cardContainer}>
-            <EventCard event={item} showRegisterButton={false} style={{ marginBottom: 0 }} />
+                <View
+                    style={[
+                        styles.actionBar,
+                        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+                    ]}
+                >
+                    {/* Status */}
+                    <View style={styles.statusContainer}>
+                        <View
+                            style={[
+                                styles.dot,
+                                {
+                                    backgroundColor:
+                                        item.status === 'suspended'
+                                            ? theme.colors.error
+                                            : theme.colors.success,
+                                },
+                            ]}
+                        />
+                        <Text style={[styles.statusText, { color: theme.colors.text }]}>
+                            {item.status === 'suspended' ? 'SUSPENDED' : 'Active'}
+                        </Text>
+                    </View>
 
-            <View
-                style={[
-                    styles.actionBar,
-                    { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-                ]}
-            >
-                {/* Status */}
-                <View style={styles.statusContainer}>
-                    <View
-                        style={[
-                            styles.dot,
-                            {
-                                backgroundColor:
-                                    item.status === 'suspended'
-                                        ? theme.colors.error
-                                        : theme.colors.success,
-                            },
-                        ]}
-                    />
-                    <Text style={[styles.statusText, { color: theme.colors.text }]}>
-                        {item.status === 'suspended' ? 'SUSPENDED' : 'Active'}
-                    </Text>
-                </View>
+                    {/* Actions */}
+                    <View style={styles.actions}>
+                        <TouchableOpacity
+                            style={[
+                                styles.actionBtn,
+                                { backgroundColor: theme.colors.primary + '15' },
+                            ]}
+                            onPress={() =>
+                                navigation.navigate('AttendanceDashboard', {
+                                    eventId: item.id,
+                                    eventTitle: item.title,
+                                })
+                            }
+                        >
+                            <Ionicons name="bar-chart" size={18} color={theme.colors.primary} />
+                        </TouchableOpacity>
 
-                {/* Actions */}
-                <View style={styles.actions}>
-                    <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: theme.colors.primary + '15' }]}
-                        onPress={() =>
-                            navigation.navigate('AttendanceDashboard', {
-                                eventId: item.id,
-                                eventTitle: item.title,
-                            })
-                        }
-                    >
-                        <Ionicons name="bar-chart" size={18} color={theme.colors.primary} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: theme.colors.error + '15' }]}
-                        onPress={() => handleDelete(item.id)}
-                    >
-                        <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.actionBtn,
+                                { backgroundColor: theme.colors.error + '15' },
+                            ]}
+                            onPress={() => handleDelete(item.id)}
+                        >
+                            <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </View>
-        </View>
+        ),
+        [theme, navigation],
     );
 
     if (loading)
@@ -167,18 +177,15 @@ export default function MyEventsScreen({ navigation }) {
                 </TouchableOpacity>
             </View>
 
-            <FlatList
+            {/* 🚀 Task 1: Replaced native FlatList with high-performance Shopify FlashList layout view */}
+            <FlashList
                 data={events}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.list}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={[theme.colors.primary]}
-                        tintColor={theme.colors.primary}
-                    />
-                }
+                estimatedItemSize={220} // 🔥 Critical allocation property ensures high performance recycling allocation
+                onScroll={handleScroll}
+                onScrollEndDrag={handleScrollEndDrag}
+                scrollEventThrottle={16}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons
@@ -201,6 +208,11 @@ export default function MyEventsScreen({ navigation }) {
                     </View>
                 }
                 renderItem={renderItem}
+            />
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
             />
 
             {/* Floating Action Button */}
@@ -229,7 +241,7 @@ const styles = StyleSheet.create({
     },
     backBtn: { marginRight: 15 },
     title: { fontSize: 28, fontWeight: 'bold' },
-    list: { padding: 20, paddingBottom: 100 }, // Extra padding for FAB
+    list: { padding: 20, paddingBottom: 100 },
     cardContainer: { marginBottom: 20 },
     actionBar: {
         flexDirection: 'row',
@@ -240,9 +252,9 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 16,
         borderTopWidth: 0,
         borderWidth: 1,
-        marginTop: -10, // Overlap roughly with card bottom
+        marginTop: -10,
         zIndex: -1,
-        paddingTop: 15, // Compensate for overlap
+        paddingTop: 15,
     },
     statusContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     dot: { width: 8, height: 8, borderRadius: 4 },

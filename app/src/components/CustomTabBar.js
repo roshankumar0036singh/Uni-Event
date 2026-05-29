@@ -50,7 +50,7 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
 
                         return (
                             <TouchableOpacity
-                                key={index}
+                                key={route.key}
                                 accessible={true}
                                 accessibilityRole="button"
                                 accessibilityState={isFocused ? { selected: true } : {}}

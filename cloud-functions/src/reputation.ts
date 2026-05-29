@@ -1,5 +1,10 @@
-import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
+
+// Initialize only once (important for tests + Firebase runtime)
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 const db = admin.firestore();
 
@@ -151,7 +156,6 @@ export const runReputationRefresh = async () => {
             points += attendances * ATTENDANCE_POINTS * decay;
             points += reminders * REMINDER_POINTS * decay;
         }
-
         batch.update(userDoc.ref, {
             'reputation.points': points,
             'reputation.attendanceCount': attendanceCount,

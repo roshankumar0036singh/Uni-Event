@@ -65,7 +65,7 @@ export default function ClubProfileScreen({ route, navigation }) {
                         } else {
                             // Mock Fallback for "Test" clubs that aren't real users yet
                             setClub({
-                                id: id || 'test-club',
+                                id: id,
                                 displayName: clubName || 'Unknown Club',
                                 role: 'club',
                                 bio: 'Empowering students through technology and innovation. Join us to build the future.',

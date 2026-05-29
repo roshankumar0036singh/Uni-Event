@@ -316,12 +316,14 @@ npm test
 | [Setup Guide](./docs/SETUP.md) | Full installation and configuration walkthrough |
 | [Environment Variables](./docs/ENV_SETUP.md) | How to obtain and configure all required API keys |
 | [Firebase Setup](./docs/FIREBASE_SETUP.md) | Firebase project creation and emulator configuration |
+| [Troubleshooting Guide](./docs/TROUBLESHOOTING.md) | Platform diagnostics and resolution workflows |
  
 ### Architecture & Development
  
 | Document | Description |
 |----------|-------------|
 | [Architecture](./docs/Architecture.md) | System design, data flow, and architecture overview |
+| [Data Model Specification](./docs/DATA_MODEL.md) | Firestore ER diagram, collection schemas, and indexes |
 | [Contributing Guide](./CONTRIBUTING.md) | How to contribute code, docs, or bug reports |
 | [Code of Conduct](./CODE_OF_CONDUCT.md) | Community standards and expectations |
  

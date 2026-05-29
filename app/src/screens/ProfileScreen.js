@@ -1,5 +1,4 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-// import { Picker } from '@react-native-picker/picker'; // Removed native picker
 import { updateProfile } from 'firebase/auth';
 import { addDoc, collection, doc, getCountFromServer, getDoc, updateDoc } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -343,6 +342,17 @@ export default function ProfileScreen({ navigation }) {
 
     const handleSave = async () => {
         if (!name) return Alert.alert('Error', 'Name cannot be empty');
+
+        const trimmedInstagram = instagram.trim();
+        const trimmedLinkedin = linkedin.trim();
+        const urlPattern = /^https:\/\/.+/;
+        if (trimmedInstagram && !urlPattern.test(trimmedInstagram)) {
+            return Alert.alert('Invalid URL', 'Instagram link must start with https://');
+        }
+        if (trimmedLinkedin && !urlPattern.test(trimmedLinkedin)) {
+            return Alert.alert('Invalid URL', 'LinkedIn link must start with https://');
+        }
+
         setLoading(true);
         try {
             await updateProfile(user, { displayName: name });

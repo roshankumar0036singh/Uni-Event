@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { collection, doc, getDoc, getDocs, query } from 'firebase/firestore';
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
+import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
@@ -17,6 +20,10 @@ export default function SavedEventsScreen({ navigation }) {
     const [savedEvents, setSavedEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
+        setRefreshing(true);
+        fetchSavedEvents();
+    });
 
     const fetchSavedEvents = useCallback(async () => {
         if (!user) return;
@@ -65,10 +72,8 @@ export default function SavedEventsScreen({ navigation }) {
         fetchSavedEvents();
     }, [fetchSavedEvents]);
 
-    const handleRefresh = () => {
-        setRefreshing(true);
-        fetchSavedEvents();
-    };
+    // 🚀 Task 3: Wrap list rendering element with useCallback to optimize functional layout memory recycling
+    const renderItem = useCallback(({ item }) => <EventCard event={item} />, []);
 
     if (loading && !refreshing) {
         return (
@@ -92,17 +97,15 @@ export default function SavedEventsScreen({ navigation }) {
                     </Text>
                 </View>
 
-                <FlatList
+                {/* 🚀 Task 1: Replaced the standard native FlatList with high-efficiency Shopify FlashList */}
+                <FlashList
                     data={savedEvents}
                     keyExtractor={item => item.id}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={handleRefresh}
-                            colors={[theme.colors.primary]}
-                        />
-                    }
-                    renderItem={({ item }) => <EventCard event={item} />}
+                    estimatedItemSize={180} // 🔥 Performance parameter pre-allocates memory for smooth 60fps scrolling
+                    onScroll={handleScroll}
+                    onScrollEndDrag={handleScrollEndDrag}
+                    scrollEventThrottle={16}
+                    renderItem={renderItem}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
                             <View style={styles.emptyIconCircle}>
@@ -124,6 +127,11 @@ export default function SavedEventsScreen({ navigation }) {
                     }
                     contentContainerStyle={{ paddingBottom: 20 }}
                     showsVerticalScrollIndicator={false}
+                />
+                <LiquidPullToRefresh
+                    pullDistance={pullDistance}
+                    isRefreshing={refreshing}
+                    color={theme.colors.primary}
                 />
             </View>
         </ScreenWrapper>

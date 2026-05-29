@@ -1,14 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
-import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
@@ -38,11 +32,6 @@ export default function ParticipatingEventsScreen({ navigation }) {
                 return;
             }
 
-            // 2. Fetch details for these events
-            // Firestore 'in' query supports max 10/30 items.
-            // Better to fetch individually or use a smart query if list is small.
-            // For MVP, we fetch individually (parallelized).
-
             try {
                 const eventPromises = eventIds.map(id => getDoc(doc(db, 'events', id)));
                 const eventDocs = await Promise.all(eventPromises);
@@ -65,6 +54,19 @@ export default function ParticipatingEventsScreen({ navigation }) {
         return () => unsubscribe();
     }, [user]);
 
+    // 🚀 Task 3: Wrap list item component renderer with useCallback to completely optimize list recycling renders
+    const renderItem = useCallback(
+        ({ item }) => (
+            <EventCard
+                event={item}
+                isRegistered={true} // By definition
+                onLike={() => {}}
+                onShare={() => {}}
+            />
+        ),
+        [],
+    );
+
     if (loading)
         return (
             <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
@@ -81,23 +83,18 @@ export default function ParticipatingEventsScreen({ navigation }) {
                 <Text style={[theme.typography.h2, { color: theme.colors.text }]}>Going</Text>
             </View>
 
-            <FlatList
+            {/* 🚀 Task 1: Replaced old legacy standard FlatList with Shopify optimized recycling FlashList engine layout view */}
+            <FlashList
                 data={events}
                 keyExtractor={item => item.id}
+                estimatedItemSize={160} // 🔥 Performance size optimization parameter allows smooth 60fps item rendering
                 contentContainerStyle={{ padding: staticTheme.spacing.m }}
                 ListEmptyComponent={
                     <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>
                         You haven&apos;t joined any events yet.
                     </Text>
                 }
-                renderItem={({ item }) => (
-                    <EventCard
-                        event={item}
-                        isRegistered={true} // By definition
-                        onLike={() => {}}
-                        onShare={() => {}}
-                    />
-                )}
+                renderItem={renderItem}
             />
         </ScreenWrapper>
     );
