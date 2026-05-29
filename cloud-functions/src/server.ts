@@ -229,8 +229,6 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, a
       const PAGE_SIZE = 500;
       let lastDoc: admin.firestore.DocumentSnapshot | null = null;
       let processedCount = 0;
-      const { Expo } = require('expo-server-sdk');
-      const expo = new Expo();
 
       while (true) {
         let query: admin.firestore.Query = db

@@ -1009,7 +1009,6 @@ export default function EventDetail({ route, navigation }) {
         const isExpired = deadline && new Date() > deadline;
         const isEarlyBirdTicket =
             ticket.isEarlyBird || /\bearly\b/i.test(ticket.name ?? '');
-        const isFree = !ticket.price || Number(ticket.price) <= 0;
         const accentColor = isEarlyBirdTicket ? '#EAB308' : theme.colors.primary;
         const benefitsOpen = expandedBenefits.has(idx);
         const hasBenefits = ticket.benefits && ticket.benefits.length > 0;
