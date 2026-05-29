@@ -41,13 +41,13 @@ export default function RemindersScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const isMounted = useRef(true);
+    const isMounted = useRef(false);
     useEffect(() => {
-        isMounted.current = isFocused;
+        isMounted.current = true;
         return () => {
             isMounted.current = false;
         };
-    }, [isFocused]);
+    }, []);
 
     const processRemindersSnapshot = async snapshot => {
         const list = [];
@@ -128,9 +128,7 @@ export default function RemindersScreen({ navigation }) {
             console.error('Refresh error:', error);
             Alert.alert('Error', 'Failed to refresh reminders.');
         } finally {
-            if (isMounted.current) {
-                setRefreshing(false);
-            }
+            setRefreshing(false);
         }
     };
 

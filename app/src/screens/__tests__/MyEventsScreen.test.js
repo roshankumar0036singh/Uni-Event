@@ -42,7 +42,6 @@ jest.mock('../../lib/firebaseConfig', () => ({
 }));
 
 jest.mock('../../components/ScreenWrapper', () => {
-    const React = require('react');
     const { View } = require('react-native');
     const PropTypes = require('prop-types');
 
@@ -58,7 +57,6 @@ jest.mock('../../components/ScreenWrapper', () => {
 });
 
 jest.mock('../../components/EventCard', () => {
-    const React = require('react');
     const { View } = require('react-native');
 
     function MockEventCard() {
@@ -66,6 +64,16 @@ jest.mock('../../components/EventCard', () => {
     }
 
     return MockEventCard;
+});
+
+jest.mock('../../components/LiquidPullToRefresh', () => {
+    const { View } = require('react-native');
+
+    function MockLiquidPullToRefresh() {
+        return <View testID="liquid-pull-to-refresh" />;
+    }
+
+    return MockLiquidPullToRefresh;
 });
 
 jest.mock('firebase/firestore', () => ({
