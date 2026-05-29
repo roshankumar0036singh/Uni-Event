@@ -268,12 +268,11 @@ function Navigation() {
                             component={QRScannerScreen}
                             options={{ title: 'Scan QR', headerShown: false }}
                         />
-                        <Stack.Screen
-                            name="Appearance"
-                            options={{ title: 'Appearance' }}
-                        >
-                            {(props) => (
-                                <Suspense fallback={<LazyScreenFallback color={theme.colors.primary} />}>
+                        <Stack.Screen name="Appearance" options={{ title: 'Appearance' }}>
+                            {props => (
+                                <Suspense
+                                    fallback={<LazyScreenFallback color={theme.colors.primary} />}
+                                >
                                     <AppearanceScreen {...props} />
                                 </Suspense>
                             )}
@@ -328,22 +327,20 @@ function Navigation() {
                             component={WrappedScreen}
                             options={{ headerShown: false }}
                         />
-                        <Stack.Screen
-                            name="ReportBug"
-                            options={{ title: 'Report a Bug' }}
-                        >
-                            {(props) => (
-                                <Suspense fallback={<LazyScreenFallback color={theme.colors.primary} />}>
+                        <Stack.Screen name="ReportBug" options={{ title: 'Report a Bug' }}>
+                            {props => (
+                                <Suspense
+                                    fallback={<LazyScreenFallback color={theme.colors.primary} />}
+                                >
                                     <ReportBugScreen {...props} />
                                 </Suspense>
                             )}
                         </Stack.Screen>
-                        <Stack.Screen
-                            name="LocationHeatmap"
-                            options={{ title: 'Event Heatmap' }}
-                        >
-                            {(props) => (
-                                <Suspense fallback={<LazyScreenFallback color={theme.colors.primary} />}>
+                        <Stack.Screen name="LocationHeatmap" options={{ title: 'Event Heatmap' }}>
+                            {props => (
+                                <Suspense
+                                    fallback={<LazyScreenFallback color={theme.colors.primary} />}
+                                >
                                     <LocationHeatmapScreen {...props} />
                                 </Suspense>
                             )}
