@@ -362,8 +362,8 @@ export default function EventChatScreen({ route, navigation }) {
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={{ padding: 10, gap: 15 }}
                         >
-                            {emojis.map((emoji, index) => (
-                                <TouchableOpacity key={index} onPress={() => onEmojiSelect(emoji)}>
+                            {emojis.map((emoji) => (
+                                <TouchableOpacity key={emoji} onPress={() => onEmojiSelect(emoji)}>
                                     <Text style={{ fontSize: 24 }}>{emoji}</Text>
                                 </TouchableOpacity>
                             ))}
