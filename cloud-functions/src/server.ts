@@ -32,6 +32,7 @@ if (admin.apps.length === 0) {
 }
 
 const app = express();
+app.disable('x-powered-by');
 app.use(cors({ origin: true }));
 app.use(express.json());
 

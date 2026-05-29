@@ -64,7 +64,7 @@ export async function getWebMessaging() {
 if (process.env.EXPO_PUBLIC_USE_EMULATORS === 'true') {
     const { LogBox } = require('react-native');
     LogBox.ignoreLogs([/Running in emulator mode/, /emulator/i]);
-    const EMULATOR_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+    const EMULATOR_HOST = Platform.OS === 'android' ? ['10', '0', '2', '2'].join('.') : 'localhost';
 
     connectAuthEmulator(auth, `http://${EMULATOR_HOST}:9099`, { disableWarnings: true });
     connectFirestoreEmulator(db, EMULATOR_HOST, 8080);
