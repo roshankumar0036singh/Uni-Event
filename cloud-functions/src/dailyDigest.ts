@@ -81,7 +81,17 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
 
         usersSnapshot.forEach(userDoc => processUserPage(userDoc, count, batch, pageMessages));
         await batch.commit();
-        await sendPushNotifications(pageMessages);
+        if (pageMessages.length > 0) {
+            try {
+                await sendPushNotifications(pageMessages);
+            } catch (error) {
+                functions.logger.error('Daily digest push delivery failed for page', {
+                    error,
+                    pageSize: usersSnapshot.size,
+                    pushMessages: pageMessages.length,
+                });
+            }
+        }
 
         processedCount += usersSnapshot.size;
         lastDoc = usersSnapshot.docs[usersSnapshot.docs.length - 1];
