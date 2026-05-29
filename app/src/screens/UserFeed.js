@@ -1,13 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { collection, limit, onSnapshot, query, where, getDocs } from 'firebase/firestore';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     Animated,
     Alert,
     Platform,
-    RefreshControl,
     ScrollView,
     Share,
     StyleSheet,
@@ -18,6 +17,7 @@ import {
 } from 'react-native';
 import EventCard from '../components/EventCard';
 import FeedbackModal from '../components/FeedbackModal';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { useAuth } from '../lib/AuthContext';
 import { submitFeedback } from '../lib/feedbackService';
@@ -315,6 +315,23 @@ export default function UserFeed() {
         }
     };
 
+    const [pullDistance, setPullDistance] = useState(0);
+    const lastPullRef = useRef(0);
+
+    useEffect(() => {
+        const listenerId = scrollY.addListener(({ value }) => {
+            lastPullRef.current = Math.max(0, -value);
+            setPullDistance(lastPullRef.current);
+        });
+        return () => scrollY.removeListener(listenerId);
+    }, [scrollY]);
+
+    const handleScrollEndDrag = useCallback(() => {
+        if (lastPullRef.current >= 80 && !refreshing) {
+            onRefresh();
+        }
+    }, [refreshing, onRefresh]);
+
     const StickyHeader = () => (
         <View style={{ backgroundColor: theme.colors.background, paddingBottom: 10 }}>
             {/* Search Bar - Floating Pill */}
@@ -524,17 +541,10 @@ export default function UserFeed() {
                     renderSectionHeader={StickyHeader}
                     ListHeaderComponent={renderHeader}
                     stickySectionHeadersEnabled={true}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            colors={[theme.colors.primary]}
-                            tintColor={theme.colors.primary}
-                        />
-                    }
                     onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
                         useNativeDriver: true,
                     })}
+                    onScrollEndDrag={handleScrollEndDrag}
                     contentContainerStyle={{ paddingBottom: 100 }}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
@@ -553,6 +563,12 @@ export default function UserFeed() {
                     }
                 />
             )}
+
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
+            />
 
             {/* Feedback Modal */}
             <FeedbackModal

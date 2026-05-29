@@ -1,18 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { collection, deleteDoc, doc, onSnapshot, query, where } from 'firebase/firestore';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     ActivityIndicator,
     Alert,
     Platform,
-    RefreshControl,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import EventCard from '../components/EventCard';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
@@ -26,6 +26,21 @@ export default function MyEventsScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [refreshNonce, setRefreshNonce] = useState(0);
+    const [pullDistance, setPullDistance] = useState(0);
+    const lastPullRef = useRef(0);
+
+    const handleScroll = useCallback(e => {
+        const offsetY = e.nativeEvent.contentOffset.y;
+        lastPullRef.current = Math.max(0, -offsetY);
+        setPullDistance(lastPullRef.current);
+    }, []);
+
+    const handleScrollEndDrag = useCallback(() => {
+        if (lastPullRef.current >= 80 && !refreshing) {
+            setRefreshing(true);
+            setRefreshNonce(n => n + 1);
+        }
+    }, [refreshing]);
 
     useEffect(() => {
         if (!user) return;
@@ -183,14 +198,9 @@ export default function MyEventsScreen({ navigation }) {
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.list}
                 estimatedItemSize={220} // 🔥 Critical allocation property ensures high performance recycling allocation
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={[theme.colors.primary]}
-                        tintColor={theme.colors.primary}
-                    />
-                }
+                onScroll={handleScroll}
+                onScrollEndDrag={handleScrollEndDrag}
+                scrollEventThrottle={16}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons
@@ -213,6 +223,11 @@ export default function MyEventsScreen({ navigation }) {
                     </View>
                 }
                 renderItem={renderItem}
+            />
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
             />
 
             {/* Floating Action Button */}

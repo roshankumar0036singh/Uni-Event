@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, documentId, getDocs, onSnapshot, query, where } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
@@ -15,6 +16,21 @@ export default function MyRegisteredEventsScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [refreshNonce, setRefreshNonce] = useState(0);
+    const [pullDistance, setPullDistance] = useState(0);
+    const lastPullRef = useRef(0);
+
+    const handleScroll = useCallback(e => {
+        const offsetY = e.nativeEvent.contentOffset.y;
+        lastPullRef.current = Math.max(0, -offsetY);
+        setPullDistance(lastPullRef.current);
+    }, []);
+
+    const handleScrollEndDrag = useCallback(() => {
+        if (lastPullRef.current >= 80 && !refreshing) {
+            setRefreshing(true);
+            setRefreshNonce(n => n + 1);
+        }
+    }, [refreshing]);
 
     useEffect(() => {
         if (!user) {
@@ -100,14 +116,9 @@ export default function MyRegisteredEventsScreen() {
                 data={events}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.list}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={[theme.colors.primary]}
-                        tintColor={theme.colors.primary}
-                    />
-                }
+                onScroll={handleScroll}
+                onScrollEndDrag={handleScrollEndDrag}
+                scrollEventThrottle={16}
                 renderItem={({ item }) => <EventCard event={item} />}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
@@ -121,6 +132,11 @@ export default function MyRegisteredEventsScreen() {
                         </Text>
                     </View>
                 }
+            />
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
             />
         </View>
     );

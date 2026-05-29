@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
     Platform,
-    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     View,
 } from 'react-native';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useTheme } from '../lib/ThemeContext';
 import { fetchHeatmapData, getDensityColor, getDensityOpacity } from '../lib/eventHeatmapData';
@@ -44,6 +44,8 @@ export default function LocationHeatmapScreen() {
         total: 0,
     });
     const showMap = Platform.OS !== 'web';
+    const [pullDistance, setPullDistance] = useState(0);
+    const lastPullRef = useRef(0);
 
     const loadData = useCallback(async () => {
         const data = await fetchHeatmapData();
@@ -60,6 +62,19 @@ export default function LocationHeatmapScreen() {
         setRefreshing(true);
         loadData();
     };
+
+    const handleScroll = useCallback(e => {
+        const offsetY = e.nativeEvent.contentOffset.y;
+        lastPullRef.current = Math.max(0, -offsetY);
+        setPullDistance(lastPullRef.current);
+    }, []);
+
+    const handleScrollEndDrag = useCallback(() => {
+        if (lastPullRef.current >= 80 && !refreshing) {
+            setRefreshing(true);
+            loadData();
+        }
+    }, [refreshing, loadData]);
 
     const { clusters, maxWeight, total } = heatmapData;
 
@@ -179,13 +194,9 @@ export default function LocationHeatmapScreen() {
         <ScreenWrapper>
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor={theme.colors.primary}
-                    />
-                }
+                onScroll={handleScroll}
+                onScrollEndDrag={handleScrollEndDrag}
+                scrollEventThrottle={16}
             >
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Event Location Heatmap</Text>
@@ -245,6 +256,11 @@ export default function LocationHeatmapScreen() {
                     </View>
                 )}
             </ScrollView>
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
+            />
         </ScreenWrapper>
     );
 }

@@ -9,18 +9,18 @@ import {
     getDocs,
     onSnapshot,
 } from 'firebase/firestore';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
     ActivityIndicator,
     Alert,
     FlatList,
     Image,
-    RefreshControl,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
@@ -153,6 +153,21 @@ export default function RemindersScreen({ navigation }) {
         }
     };
 
+    const [pullDistance, setPullDistance] = useState(0);
+    const lastPullRef = useRef(0);
+
+    const handleScroll = useCallback(e => {
+        const offsetY = e.nativeEvent.contentOffset.y;
+        lastPullRef.current = Math.max(0, -offsetY);
+        setPullDistance(lastPullRef.current);
+    }, []);
+
+    const handleScrollEndDrag = useCallback(() => {
+        if (lastPullRef.current >= 80 && !refreshing) {
+            handleRefresh();
+        }
+    }, [refreshing, handleRefresh]);
+
     const getRelativeTime = dateStr => {
         const date = dateStr?.toDate ? dateStr.toDate() : new Date(dateStr);
         const now = new Date();
@@ -188,9 +203,9 @@ export default function RemindersScreen({ navigation }) {
                 <FlatList
                     data={reminders}
                     keyExtractor={item => item.id}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-                    }
+                    onScroll={handleScroll}
+                    onScrollEndDrag={handleScrollEndDrag}
+                    scrollEventThrottle={16}
                     renderItem={({ item }) => {
                         const dateObj = item.remindAt?.toDate
                             ? item.remindAt.toDate()
@@ -287,6 +302,11 @@ export default function RemindersScreen({ navigation }) {
                     contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 16 }}
                 />
             )}
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
+            />
         </ScreenWrapper>
     );
 }
