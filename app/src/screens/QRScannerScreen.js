@@ -16,12 +16,75 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import WebQRScanner from '../components/WebQRScanner';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
-import { queueOfflineCheckIn, checkInAttendee } from '../lib/checkInService';
+import { queueOfflineCheckIn, checkInAttendee, checkInParticipant } from '../lib/checkInService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 import * as Clipboard from 'expo-clipboard';
 
 const { width } = Dimensions.get('window');
+
+const isNetworkError = error => {
+    const message = error?.message?.toLowerCase() || '';
+    return (
+        error?.code === 'unavailable' || message.includes('offline') || message.includes('network')
+    );
+};
+
+const getOperatorName = user => user?.displayName || user?.name || user?.email || 'Organizer';
+
+const parseScannedTicket = (data, eventId) => {
+    let ticketData;
+
+    try {
+        ticketData = JSON.parse(data);
+    } catch (err) {
+        console.error('Invalid QR code JSON format:', err);
+        return { errorMessage: 'Invalid QR code format.' };
+    }
+
+    if (!ticketData?.userId) {
+        return { errorMessage: 'Invalid QR code format.' };
+    }
+
+    if (ticketData.eventId !== eventId) {
+        return { errorMessage: 'This ticket is for a different event!' };
+    }
+
+    return {
+        ticketData,
+        scannedUserId: ticketData.userId,
+    };
+};
+
+const getScannedUserData = async (scannedUserId, hasTicketId) => {
+    const userRef = doc(db, 'users', scannedUserId);
+    const userSnap = await getDoc(userRef);
+
+    if (userSnap.exists()) {
+        return { userData: userSnap.data() || {} };
+    }
+
+    if (hasTicketId) {
+        return { errorMessage: 'Invalid User QR Code' };
+    }
+
+    return { userData: {} };
+};
+
+const buildCheckInPayload = (ticketData, userData, scannedUserId) => ({
+    id: ticketData?.ticketId,
+    userId: scannedUserId,
+    userName: userData?.name || ticketData?.attendeeName,
+    userEmail: userData?.email || ticketData?.attendeeEmail || '',
+    userYear: userData?.year || ticketData?.year,
+    userBranch: userData?.branch || ticketData?.branch,
+    receiverId: scannedUserId,
+});
+
+const submitCheckIn = ({ hasTicketId, checkInPayload, eventId, userId, operatorName }) =>
+    hasTicketId
+        ? checkInAttendee(checkInPayload, eventId, userId, operatorName)
+        : checkInParticipant(checkInPayload, eventId, userId, operatorName);
 
 export default function QRScannerScreen({ navigation, route }) {
     const { eventId, eventTitle, eventUrl } = route.params ?? {};
@@ -68,73 +131,55 @@ export default function QRScannerScreen({ navigation, route }) {
         });
     };
 
-    const handleBarCodeScanned = async ({ type, data }) => {
+    const handleBarCodeScanned = async ({ data }) => {
         if (scanned) return;
         setScanned(true);
 
         try {
-            let scannedUserId;
-            let ticketData;
-
-            try {
-                ticketData = JSON.parse(data);
-                scannedUserId = ticketData.userId;
-
-                if (ticketData.eventId !== eventId) {
-                    setScanResult({
-                        status: 'error',
-                        message: 'This ticket is for a different event!',
-                    });
-                    return;
-                }
-            } catch (err) {
-                console.error('Invalid QR code JSON format:', err);
-                setScanResult({ status: 'error', message: 'Invalid QR code format.' });
+            const parsedScan = parseScannedTicket(data, eventId);
+            if (parsedScan.errorMessage) {
+                setScanResult({ status: 'error', message: parsedScan.errorMessage });
                 return;
             }
 
+            const { ticketData, scannedUserId } = parsedScan;
+            const hasTicketId = Boolean(ticketData?.ticketId);
+            const operatorName = getOperatorName(user);
+
             console.log(`Scanned user: ${scannedUserId} for event: ${eventId}`);
 
-            let userSnap;
+            let userData = {};
             try {
-                const userRef = doc(db, 'users', scannedUserId);
-                userSnap = await getDoc(userRef);
+                const userLookup = await getScannedUserData(scannedUserId, hasTicketId);
 
-                if (!userSnap.exists()) {
-                    setScanResult({ status: 'error', message: 'Invalid User QR Code' });
+                if (userLookup.errorMessage) {
+                    setScanResult({ status: 'error', message: userLookup.errorMessage });
                     return;
                 }
+
+                userData = userLookup.userData;
             } catch (err) {
-                if (
-                    err.code === 'unavailable' ||
-                    err.message?.includes('offline') ||
-                    err.message?.includes('network')
-                ) {
+                if (isNetworkError(err)) {
                     await handleOfflineCheckIn(eventId, scannedUserId, ticketData, null);
                     return;
                 }
-                throw err;
+
+                if (hasTicketId) {
+                    throw err;
+                }
+
+                console.warn('User profile unavailable; validating free RSVP participant.');
             }
 
-            const userData = userSnap.data();
-
             try {
-                const ticketPayload = {
-                    id: ticketData?.ticketId || scannedUserId,
-                    userId: scannedUserId,
-                    userName: userData.name || ticketData?.attendeeName,
-                    userEmail: userData.email || ticketData?.attendeeEmail || '',
-                    userYear: userData.year || ticketData?.year || 'N/A',
-                    userBranch: userData.branch || ticketData?.branch || 'N/A',
-                    receiverId: scannedUserId,
-                };
-
-                const result = await checkInAttendee(
-                    ticketPayload,
+                const checkInPayload = buildCheckInPayload(ticketData, userData, scannedUserId);
+                const result = await submitCheckIn({
+                    hasTicketId,
+                    checkInPayload,
                     eventId,
-                    user.uid,
-                    userData.name || 'Organizer',
-                );
+                    userId: user.uid,
+                    operatorName,
+                });
 
                 if (!result.success) {
                     setScanResult({
@@ -152,11 +197,7 @@ export default function QRScannerScreen({ navigation, route }) {
                     user: userData,
                 });
             } catch (err) {
-                if (
-                    err.code === 'unavailable' ||
-                    err.message?.includes('offline') ||
-                    err.message?.includes('network')
-                ) {
+                if (isNetworkError(err)) {
                     await handleOfflineCheckIn(eventId, scannedUserId, ticketData, userData);
                     return;
                 }

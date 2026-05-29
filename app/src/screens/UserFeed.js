@@ -8,7 +8,6 @@ import {
     Animated,
     Alert,
     Platform,
-    RefreshControl,
     ScrollView,
     Share,
     StyleSheet,
@@ -19,6 +18,7 @@ import {
 } from 'react-native';
 import EventCard from '../components/EventCard';
 import FeedbackModal from '../components/FeedbackModal';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { useAuth } from '../lib/AuthContext';
 import { submitFeedback } from '../lib/feedbackService';
@@ -463,6 +463,161 @@ export default function UserFeed() {
         }
     };
 
+    const [pullDistance, setPullDistance] = useState(0);
+    const lastPullRef = useRef(0);
+
+    useEffect(() => {
+        const listenerId = scrollY.addListener(({ value }) => {
+            lastPullRef.current = Math.max(0, -value);
+            setPullDistance(lastPullRef.current);
+        });
+        return () => scrollY.removeListener(listenerId);
+    }, [scrollY]);
+
+    const handleScrollEndDrag = useCallback(() => {
+        if (lastPullRef.current >= 80 && !refreshing) {
+            onRefresh();
+        }
+    }, [refreshing, onRefresh]);
+
+    const StickyHeader = () => (
+        <View style={{ backgroundColor: theme.colors.background, paddingBottom: 10 }}>
+            {/* Search Bar - Floating Pill */}
+            <View
+                style={[
+                    styles.searchContainer,
+                    { backgroundColor: theme.colors.surface, ...theme.shadows.small },
+                ]}
+            >
+                <Ionicons name="search" size={20} color={theme.colors.textSecondary} />
+                <TextInput
+                    style={[styles.searchInput, { color: theme.colors.text }]}
+                    placeholder="Search events..."
+                    placeholderTextColor={theme.colors.textSecondary}
+                    value={searchQuery}
+                    onChangeText={text => {
+                        setSearchQuery(text);
+                        updateHistory(text);
+                        // Hide history as soon as the user types something
+                        if (text.trim() !== '') setShowHistory(false);
+                    }}
+                    onFocus={() => {
+                        // Only show history if the input is empty
+                        if (searchQuery.trim() === '') setShowHistory(true);
+                    }}
+                    onBlur={() => {
+                        setShowHistory(false);
+                        persistSearchHistory(searchQuery);
+                    }}
+                    onSubmitEditing={() => {
+                        persistSearchHistory(searchQuery);
+                    }}
+                />
+                {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                        <Ionicons
+                            name="close-circle"
+                            size={20}
+                            color={theme.colors.textSecondary}
+                        />
+                    </TouchableOpacity>
+                )}
+            </View>
+            {/* Recent Search History */}
+            {showHistory && searchHistory.length > 0 && (
+                <View style={styles.historyContainer}>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.historyScroll}
+                    >
+                        {searchHistory.map(qh => (
+                            <TouchableOpacity
+                                key={qh}
+                                style={styles.historyChip}
+                                onPress={() => {
+                                    setSearchQuery(qh);
+                                    setShowHistory(false);
+                                }}
+                            >
+                                <Text style={styles.historyChipText}>{qh}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                    <TouchableOpacity
+                        onPress={clearHistory}
+                        style={styles.clearHistoryBtn}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear search history"
+                        accessibilityHint="Deletes all saved search history"
+                    >
+                        <Ionicons
+                            name="trash-outline"
+                            size={18}
+                            color={theme.colors.textSecondary}
+                        />
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            <View style={styles.filterWrapper}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.filterContent}
+                >
+                    {FILTERS.map(f => {
+                        const isActive = activeFilter === f;
+                        return (
+                            <TouchableOpacity
+                                key={f}
+                                onPress={() => setActiveFilter(f)}
+                                style={{
+                                    marginRight: 10,
+                                    borderRadius: 25,
+                                    ...theme.shadows.small,
+                                }}
+                            >
+                                {isActive ? (
+                                    <LinearGradient
+                                        colors={[
+                                            theme.colors.primary,
+                                            theme.colors.secondary || '#FFC107',
+                                        ]}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={styles.chip}
+                                    >
+                                        <Text style={[styles.chipText, { color: '#fff' }]}>
+                                            {f}
+                                        </Text>
+                                    </LinearGradient>
+                                ) : (
+                                    <View
+                                        style={[
+                                            styles.chip,
+                                            { backgroundColor: theme.colors.surface },
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.chipText,
+                                                { color: theme.colors.textSecondary },
+                                            ]}
+                                        >
+                                            {f}
+                                        </Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+            </View>
+        </View>
+    );
+
     const renderEvent = ({ item }) => (
         <View style={{ paddingHorizontal: 20 }}>
             <EventCard
@@ -565,17 +720,10 @@ export default function UserFeed() {
                     renderSectionHeader={renderStickyHeader}
                     ListHeaderComponent={renderHeader}
                     stickySectionHeadersEnabled={true}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            colors={[theme.colors.primary]}
-                            tintColor={theme.colors.primary}
-                        />
-                    }
                     onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
                         useNativeDriver: true,
                     })}
+                    onScrollEndDrag={handleScrollEndDrag}
                     contentContainerStyle={{ paddingBottom: 100 }}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
@@ -594,6 +742,12 @@ export default function UserFeed() {
                     }
                 />
             )}
+
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
+            />
 
             {/* Feedback Modal */}
             <FeedbackModal

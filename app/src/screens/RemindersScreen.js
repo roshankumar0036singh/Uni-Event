@@ -15,13 +15,14 @@ import {
     Alert,
     FlatList,
     Image,
-    RefreshControl,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
+import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
@@ -130,6 +131,10 @@ export default function RemindersScreen({ navigation }) {
         }
     };
 
+    const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
+        handleRefresh();
+    });
+
     const handleDelete = async item => {
         // Directly delete without confirmation as requested
         await performDelete(item);
@@ -188,9 +193,9 @@ export default function RemindersScreen({ navigation }) {
                 <FlatList
                     data={reminders}
                     keyExtractor={item => item.id}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-                    }
+                    onScroll={handleScroll}
+                    onScrollEndDrag={handleScrollEndDrag}
+                    scrollEventThrottle={16}
                     renderItem={({ item }) => {
                         const dateObj = item.remindAt?.toDate
                             ? item.remindAt.toDate()
@@ -287,6 +292,11 @@ export default function RemindersScreen({ navigation }) {
                     contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 16 }}
                 />
             )}
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
+            />
         </ScreenWrapper>
     );
 }
