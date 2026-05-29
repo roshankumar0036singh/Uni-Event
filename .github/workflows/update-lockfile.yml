@@ -41,6 +41,6 @@ jobs:
                   cd cloud-functions
                   npm install --package-lock-only --ignore-scripts
 
-            - uses: stefanzweifel/git-auto-commit-action@v5
+            - uses: stefanzweifel/git-auto-commit-action@b863ae122d0a4f0c6c34ecf62d14d6f8b6e2f8a0
               with:
                   commit_message: 'chore: update package-lock.json'
