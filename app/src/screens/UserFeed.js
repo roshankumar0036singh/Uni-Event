@@ -70,7 +70,7 @@ const UserFeedStickyHeader = ({
                 }}
             />
             {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <TouchableOpacity onPress={() => setSearchQuery('')} testID="clear-search-button">
                     <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
             )}

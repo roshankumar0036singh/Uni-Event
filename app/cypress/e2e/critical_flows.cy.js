@@ -59,7 +59,7 @@ describe('Critical Event App Flows', () => {
             .type(searchQuery)
             .should('have.value', searchQuery);
 
-        // Verify close icon appears
-        cy.get('input[placeholder="Search events..."]').parent().find('svg').should('exist');
+        // Verify close icon appears via stable testID
+        cy.get('[data-testid="clear-search-button"]').should('exist');
     });
 });
