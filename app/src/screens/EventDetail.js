@@ -377,6 +377,7 @@ export default function EventDetail({ route, navigation }) {
                         userId: user.uid,
                         eventId: event.id,
                         eventTitle: event.title,
+                        eventStartAt: event.startAt,
                         remindAt: new Date(new Date(event.startAt).getTime() - 10 * 60000), // 10 mins before
                         notificationId: notifId,
                         createdAt: new Date().toISOString(),
@@ -484,6 +485,7 @@ export default function EventDetail({ route, navigation }) {
                     transaction.set(ref, participantPayload);
                     transaction.set(userRef, {
                         eventId: eventId,
+                        eventStartAt: eventData.startAt,
                         joinedAt: new Date().toISOString(),
                     });
 

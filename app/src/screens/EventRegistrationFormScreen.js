@@ -141,6 +141,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 const participatingRef = doc(db, 'users', user.uid, 'participating', event.id);
                 transaction.set(participatingRef, {
                     eventId: event.id,
+                    eventStartAt: freshEvent.startAt,
                     joinedAt: new Date().toISOString(),
                 });
 

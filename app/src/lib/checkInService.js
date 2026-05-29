@@ -102,11 +102,12 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
                 throw new Error('Ticket already checked in');
             }
 
+            const eventStartAt = freshTicket.eventDate ?? ticketData.eventDate;
             const checkInRef = doc(db, 'events', eventId, 'checkIns', userId);
             const eventRef = doc(db, 'events', eventId);
             const userRef = doc(db, 'users', userId);
 
-            transaction.set(checkInRef, {
+            const checkInPayload = {
                 userId,
                 userName: ticketData.userName || 'Guest',
                 userEmail: ticketData.userEmail || '',
@@ -117,7 +118,12 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
                 checkedInBy: organizerId,
                 checkedInByName: organizerName,
                 status: 'checked-in',
-            });
+            };
+            if (eventStartAt) {
+                checkInPayload.eventStartAt = eventStartAt;
+            }
+
+            transaction.set(checkInRef, checkInPayload);
 
             transaction.update(ticketRef, {
                 checkInStatus: 'checked-in',
@@ -254,7 +260,7 @@ export const getOfflineCheckInCount = async eventId => {
     }
 };
 
-const syncOfflineCheckInItem = async (item, eventId, organizerId) => {
+const syncOfflineCheckInItem = async (item, eventId, organizerId, eventStartAt) => {
     const checkInRef = doc(db, 'events', eventId, 'checkIns', item.userId);
     const checkInSnap = await getDoc(checkInRef);
     if (!checkInSnap.exists()) {
@@ -262,7 +268,8 @@ const syncOfflineCheckInItem = async (item, eventId, organizerId) => {
             ? Timestamp.fromDate(new Date(item.queuedAt))
             : serverTimestamp();
 
-        await setDoc(checkInRef, {
+        const resolvedEventStartAt = item.eventStartAt ?? item.eventDate ?? eventStartAt;
+        const checkInPayload = {
             userId: item.userId,
             userName: item.userName || 'Guest',
             userEmail: item.userEmail || '',
@@ -274,7 +281,12 @@ const syncOfflineCheckInItem = async (item, eventId, organizerId) => {
             ticketId: item.ticketId || null,
             status: 'checked-in',
             syncedOffline: true,
-        });
+        };
+        if (resolvedEventStartAt) {
+            checkInPayload.eventStartAt = resolvedEventStartAt;
+        }
+
+        await setDoc(checkInRef, checkInPayload);
 
         if (item.ticketId) {
             await updateDoc(doc(db, 'tickets', item.ticketId), {
@@ -303,12 +315,15 @@ export const syncOfflineCheckIns = async (eventId, organizerId) => {
         const queue = JSON.parse(existingQueueStr);
         if (queue.length === 0) return { success: true, syncedCount: 0 };
 
+        const eventSnap = await getDoc(doc(db, 'events', eventId));
+        const eventStartAt = eventSnap.exists() ? eventSnap.data()?.startAt : null;
+
         let syncedCount = 0;
         let failedQueue = [];
 
         for (const item of queue) {
             try {
-                await syncOfflineCheckInItem(item, eventId, organizerId);
+                await syncOfflineCheckInItem(item, eventId, organizerId, eventStartAt);
                 syncedCount++;
             } catch (err) {
                 console.error('Failed to sync item', err);

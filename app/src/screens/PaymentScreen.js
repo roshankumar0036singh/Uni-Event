@@ -196,6 +196,7 @@ export default function PaymentScreen({ route, navigation }) {
                     transaction.set(ticketRef, ticketData);
                     transaction.set(participatingRef, {
                         eventId: event.id,
+                        eventStartAt: freshEvent.startAt,
                         joinedAt: new Date().toISOString(),
                         role: 'attendee',
                         ticketId: ticketRef.id,
