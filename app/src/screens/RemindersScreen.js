@@ -28,11 +28,13 @@ import { db } from '../lib/firebaseConfig';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { cancelScheduledNotification } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
+import { useIsFocused } from '@react-navigation/native';
 import PropTypes from 'prop-types';
 
 export default function RemindersScreen({ navigation }) {
     const { user } = useAuth();
     const { theme, isDarkMode } = useTheme();
+    const isFocused = useIsFocused();
     const styles = useMemo(() => getStyles(theme, isDarkMode), [theme, isDarkMode]);
 
     const [reminders, setReminders] = useState([]);
@@ -41,10 +43,11 @@ export default function RemindersScreen({ navigation }) {
 
     const isMounted = useRef(true);
     useEffect(() => {
+        isMounted.current = isFocused;
         return () => {
             isMounted.current = false;
         };
-    }, []);
+    }, [isFocused]);
 
     const processRemindersSnapshot = async snapshot => {
         const list = [];
@@ -84,7 +87,7 @@ export default function RemindersScreen({ navigation }) {
     };
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || !isFocused) return;
 
         setLoading(true);
         const q = query(collection(db, 'reminders'), where('userId', '==', user.uid));
@@ -107,7 +110,7 @@ export default function RemindersScreen({ navigation }) {
         );
 
         return () => unsubscribe();
-    }, [user]);
+    }, [user, isFocused]);
 
     // Manual refresh allows the user to explicitly retry fetching data if network is unstable
     const handleRefresh = async () => {

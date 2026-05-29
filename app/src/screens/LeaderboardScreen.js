@@ -6,6 +6,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import { useIsFocused } from '@react-navigation/native';
 import PropTypes from 'prop-types';
 import { getUserLevel } from '../lib/userLevels';
 import { getSafeSelectedProfileBadge } from '../lib/profileBadges';
@@ -13,6 +14,7 @@ import { getSafeSelectedProfileBadge } from '../lib/profileBadges';
 export default function LeaderboardScreen({ navigation }) {
     const { theme } = useTheme();
     const { user } = useAuth();
+    const isFocused = useIsFocused();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -21,6 +23,7 @@ export default function LeaderboardScreen({ navigation }) {
     const isAnonymous = myUserDoc?.isAnonymous || false;
 
     useEffect(() => {
+        if (!isFocused) return;
         const q = query(collection(db, 'users'), orderBy('points', 'desc'), limit(10));
         const unsubscribe = onSnapshot(
             q,
@@ -39,7 +42,7 @@ export default function LeaderboardScreen({ navigation }) {
             },
         );
         return () => unsubscribe();
-    }, []);
+    }, [isFocused]);
 
     const togglePrivacy = async value => {
         if (!user) return;
