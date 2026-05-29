@@ -25,7 +25,7 @@ import { auth, db } from '../lib/firebaseConfig';
 WebBrowser.maybeCompleteAuthSession();
 
 const MIN_PASSWORD_LENGTH = 6;
-const EMAIL_REGEX = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
+const EMAIL_REGEX = /^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
 
 const FIREBASE_ERROR_MESSAGES = {
     'auth/email-already-in-use': 'An account with this email already exists.',
@@ -100,7 +100,16 @@ async function handleEmulatorGoogleSignIn(accessToken, signIn, signUp) {
         const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
             headers: { Authorization: `Bearer ${accessToken}` },
         });
+
+        if (!res.ok) {
+            throw new Error(`Google userinfo request failed: ${res.status} ${res.statusText}`);
+        }
+
         const googleUser = await res.json();
+
+        if (!googleUser.email) {
+            throw new Error('Google userinfo response did not include an email address.');
+        }
 
         try {
             await signIn(googleUser.email, EMULATOR_GOOGLE_PASSWORD);
@@ -224,6 +233,11 @@ export default function AuthScreen() {
         setLoading(true);
 
         if (process.env.EXPO_PUBLIC_USE_EMULATORS === 'true') {
+            if (!accessToken) {
+                Alert.alert('Auth Error', 'Google sign-in requires an access token in emulator mode.');
+                setLoading(false);
+                return;
+            }
             handleEmulatorGoogleSignIn(accessToken, signIn, signUp).finally(() =>
                 setLoading(false),
             );
