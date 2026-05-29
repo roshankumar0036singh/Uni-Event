@@ -44,6 +44,7 @@ import UserFeed from './src/screens/UserFeed';
 import WalletScreen from './src/screens/WalletScreen';
 import WrappedScreen from './src/screens/WrappedScreen';
 
+const CustomTabBarWrapper = props => <CustomTabBar {...props} />;
 const AppearanceScreen = lazy(() => import('./src/screens/AppearanceScreen'));
 const LocationHeatmapScreen = lazy(() => import('./src/screens/LocationHeatmapScreen'));
 const ReportBugScreen = lazy(() => import('./src/screens/ReportBugScreen'));
@@ -134,7 +135,7 @@ function TabNavigator() {
 
     return (
         <Tab.Navigator
-            tabBar={props => <CustomTabBar {...props} />}
+            tabBar={CustomTabBarWrapper}
             screenOptions={{
                 headerShown: false,
                 tabBarStyle: {

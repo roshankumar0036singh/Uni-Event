@@ -3,7 +3,8 @@ import dotenv from 'dotenv';
 import express from 'express';
 import * as admin from 'firebase-admin';
 import { checkAndUpdateRateLimit } from './utils/rateLimiter';
-import { getTodayEventCount, sendPushMessages } from './dailyDigest';
+import { getTodayEventCount } from './dailyDigest';
+import { sendPushNotifications } from './utils/push';
 // Load environment variables
 dotenv.config();
 
@@ -274,7 +275,7 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, a
         });
 
         await batch.commit();
-        await sendPushMessages(expo, messages);
+        await sendPushNotifications(messages);
 
         processedCount += usersSnapshot.size;
         lastDoc = usersSnapshot.docs[usersSnapshot.docs.length - 1];

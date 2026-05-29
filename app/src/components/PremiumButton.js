@@ -24,16 +24,6 @@ export default function PremiumButton({
     const getColors = () => {
         if (disabled) return { bg: ['#e0e0e0', '#bdbdbd'], text: '#9e9e9e', border: 'transparent' };
         switch (variant) {
-            case 'primary':
-            default:
-                return {
-                    bg: theme.colors.primaryGradient || [
-                        theme.colors.primary || '#6200ee',
-                        theme.colors.secondary || '#03dac6',
-                    ],
-                    text: '#fff',
-                    border: 'transparent',
-                };
             case 'secondary':
                 return {
                     bg: [theme.colors.secondary || '#03dac6', theme.colors.secondary || '#018786'],
@@ -50,6 +40,16 @@ export default function PremiumButton({
                 return {
                     bg: ['transparent', 'transparent'],
                     text: theme.colors.textSecondary || '#757575',
+                    border: 'transparent',
+                };
+            case 'primary':
+            default:
+                return {
+                    bg: theme.colors.primaryGradient || [
+                        theme.colors.primary || '#6200ee',
+                        theme.colors.secondary || '#03dac6',
+                    ],
+                    text: '#fff',
                     border: 'transparent',
                 };
         }

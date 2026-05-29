@@ -1,7 +1,7 @@
 import { Expo } from 'expo-server-sdk';
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
-const expo = new Expo();
+import { sendPushNotifications } from './utils/push';
 
 type PushMessage = {
     to: string;
@@ -62,25 +62,6 @@ async function buildMessagesForEvent(
     });
 }
 
-async function sendPushNotifications(messages: PushMessage[]) {
-    const chunks = expo.chunkPushNotifications(messages);
-    const allErrors: any[] = [];
-
-    for (const chunk of chunks) {
-        const tickets = await expo.sendPushNotificationsAsync(chunk);
-        tickets.forEach((t, i) => {
-            if (t.status === 'error') {
-                allErrors.push({ ticket: t, message: chunk[i] });
-            }
-        });
-    }
-
-    if (allErrors.length > 0) {
-        console.error('Push ticket errors:', JSON.stringify(allErrors, null, 2));
-        // Note: We intentionally do not throw here for token-level errors (e.g. DeviceNotRegistered)
-        // so that the event gets marked as notified and we don't spam successful recipients with retries.
-    }
-}
 
 /**
  * Scheduled function to check for upcoming events (10 mins before).

@@ -36,7 +36,7 @@ export default function FeaturedCarousel({ data = [], onEventPress, isLoading = 
                     <TouchableOpacity
                         key={item.id}
                         style={styles.card}
-                        onPress={() => onEventPress && onEventPress(item)}
+                        onPress={() => onEventPress?.(item)}
                         activeOpacity={0.9}
                     >
                         <ImageBackground

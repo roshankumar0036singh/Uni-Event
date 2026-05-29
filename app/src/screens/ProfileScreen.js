@@ -1044,7 +1044,7 @@ export default function ProfileScreen({ navigation }) {
                                         .filter(acc => acc.email !== user?.email)
                                         .map((acc, i) => (
                                             <TouchableOpacity
-                                                key={i}
+                                                key={acc.email}
                                                 onPress={() => switchAccount(acc.email)}
                                                 onLongPress={() => removeSavedAccount(acc.email)}
                                                 activeOpacity={0.7}

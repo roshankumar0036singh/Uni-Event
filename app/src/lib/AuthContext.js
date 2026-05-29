@@ -55,6 +55,16 @@ export const AuthProvider = ({ children }) => {
     }, [getItemAsync]);
 
     useEffect(() => {
+        if ('window' in globalThis && globalThis.Cypress) {
+            globalThis.setMockUser = (mockUser, mockRole = 'student', mockData = {}) => {
+                setUser(mockUser);
+                setRole(mockRole);
+                setUserData(mockData);
+                setLoading(false);
+            };
+            setLoading(false);
+        }
+
         loadSavedAccounts(); // Load accounts on mount
         const unsubscribe = onAuthStateChanged(auth, async currentUser => {
             setLoading(true);
@@ -93,7 +103,12 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         });
 
-        return unsubscribe;
+        return () => {
+            unsubscribe();
+            if (globalThis.setMockUser) {
+                delete globalThis.setMockUser;
+            }
+        };
     }, [loadSavedAccounts]);
 
     // Unified DRY saving logic that safely stores password on Mobile (SecureStore)

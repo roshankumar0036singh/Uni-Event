@@ -37,7 +37,7 @@ exports.checkUpcomingEvents = void 0;
 const expo_server_sdk_1 = require("expo-server-sdk");
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const expo = new expo_server_sdk_1.Expo();
+const push_1 = require("./utils/push");
 async function getUpcomingEvents(db) {
     const startRange = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const endRange = new Date(Date.now() + 11 * 60 * 1000).toISOString();
@@ -82,23 +82,6 @@ async function buildMessagesForEvent(db, eventDoc) {
         ];
     });
 }
-async function sendPushNotifications(messages) {
-    const chunks = expo.chunkPushNotifications(messages);
-    const allErrors = [];
-    for (const chunk of chunks) {
-        const tickets = await expo.sendPushNotificationsAsync(chunk);
-        tickets.forEach((t, i) => {
-            if (t.status === 'error') {
-                allErrors.push({ ticket: t, message: chunk[i] });
-            }
-        });
-    }
-    if (allErrors.length > 0) {
-        console.error('Push ticket errors:', JSON.stringify(allErrors, null, 2));
-        // Note: We intentionally do not throw here for token-level errors (e.g. DeviceNotRegistered)
-        // so that the event gets marked as notified and we don't spam successful recipients with retries.
-    }
-}
 /**
  * Scheduled function to check for upcoming events (10 mins before).
  * Runs every minute.
@@ -116,7 +99,7 @@ exports.checkUpcomingEvents = functions.pubsub.schedule('every 1 minutes').onRun
         if (messages.length === 0)
             continue;
         try {
-            await sendPushNotifications(messages);
+            await (0, push_1.sendPushNotifications)(messages);
             notificationsSent += messages.length;
             batch.update(eventDoc.ref, { notified10Min: true });
         }

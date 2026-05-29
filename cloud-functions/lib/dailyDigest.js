@@ -32,13 +32,51 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendDailyDigest = void 0;
+exports.getTodayEventCount = getTodayEventCount;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const expo_server_sdk_1 = require("expo-server-sdk");
-const expo = new expo_server_sdk_1.Expo();
+const expo_server_sdk_1 = __importDefault(require("expo-server-sdk"));
+const push_1 = require("./utils/push");
 const PAGE_SIZE = 500;
+async function getTodayEventCount(db) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const snapshot = await db.collection('events')
+        .where('startAt', '>=', today.toISOString())
+        .where('startAt', '<', tomorrow.toISOString())
+        .get();
+    return snapshot.size;
+}
+function processUserPage(userDoc, count, batch, pageMessages) {
+    const userData = userDoc.data();
+    if (userData.digestOptIn === false) {
+        return;
+    }
+    const notifRef = userDoc.ref.collection('notifications').doc();
+    batch.set(notifRef, {
+        title: 'Daily Digest 📅',
+        body: `There are ${count} events happening today!`,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false
+    });
+    const pushToken = userData.pushToken;
+    if (pushToken && expo_server_sdk_1.default.isExpoPushToken(pushToken)) {
+        pageMessages.push({
+            to: pushToken,
+            sound: 'default',
+            title: 'Daily Digest 📅',
+            body: `There are ${count} events happening today!`,
+            data: { url: '/home' },
+        });
+    }
+}
 exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
@@ -47,16 +85,7 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('permission-denied', 'Only admins can trigger daily digest.');
     }
     const db = admin.firestore();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const eventsRef = db.collection('events');
-    const snapshot = await eventsRef
-        .where('startAt', '>=', today.toISOString())
-        .where('startAt', '<', tomorrow.toISOString())
-        .get();
-    const count = snapshot.size;
+    const count = await getTodayEventCount(db);
     if (count === 0) {
         return { success: true, message: "No events today.", count: 0, processed: 0 };
     }
@@ -76,39 +105,18 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
         }
         const batch = db.batch();
         const pageMessages = [];
-        usersSnapshot.forEach(userDoc => {
-            const userData = userDoc.data();
-            if (userData.digestOptIn === false) {
-                return;
-            }
-            const notifRef = userDoc.ref.collection('notifications').doc();
-            batch.set(notifRef, {
-                title: 'Daily Digest 📅',
-                body: `There are ${count} events happening today!`,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                read: false
-            });
-            const pushToken = userData.pushToken;
-            if (pushToken && expo_server_sdk_1.Expo.isExpoPushToken(pushToken)) {
-                pageMessages.push({
-                    to: pushToken,
-                    sound: 'default',
-                    title: 'Daily Digest 📅',
-                    body: `There are ${count} events happening today!`,
-                    data: { url: '/home' },
-                });
-            }
-        });
+        usersSnapshot.forEach(userDoc => processUserPage(userDoc, count, batch, pageMessages));
         await batch.commit();
         if (pageMessages.length > 0) {
-            let chunks = expo.chunkPushNotifications(pageMessages);
-            for (let chunk of chunks) {
-                try {
-                    await expo.sendPushNotificationsAsync(chunk);
-                }
-                catch (error) {
-                    console.error("Error sending digest chunks", error);
-                }
+            try {
+                await (0, push_1.sendPushNotifications)(pageMessages);
+            }
+            catch (error) {
+                functions.logger.error('Daily digest push delivery failed for page', {
+                    error,
+                    pageSize: usersSnapshot.size,
+                    pushMessages: pageMessages.length,
+                });
             }
         }
         processedCount += usersSnapshot.size;

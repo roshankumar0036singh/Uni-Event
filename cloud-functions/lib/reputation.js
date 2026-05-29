@@ -136,7 +136,12 @@ const updateBucket = (userId, eventStartAt, deltas, idempotencyKey) => {
         if (processedDoc.exists)
             return;
         transaction.set(bucketRef, buildUpdates(), { merge: true });
-        transaction.set(processedRef, { processedAt: admin.firestore.FieldValue.serverTimestamp() });
+        const expireAt = new Date();
+        expireAt.setDate(expireAt.getDate() + 30);
+        transaction.set(processedRef, {
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            expireAt
+        });
     });
 };
 exports.updateBucket = updateBucket;
@@ -239,95 +244,40 @@ exports.refreshReputationDaily = functions.pubsub.schedule('every 24 hours').onR
     await (0, exports.runReputationRefresh)();
     return null;
 });
+const handleReputationTrigger = async (userId, eventId, data, contextId, deltas, prefix) => {
+    var _a;
+    const eventCache = new Map();
+    const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, (_a = data === null || data === void 0 ? void 0 : data.eventStartAt) !== null && _a !== void 0 ? _a : data === null || data === void 0 ? void 0 : data.eventDate, eventCache);
+    if (!userId || !eventStartAt) {
+        console.warn(`Missing eventStartAt or userId for ${prefix}`, { userId, eventId });
+        return null;
+    }
+    await (0, exports.updateBucket)(userId, eventStartAt, deltas, `${prefix}_${contextId}`);
+    return null;
+};
 exports.onParticipatingCreate = functions.firestore
     .document('users/{userId}/participating/{eventId}')
-    .onCreate(async (snap, context) => {
-    var _a;
-    const { userId, eventId } = context.params;
-    const data = snap.data();
-    const eventCache = new Map();
-    const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, (_a = data === null || data === void 0 ? void 0 : data.eventStartAt) !== null && _a !== void 0 ? _a : data === null || data === void 0 ? void 0 : data.eventDate, eventCache);
-    if (!eventStartAt) {
-        console.warn('Missing eventStartAt for participation', { userId, eventId });
-        return null;
-    }
-    await (0, exports.updateBucket)(userId, eventStartAt, { registrations: 1 }, `participating_create_${eventId}`);
-    return null;
-});
+    .onCreate((snap, context) => handleReputationTrigger(context.params.userId, context.params.eventId, snap.data(), context.eventId, { registrations: 1 }, 'participating_create'));
 exports.onParticipatingDelete = functions.firestore
     .document('users/{userId}/participating/{eventId}')
-    .onDelete(async (snap, context) => {
-    var _a;
-    const { userId, eventId } = context.params;
-    const data = snap.data();
-    const eventCache = new Map();
-    const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, (_a = data === null || data === void 0 ? void 0 : data.eventStartAt) !== null && _a !== void 0 ? _a : data === null || data === void 0 ? void 0 : data.eventDate, eventCache);
-    if (!eventStartAt) {
-        console.warn('Missing eventStartAt for participation delete', { userId, eventId });
-        return null;
-    }
-    await (0, exports.updateBucket)(userId, eventStartAt, { registrations: -1 }, `participating_delete_${eventId}`);
-    return null;
-});
+    .onDelete((snap, context) => handleReputationTrigger(context.params.userId, context.params.eventId, snap.data(), context.eventId, { registrations: -1 }, 'participating_delete'));
 exports.onCheckInCreate = functions.firestore
     .document('events/{eventId}/checkIns/{userId}')
-    .onCreate(async (snap, context) => {
-    var _a;
-    const { eventId, userId } = context.params;
-    const data = snap.data();
-    const eventCache = new Map();
-    const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, (_a = data === null || data === void 0 ? void 0 : data.eventStartAt) !== null && _a !== void 0 ? _a : data === null || data === void 0 ? void 0 : data.eventDate, eventCache);
-    if (!eventStartAt) {
-        console.warn('Missing eventStartAt for check-in', { userId, eventId });
-        return null;
-    }
-    await (0, exports.updateBucket)(userId, eventStartAt, { attendances: 1 }, `checkin_create_${eventId}`);
-    return null;
-});
+    .onCreate((snap, context) => handleReputationTrigger(context.params.userId, context.params.eventId, snap.data(), context.eventId, { attendances: 1 }, 'checkin_create'));
 exports.onCheckInDelete = functions.firestore
     .document('events/{eventId}/checkIns/{userId}')
-    .onDelete(async (snap, context) => {
-    var _a;
-    const { eventId, userId } = context.params;
-    const data = snap.data();
-    const eventCache = new Map();
-    const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, (_a = data === null || data === void 0 ? void 0 : data.eventStartAt) !== null && _a !== void 0 ? _a : data === null || data === void 0 ? void 0 : data.eventDate, eventCache);
-    if (!eventStartAt) {
-        console.warn('Missing eventStartAt for check-in delete', { userId, eventId });
-        return null;
-    }
-    await (0, exports.updateBucket)(userId, eventStartAt, { attendances: -1 }, `checkin_delete_${eventId}`);
-    return null;
-});
+    .onDelete((snap, context) => handleReputationTrigger(context.params.userId, context.params.eventId, snap.data(), context.eventId, { attendances: -1 }, 'checkin_delete'));
 exports.onReminderCreate = functions.firestore
     .document('reminders/{reminderId}')
-    .onCreate(async (snap, context) => {
+    .onCreate((snap, context) => {
     const data = snap.data();
-    const userId = data === null || data === void 0 ? void 0 : data.userId;
-    const eventId = data === null || data === void 0 ? void 0 : data.eventId;
-    const eventCache = new Map();
-    const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, data === null || data === void 0 ? void 0 : data.eventStartAt, eventCache);
-    if (!userId || !eventStartAt) {
-        console.warn('Missing eventStartAt for reminder', { userId, eventId });
-        return null;
-    }
-    await (0, exports.updateBucket)(userId, eventStartAt, { reminders: 1 }, `reminder_create_${context.params.reminderId}`);
-    return null;
+    return handleReputationTrigger(data === null || data === void 0 ? void 0 : data.userId, data === null || data === void 0 ? void 0 : data.eventId, data, context.eventId, { reminders: 1 }, 'reminder_create');
 });
 exports.onReminderDelete = functions.firestore
     .document('reminders/{reminderId}')
-    .onDelete(async (snap, context) => {
+    .onDelete((snap, context) => {
     const data = snap.data();
-    const userId = data === null || data === void 0 ? void 0 : data.userId;
-    const eventId = data === null || data === void 0 ? void 0 : data.eventId;
-    const eventCache = new Map();
-    const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, data === null || data === void 0 ? void 0 : data.eventStartAt, eventCache);
-    if (!userId || !eventStartAt) {
-        console.warn('Missing eventStartAt for reminder delete', { userId, eventId });
-        return null;
-    }
-    await (0, exports.updateBucket)(userId, eventStartAt, { reminders: -1 }, `reminder_delete_${context.params.reminderId}`);
-    return null;
+    return handleReputationTrigger(data === null || data === void 0 ? void 0 : data.userId, data === null || data === void 0 ? void 0 : data.eventId, data, context.eventId, { reminders: -1 }, 'reminder_delete');
 });
 exports.backfillReputationBuckets = functions.https.onCall(async (_data, context) => {
     var _a;

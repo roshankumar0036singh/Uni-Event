@@ -850,7 +850,7 @@ export default function CreateEvent({ navigation, route }) {
                             />
                         }
                     />
-                    {capacityWarning && capacityWarning.warning && (
+                    {capacityWarning?.warning && (
                         <View
                             style={[
                                 styles.capacityWarning,

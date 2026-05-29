@@ -51,3 +51,5 @@ __exportStar(require("./feedbackSentimentAnalysis"), exports);
 __exportStar(require("./computeShowUpRatios"), exports);
 __exportStar(require("./branchReport"), exports);
 __exportStar(require("./postEventFeedback"), exports);
+__exportStar(require("./sendBulkEmails"), exports);
+__exportStar(require("./auditLog"), exports);

@@ -74,4 +74,25 @@ export default [
             },
         },
     },
+
+    // ── Cypress E2E tests ─────────────────────────────────────────────────────
+    {
+        files: ['cypress/**/*.cy.js', 'cypress/**/*.js'],
+        languageOptions: {
+            globals: {
+                cy: 'readonly',
+                Cypress: 'readonly',
+                describe: 'readonly',
+                context: 'readonly',
+                it: 'readonly',
+                specify: 'readonly',
+                before: 'readonly',
+                beforeEach: 'readonly',
+                after: 'readonly',
+                afterEach: 'readonly',
+                expect: 'readonly',
+                assert: 'readonly',
+            },
+        },
+    },
 ];

@@ -1,3 +1,4 @@
+
 import * as admin from 'firebase-admin';
 import fft from 'firebase-functions-test';
 
@@ -103,3 +104,5 @@ describe('Reputation Decay & Buckets', () => {
         expect(buckets.docs[0].data().registrations).toBe(1);
     });
 });
+
+

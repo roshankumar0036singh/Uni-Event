@@ -18,11 +18,13 @@ import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
 import { db } from '../lib/firebaseConfig';
+import { useIsFocused } from '@react-navigation/native';
 import PropTypes from 'prop-types';
 
 export default function MyEventsScreen({ navigation }) {
     const { user } = useAuth();
     const { theme } = useTheme();
+    const isFocused = useIsFocused();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -33,7 +35,7 @@ export default function MyEventsScreen({ navigation }) {
     });
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || !isFocused) return;
 
         const q = query(collection(db, 'events'), where('ownerId', '==', user.uid));
 
@@ -58,7 +60,7 @@ export default function MyEventsScreen({ navigation }) {
         );
 
         return () => unsubscribe();
-    }, [user, refreshNonce]);
+    }, [user, refreshNonce, isFocused]);
 
     const handleDelete = async eventId => {
         if (Platform.OS === 'web') {

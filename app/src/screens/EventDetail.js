@@ -617,7 +617,7 @@ export default function EventDetail({ route, navigation }) {
             Alert.alert('Success', `Certificates sent to ${count} participants.`);
         } catch (e) {
             logger.error('Certificate Send Error:', e);
-            Alert.alert('Error', 'Failed to send certificates via EmailJS');
+            Alert.alert('Error', e.message || 'Failed to send certificates');
         } finally {
             setSendingCertificates(false);
         }
@@ -1279,10 +1279,12 @@ export default function EventDetail({ route, navigation }) {
                                 {isEarlyBirdTicket ? 'Early Bird Price' : 'Price'}
                             </Text>
                             <Text style={{ fontSize: 28, fontWeight: '800', color: accentColor }}>
-                                {isFree ? 'Free' : '\u20B9' + ticket.price}
+                                {!ticket.price || ticket.price === 0
+                                    ? 'Free'
+                                    : '\u20B9' + ticket.price}
                             </Text>
                         </View>
-                        {!isExpired && !isFree && (
+                        {!isExpired && ticket.price && ticket.price !== 0 && (
                             <View
                                 style={{
                                     backgroundColor: accentColor + '15',
@@ -1300,7 +1302,7 @@ export default function EventDetail({ route, navigation }) {
                                 </Text>
                             </View>
                         )}
-                        {!isExpired && isFree && (
+                        {!isExpired && (!ticket.price || ticket.price === 0) && (
                             <View
                                 style={{
                                     backgroundColor: '#22C55E15',
@@ -1329,26 +1331,26 @@ export default function EventDetail({ route, navigation }) {
         certificateButtonText = 'Certificates Sent';
     }
 
-    let primaryActionHandler = toggleRsvp;
-    if (new Date(event?.endAt) < new Date()) {
-        primaryActionHandler = (rsvpStatus === 'going' && event?.certificatesSent) 
-            ? handleDownloadCertificate 
-            : null;
+    const eventEnded = new Date(event?.endAt) < new Date();
+    let primaryBtnOnPress = toggleRsvp;
+    if (eventEnded) {
+        primaryBtnOnPress =
+            rsvpStatus === 'going' && event?.certificatesSent ? handleDownloadCertificate : null;
     }
 
-    let primaryActionText;
-    if (new Date(event?.endAt) < new Date()) {
+    let primaryBtnText;
+    if (eventEnded) {
         if (rsvpStatus === 'going') {
-            primaryActionText = event?.certificatesSent ? 'Download Certificate' : 'Event Ended';
+            primaryBtnText = event?.certificatesSent ? 'Download Certificate' : 'Event Ended';
         } else {
-            primaryActionText = 'Closed';
+            primaryBtnText = 'Closed';
         }
     } else if (rsvpStatus === 'going') {
-        primaryActionText = 'Registered ✓';
+        primaryBtnText = 'Registered ✓';
     } else if (event?.isPaid) {
-        primaryActionText = `Book Ticket (₹${ebInfo.currentPrice ?? event?.price ?? 0})`;
+        primaryBtnText = `Book Ticket (₹${ebInfo.currentPrice ?? event?.price ?? 0})`;
     } else {
-        primaryActionText = 'RSVP Now';
+        primaryBtnText = 'RSVP Now';
     }
 
     return (
@@ -2338,7 +2340,7 @@ export default function EventDetail({ route, navigation }) {
                                     borderColor: theme.colors.textSecondary,
                                 },
                         ]}
-                        onPress={primaryActionHandler}
+                        onPress={primaryBtnOnPress}
                         disabled={
                             new Date(event.endAt) < new Date() &&
                             !(rsvpStatus === 'going' && event.certificatesSent)
@@ -2354,7 +2356,7 @@ export default function EventDetail({ route, navigation }) {
                                     },
                             ]}
                         >
-                            {primaryActionText}
+                            {primaryBtnText}
                         </Text>
                     </TouchableOpacity>
                 </View>
