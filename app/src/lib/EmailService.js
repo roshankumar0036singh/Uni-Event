@@ -72,7 +72,7 @@ export const sendBulkAnnouncement = async (participants, subject, message) => {
                 event_link: BASE_URL,
                 download_btn_display: 'none',
                 browse_btn_display: 'block',
-            }
+            },
         });
         return response.data;
     } catch (error) {
@@ -98,8 +98,8 @@ export const sendBulkFeedbackRequest = async (participants, eventTitle, eventId)
             templateId: EMAILJS_TEMPLATE_FEEDBACK,
             templateData: {
                 event_title: eventTitle,
-                feedback_link: feedbackLink
-            }
+                feedback_link: feedbackLink,
+            },
         });
         return response.data;
     } catch (error) {
@@ -133,14 +133,14 @@ export const sendBulkCertificates = async (participants, eventTitle, date, event
         )}`;
     };
 
-    const formattedParticipants = participants.map((p) => {
+    const formattedParticipants = participants.map(p => {
         const certificateUrl = buildLinkedInUrl(p, date);
         return {
             ...p,
             templateData: {
                 event_link: certificateUrl,
                 linkedin_url: certificateUrl,
-            }
+            },
         };
     });
 
@@ -157,7 +157,7 @@ export const sendBulkCertificates = async (participants, eventTitle, date, event
                 cert_display: 'block',
                 download_btn_display: 'block',
                 browse_btn_display: 'none',
-            }
+            },
         });
         return response.data;
     } catch (error) {
