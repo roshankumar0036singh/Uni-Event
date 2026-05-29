@@ -125,7 +125,11 @@ This collection contains user profiles, system configuration configurations, pus
 | `pushToken` | `string` | Expo Push Token used to deliver targeted mobile notifications. |
 | `role` | `string` | Defines security tier: `"student"`, `"club"`, or `"admin"`. |
 | `points` | `integer` | Points accumulated via participation, used for rankings. |
-| `reputation` | `number` | Reliability score derived from attendance and show-up ratios. |
+| `reputation.points` | `number` | Time-decayed reputation score (halves every 6 months). |
+| `reputation.attendanceCount` | `integer` | Total historically tracked attendances. |
+| `reputation.registrationCount` | `integer` | Total historically tracked registrations. |
+| `reputation.remindersSet` | `integer` | Total historically tracked reminders. |
+| `reputation.updatedAt` | `timestamp` | Datetime the reputation score was last refreshed. |
 | `createdAt` | `timestamp` | Date and time of registration. |
 
 #### Full Example Document
@@ -137,10 +141,50 @@ This collection contains user profiles, system configuration configurations, pus
   "pushToken": "ExponentPushToken[AbCdEfGhIjKlMnOpQrStUv]",
   "role": "student",
   "points": 350,
-  "reputation": 94.5,
+  "reputation": {
+    "points": 94.5,
+    "attendanceCount": 5,
+    "registrationCount": 6,
+    "remindersSet": 2,
+    "updatedAt": {
+      "_seconds": 1774888800,
+      "_nanoseconds": 0
+    }
+  },
   "createdAt": {
     "_seconds": 1774783200,
     "_nanoseconds": 500000000
+  }
+}
+```
+
+---
+
+### 3.1.1 Reputation Buckets Subcollection (`/users/{uid}/reputationBuckets`)
+
+Used to track a user's monthly interactions to compute the time-decayed reputation score.
+
+#### Schema
+
+| Field Name | Type | Description |
+| :--- | :--- | :--- |
+| `monthKey` | `string` | **Document ID**. Format: `YYYY-MM`. |
+| `registrations` | `integer` | Number of events the user registered for in this month. |
+| `attendances` | `integer` | Number of events the user actually attended this month. |
+| `reminders` | `integer` | Number of reminders set this month. |
+| `updatedAt` | `timestamp` | Datetime the bucket was last modified. |
+
+#### Full Example Document
+
+```json
+{
+  "monthKey": "2026-05",
+  "registrations": 4,
+  "attendances": 3,
+  "reminders": 1,
+  "updatedAt": {
+    "_seconds": 1774890000,
+    "_nanoseconds": 0
   }
 }
 ```
