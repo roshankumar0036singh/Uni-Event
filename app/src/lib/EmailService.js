@@ -117,8 +117,7 @@ export const sendBulkCertificates = async (participants, eventTitle, date, event
     const message = `We are pleased to present you with this certificate for your participation in ${eventTitle}.`;
 
     const buildLinkedInUrl = (participant, eventStartDate) => {
-        const certUrl =
-            participant.certificateUrl || eventLink || BASE_URL;
+        const certUrl = participant.certificateUrl || eventLink || BASE_URL;
         const org = participant.organization || 'UniEvent';
         let issueDate = new Date();
         if (eventStartDate) {
