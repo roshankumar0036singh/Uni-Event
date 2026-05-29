@@ -26,6 +26,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 const MIN_PASSWORD_LENGTH = 6;
 const EMAIL_REGEX = /^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
+const EMULATOR_GOOGLE_PASSWORD = process.env.EXPO_PUBLIC_EMULATOR_GOOGLE_PASSWORD || 'emulator-password';
 
 const FIREBASE_ERROR_MESSAGES = {
     'auth/email-already-in-use': 'An account with this email already exists.',
