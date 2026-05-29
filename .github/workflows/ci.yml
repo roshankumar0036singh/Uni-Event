@@ -8,10 +8,7 @@ on:
 
 permissions:
   contents: read
-<<<<<<< Updated upstream
-=======
   pull-requests: read
->>>>>>> Stashed changes
 
 jobs:
   core-flow-tests:
@@ -51,13 +48,8 @@ jobs:
     name: Lint & Test (app)
     runs-on: ubuntu-latest
     permissions:
-<<<<<<< Updated upstream
-      contents: write
-      pull-requests: write
-=======
       contents: read
       pull-requests: read
->>>>>>> Stashed changes
     defaults:
       run:
         working-directory: ./app
