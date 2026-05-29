@@ -55,8 +55,8 @@ export const AuthProvider = ({ children }) => {
     }, [getItemAsync]);
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && window.Cypress) {
-            window.setMockUser = (mockUser, mockRole = 'student', mockData = {}) => {
+        if (typeof globalThis.window !== 'undefined' && globalThis.Cypress) {
+            globalThis.setMockUser = (mockUser, mockRole = 'student', mockData = {}) => {
                 setUser(mockUser);
                 setRole(mockRole);
                 setUserData(mockData);
