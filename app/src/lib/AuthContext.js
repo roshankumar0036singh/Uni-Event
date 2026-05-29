@@ -55,6 +55,16 @@ export const AuthProvider = ({ children }) => {
     }, [getItemAsync]);
 
     useEffect(() => {
+        if (typeof window !== 'undefined' && window.Cypress) {
+            window.setMockUser = (mockUser, mockRole = 'student', mockData = {}) => {
+                setUser(mockUser);
+                setRole(mockRole);
+                setUserData(mockData);
+                setLoading(false);
+            };
+            setLoading(false);
+        }
+
         loadSavedAccounts(); // Load accounts on mount
         const unsubscribe = onAuthStateChanged(auth, async currentUser => {
             setLoading(true);

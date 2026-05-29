@@ -13,7 +13,10 @@
         "lint": "eslint .",
         "format": "prettier --write .",
         "generate-sw": "node scripts/generate-sw.js",
-        "test": "jest"
+        "test": "jest",
+        "cypress:open": "cypress open",
+        "cypress:run": "cypress run",
+        "test:e2e": "start-server-and-test web http://localhost:19006 cypress:run"
     },
     "repository": {
         "type": "git",
@@ -94,6 +97,7 @@
         "@eslint/eslintrc": "^3.3.5",
         "@eslint/js": "^10.0.1",
         "@testing-library/react-native": "^13.3.3",
+        "cypress": "^15.16.0",
         "eslint": "^9.39.4",
         "eslint-config-expo": "~8.0.1",
         "eslint-config-prettier": "^9.0.0",
@@ -104,6 +108,7 @@
         "jest-expo": "~52.0.6",
         "prettier": "^3.8.3",
         "react-test-renderer": "18.3.1",
+        "start-server-and-test": "^3.0.5",
         "typescript": "^5.0.0"
     },
     "private": true
