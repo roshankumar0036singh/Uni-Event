@@ -25,6 +25,12 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Install dependencies
         run: npm ci
 
@@ -34,7 +40,7 @@ jobs:
       - name: Report coverage
         if: always()
         run: |
-          node -e "const fs=require('fs');const p='coverage/coverage-summary.json';if(!fs.existsSync(p)){console.log('No coverage summary found.');process.exit(0)};const s=require('./'+p).total;const lines=['## Core Firebase Flow Coverage','| Metric | Covered | Total | Percent |','| --- | ---: | ---: | ---: |',...['statements','branches','functions','lines'].map(k=>`| ${k} | ${s[k].covered} | ${s[k].total} | ${s[k].pct}% |`)];fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');"
+          node -e "const fs=require('fs');const p='coverage/coverage-summary.json';if(!fs.existsSync(p)){console.log('No coverage summary found.');process.exit(0)};const s=require('./'+p).total;const lines=['## Core Firebase Flow Coverage','| Metric | Covered | Total | Percent |','| --- | ---: | ---: | ---: |',...['statements','branches','functions','lines'].map(k=>'| '+k+' | '+s[k].covered+' | '+s[k].total+' | '+s[k].pct+'% |')];fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n')+'\n');"
 
       - name: Upload coverage artifact
         if: always()
