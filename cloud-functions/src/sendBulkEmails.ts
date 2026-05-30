@@ -2,6 +2,7 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { FieldValue } from 'firebase-admin/firestore';
 
+import { enforceAppCheck } from './middleware/appCheck';
 // Interface for Email Participant
 interface Participant {
     name?: string;
@@ -35,6 +36,9 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
     const { uid } = context.auth;
     const token = context.auth.token;
 
+    // 1b.  Validate App Check
+    enforceAppCheck(context);
+
     // 2. Validate Roles (Organizer/Club or Admin)
     if (!token.admin && !token.club) {
         throw new functions.https.HttpsError(
@@ -53,10 +57,10 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
     }
 
     if (!subject || !message || !templateId) {
-         throw new functions.https.HttpsError(
-             'invalid-argument',
-             'Subject, message, and templateId are required.'
-         );
+        throw new functions.https.HttpsError(
+            'invalid-argument',
+            'Subject, message, and templateId are required.'
+        );
     }
 
     const emailCount = participants.length;
