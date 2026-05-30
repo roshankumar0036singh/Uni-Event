@@ -12,6 +12,7 @@ interface Participant {
 
 // Interface for the Cloud Function Payload
 interface SendBulkEmailsPayload {
+    eventId: string;
     participants: Participant[];
     subject: string;
     message: string;
@@ -21,6 +22,8 @@ interface SendBulkEmailsPayload {
 
 // Limits
 const MAX_EMAILS_PER_HOUR = 500;
+
+const BATCH_SIZE = 500;
 
 export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmailsPayload, context) => {
     // 1. Validate Authentication
@@ -42,7 +45,14 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
         );
     }
 
-    const { participants, subject, message, templateData = {}, templateId } = data;
+    const { eventId, participants, subject, message, templateData = {}, templateId } = data;
+
+    if (!eventId) {
+        throw new functions.https.HttpsError(
+            'invalid-argument',
+            'eventId is required.'
+        );
+    }
 
     if (!participants || !Array.isArray(participants) || participants.length === 0) {
         throw new functions.https.HttpsError(
@@ -58,9 +68,77 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
          );
     }
 
+    const db = admin.firestore();
+
+    // 3. Validate Event Ownership
+    const eventRef = db.collection('events').doc(eventId);
+    const eventSnap = await eventRef.get();
+
+    if (!eventSnap.exists) {
+        throw new functions.https.HttpsError(
+            'not-found',
+            'Event not found.'
+        );
+    }
+
+    const eventData = eventSnap.data();
+    if (!eventData) {
+        throw new functions.https.HttpsError(
+            'not-found',
+            'Event not found.'
+        );
+    }
+
+    if (eventData.ownerId !== uid && !token.admin) {
+        throw new functions.https.HttpsError(
+            'permission-denied',
+            'You can only send bulk emails for events you own.'
+        );
+    }
+
+    // 4. Validate participants belong to this event
+    const participantEmailSet = new Set<string>();
+    let lastDoc: admin.firestore.DocumentSnapshot | undefined;
+
+    do {
+        let query: admin.firestore.Query = eventRef
+            .collection('participants')
+            .select('email')
+            .limit(BATCH_SIZE);
+
+        if (lastDoc) {
+            query = query.startAfter(lastDoc);
+        }
+
+        const partSnap = await query.get();
+        if (partSnap.empty) break;
+
+        partSnap.forEach(doc => {
+            const email = doc.get('email');
+            if (email) participantEmailSet.add(email.toLowerCase());
+        });
+
+        lastDoc = partSnap.docs[partSnap.docs.length - 1];
+    } while (lastDoc);
+
+    const invalidParticipants = participants.filter(
+        p => !participantEmailSet.has(p.email.toLowerCase())
+    );
+
+    if (invalidParticipants.length > 0) {
+        console.warn(
+            `Blocked bulk email: ${invalidParticipants.length} emails not registered for event ${eventId}`,
+            invalidParticipants.map(p => p.email)
+        );
+        throw new functions.https.HttpsError(
+            'permission-denied',
+            `Some recipients are not registered for this event. All participants must be registered attendees.`
+        );
+    }
+
     const emailCount = participants.length;
 
-    // 3. Validate Provider Config before reserving quota
+    // 5. Validate Provider Config before reserving quota
     const EMAILJS_SERVICE_ID = process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID;
     const EMAILJS_PUBLIC_KEY = process.env.EXPO_PUBLIC_EMAILJS_PUBLIC_KEY;
 
@@ -72,8 +150,7 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
         );
     }
 
-    // 4. Check Rate Limits (Rolling Window)
-    const db = admin.firestore();
+    // 6. Check Rate Limits (Rolling Window)
     const rateLimitRef = db.collection('rate_limits').doc(uid);
 
     const now = Date.now();
@@ -104,7 +181,7 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
         transaction.set(rateLimitRef, { timestamps }, { merge: true });
     });
 
-    // 5. Send Emails via EmailJS REST API
+    // 7. Send Emails via EmailJS REST API
     let successCount = 0;
     let failureCount = 0;
 
