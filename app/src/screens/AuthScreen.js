@@ -197,7 +197,7 @@ export default function AuthScreen() {
         webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
         redirectUri:
             Platform.OS === 'web'
-                ? window.location.origin || process.env.EXPO_PUBLIC_REDIRECT_URI
+                ? globalThis.location.origin || process.env.EXPO_PUBLIC_REDIRECT_URI
                 : process.env.EXPO_PUBLIC_REDIRECT_URI || makeRedirectUri({ useProxy: true }),
     });
 

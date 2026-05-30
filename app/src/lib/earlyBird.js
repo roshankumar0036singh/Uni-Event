@@ -5,7 +5,7 @@ export const getTimestampMs = value => {
     if (!value) return null;
     if (typeof value === 'string' || typeof value === 'number') {
         const ms = new Date(value).getTime();
-        return isNaN(ms) ? null : ms;
+        return Number.isNaN(ms) ? null : ms;
     }
     // Firestore Timestamp — prefer .toMillis() (most reliable), then .toDate()
     if (typeof value.toMillis === 'function') return value.toMillis();

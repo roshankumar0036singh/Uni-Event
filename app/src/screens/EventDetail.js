@@ -1195,7 +1195,7 @@ export default function EventDetail({ route, navigation }) {
                                                         fontWeight: '800',
                                                     }}
                                                 >
-                                                    {String.fromCharCode(10003)}
+                                                    {String.fromCodePoint(10003)}
                                                 </Text>
                                             </View>
                                             <Text
@@ -1691,20 +1691,18 @@ export default function EventDetail({ route, navigation }) {
                                         true: theme.colors.primary + '80',
                                     }}
                                     thumbColor={
-                                        participants.find(p => p.id === user?.uid)
-                                            ?.lookingForBuddy || false
+                                        participants.find(p => p.id === user?.uid)?.lookingForBuddy
                                             ? theme.colors.primary
                                             : '#999'
                                     }
                                 />
                             </View>
 
-                            {participants.find(p => p.id === user?.uid)?.lookingForBuddy ||
-                            false ? (
+                            {participants.find(p => p.id === user?.uid)?.lookingForBuddy ? (
                                 <View style={styles.buddyContent}>
-                                    {participants.filter(
+                                    {participants.some(
                                         p => p.id !== user?.uid && p.lookingForBuddy === true,
-                                    ).length > 0 ? (
+                                    ) ? (
                                         <View>
                                             <Text
                                                 style={[
