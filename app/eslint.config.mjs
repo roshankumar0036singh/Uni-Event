@@ -49,6 +49,7 @@ export default [
             'react/prop-types': 'error',
             'react/no-unescaped-entities': 'warn',
             'import/named': 'warn',
+            'unicode-bom': ['error', 'never'],
         },
     },
 

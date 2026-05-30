@@ -1,0 +1,41 @@
+name: Update package-lock.json
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - 'package.json'
+            - 'app/package.json'
+            - 'cloud-functions/package.json'
+
+permissions:
+    contents: write
+
+jobs:
+    update-lockfile:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+
+            - name: Update root lockfile
+              run: npm install --package-lock-only --ignore-scripts
+
+            - name: Update app lockfile
+              run: |
+                  cd app
+                  npm install --package-lock-only --ignore-scripts
+
+            - name: Update cloud-functions lockfile
+              run: |
+                  cd cloud-functions
+                  npm install --package-lock-only --ignore-scripts
+
+            - uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403
+              with:
+                  commit_message: 'chore: update package-lock.json [skip ci]'
