@@ -20,17 +20,16 @@ export const setRole = functions.https.onCall(async (data, context) => {
     );
   }
 
-  await checkRateLimit(context.auth.uid, "setRole", RATE_LIMITS.ADMIN_WRITE);
-
-  // Check if caller is admin
-  // Note: For initial bootstrap, this check might need to be bypassed temporarily or the first admin set manually.
-  // We will assume the first admin is set via Firebase Console or script.
+  // Check if caller is admin BEFORE rate limiting
   if (!context.auth.token.admin) {
     throw new functions.https.HttpsError(
       "permission-denied",
       "Only admins can set roles."
     );
   }
+
+  // Apply rate limiting after auth checks
+  await checkRateLimit(context.auth.uid, "setRole", RATE_LIMITS.ADMIN_WRITE);
 
   const { uid, role } = data;
 
@@ -67,6 +66,6 @@ export const setRole = functions.https.onCall(async (data, context) => {
 
     return { success: true };
   } catch (error) {
-    throw new functions.https.HttpsError("internal", "Error setting role", error);
+    throw new functions.https.HttpsError("internal", "Error setting role");
   }
 });

@@ -29,9 +29,12 @@ export async function checkRateLimit(
   const now = Date.now();
   const windowStart = now - config.windowMs;
   
+  // Sanitize functionName to prevent injection
+  const sanitizedFunctionName = functionName.replace(/[^a-zA-Z0-9_-]/g, '');
+  
   const rateLimitRef = admin.firestore()
-    .collection("rateLimits")
-    .doc(`${userId}_${functionName}`);
+    .collection("rate_limits")
+    .doc(`${userId}_${sanitizedFunctionName}`);
   
   try {
     await admin.firestore().runTransaction(async (transaction) => {
@@ -51,7 +54,7 @@ export async function checkRateLimit(
             
             console.warn("Rate limit exceeded", {
               userId,
-              functionName,
+              functionName: sanitizedFunctionName,
               retryAfterSeconds,
               maxRequests: config.maxRequests,
               windowSeconds: config.windowMs / 1000,
@@ -94,23 +97,34 @@ export async function checkRateLimit(
     console.error("Rate limit check failed:", error);
     throw new functions.https.HttpsError(
       "internal",
-      "Rate limit check failed",
-      { message: String(error) }
+      "Rate limit check failed"
     );
   }
 }
 
 
-export async function cleanupOldRateLimits(olderThanMs: number = 60 * 60 * 1000): Promise<void> {
+export async function cleanupOldRateLimits(olderThanMs: number = 24 * 60 * 60 * 1000): Promise<void> {
   const cutoffTime = Date.now() - olderThanMs;
   let totalDeleted = 0;
+  let lastDocId: string | null = null;
   
   while (true) {
-    const snapshot = await admin.firestore()
-      .collection("rateLimits")
+    let query = admin.firestore()
+      .collection("rate_limits")
       .where("lastUpdated", "<", cutoffTime)
-      .limit(500)
-      .get();
+      .limit(500);
+    
+    if (lastDocId) {
+      const lastDoc = await admin.firestore()
+        .collection("rate_limits")
+        .doc(lastDocId)
+        .get();
+      if (lastDoc.exists) {
+        query = query.startAfter(lastDoc);
+      }
+    }
+    
+    const snapshot = await query.get();
     
     if (snapshot.empty) {
       break;
@@ -123,6 +137,7 @@ export async function cleanupOldRateLimits(olderThanMs: number = 60 * 60 * 1000)
     
     await batch.commit();
     totalDeleted += snapshot.size;
+    lastDocId = snapshot.docs[snapshot.docs.length - 1].id;
   }
   
   if (totalDeleted > 0) {
