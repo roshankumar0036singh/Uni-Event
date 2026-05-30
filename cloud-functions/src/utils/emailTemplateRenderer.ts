@@ -3,9 +3,9 @@ import * as path from 'path';
 
 /**
  * Directory containing the EmailJS HTML templates.
- * Resolved from the compiled output location (lib/utils/) back to the project root.
+ * Resolved from the compiled output location (lib/utils/) or source (src/utils/) to templates/.
  */
-const TEMPLATES_DIR = path.resolve(__dirname, '../../../docs/EmailJs_Template');
+const TEMPLATES_DIR = path.resolve(__dirname, '../../templates');
 
 /**
  * Sample data for each known template, used for previews when no data is supplied.

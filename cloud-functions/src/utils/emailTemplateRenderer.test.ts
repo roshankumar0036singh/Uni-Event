@@ -7,7 +7,7 @@ import {
 } from './emailTemplateRenderer';
 
 // Resolve the templates directory the same way the module does
-const TEMPLATES_DIR = path.resolve(__dirname, '../../../docs/EmailJs_Template');
+const TEMPLATES_DIR = path.resolve(__dirname, '../../templates');
 
 describe('emailTemplateRenderer', () => {
   // ─── getAvailableTemplates ─────────────────────────────────────────

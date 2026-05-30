@@ -8,7 +8,7 @@ export interface SendEmailOptions {
   to: string;
   /** Email subject line */
   subject: string;
-  /** Template name (without .html extension) from docs/EmailJs_Template/ */
+  /** Template name (without .html extension) from cloud-functions/templates/ */
   templateName: string;
   /** Key-value pairs to inject into the template placeholders */
   templateData: Record<string, string>;
