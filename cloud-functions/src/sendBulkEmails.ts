@@ -1,6 +1,6 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
-import { enforceAppCheck } from './middleware/appcheck';
+import { enforceAppCheck } from './middleware/appCheck';
 
 // Interface for Email Participant
 interface Participant {
@@ -56,10 +56,10 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
     }
 
     if (!subject || !message || !templateId) {
-         throw new functions.https.HttpsError(
-             'invalid-argument',
-             'Subject, message, and templateId are required.'
-         );
+        throw new functions.https.HttpsError(
+            'invalid-argument',
+            'Subject, message, and templateId are required.'
+        );
     }
 
     const emailCount = participants.length;

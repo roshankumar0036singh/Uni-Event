@@ -35,7 +35,7 @@ const app = express();
 app.disable('x-powered-by');
 app.use(cors({ origin: true }));
 app.use(express.json());
-app.use(ipWhiteList)
+app.use(ipWhitelist)
 // Auth Middleware to mimic Firebase Callable Context
 const validateFirebaseIdToken = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (!req.headers.authorization?.startsWith('Bearer ')) {
@@ -133,7 +133,7 @@ app.post('/api/setRole', validateFirebaseIdToken, rateLimitMiddleware, async (re
 
 // Send Certificates Endpoint
 import { sendCertificatesForEvent } from './certificateService';
-import { ipWhiteList } from './middleware/ipWhiteList';
+import { ipWhitelist } from './middleware/ipWhitelist';
 
 app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, async (req: express.Request, res: express.Response) => {
   const user = (req as any).user;

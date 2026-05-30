@@ -1,6 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
-import { enforceAppCheck } from "./middleware/appcheck";
+import { enforceAppCheck } from "./middleware/appCheck";
 
 // Assumes admin.initializeApp() is called in index.ts
 

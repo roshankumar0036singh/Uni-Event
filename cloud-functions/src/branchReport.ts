@@ -1,7 +1,7 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { enforceAppCheck } from "./middleware/appcheck";
+import { enforceAppCheck } from "./middleware/appCheck";
 
 interface BranchStats {
   branch: string;

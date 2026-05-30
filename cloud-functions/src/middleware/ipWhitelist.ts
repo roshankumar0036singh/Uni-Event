@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 
-export function ipWhiteList(req: Request, res: Response, next: NextFunction): void {
+export function ipWhitelist(req: Request, res: Response, next: NextFunction): void {
 
     if (process.env.ENABLE_IP_WHITELIST === 'false') {
         console.warn('[ipWhitelist] IP check is DISABLED  do not use in production');

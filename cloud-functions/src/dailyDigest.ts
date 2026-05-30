@@ -2,7 +2,7 @@ import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import Expo from 'expo-server-sdk';
 import { sendPushNotifications } from './utils/push';
-import { enforceAppCheck } from './middleware/appcheck';
+import { enforceAppCheck } from './middleware/appCheck';
 
 const PAGE_SIZE = 500;
 
