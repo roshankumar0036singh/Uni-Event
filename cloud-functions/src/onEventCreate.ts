@@ -40,7 +40,7 @@ async function processUserBatch(
         title: 'New Event Alert! 📢',
         body: `Check out: "${eventTitle}"`,
         eventId: eventId,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         read: false
       });
     }
