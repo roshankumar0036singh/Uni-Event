@@ -33,7 +33,7 @@ if (admin.apps.length === 0) {
 
 const app = express();
 app.disable('x-powered-by');
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 app.use(cors({ origin: true }));
 app.use(ipWhitelist)
 app.use(express.json());
