@@ -27,9 +27,9 @@ service cloud.firestore {
     }
 
     function canRegisterForEvent(database, eventId) {
-      let eventData = get(/databases/$(database)/documents/events/$(eventId)).data;
       return exists(/databases/$(database)/documents/events/$(eventId))
-        && eventData.status != 'suspended';
+        && get(/databases/$(database)/documents/events/$(eventId)).data.status != 'suspended'
+        && !('deletedAt' in get(/databases/$(database)/documents/events/$(eventId)).data);
     }
 
     // =========================================================================
@@ -199,7 +199,7 @@ service cloud.firestore {
           request.auth.uid == participantId &&
           validateAttendanceStatus(request.resource.data) &&
           !request.resource.data.keys().hasAny([
-            'isPaid', 'paymentStatus', 'paymentId', 'role', 'approved'
+            'role', 'approved'
           ]) &&
           canRegisterForEvent(database, eventId) &&
           (
