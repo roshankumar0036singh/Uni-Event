@@ -44,7 +44,9 @@ export default function MyEventsScreen({ navigation }) {
             snapshot => {
                 const list = [];
                 snapshot.forEach(doc => {
-                    list.push({ id: doc.id, ...doc.data() });
+                    const data = doc.data();
+                    if (data.deletedAt != null) return;
+                    list.push({ id: doc.id, ...data });
                 });
                 // Sort client-side by date
                 list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -65,6 +67,7 @@ export default function MyEventsScreen({ navigation }) {
     const handleDelete = async eventId => {
         const confirmMsg = 'Are you sure? The event will be soft-deleted and can be restored by an admin within 30 days.';
         if (Platform.OS === 'web') {
+            if (!window.confirm(confirmMsg)) return;
             try {
                 await updateDoc(doc(db, 'events', eventId), {
                     deletedAt: serverTimestamp(),

@@ -128,8 +128,8 @@ export default function MobileAdmin() {
     const handleRestoreEvent = async eventId => {
         try {
             await updateDoc(doc(db, 'events', eventId), {
-                deletedAt: null,
-                deletedBy: null,
+                deletedAt: deleteField(),
+                deletedBy: deleteField(),
             });
             Alert.alert('Restored', 'Event restored successfully.');
             fetchData();
