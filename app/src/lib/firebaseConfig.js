@@ -1,6 +1,6 @@
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaV3Provider, CustomProvider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import {
     browserLocalPersistence,
     // eslint-disable-next-line import/named
@@ -34,15 +34,12 @@ if (!firebaseConfig.apiKey) {
 const app = initializeApp(firebaseConfig);
 
 if (__DEV__ || Platform.OS !== 'web') {
-    self.FIREBASE_APPCHECK_DEBUG_TOKEN = process.env.EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN;
+    globalThis.FIREBASE_APPCHECK_DEBUG_TOKEN = process.env.EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN;
 }
 
-let appCheckProvider;
-if (Platform.OS === 'web') {
-    appCheckProvider = new ReCaptchaV3Provider(process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY || '');
-} else {
-    appCheckProvider = new ReCaptchaV3Provider(process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY || '');
-}
+const appCheckProvider = new ReCaptchaV3Provider(
+    process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY || ''
+);
 
 try {
     initializeAppCheck(app, {
