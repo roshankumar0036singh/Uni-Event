@@ -130,7 +130,7 @@ export const AuthProvider = ({ children }) => {
                     uid: user.uid,
                     provider: provider,
                     // Save password only on native systems (with secure hardware storage)
-                    password: Platform.OS !== 'web' ? password : null,
+                    password: Platform.OS === 'web' ? null : password,
                     lastSignedInAt: new Date().toISOString(),
                 };
 
