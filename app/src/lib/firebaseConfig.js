@@ -33,18 +33,15 @@ if (!firebaseConfig.apiKey) {
 
 const app = initializeApp(firebaseConfig);
 
+if (__DEV__ || Platform.OS !== 'web') {
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = process.env.EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN;
+}
+
 let appCheckProvider;
 if (Platform.OS === 'web') {
     appCheckProvider = new ReCaptchaV3Provider(process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY || '');
 } else {
-    appCheckProvider = new CustomProvider({
-        getToken: async () => {
-            return {
-                token: process.env.EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN || 'debug-token',
-                expireTimeMillis: Date.now() + 3600000,
-            };
-        }
-    });
+    appCheckProvider = new ReCaptchaV3Provider(process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY || '');
 }
 
 try {

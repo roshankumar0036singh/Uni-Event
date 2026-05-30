@@ -19,10 +19,8 @@ export function ipWhitelist(req: Request, res: Response, next: NextFunction): vo
         return;
     }
 
-    const forwardedFor = req.headers['x-forwarded-for'];
-    const callerIp = Array.isArray(forwardedFor)
-        ? forwardedFor[0].split(',')[0].trim()
-        : (forwardedFor || '').split(',')[0].trim() || req.ip;
+
+    const callerIp = req.ip;
 
     if (!callerIp || !allowedIps.includes(callerIp)) {
         console.warn(`[ipWhitelist] Blocked request from IP: ${callerIp}`);

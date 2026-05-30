@@ -33,9 +33,10 @@ if (admin.apps.length === 0) {
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', true);
 app.use(cors({ origin: true }));
-app.use(express.json());
 app.use(ipWhitelist)
+app.use(express.json());
 // Auth Middleware to mimic Firebase Callable Context
 const validateFirebaseIdToken = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (!req.headers.authorization?.startsWith('Bearer ')) {
