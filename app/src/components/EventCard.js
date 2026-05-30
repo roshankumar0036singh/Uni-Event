@@ -356,6 +356,7 @@ const EventCard = memo(
                             uri:
                                 event.bannerUrl ||
                                 'https://dummyimage.com/800x400/cccccc/000000.png&text=No+Image',
+                            cache: 'force-cache',
                         }}
                         style={[styles.bannerImage, isRecommended && { height: 140 }]}
                         resizeMode="cover"

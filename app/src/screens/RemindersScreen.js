@@ -219,6 +219,7 @@ export default function RemindersScreen({ navigation }) {
                                 <Image
                                     source={{
                                         uri: item.bannerUrl || 'https://via.placeholder.com/150',
+                                        cache: 'force-cache',
                                     }}
                                     style={styles.cardImage}
                                 />

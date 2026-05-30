@@ -1370,6 +1370,7 @@ export default function EventDetail({ route, navigation }) {
                         uri:
                             event.bannerUrl ||
                             'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image',
+                        cache: 'force-cache',
                     }}
                     style={styles.headerImage}
                 >
