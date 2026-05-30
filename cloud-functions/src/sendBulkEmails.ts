@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { FieldValue } from 'firebase-admin/firestore';
 
 interface Participant {
     name?: string;
@@ -143,8 +144,11 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
     let auditDocRef: admin.firestore.DocumentReference | null = null;
     try {
         auditDocRef = await db.collection('email_audit_logs').add({
-            senderId: uid, templateId, recipientCount: emailCount, status: 'pending',
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            senderId: uid,
+            templateId: templateId,
+            recipientCount: emailCount,
+            status: 'pending',
+            timestamp: FieldValue.serverTimestamp(),
             ip: context.rawRequest?.ip || 'unknown',
         });
     } catch (e) {

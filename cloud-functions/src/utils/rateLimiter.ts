@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -77,7 +78,7 @@ export async function checkAndUpdateRateLimit(
       userData = {
         role: 'student',
         writeCountMinute: 1,
-        lastWriteAt: admin.firestore.Timestamp.now(),
+        lastWriteAt: Timestamp.now(),
         eventCountDay: isEventCreation ? 1 : 0,
         lastEventDay: currentDayInt,
       };
@@ -108,7 +109,7 @@ export async function checkAndUpdateRateLimit(
 
     const updates: any = {
       writeCountMinute: minResult.writeCountMinute,
-      lastWriteAt: admin.firestore.FieldValue.serverTimestamp()
+      lastWriteAt: FieldValue.serverTimestamp()
     };
 
     // 2. Evaluate Daily Event Limit

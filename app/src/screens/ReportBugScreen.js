@@ -26,7 +26,7 @@ import PropTypes from 'prop-types';
 
 const showAlert = (title, message, onOk) => {
     if (Platform.OS === 'web') {
-        window.alert(`${title}\n\n${message}`);
+        globalThis.alert(`${title}\n\n${message}`);
         if (onOk) onOk();
     } else {
         Alert.alert(title, message, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
@@ -41,14 +41,14 @@ class ValidationError extends Error {
 }
 
 const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024; // 5 MB
-const ALLOWED_MIME_TYPES = [
+const ALLOWED_MIME_TYPES = new Set([
     'image/jpeg',
     'image/jpg',
     'image/png',
     'image/webp',
     'image/heic',
     'image/heif',
-];
+]);
 
 const MIME_TO_EXTENSION = {
     'image/jpeg': 'jpg',
@@ -65,7 +65,7 @@ const validateScreenshotAsset = asset => {
     }
 
     const mime = asset.mimeType?.toLowerCase();
-    if (mime && !ALLOWED_MIME_TYPES.includes(mime)) {
+    if (mime && !ALLOWED_MIME_TYPES.has(mime)) {
         return {
             ok: false,
             message: 'Unsupported file type. Please choose a JPG, PNG, WEBP, or HEIC image.',
@@ -143,7 +143,7 @@ export default function ReportBugScreen({ navigation }) {
         }
 
         const contentType = blob.type?.toLowerCase() || 'image/jpeg';
-        if (blob.type && !ALLOWED_MIME_TYPES.includes(contentType)) {
+        if (blob.type && !ALLOWED_MIME_TYPES.has(contentType)) {
             throw new ValidationError(
                 'Unsupported file type. Please choose a JPG, PNG, WEBP, or HEIC image.',
             );

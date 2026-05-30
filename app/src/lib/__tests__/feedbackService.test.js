@@ -129,7 +129,7 @@ describe('feedbackService', () => {
             totalRatings: 4,
         });
 
-        expect(result).toBe('5.0');
+        expect(result).toBe(5);
     });
 
     test('returns 0 when no ratings exist', () => {

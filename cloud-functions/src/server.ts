@@ -2,6 +2,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { checkAndUpdateRateLimit } from './utils/rateLimiter';
 
 // Load environment variables
@@ -201,7 +202,7 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, a
         batch.set(notifRef, {
           title: 'Daily Digest 📅',
           body: `There are ${count} events happening today!`,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
           read: false
         });
 
