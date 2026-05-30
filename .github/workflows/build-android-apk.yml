@@ -33,8 +33,8 @@ jobs:
       - name: Setup Expo and EAS CLI
         uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
         with:
-          expo-version: latest
-          eas-version: latest
+          expo-version: 8.1.1
+          eas-version: 20.0.0
           token: ${{ secrets.EXPO_TOKEN }}
           eas-cache: true
 
@@ -62,7 +62,11 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+          if [ -n "$ANDROID_KEYSTORE_BASE64$ANDROID_KEYSTORE_PASSWORD$ANDROID_KEY_ALIAS$ANDROID_KEY_PASSWORD" ]; then
+            if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+              echo "::error::Local Android signing requires ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD."
+              exit 1
+            fi
             echo "Decoding Android Keystore..."
             mkdir -p android/keystores
             echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/keystores/release.jks
@@ -92,7 +96,7 @@ jobs:
                 json.dump(data, f, indent=2)
             "
           else
-            echo "No ANDROID_KEYSTORE_BASE64 secret found. Will fall back to remote credentials."
+            echo "No Android keystore credentials found. Will fall back to remote credentials."
           fi
 
       - name: Build Android APK
@@ -102,7 +106,11 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           if [ -z "$EXPO_TOKEN" ] && [ ! -f "credentials.json" ]; then
-            echo "WARNING: Neither EXPO_TOKEN nor local credentials are set. Skipping actual EAS build to prevent failures on forks."
+            if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+              echo "::error::Release tag builds require EXPO_TOKEN or a fully configured local keystore."
+              exit 1
+            fi
+            echo "WARNING: Neither EXPO_TOKEN nor local credentials are set. Skipping actual EAS build."
             exit 0
           fi
           

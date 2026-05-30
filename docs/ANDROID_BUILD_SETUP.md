@@ -40,10 +40,15 @@ If you prefer to manage the Android signing credentials entirely inside GitHub S
 
 #### 1. `ANDROID_KEYSTORE_BASE64`
 The base64-encoded string of your `.jks` or `.keystore` file.
-- **To generate the base64 string on macOS/Linux**:
+- **To generate the base64 string on macOS**:
   ```bash
   base64 -i my-release-key.keystore -o base64-keystore.txt
   ```
+- **To generate the base64 string on Linux**:
+  ```bash
+  base64 -w 0 my-release-key.keystore > base64-keystore.txt
+  ```
+  *(If `-w` is unavailable, use: `base64 my-release-key.keystore | tr -d '\n' > base64-keystore.txt`)*
 - **To generate the base64 string on Windows (PowerShell)**:
   ```powershell
   [Convert]::ToBase64String([IO.File]::ReadAllBytes("my-release-key.keystore")) > base64-keystore.txt
