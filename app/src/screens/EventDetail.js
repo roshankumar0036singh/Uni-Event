@@ -2004,7 +2004,7 @@ export default function EventDetail({ route, navigation }) {
                         const registrationsVal = participantCount || 0;
                         const viewsVal = event.views || 0;
                         const savesVal = event.savedCount || 0;
-                        const scoreVal = Math.min(Math.round((registrationsVal * 1.5) + (savesVal * 1.0) + (viewsVal * 0.2)), 100);
+                        const scoreVal = Math.min(Math.round((registrationsVal * 1.5) + (savesVal * 1) + (viewsVal * 0.2)), 100);
                         const isTrendingVal = scoreVal >= 75;
                         const remainingSeatsVal = event.capacity ? Math.max(0, event.capacity - registrationsVal) : null;
 
