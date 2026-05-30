@@ -23,7 +23,15 @@ service cloud.firestore {
     }
 
     function validateAttendanceStatus(data) {
-      return !('status' in data) || (data.status in ['rsvp', 'checked_in', 'cancelled', 'paid']);
+      return !('status' in data) || (data.status in ['rsvp', 'checked_in', 'cancelled']);
+    }
+
+    function isVerifiedPaidRegistration(database) {
+      return 'status' in request.resource.data
+        && request.resource.data.status == 'paid'
+        && 'ticketId' in request.resource.data
+        && exists(/databases/$(database)/documents/tickets/$(request.resource.data.ticketId))
+        && get(/databases/$(database)/documents/tickets/$(request.resource.data.ticketId)).data.status == 'paid';
     }
 
     function canRegisterForEvent(database, eventId) {
@@ -197,7 +205,6 @@ service cloud.firestore {
         
         allow create: if request.auth != null &&
           request.auth.uid == participantId &&
-          validateAttendanceStatus(request.resource.data) &&
           !request.resource.data.keys().hasAny([
             'role', 'approved'
           ]) &&
@@ -205,13 +212,12 @@ service cloud.firestore {
           (
             !('capacity' in get(/databases/$(database)/documents/events/$(eventId)).data) ||
             get(/databases/$(database)/documents/events/$(eventId)).data.capacity == null ||
-            (get(/databases/$(database)/documents/events/$(eventId)).data.participantCount || 0) <
+            get(/databases/$(database)/documents/events/$(eventId)).data.get('participantCount', 0) <
             get(/databases/$(database)/documents/events/$(eventId)).data.capacity
           ) &&
           (
-            !('isPaid' in get(/databases/$(database)/documents/events/$(eventId)).data) ||
-            !get(/databases/$(database)/documents/events/$(eventId)).data.isPaid ||
-            ('status' in request.resource.data && request.resource.data.status == 'paid')
+            validateAttendanceStatus(request.resource.data) ||
+            isVerifiedPaidRegistration(database)
           );
           
         allow delete: if request.auth != null && request.auth.uid == participantId;
