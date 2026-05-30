@@ -216,6 +216,9 @@ export const AuthProvider = ({ children }) => {
                 email: user.email,
                 role: 'student', // Default role
                 createdAt: new Date().toISOString(),
+                currentStreak: 0,
+                longestStreak: 0,
+                lastAttendanceAt: null,
                 ...additionalData,
             });
 
