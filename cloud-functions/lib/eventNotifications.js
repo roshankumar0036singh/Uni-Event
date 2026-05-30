@@ -59,10 +59,9 @@ async function buildMessagesForEvent(db, eventDoc) {
         return [];
     const userDocs = await Promise.all(participantIds.map(uid => db.collection('users').doc(uid).get()));
     return userDocs.flatMap(userDoc => {
-        var _a;
         if (!userDoc.exists)
             return [];
-        const pushToken = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.pushToken;
+        const pushToken = userDoc.data()?.pushToken;
         if (!pushToken || !expo_server_sdk_1.Expo.isExpoPushToken(pushToken))
             return [];
         return [

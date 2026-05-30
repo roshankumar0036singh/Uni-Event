@@ -137,48 +137,35 @@ async function sendCertificateEmail(
     p: Participant,
     eventName: string,
     linkedinUrl: string,
-    pdfBuffer: Buffer,
+    attachmentOrUrl: Buffer | string,
 ) {
     const safeName = escapeHtml(p.name || 'Participant');
     const safeEvent = escapeHtml(eventName);
-    const safeFilename = `${sanitizeFilename(p.name || 'participant')}_Certificate.pdf`;
+    const isBuffer = Buffer.isBuffer(attachmentOrUrl);
 
-    return resend.emails.send({
+    let htmlContent = `<p>Hello ${safeName},</p>`;
+    if (isBuffer) {
+        htmlContent += `\n               <p>Please find your official certificate for <strong>${safeEvent}</strong> attached.</p>`;
+    } else {
+        htmlContent += `\n               <p>Your certificate for <strong>${safeEvent}</strong> is available at the link below.</p>
+               <p><a href="${attachmentOrUrl}" target="_blank" rel="noopener">Download your certificate</a></p>`;
+    }
+    htmlContent += `\n               <p><a href="${linkedinUrl}" target="_blank" rel="noopener">Add this certificate to your LinkedIn profile</a></p>
+               <p>Best regards,<br/>UniEvent Team</p>`;
+
+    const mailOptions: any = {
         from: process.env.EMAIL_SENDER || 'onboarding@resend.dev',
         to: [p.email!],
         subject: `Certificate for ${eventName || ''}`,
-        html: `<p>Hello ${safeName},</p>
-               <p>Please find your official certificate for <strong>${safeEvent}</strong> attached.</p>
-               <p><a href="${linkedinUrl}" target="_blank" rel="noopener">Add this certificate to your LinkedIn profile</a></p>
-               <p>Best regards,<br/>UniEvent Team</p>`,
-        attachments: [
-            {
-                filename: safeFilename,
-                content: pdfBuffer,
-            },
-        ],
-    });
-}
+        html: htmlContent,
+    };
 
-async function sendCertificateEmailUsingUrl(
-    p: Participant,
-    eventName: string,
-    linkedinUrl: string,
-    certificateUrl: string,
-) {
-    const safeName = escapeHtml(p.name || 'Participant');
-    const safeEvent = escapeHtml(eventName);
+    if (isBuffer) {
+        const safeFilename = `${sanitizeFilename(p.name || 'participant')}_Certificate.pdf`;
+        mailOptions.attachments = [{ filename: safeFilename, content: attachmentOrUrl }];
+    }
 
-    return resend.emails.send({
-        from: process.env.EMAIL_SENDER || 'onboarding@resend.dev',
-        to: [p.email!],
-        subject: `Certificate for ${eventName || ''}`,
-        html: `<p>Hello ${safeName},</p>
-               <p>Your certificate for <strong>${safeEvent}</strong> is available at the link below.</p>
-               <p><a href="${certificateUrl}" target="_blank" rel="noopener">Download your certificate</a></p>
-               <p><a href="${linkedinUrl}" target="_blank" rel="noopener">Add this certificate to your LinkedIn profile</a></p>
-               <p>Best regards,<br/>UniEvent Team</p>`,
-    });
+    return resend.emails.send(mailOptions);
 }
 
 function getEventStartDate(event: any) {
@@ -195,7 +182,7 @@ async function handleExistingCertificateParticipant(
     const linkedinUrl = buildLinkedInUrl(eventTitle, organizationName, existingUrl, eventStartDate);
 
     try {
-        const { data, error } = await sendCertificateEmailUsingUrl(
+        const { data, error } = await sendCertificateEmail(
             participant,
             eventTitle,
             linkedinUrl,

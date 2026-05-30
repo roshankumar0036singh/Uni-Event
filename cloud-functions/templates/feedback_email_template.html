@@ -17,25 +17,22 @@
         .event-title { font-size: 22px; color: #F57C00; font-weight: 700; margin: 10px 0 25px; }
         
         /* Attractive Button */
-        .btn { display: inline-block; background: linear-gradient(90deg, #F57C00 0%, #FF9800 100%); color: #ffffff; padding: 16px 40px; font-size: 16px; font-weight: bold; text-decoration: none; border-radius: 30px; box-shadow: 0 5px 15px rgba(245, 124, 0, 0.3); transition: transform 0.2s; }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(245, 124, 0, 0.4); }
+        .btn { display: inline-block; background: linear-gradient(90deg, #D84315 0%, #E65100 100%); color: #ffffff; padding: 16px 40px; font-size: 16px; font-weight: bold; text-decoration: none; border-radius: 30px; box-shadow: 0 5px 15px rgba(216, 67, 21, 0.3); transition: transform 0.2s; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(216, 67, 21, 0.4); }
         
         .footer { padding: 25px; text-align: center; background-color: #FAFAFA; border-top: 1px solid #eeeeee; color: #666666; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="wrapper">
-        <table class="main-table" role="presentation">
-            <tr>
-                <td class="header">
-                    <!-- Star Icon Placeholder -->
-                    <div class="icon-circle">&#9733;</div> 
-                    <h1>How was your experience?</h1>
-                </td>
-            </tr>
-            <tr>
-                <td class="content">
-                    <p style="font-size: 16px; color: #666;">Hi {{to_name}}, thanks for joining us at:</p>
+        <div class="main-table">
+            <div class="header">
+                <!-- Star Icon Placeholder -->
+                <div class="icon-circle">&#9733;</div> 
+                <h1>How was your experience?</h1>
+            </div>
+            <div class="content">
+                <p style="font-size: 16px; color: #666;">Hi {{to_name}}, thanks for joining us at:</p>
                     <div class="event-title">{{event_title}}</div>
                     
                     <p style="font-size: 15px; color: #555; margin-bottom: 30px; line-height: 1.5;">
@@ -44,17 +41,14 @@
                     
                     <a href="{{feedback_link}}" class="btn">Rate Event</a>
                     
-                    <p style="margin-top: 30px; font-size: 13px; color: #999;">
-                        Or paste this link: <a href="{{feedback_link}}" style="color: #F57C00;">{{feedback_link}}</a>
-                    </p>
-                </td>
-            </tr>
-            <tr>
-                <td class="footer">
-                    &copy; 2026 UniEvent Team
-                </td>
-            </tr>
-        </table>
+                <p style="margin-top: 30px; font-size: 13px; color: #999;">
+                    Or paste this link: <a href="{{feedback_link}}" style="color: #F57C00;">{{feedback_link}}</a>
+                </p>
+            </div>
+            <div class="footer">
+                &copy; 2026 UniEvent Team
+            </div>
+        </div>
     </div>
 </body>
 </html>

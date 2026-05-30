@@ -65,26 +65,7 @@ function processUserPage(userDoc, count, batch, pageMessages) {
         });
     }
 }
-exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-    }
-    if (!context.auth.token.admin) {
-        throw new functions.https.HttpsError('permission-denied', 'Only admins can trigger daily digest.');
-    }
-    const db = admin.firestore();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const snapshot = await db.collection('events')
-        .where('startAt', '>=', today.toISOString())
-        .where('startAt', '<', tomorrow.toISOString())
-        .get();
-    const count = snapshot.size;
-    if (count === 0) {
-        return { success: true, message: "No events today.", count: 0, processed: 0 };
-    }
+async function processUsersInBatches(db, count) {
     let lastDoc = null;
     let processedCount = 0;
     let failedPushes = 0;
@@ -123,6 +104,29 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
             break;
         }
     }
+    return { processedCount, failedPushes };
+}
+exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+    if (!context.auth.token.admin) {
+        throw new functions.https.HttpsError('permission-denied', 'Only admins can trigger daily digest.');
+    }
+    const db = admin.firestore();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const snapshot = await db.collection('events')
+        .where('startAt', '>=', today.toISOString())
+        .where('startAt', '<', tomorrow.toISOString())
+        .get();
+    const count = snapshot.size;
+    if (count === 0) {
+        return { success: true, message: "No events today.", count: 0, processed: 0 };
+    }
+    const { processedCount, failedPushes } = await processUsersInBatches(db, count);
     if (failedPushes > 0) {
         return { success: false, count, processed: processedCount, failedPushes };
     }

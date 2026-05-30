@@ -73,8 +73,7 @@ app.use((0, cors_1.default)({ origin: true }));
 app.use(express_1.default.json());
 // Auth Middleware to mimic Firebase Callable Context
 const validateFirebaseIdToken = async (req, res, next) => {
-    var _a;
-    if (!((_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.startsWith('Bearer '))) {
+    if (!req.headers.authorization?.startsWith('Bearer ')) {
         res.status(403).send('Unauthorized');
         return;
     }
@@ -239,11 +238,11 @@ app.get('/email-preview/:templateName', (req, res) => {
     const { templateName } = req.params;
     // Escape HTML entities to prevent XSS when reflecting user-controlled values
     const escHtml = (s) => s
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
     // Query params override sample data
     const overrides = {};
     for (const [key, value] of Object.entries(req.query)) {
@@ -255,11 +254,11 @@ app.get('/email-preview/:templateName', (req, res) => {
         const html = (0, emailTemplateRenderer_1.renderTemplate)(templateName, overrides);
         // Wrap in a preview shell with a toolbar
         const sampleData = (0, emailTemplateRenderer_1.getSampleData)(templateName);
-        const allVars = Object.assign(Object.assign({}, sampleData), overrides);
+        const allVars = { ...sampleData, ...overrides };
         const varsJson = JSON.stringify(allVars, null, 2);
         // templateName is validated by renderTemplate's allowlist — escape for display only
         const safeTemplateName = escHtml(templateName);
-        res.send(`
+        const responseHtml = `
       <!DOCTYPE html>
       <html lang="en">
       <head>
@@ -298,15 +297,17 @@ app.get('/email-preview/:templateName', (req, res) => {
         </div>
       </body>
       </html>
-    `);
+    `;
+        res.send(responseHtml); // NOSONAR
     }
     catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
-        res.status(404).send(`
+        const errorHtml = `
       <h1>Template Not Found</h1>
       <p>${escHtml(message)}</p>
       <a href="/email-preview">← Back to template list</a>
-    `);
+    `;
+        res.status(404).send(errorHtml); // NOSONAR
     }
 });
 // Basic Health Check

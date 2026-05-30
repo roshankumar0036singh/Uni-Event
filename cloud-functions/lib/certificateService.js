@@ -123,48 +123,40 @@ async function persistCertificateUrl(eventId, participantId, signedUrl) {
         certificateIssuedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 }
-async function sendCertificateEmail(p, eventName, linkedinUrl, pdfBuffer) {
+async function sendCertificateEmail(p, eventName, linkedinUrl, attachmentOrUrl) {
     const safeName = escapeHtml(p.name || 'Participant');
     const safeEvent = escapeHtml(eventName);
-    const safeFilename = `${sanitizeFilename(p.name || 'participant')}_Certificate.pdf`;
-    return resend.emails.send({
+    const isBuffer = Buffer.isBuffer(attachmentOrUrl);
+    let htmlContent = `<p>Hello ${safeName},</p>`;
+    if (isBuffer) {
+        htmlContent += `\n               <p>Please find your official certificate for <strong>${safeEvent}</strong> attached.</p>`;
+    }
+    else {
+        htmlContent += `\n               <p>Your certificate for <strong>${safeEvent}</strong> is available at the link below.</p>
+               <p><a href="${attachmentOrUrl}" target="_blank" rel="noopener">Download your certificate</a></p>`;
+    }
+    htmlContent += `\n               <p><a href="${linkedinUrl}" target="_blank" rel="noopener">Add this certificate to your LinkedIn profile</a></p>
+               <p>Best regards,<br/>UniEvent Team</p>`;
+    const mailOptions = {
         from: process.env.EMAIL_SENDER || 'onboarding@resend.dev',
         to: [p.email],
         subject: `Certificate for ${eventName || ''}`,
-        html: `<p>Hello ${safeName},</p>
-               <p>Please find your official certificate for <strong>${safeEvent}</strong> attached.</p>
-               <p><a href="${linkedinUrl}" target="_blank" rel="noopener">Add this certificate to your LinkedIn profile</a></p>
-               <p>Best regards,<br/>UniEvent Team</p>`,
-        attachments: [
-            {
-                filename: safeFilename,
-                content: pdfBuffer,
-            },
-        ],
-    });
-}
-async function sendCertificateEmailUsingUrl(p, eventName, linkedinUrl, certificateUrl) {
-    const safeName = escapeHtml(p.name || 'Participant');
-    const safeEvent = escapeHtml(eventName);
-    return resend.emails.send({
-        from: process.env.EMAIL_SENDER || 'onboarding@resend.dev',
-        to: [p.email],
-        subject: `Certificate for ${eventName || ''}`,
-        html: `<p>Hello ${safeName},</p>
-               <p>Your certificate for <strong>${safeEvent}</strong> is available at the link below.</p>
-               <p><a href="${certificateUrl}" target="_blank" rel="noopener">Download your certificate</a></p>
-               <p><a href="${linkedinUrl}" target="_blank" rel="noopener">Add this certificate to your LinkedIn profile</a></p>
-               <p>Best regards,<br/>UniEvent Team</p>`,
-    });
+        html: htmlContent,
+    };
+    if (isBuffer) {
+        const safeFilename = `${sanitizeFilename(p.name || 'participant')}_Certificate.pdf`;
+        mailOptions.attachments = [{ filename: safeFilename, content: attachmentOrUrl }];
+    }
+    return resend.emails.send(mailOptions);
 }
 function getEventStartDate(event) {
-    return (event === null || event === void 0 ? void 0 : event.startAt) || (event === null || event === void 0 ? void 0 : event.startDate) || (event === null || event === void 0 ? void 0 : event.start) || (event === null || event === void 0 ? void 0 : event.startTime);
+    return event?.startAt || event?.startDate || event?.start || event?.startTime;
 }
 async function handleExistingCertificateParticipant(participant, eventTitle, organizationName, eventStartDate) {
     const existingUrl = participant.certificateUrl;
     const linkedinUrl = buildLinkedInUrl(eventTitle, organizationName, existingUrl, eventStartDate);
     try {
-        const { data, error } = await sendCertificateEmailUsingUrl(participant, eventTitle, linkedinUrl, existingUrl);
+        const { data, error } = await sendCertificateEmail(participant, eventTitle, linkedinUrl, existingUrl);
         if (error) {
             return {
                 email: participant.email || null,
@@ -177,7 +169,7 @@ async function handleExistingCertificateParticipant(participant, eventTitle, org
         return {
             email: participant.email || null,
             status: 'success',
-            messageId: data === null || data === void 0 ? void 0 : data.id,
+            messageId: data?.id,
             certificateUrl: existingUrl,
             participantId: participant.id,
         };
@@ -222,7 +214,7 @@ async function processParticipant(participant, eventId, eventTitle, organization
         return {
             email: participant.email,
             status: 'success',
-            messageId: data === null || data === void 0 ? void 0 : data.id,
+            messageId: data?.id,
             certificateUrl: signedUrl,
             participantId: participant.id,
         };
@@ -242,7 +234,7 @@ async function sendCertificatesForEvent(eventId, ownerId) {
     if (!eventDoc.exists)
         throw new Error('Event not found');
     const event = eventDoc.data();
-    if ((event === null || event === void 0 ? void 0 : event.ownerId) !== ownerId) {
+    if (event?.ownerId !== ownerId) {
         throw new Error('Unauthorized: Only the event owner can send certificates.');
     }
     // 2. Fetch Participants
@@ -252,7 +244,10 @@ async function sendCertificatesForEvent(eventId, ownerId) {
         .get();
     if (participantsSnap.empty)
         throw new Error('No participants registered for this event.');
-    const participants = participantsSnap.docs.map(doc => (Object.assign(Object.assign({}, doc.data()), { id: doc.id })));
+    const participants = participantsSnap.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id,
+    }));
     // 3. Load Template
     // Using a reliable path for assets
     const templatePath = path.join(__dirname, '../assets/certificate_template.pdf');
@@ -263,8 +258,8 @@ async function sendCertificatesForEvent(eventId, ownerId) {
     catch (e) {
         throw new Error("Certificate Template not found. Please ensure 'assets/certificate_template.pdf' exists in cloud-functions.");
     }
-    const eventTitle = (event === null || event === void 0 ? void 0 : event.title) || 'Event';
-    const organizationName = (event === null || event === void 0 ? void 0 : event.organization) || (event === null || event === void 0 ? void 0 : event.ownerName) || 'UniEvent';
+    const eventTitle = event?.title || 'Event';
+    const organizationName = event?.organization || event?.ownerName || 'UniEvent';
     const eventStartDate = getEventStartDate(event);
     const results = [];
     for (const p of participants) {

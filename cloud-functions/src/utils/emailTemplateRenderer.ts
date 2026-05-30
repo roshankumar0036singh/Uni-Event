@@ -13,31 +13,31 @@ const templateCache: Record<string, string> = {};
  * Sample data for each known template, used for previews when no data is supplied.
  */
 const SAMPLE_DATA: Record<string, Record<string, string>> = {
-  certificate_email_template: {
-    to_name: 'Jane Doe',
-    event_title: 'Hackathon 2026',
-    cert_url: '#',
-    linkedin_url: '#',
-    download_btn_display: 'inline-block',
-    date: 'May 30, 2026',
-  },
-  feedback_email_template: {
-    to_name: 'John Smith',
-    event_title: 'Tech Talk: AI in Campus',
-    feedback_link: 'https://example.com/feedback',
-  },
-  universal_email_template: {
-    subject: 'Welcome to UniEvent!',
-    to_name: 'Alex Kumar',
-    message:
-      'You have been successfully registered for the event. We look forward to seeing you there!',
-    cert_display: 'none',
-    event_title: 'Annual Fest 2026',
-    date: 'May 30, 2026',
-    download_btn_display: 'none',
-    browse_btn_display: 'inline-block',
-    event_link: '#',
-  },
+    certificate_email_template: {
+        to_name: 'Jane Doe',
+        event_title: 'Hackathon 2026',
+        cert_url: '#',
+        linkedin_url: '#',
+        download_btn_display: 'inline-block',
+        date: 'May 30, 2026',
+    },
+    feedback_email_template: {
+        to_name: 'John Smith',
+        event_title: 'Tech Talk: AI in Campus',
+        feedback_link: 'https://example.com/feedback',
+    },
+    universal_email_template: {
+        subject: 'Welcome to UniEvent!',
+        to_name: 'Alex Kumar',
+        message:
+            'You have been successfully registered for the event. We look forward to seeing you there!',
+        cert_display: 'none',
+        event_title: 'Annual Fest 2026',
+        date: 'May 30, 2026',
+        download_btn_display: 'none',
+        browse_btn_display: 'inline-block',
+        event_link: '#',
+    },
 };
 
 /**
@@ -45,13 +45,13 @@ const SAMPLE_DATA: Record<string, Record<string, string>> = {
  * Only returns names whose corresponding .html files exist in TEMPLATES_DIR.
  */
 export function getAvailableTemplates(): string[] {
-  if (fs.existsSync(TEMPLATES_DIR)) {
-    return fs
-      .readdirSync(TEMPLATES_DIR)
-      .filter((file) => file.endsWith('.html'))
-      .map((file) => file.replace(/\.html$/, ''));
-  }
-  return [];
+    if (fs.existsSync(TEMPLATES_DIR)) {
+        return fs
+            .readdirSync(TEMPLATES_DIR)
+            .filter(file => file.endsWith('.html'))
+            .map(file => file.replace(/\.html$/, ''));
+    }
+    return [];
 }
 
 /**
@@ -59,7 +59,7 @@ export function getAvailableTemplates(): string[] {
  * If no sample data is defined, returns an empty object.
  */
 export function getSampleData(templateName: string): Record<string, string> {
-  return SAMPLE_DATA[templateName] ?? {};
+    return SAMPLE_DATA[templateName] ?? {};
 }
 
 /**
@@ -75,42 +75,37 @@ export function getSampleData(templateName: string): Record<string, string> {
  * @returns The rendered HTML string
  * @throws Error if the template name is unknown or the file does not exist
  */
-export function renderTemplate(
-  templateName: string,
-  data?: Record<string, string>,
-): string {
-  // Validate against the known allowlist — prevents path traversal
-  const available = getAvailableTemplates();
-  if (!available.includes(templateName)) {
-    throw new Error(
-      `Template "${templateName}" not found. Available: ${available.join(', ')}`,
-    );
-  }
+export function renderTemplate(templateName: string, data?: Record<string, string>): string {
+    // Validate against the known allowlist — prevents path traversal
+    const available = getAvailableTemplates();
+    if (!available.includes(templateName)) {
+        throw new Error(`Template "${templateName}" not found. Available: ${available.join(', ')}`);
+    }
 
-  // Safe: templateName is now guaranteed to be a known basename with no path separators
-  let html = templateCache[templateName];
-  if (!html || process.env.NODE_ENV !== 'production') {
-    const filePath = path.join(TEMPLATES_DIR, `${templateName}.html`);
-    html = fs.readFileSync(filePath, 'utf-8');
-    templateCache[templateName] = html;
-  }
+    // Safe: templateName is now guaranteed to be a known basename with no path separators
+    let html = templateCache[templateName];
+    if (!html || process.env.NODE_ENV !== 'production') {
+        const filePath = path.join(TEMPLATES_DIR, `${templateName}.html`);
+        html = fs.readFileSync(filePath, 'utf-8');
+        templateCache[templateName] = html;
+    }
 
-  // Merge: explicit data overrides sample data
-  const sampleData = getSampleData(templateName);
-  const mergedData: Record<string, string> = { ...sampleData, ...data };
+    // Merge: explicit data overrides sample data
+    const sampleData = getSampleData(templateName);
+    const mergedData: Record<string, string> = { ...sampleData, ...data };
 
-  // Helper to escape HTML characters
-  const escapeHtml = (unsafe: string) => {
-    return unsafe
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  };
+    // Helper to escape HTML characters
+    const escapeHtml = (unsafe: string) => {
+        return unsafe
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    };
 
-  // Replace all {{variable}} placeholders
-  return html.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
-    return mergedData[key] !== undefined ? escapeHtml(mergedData[key]) : `{{${key}}}`;
-  });
+    // Replace all {{variable}} placeholders
+    return html.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
+        return mergedData[key] === undefined ? `{{${key}}}` : escapeHtml(mergedData[key]);
+    });
 }
