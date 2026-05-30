@@ -100,4 +100,3 @@ exports.onEventCreate = functions.firestore
     }
     console.log(`Sent notifications to ${usersSnapshot.size} users.`);
 });
-//# sourceMappingURL=onEventCreate.js.map

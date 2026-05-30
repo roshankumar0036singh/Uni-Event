@@ -11,4 +11,3 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
         longitude: lon2,
     });
 }
-//# sourceMappingURL=distance.js.map

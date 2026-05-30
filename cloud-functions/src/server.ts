@@ -155,6 +155,138 @@ app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, 
   }
 });
 
+// ── Email Template Preview Endpoints (developer-facing, no auth required) ──
+import {
+  getAvailableTemplates,
+  renderTemplate,
+  getSampleData,
+} from './utils/emailTemplateRenderer';
+
+/**
+ * GET /email-preview
+ * Lists all available email templates with clickable preview links.
+ */
+app.get('/email-preview', (_req: express.Request, res: express.Response) => {
+  const templates = getAvailableTemplates();
+
+  const links = templates
+    .map(
+      (name) =>
+        `<li style="margin:8px 0">
+          <a href="/email-preview/${name}" style="color:#FF6B35;font-size:18px">${name}</a>
+          <span style="color:#888;font-size:13px;margin-left:8px">
+            (variables: ${Object.keys(getSampleData(name)).join(', ') || 'none'})
+          </span>
+        </li>`,
+    )
+    .join('\n');
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <title>UniEvent — Email Template Previews</title>
+      <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f4f4; margin: 0; padding: 40px; }
+        .card { max-width: 700px; margin: 0 auto; background: #fff; border-radius: 12px;
+                padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h1 { color: #333; margin-top: 0; }
+        .badge { display: inline-block; background: #FF6B35; color: #fff; padding: 2px 10px;
+                 border-radius: 12px; font-size: 12px; margin-left: 8px; }
+        ul { list-style: none; padding: 0; }
+        p.hint { color: #999; font-size: 13px; margin-top: 24px; border-top: 1px solid #eee; padding-top: 16px; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>📧 Email Template Previews <span class="badge">${templates.length} templates</span></h1>
+        <p style="color:#666">Click a template to preview it with sample data.</p>
+        <ul>${links}</ul>
+        <p class="hint">
+          💡 Override variables via query string, e.g.<br/>
+          <code>/email-preview/feedback_email_template?to_name=Alice&event_title=My+Event</code>
+        </p>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+/**
+ * GET /email-preview/:templateName
+ * Renders a specific template with sample data. Any template variable can be
+ * overridden via query parameters (e.g. ?to_name=Alice&event_title=My+Event).
+ */
+app.get('/email-preview/:templateName', (req: express.Request, res: express.Response) => {
+  const { templateName } = req.params;
+
+  // Query params override sample data
+  const overrides: Record<string, string> = {};
+  for (const [key, value] of Object.entries(req.query)) {
+    if (typeof value === 'string') {
+      overrides[key] = value;
+    }
+  }
+
+  try {
+    const html = renderTemplate(templateName, overrides);
+
+    // Wrap in a preview shell with a toolbar
+    const sampleData = getSampleData(templateName);
+    const allVars = { ...sampleData, ...overrides };
+    const varsJson = JSON.stringify(allVars, null, 2);
+
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Preview: ${templateName}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; }
+          .toolbar { background: #16213e; color: #fff; padding: 12px 24px;
+                     display: flex; align-items: center; justify-content: space-between;
+                     border-bottom: 2px solid #FF6B35; position: sticky; top: 0; z-index: 10; }
+          .toolbar h2 { font-size: 16px; font-weight: 600; }
+          .toolbar a { color: #FF6B35; text-decoration: none; font-size: 14px; }
+          .toolbar a:hover { text-decoration: underline; }
+          .preview-frame { max-width: 900px; margin: 24px auto; background: #fff;
+                           border-radius: 8px; overflow: hidden;
+                           box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+          .vars-panel { max-width: 900px; margin: 16px auto 40px;
+                        background: #16213e; border-radius: 8px; padding: 20px;
+                        color: #ccc; font-size: 13px; }
+          .vars-panel h3 { color: #FF6B35; margin-bottom: 8px; font-size: 14px; }
+          pre { white-space: pre-wrap; word-break: break-all; }
+        </style>
+      </head>
+      <body>
+        <div class="toolbar">
+          <h2>📧 ${templateName}</h2>
+          <a href="/email-preview">← All Templates</a>
+        </div>
+        <div class="preview-frame">
+          ${html}
+        </div>
+        <div class="vars-panel">
+          <h3>Template Variables (current)</h3>
+          <pre>${varsJson}</pre>
+        </div>
+      </body>
+      </html>
+    `);
+  } catch (err: any) {
+    res.status(404).send(`
+      <h1>Template Not Found</h1>
+      <p>${err.message}</p>
+      <a href="/email-preview">← Back to template list</a>
+    `);
+  }
+});
+
 // Basic Health Check
 app.get('/', (req, res) => {
   res.send('UniEvent Backend is Running');

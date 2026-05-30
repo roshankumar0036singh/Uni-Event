@@ -40,6 +40,7 @@ const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
 const admin = __importStar(require("firebase-admin"));
+const rateLimiter_1 = require("./utils/rateLimiter");
 // Load environment variables
 dotenv_1.default.config();
 // Initialize Firebase Admin (ensure service account is available or uses default credentials)
@@ -67,11 +68,13 @@ if (admin.apps.length === 0) {
     }
 }
 const app = (0, express_1.default)();
+app.disable('x-powered-by');
 app.use((0, cors_1.default)({ origin: true }));
 app.use(express_1.default.json());
 // Auth Middleware to mimic Firebase Callable Context
 const validateFirebaseIdToken = async (req, res, next) => {
-    if ((!req.headers.authorization || !req.headers.authorization.startsWith('Bearer '))) {
+    var _a;
+    if (!((_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.startsWith('Bearer '))) {
         res.status(403).send('Unauthorized');
         return;
     }
@@ -86,8 +89,34 @@ const validateFirebaseIdToken = async (req, res, next) => {
         res.status(403).send('Unauthorized');
     }
 };
+// Rate Limiting Middleware for Server Endpoints
+const rateLimitMiddleware = async (req, res, next) => {
+    const user = req.user;
+    if (!user) {
+        return next();
+    }
+    try {
+        // Determine if the operation is event creation or regular write
+        const isEventCreation = req.path === '/api/createEvent';
+        const limitResult = await (0, rateLimiter_1.checkAndUpdateRateLimit)(user.uid, isEventCreation);
+        if (!limitResult.allowed) {
+            return res.status(limitResult.statusCode).json({
+                error: 'too-many-requests',
+                message: limitResult.message
+            });
+        }
+        next();
+    }
+    catch (error) {
+        console.error('Rate limiter middleware error:', error);
+        return res.status(503).json({
+            error: 'rate-limit-unavailable',
+            message: 'Rate limiting is temporarily unavailable. Please retry shortly.'
+        });
+    }
+};
 // setRole Implementation (adapted from setRole.ts logic)
-app.post('/api/setRole', validateFirebaseIdToken, async (req, res) => {
+app.post('/api/setRole', validateFirebaseIdToken, rateLimitMiddleware, async (req, res) => {
     const user = req.user;
     // 1. Check Auth (already done by middleware, but check existence)
     if (!user) {
@@ -127,7 +156,7 @@ app.post('/api/setRole', validateFirebaseIdToken, async (req, res) => {
 });
 // Send Certificates Endpoint
 const certificateService_1 = require("./certificateService");
-app.post('/api/sendCertificates', validateFirebaseIdToken, async (req, res) => {
+app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, async (req, res) => {
     const user = req.user;
     const { eventId } = req.body;
     if (!user) {
@@ -145,11 +174,128 @@ app.post('/api/sendCertificates', validateFirebaseIdToken, async (req, res) => {
         return res.status(500).json({ error: 'internal', message: error.message });
     }
 });
+// ── Email Template Preview Endpoints (developer-facing, no auth required) ──
+const emailTemplateRenderer_1 = require("./utils/emailTemplateRenderer");
+/**
+ * GET /email-preview
+ * Lists all available email templates with clickable preview links.
+ */
+app.get('/email-preview', (_req, res) => {
+    const templates = (0, emailTemplateRenderer_1.getAvailableTemplates)();
+    const links = templates
+        .map((name) => `<li style="margin:8px 0">
+          <a href="/email-preview/${name}" style="color:#FF6B35;font-size:18px">${name}</a>
+          <span style="color:#888;font-size:13px;margin-left:8px">
+            (variables: ${Object.keys((0, emailTemplateRenderer_1.getSampleData)(name)).join(', ') || 'none'})
+          </span>
+        </li>`)
+        .join('\n');
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <title>UniEvent — Email Template Previews</title>
+      <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f4f4; margin: 0; padding: 40px; }
+        .card { max-width: 700px; margin: 0 auto; background: #fff; border-radius: 12px;
+                padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h1 { color: #333; margin-top: 0; }
+        .badge { display: inline-block; background: #FF6B35; color: #fff; padding: 2px 10px;
+                 border-radius: 12px; font-size: 12px; margin-left: 8px; }
+        ul { list-style: none; padding: 0; }
+        p.hint { color: #999; font-size: 13px; margin-top: 24px; border-top: 1px solid #eee; padding-top: 16px; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>📧 Email Template Previews <span class="badge">${templates.length} templates</span></h1>
+        <p style="color:#666">Click a template to preview it with sample data.</p>
+        <ul>${links}</ul>
+        <p class="hint">
+          💡 Override variables via query string, e.g.<br/>
+          <code>/email-preview/feedback_email_template?to_name=Alice&event_title=My+Event</code>
+        </p>
+      </div>
+    </body>
+    </html>
+  `);
+});
+/**
+ * GET /email-preview/:templateName
+ * Renders a specific template with sample data. Any template variable can be
+ * overridden via query parameters (e.g. ?to_name=Alice&event_title=My+Event).
+ */
+app.get('/email-preview/:templateName', (req, res) => {
+    const { templateName } = req.params;
+    // Query params override sample data
+    const overrides = {};
+    for (const [key, value] of Object.entries(req.query)) {
+        if (typeof value === 'string') {
+            overrides[key] = value;
+        }
+    }
+    try {
+        const html = (0, emailTemplateRenderer_1.renderTemplate)(templateName, overrides);
+        // Wrap in a preview shell with a toolbar
+        const sampleData = (0, emailTemplateRenderer_1.getSampleData)(templateName);
+        const allVars = Object.assign(Object.assign({}, sampleData), overrides);
+        const varsJson = JSON.stringify(allVars, null, 2);
+        res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Preview: ${templateName}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; }
+          .toolbar { background: #16213e; color: #fff; padding: 12px 24px;
+                     display: flex; align-items: center; justify-content: space-between;
+                     border-bottom: 2px solid #FF6B35; position: sticky; top: 0; z-index: 10; }
+          .toolbar h2 { font-size: 16px; font-weight: 600; }
+          .toolbar a { color: #FF6B35; text-decoration: none; font-size: 14px; }
+          .toolbar a:hover { text-decoration: underline; }
+          .preview-frame { max-width: 900px; margin: 24px auto; background: #fff;
+                           border-radius: 8px; overflow: hidden;
+                           box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+          .vars-panel { max-width: 900px; margin: 16px auto 40px;
+                        background: #16213e; border-radius: 8px; padding: 20px;
+                        color: #ccc; font-size: 13px; }
+          .vars-panel h3 { color: #FF6B35; margin-bottom: 8px; font-size: 14px; }
+          pre { white-space: pre-wrap; word-break: break-all; }
+        </style>
+      </head>
+      <body>
+        <div class="toolbar">
+          <h2>📧 ${templateName}</h2>
+          <a href="/email-preview">← All Templates</a>
+        </div>
+        <div class="preview-frame">
+          ${html}
+        </div>
+        <div class="vars-panel">
+          <h3>Template Variables (current)</h3>
+          <pre>${varsJson}</pre>
+        </div>
+      </body>
+      </html>
+    `);
+    }
+    catch (err) {
+        res.status(404).send(`
+      <h1>Template Not Found</h1>
+      <p>${err.message}</p>
+      <a href="/email-preview">← Back to template list</a>
+    `);
+    }
+});
 // Basic Health Check
 app.get('/', (req, res) => {
     res.send('UniEvent Backend is Running');
 });
-app.post('/api/sendDailyDigest', validateFirebaseIdToken, async (req, res) => {
+app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, async (req, res) => {
     try {
         // Optional: Check if admin
         const user = req.user;
@@ -158,16 +304,6 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, async (req, res) => {
             res.status(403).json({ message: 'Unauthorized: Only admins can trigger this.' });
             return;
         }
-        // const { sendDailyDigest } = require('./dailyDigest'); // Unused
-        // Since sendDailyDigest is an onCall, we can reuse logic or extract logic.
-        // But onCall expects (data, context).
-        // Let's just run logic here or duplicate/extract.
-        // Actually, better to import the Logic function if I separated it.
-        // But since I wrote it as `functions.https.onCall`, it's not directly callable as a plain JS function easily without mock.
-        // Let's rewrite dailyDigest to be a shared function or just call it if it was separate.
-        // For simplicity in this structure, I will copy the logic or simpler: use the firebase-admin directly here 
-        // OR better: Invoke the function? No.
-        // I will implement the logic directly here for the API endpoint to ensure it works smoothly with Express req/res.
         const db = admin.firestore();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -232,4 +368,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
-//# sourceMappingURL=server.js.map

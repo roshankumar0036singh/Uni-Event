@@ -152,4 +152,3 @@ async function checkMultipleEvents(userId, checkedInAt, currentEventId, result) 
         }
     });
 }
-//# sourceMappingURL=analyzeAttendance.js.map
