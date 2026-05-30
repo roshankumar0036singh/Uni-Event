@@ -27,14 +27,7 @@ WebBrowser.maybeCompleteAuthSession();
 const MIN_PASSWORD_LENGTH = 6;
 const EMAIL_REGEX = /^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$/;
 function getEmulatorGooglePassword() {
-    const pwd = process.env.EXPO_PUBLIC_EMULATOR_GOOGLE_PASSWORD;
-    if (!pwd) {
-        throw new Error(
-            'EXPO_PUBLIC_EMULATOR_GOOGLE_PASSWORD is not set. ' +
-                'Add it to your .env file for emulator Google sign-in.',
-        );
-    }
-    return pwd;
+    return process.env.EXPO_PUBLIC_EMULATOR_GOOGLE_PASSWORD || 'google-emulator-pass';
 }
 
 const FIREBASE_ERROR_MESSAGES = {
@@ -164,6 +157,7 @@ async function handleCredentialSignIn(
                 email: user.email,
                 displayName: user.displayName,
                 role: 'student',
+                points: 0,
                 createdAt: new Date().toISOString(),
                 photoURL: user.photoURL,
                 provider: 'google',
@@ -197,7 +191,7 @@ export default function AuthScreen() {
         webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
         redirectUri:
             Platform.OS === 'web'
-                ? window.location.origin || process.env.EXPO_PUBLIC_REDIRECT_URI
+                ? globalThis.location.origin || process.env.EXPO_PUBLIC_REDIRECT_URI
                 : process.env.EXPO_PUBLIC_REDIRECT_URI || makeRedirectUri({ useProxy: true }),
     });
 

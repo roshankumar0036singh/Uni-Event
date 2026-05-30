@@ -16,11 +16,11 @@ WebBrowser.maybeCompleteAuthSession();
 export const useCalendarAuth = () => {
     // Simplified Redirect Logic
     const redirectUri =
-        Platform.OS === 'web' ? window.location.origin : makeRedirectUri({ useProxy: true });
+        Platform.OS === 'web' ? globalThis.location.origin : makeRedirectUri({ useProxy: true });
 
     // 🔍 DEBUG: Show Redirect URI only on Mobile Web (Ngrok)
     useEffect(() => {
-        if (Platform.OS === 'web' && window.location.hostname !== 'localhost') {
+        if (Platform.OS === 'web' && globalThis.location.hostname !== 'localhost') {
             if (process.env.EXPO_PUBLIC_DEBUG_MODE === 'true') {
                 console.warn(
                     'Mobile Web Calendar Debug',

@@ -187,6 +187,13 @@ const EventCard = memo(
         const isLive = new Date() >= new Date(event.startAt) && new Date() <= new Date(event.endAt);
         const isOnlineBadge = !isLive && event.eventMode === 'online';
 
+        // Calculate dynamic popularity score (GSSoC Feature Request)
+        const registrations = event.participantCount || 0;
+        const views = event.views || 0;
+        const saves = event.savedCount || 0;
+        const popularityScore = Math.min(Math.round((registrations * 1.5) + (saves * 1) + (views * 0.2)), 100);
+        const isTrending = popularityScore >= 75;
+
         const renderBannerBadges = () => (
             <>
                 {isLive && (
@@ -260,6 +267,36 @@ const EventCard = memo(
                             }}
                         >
                             EARLY BIRD
+                        </Text>
+                    </View>
+                )}
+                {isTrending && (
+                    <View
+                        style={{
+                            backgroundColor: '#FF4D4D20',
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 20,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            alignSelf: 'flex-start',
+                            marginTop: 4,
+                            borderWidth: 1,
+                            borderColor: '#FF4D4D',
+                        }}
+                    >
+                        <Text style={{ fontSize: 10, lineHeight: 14 }}>🔥</Text>
+                        <Text
+                            style={{
+                                fontSize: 10,
+                                fontWeight: '700',
+                                color: '#FF4D4D',
+                                letterSpacing: 0.5,
+                                lineHeight: 14,
+                            }}
+                        >
+                            TRENDING
                         </Text>
                     </View>
                 )}

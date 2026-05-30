@@ -32,12 +32,40 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendDailyDigest = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const { Expo } = require('expo-server-sdk');
-const expo = new Expo();
+const firestore_1 = require("firebase-admin/firestore");
+const expo_server_sdk_1 = __importDefault(require("expo-server-sdk"));
+const push_1 = require("./utils/push");
+const PAGE_SIZE = 500;
+function processUserPage(userDoc, count, batch, pageMessages) {
+    const userData = userDoc.data();
+    if (userData.digestOptIn === false) {
+        return;
+    }
+    const notifRef = userDoc.ref.collection('notifications').doc();
+    batch.set(notifRef, {
+        title: 'Daily Digest 📅',
+        body: `There are ${count} events happening today!`,
+        createdAt: firestore_1.FieldValue.serverTimestamp(),
+        read: false
+    });
+    const pushToken = userData.pushToken;
+    if (pushToken && expo_server_sdk_1.default.isExpoPushToken(pushToken)) {
+        pageMessages.push({
+            to: pushToken,
+            sound: 'default',
+            title: 'Daily Digest 📅',
+            body: `There are ${count} events happening today!`,
+            data: { url: '/home' },
+        });
+    }
+}
 exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
@@ -50,54 +78,49 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    // efficient query for "today's events"
-    const eventsRef = db.collection('events');
-    const snapshot = await eventsRef
+    const snapshot = await db.collection('events')
         .where('startAt', '>=', today.toISOString())
         .where('startAt', '<', tomorrow.toISOString())
         .get();
     const count = snapshot.size;
     if (count === 0) {
-        return { success: true, message: "No events today." };
+        return { success: true, message: "No events today.", count: 0, processed: 0 };
     }
-    // Broadcast
-    const usersSnapshot = await db.collection('users').get();
-    const messages = [];
-    const batch = db.batch();
-    usersSnapshot.forEach(userDoc => {
-        const userData = userDoc.data();
-        const pushToken = userData.pushToken;
-        // In-App
-        const notifRef = userDoc.ref.collection('notifications').doc();
-        batch.set(notifRef, {
-            title: 'Daily Digest 📅',
-            body: `There are ${count} events happening today!`,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            read: false
-        });
-        if (pushToken && Expo.isExpoPushToken(pushToken)) {
-            messages.push({
-                to: pushToken,
-                sound: 'default',
-                title: 'Daily Digest 📅',
-                body: `There are ${count} events happening today!`,
-                data: { url: '/home' }, // Deep link to home or events feed
-            });
+    let lastDoc = null;
+    let processedCount = 0;
+    while (true) {
+        let query = db
+            .collection('users')
+            .orderBy(firestore_1.FieldPath.documentId())
+            .limit(PAGE_SIZE);
+        if (lastDoc) {
+            query = query.startAfter(lastDoc);
         }
-    });
-    await batch.commit();
-    // Send Pushes
-    if (messages.length > 0) {
-        let chunks = expo.chunkPushNotifications(messages);
-        for (let chunk of chunks) {
+        const usersSnapshot = await query.get();
+        if (usersSnapshot.empty) {
+            break;
+        }
+        const batch = db.batch();
+        const pageMessages = [];
+        usersSnapshot.forEach(userDoc => processUserPage(userDoc, count, batch, pageMessages));
+        await batch.commit();
+        if (pageMessages.length > 0) {
             try {
-                await expo.sendPushNotificationsAsync(chunk);
+                await (0, push_1.sendPushNotifications)(pageMessages);
             }
             catch (error) {
-                console.error("Error sending digest chunks", error);
+                functions.logger.error('Daily digest push delivery failed for page', {
+                    error,
+                    pageSize: usersSnapshot.size,
+                    pushMessages: pageMessages.length,
+                });
             }
         }
+        processedCount += usersSnapshot.size;
+        lastDoc = usersSnapshot.docs[usersSnapshot.docs.length - 1];
+        if (usersSnapshot.size < PAGE_SIZE) {
+            break;
+        }
     }
-    return { success: true, count };
+    return { success: true, count, processed: processedCount };
 });
-//# sourceMappingURL=dailyDigest.js.map

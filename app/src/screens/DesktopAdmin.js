@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, updateDoc, deleteField } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useEffect, useState } from 'react';
 import {
@@ -45,6 +45,7 @@ const downloadBase64Pdf = ({ base64, fileName }) => {
 
 export default function DesktopAdmin() {
     const [activeTab, setActiveTab] = useState('clubs'); // 'clubs' | 'events' | 'analytics'
+    const [activeSubTab, setActiveSubTab] = useState('active'); // 'active' | 'deleted'
     const [clubs, setClubs] = useState([]);
     const [events, setEvents] = useState([]);
     const [reportLoading, setReportLoading] = useState(false);
@@ -107,6 +108,20 @@ export default function DesktopAdmin() {
             );
         } finally {
             setReportLoading(false);
+        }
+    };
+
+    const handleRestoreEvent = async eventId => {
+        try {
+            await updateDoc(doc(db, 'events', eventId), {
+                deletedAt: deleteField(),
+                deletedBy: deleteField(),
+            });
+            fetchEvents();
+            Alert.alert('Restored', 'Event restored successfully.');
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to restore event');
         }
     };
 
@@ -230,21 +245,76 @@ export default function DesktopAdmin() {
                     )}
 
                     {activeTab === 'events' && (
-                        <View style={styles.table}>
-                            <View style={[styles.row, styles.headerRow]}>
-                                <Text style={styles.cell}>Title</Text>
-                                <Text style={styles.cell}>Date</Text>
-                                <Text style={styles.cell}>Category</Text>
-                            </View>
-                            {events.map(event => (
-                                <View key={event.id} style={styles.row}>
-                                    <Text style={styles.cell}>{event.title}</Text>
-                                    <Text style={styles.cell}>
-                                        {formatEventDate(event.startAt)}
+                        <View>
+                            <View style={styles.tabRow}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.subTab,
+                                        activeSubTab === 'active' && styles.activeSubTab,
+                                    ]}
+                                    onPress={() => setActiveSubTab('active')}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.subTabText,
+                                            activeSubTab === 'active' && styles.activeSubTabText,
+                                        ]}
+                                    >
+                                        Active
                                     </Text>
-                                    <Text style={styles.cell}>{event.category}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.subTab,
+                                        activeSubTab === 'deleted' && styles.activeSubTab,
+                                    ]}
+                                    onPress={() => setActiveSubTab('deleted')}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.subTabText,
+                                            activeSubTab === 'deleted' && styles.activeSubTabText,
+                                        ]}
+                                    >
+                                        Deleted
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.table}>
+                                <View style={[styles.row, styles.headerRow]}>
+                                    <Text style={styles.cell}>Title</Text>
+                                    <Text style={styles.cell}>Date</Text>
+                                    <Text style={styles.cell}>Category</Text>
+                                    <Text style={styles.cell}>Action</Text>
                                 </View>
-                            ))}
+                                {events
+                                    .filter(e =>
+                                        activeSubTab === 'deleted'
+                                            ? e.deletedAt != null
+                                            : !e.deletedAt,
+                                    )
+                                    .map(event => (
+                                        <View key={event.id} style={styles.row}>
+                                            <Text style={styles.cell}>{event.title}</Text>
+                                            <Text style={styles.cell}>
+                                                {formatEventDate(event.startAt)}
+                                            </Text>
+                                            <Text style={styles.cell}>{event.category}</Text>
+                                            <View style={styles.cell}>
+                                                {activeSubTab === 'deleted' && (
+                                                    <TouchableOpacity
+                                                        style={styles.restoreBtn}
+                                                        onPress={() => handleRestoreEvent(event.id)}
+                                                    >
+                                                        <Text style={styles.restoreBtnText}>
+                                                            Restore
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                        </View>
+                                    ))}
+                            </View>
                         </View>
                     )}
 
@@ -438,5 +508,38 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
         fontSize: 14,
+    },
+    tabRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 16,
+    },
+    subTab: {
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+        borderRadius: 6,
+        backgroundColor: '#eee',
+    },
+    activeSubTab: {
+        backgroundColor: '#2563eb',
+    },
+    subTabText: {
+        fontSize: 14,
+        color: '#555',
+        fontWeight: '600',
+    },
+    activeSubTabText: {
+        color: '#fff',
+    },
+    restoreBtn: {
+        backgroundColor: '#4CAF50',
+        padding: 5,
+        borderRadius: 4,
+        alignItems: 'center',
+        width: 80,
+    },
+    restoreBtnText: {
+        color: '#fff',
+        fontSize: 12,
     },
 });

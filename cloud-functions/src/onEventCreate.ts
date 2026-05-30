@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { FieldValue } from 'firebase-admin/firestore';
 
 const { Expo } = require('expo-server-sdk');
 const expo = new Expo();
@@ -43,7 +44,7 @@ export const onEventCreate = functions.firestore
             title: 'New Event Alert! 📢',
             body: `Check out: "${eventData.title}"`,
             eventId: eventId,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
             read: false
         });
 
