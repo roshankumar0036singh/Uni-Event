@@ -49,15 +49,10 @@ export default function MobileAdmin() {
                 });
                 setEvents(list);
             } else if (activeTab === 'deleted') {
-                const q = query(collection(db, 'events'), where('status', '==', 'active'));
+                const q = query(collection(db, 'events'), where('status', '==', 'deleted'));
                 const snapshot = await getDocs(q);
                 const list = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.deletedAt != null) {
-                        list.push({ id: doc.id, ...data });
-                    }
-                });
+                snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
                 setEvents(list);
             } else if (activeTab === 'requests') {
                 const q = query(collection(db, 'clubs'), where('approvalStatus', '==', 'pending'));
@@ -130,6 +125,7 @@ export default function MobileAdmin() {
             await updateDoc(doc(db, 'events', eventId), {
                 deletedAt: deleteField(),
                 deletedBy: deleteField(),
+                status: 'active',
             });
             Alert.alert('Restored', 'Event restored successfully.');
             fetchData();
@@ -271,6 +267,14 @@ export default function MobileAdmin() {
             <Text style={styles.cardDesc}>
                 {formatEventDate(item.startAt)} at {item.location}
             </Text>
+            {item.deletedAt && (
+                <Text style={[styles.cardDesc, { color: '#888', fontSize: 12, marginTop: 4 }]}>
+                    Permanently deleted after{' '}
+                    {new Date(
+                        item.deletedAt.toDate().getTime() + 30 * 24 * 60 * 60 * 1000
+                    ).toLocaleDateString()}
+                </Text>
+            )}
             <View style={styles.actionRow}>
                 <TouchableOpacity
                     style={[styles.actionBtn, styles.approveBtn]}
@@ -356,6 +360,16 @@ export default function MobileAdmin() {
                 >
                     <Text style={[styles.tabText, activeTab === 'events' && styles.activeTabText]}>
                         Events
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.tab, activeTab === 'requests' && styles.activeTab]}
+                    onPress={() => setActiveTab('requests')}
+                >
+                    <Text
+                        style={[styles.tabText, activeTab === 'requests' && styles.activeTabText]}
+                    >
+                        Club Requests
                     </Text>
                 </TouchableOpacity>
                 <TouchableOpacity

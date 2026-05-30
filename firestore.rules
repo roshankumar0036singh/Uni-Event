@@ -22,6 +22,15 @@ service cloud.firestore {
       return isValidEventTitle(data) && isValidEventCapacity(data) && isValidEventDate(data);
     }
 
+    function validateSoftDelete(before, after) {
+      let affected = after.diff(before).affectedKeys();
+      return !affected.hasAny(['deletedAt', 'deletedBy']) || (
+        !('deletedAt' in before) &&
+        'deletedAt' in after &&
+        'deletedBy' in after
+      );
+    }
+
     function validateAttendanceStatus(data) {
       return !('status' in data) || (data.status in ['rsvp', 'checked_in', 'cancelled']);
     }
@@ -166,7 +175,8 @@ service cloud.firestore {
       
       allow update: if request.auth != null 
                     && (isAdmin() || ('ownerId' in resource.data && request.auth.uid == resource.data.ownerId && checkWriteRate(request.auth.uid)))
-                    && validateEventShape(request.resource.data);
+                    && validateEventShape(request.resource.data)
+                    && (isAdmin() || validateSoftDelete(resource.data, request.resource.data));
                     
       allow delete: if request.auth != null 
                     && (isAdmin() || ('ownerId' in resource.data && request.auth.uid == resource.data.ownerId));

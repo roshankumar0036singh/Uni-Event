@@ -1,13 +1,16 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 
+const CLEANUP_DAYS = 30;
+
 export const permanentCleanup = functions.pubsub
   .schedule("every 24 hours")
   .timeZone("UTC")
   .onRun(async () => {
     const db = admin.firestore();
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const cutoff = admin.firestore.Timestamp.fromMillis(
+      Date.now() - CLEANUP_DAYS * 24 * 60 * 60 * 1000
+    );
 
     let totalDeleted = 0;
 
@@ -18,7 +21,7 @@ export const permanentCleanup = functions.pubsub
       while (hasMore) {
         let query: admin.firestore.Query = db
           .collection("events")
-          .where("deletedAt", "<", ninetyDaysAgo)
+          .where("deletedAt", "<", cutoff)
           .orderBy("__name__")
           .limit(500);
 
@@ -32,6 +35,11 @@ export const permanentCleanup = functions.pubsub
         let operationCount = 0;
 
         for (const eventDoc of eventsSnapshot.docs) {
+          const eventData = eventDoc.data();
+          if (eventData?.ownerId) {
+            const ownerRef = db.collection("users").doc(eventData.ownerId);
+            batch.update(ownerRef, { eventCount: admin.firestore.FieldValue.increment(-1) });
+          }
           batch.delete(eventDoc.ref);
           operationCount++;
         }

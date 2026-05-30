@@ -65,13 +65,14 @@ export default function MyEventsScreen({ navigation }) {
     }, [user, refreshNonce, isFocused]);
 
     const handleDelete = async eventId => {
-        const confirmMsg = 'Are you sure? The event will be soft-deleted and can be restored by an admin within 30 days.';
+        const confirmMsg = 'Are you sure? The event will be soft-deleted and can be restored by an admin within 30 days. Attendees can no longer register.';
         if (Platform.OS === 'web') {
             if (!globalThis.confirm(confirmMsg)) return;
             try {
                 await updateDoc(doc(db, 'events', eventId), {
                     deletedAt: serverTimestamp(),
                     deletedBy: user.uid,
+                    status: 'deleted',
                 });
             } catch (_e) {
                 console.error('Delete event failed (Web):', _e);
@@ -88,6 +89,7 @@ export default function MyEventsScreen({ navigation }) {
                             await updateDoc(doc(db, 'events', eventId), {
                                 deletedAt: serverTimestamp(),
                                 deletedBy: user.uid,
+                                status: 'deleted',
                             });
                         } catch (_e) {
                             console.error('Delete event failed (Native):', _e);
