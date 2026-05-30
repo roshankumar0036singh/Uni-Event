@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { FieldValue } from 'firebase-admin/firestore';
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 
 import { calculateDistance } from "./utils/distance";
@@ -79,7 +80,7 @@ export const analyzeAttendance = onDocumentCreated(
             resolved: false,
 
             createdAt:
-              admin.firestore.FieldValue.serverTimestamp(),
+              FieldValue.serverTimestamp(),
           },
           { merge: true }
         );

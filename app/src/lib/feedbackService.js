@@ -114,5 +114,5 @@ export const calculateAverageRating = reputation => {
     if (!reputation?.totalRatings) {
         return 0;
     }
-    return (reputation.totalPoints / reputation.totalRatings).toFixed(1);
+    return Number((reputation.totalPoints / reputation.totalRatings).toFixed(1));
 };

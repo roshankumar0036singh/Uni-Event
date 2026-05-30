@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { enforceAppCheck } from './middleware/appCheck';
+import { FieldValue } from 'firebase-admin/firestore';
 
 // Interface for Email Participant
 interface Participant {
@@ -120,7 +121,7 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
             templateId: templateId,
             recipientCount: emailCount,
             status: 'pending',
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            timestamp: FieldValue.serverTimestamp(),
             ip: context.rawRequest ? context.rawRequest.ip : 'unknown'
         });
     } catch (auditError) {

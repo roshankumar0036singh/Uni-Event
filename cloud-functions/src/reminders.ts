@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { sendPushNotifications } from './utils/push';
 const { Expo } = require('expo-server-sdk');
 
@@ -9,7 +10,7 @@ const { Expo } = require('expo-server-sdk');
  */
 export const checkReminders = functions.pubsub.schedule('every 1 minutes').onRun(async (context) => {
     const db = admin.firestore();
-    const now = admin.firestore.Timestamp.now();
+    const now = Timestamp.now();
     
     // Find reminders that need to be sent (remindAt <= now) and haven't been sent yet
     const remindersRef = db.collection('reminders');
@@ -36,7 +37,7 @@ export const checkReminders = functions.pubsub.schedule('every 1 minutes').onRun
             title: 'Event Reminder',
             body: `Your event is starting soon!`,
             eventId: data.eventId,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
             read: false
         });
         

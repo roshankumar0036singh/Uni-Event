@@ -37,93 +37,70 @@ exports.checkUpcomingEvents = void 0;
 const expo_server_sdk_1 = require("expo-server-sdk");
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const participants_1 = require("./lib/participants");
-const expo = new expo_server_sdk_1.Expo();
-async function gatherMessagesForEvent(db, eventDoc) {
-    const eventData = eventDoc.data();
-    if (eventData.notified10Min)
-        return [];
-    const eventId = eventDoc.id;
-    const participants = (await (0, participants_1.getParticipantContacts)(db, eventId));
-    const participantIds = participants.map((p) => p.id);
-    if (participantIds.length === 0)
-        return [];
-    const userDocs = await Promise.all(participantIds.map((uid) => db.collection('users').doc(uid).get()));
-    const messages = [];
-    for (const userDoc of userDocs) {
-        if (!userDoc.exists)
-            continue;
-        const userData = userDoc.data();
-        const pushToken = userData === null || userData === void 0 ? void 0 : userData.pushToken;
-        if (pushToken && expo_server_sdk_1.Expo.isExpoPushToken(pushToken)) {
-            messages.push({
-                to: pushToken,
-                sound: 'default',
-                title: 'Event Starting Soon!',
-                body: `${eventData.title} is starting in 10 minutes.`,
-                data: { eventId, url: `/event/${eventId}` },
-            });
-        }
-    }
-    return messages;
-}
-async function sendMessagesOrThrow(messages) {
-    const chunks = expo.chunkPushNotifications(messages);
-    let sentChunks = 0;
-    let failedChunks = 0;
-    for (const chunk of chunks) {
-        try {
-            await expo.sendPushNotificationsAsync(chunk);
-            sentChunks += 1;
-        }
-        catch (error) {
-            failedChunks += 1;
-            console.error('Failed to send notification chunk', {
-                chunkSize: chunk.length,
-                error,
-            });
-        }
-    }
-    return {
-        sentChunks,
-        failedChunks,
-        allChunksSucceeded: failedChunks === 0,
-    };
-}
-exports.checkUpcomingEvents = functions.pubsub.schedule('every 1 minutes').onRun(async () => {
-    const db = admin.firestore();
+const push_1 = require("./utils/push");
+async function getUpcomingEvents(db) {
     const startRange = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const endRange = new Date(Date.now() + 11 * 60 * 1000).toISOString();
-    const eventsSnapshot = await db
+    return db
         .collection('events')
         .where('startAt', '>=', startRange)
         .where('startAt', '<=', endRange)
         .where('status', '==', 'active')
         .get();
-    if (eventsSnapshot.empty)
+}
+async function buildMessagesForEvent(db, eventDoc) {
+    const eventData = eventDoc.data();
+    if (eventData.notified10Min)
+        return [];
+    const participantsSnapshot = await db.collection(`events/${eventDoc.id}/participants`).get();
+    const participantIds = participantsSnapshot.docs.map(doc => doc.id);
+    if (participantIds.length === 0)
+        return [];
+    const userDocs = await Promise.all(participantIds.map(uid => db.collection('users').doc(uid).get()));
+    return userDocs.flatMap(userDoc => {
+        var _a;
+        if (!userDoc.exists)
+            return [];
+        const pushToken = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.pushToken;
+        if (!pushToken || !expo_server_sdk_1.Expo.isExpoPushToken(pushToken))
+            return [];
+        return [
+            {
+                to: pushToken,
+                sound: 'default',
+                title: 'Event Starting Soon!',
+                body: `${eventData.title} is starting in 10 minutes.`,
+                data: { eventId: eventDoc.id, url: `/event/${eventDoc.id}` },
+            },
+        ];
+    });
+}
+/**
+ * Scheduled function to check for upcoming events (10 mins before).
+ * Runs every minute.
+ */
+exports.checkUpcomingEvents = functions.pubsub.schedule('every 1 minutes').onRun(async () => {
+    const db = admin.firestore();
+    const eventsSnapshot = await getUpcomingEvents(db);
+    if (eventsSnapshot.empty) {
         return { processed: 0, notificationsSent: 0 };
+    }
     const batch = db.batch();
-    let totalMessages = 0;
-    const successfulEventRefs = [];
+    let notificationsSent = 0;
     for (const eventDoc of eventsSnapshot.docs) {
-        const msgs = await gatherMessagesForEvent(db, eventDoc);
-        if (msgs.length === 0)
+        const messages = await buildMessagesForEvent(db, eventDoc);
+        if (messages.length === 0)
             continue;
         try {
-            const result = await sendMessagesOrThrow(msgs);
-            if (result.allChunksSucceeded) {
-                successfulEventRefs.push(eventDoc.ref);
-                totalMessages += msgs.length;
-            }
+            await (0, push_1.sendPushNotifications)(messages);
+            notificationsSent += messages.length;
+            batch.update(eventDoc.ref, { notified10Min: true });
         }
         catch (error) {
-            console.error('Unexpected error while sending notifications for event', eventDoc.id, error);
+            console.error(`Failed to send notifications for event ${eventDoc.id}:`, error);
+            // Do not mark as notified so we can retry on the next run
         }
     }
-    for (const ref of successfulEventRefs) {
-        batch.update(ref, { notified10Min: true });
-    }
     await batch.commit();
-    return { processed: eventsSnapshot.size, notificationsSent: totalMessages };
+    return { processed: eventsSnapshot.size, notificationsSent };
 });
-//# sourceMappingURL=eventNotifications.js.map

@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { FieldValue, FieldPath } from 'firebase-admin/firestore';
 import Expo from 'expo-server-sdk';
 import { sendPushNotifications } from './utils/push';
 import { enforceAppCheck } from './middleware/appCheck';
@@ -17,7 +18,7 @@ function processUserPage(userDoc: admin.firestore.QueryDocumentSnapshot, count: 
     batch.set(notifRef, {
         title: 'Daily Digest 📅',
         body: `There are ${count} events happening today!`,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         read: false
     });
 
@@ -65,7 +66,7 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
     while (true) {
         let query: admin.firestore.Query = db
             .collection('users')
-            .orderBy(admin.firestore.FieldPath.documentId())
+            .orderBy(FieldPath.documentId())
             .limit(PAGE_SIZE);
 
         if (lastDoc) {

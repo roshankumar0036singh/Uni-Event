@@ -68,20 +68,20 @@ service cloud.firestore {
         request.auth.uid == userId &&
         (
           !affected.hasAny(['writeCountMinute', 'lastWriteAt']) || (
-            after.lastWriteAt == request.time &&
+            after.get('lastWriteAt', null) == request.time &&
             (
               !('lastWriteAt' in before) ||
-              (request.time.toMillis() - before.lastWriteAt.toMillis() > 60000 && after.writeCountMinute == 1) ||
-              (after.writeCountMinute == before.writeCountMinute + 1 && after.writeCountMinute <= 10)
+              (request.time.toMillis() - before.get('lastWriteAt', request.time).toMillis() > 60000 && after.get('writeCountMinute', 0) == 1) ||
+              (after.get('writeCountMinute', 0) == before.get('writeCountMinute', 0) + 1 && after.get('writeCountMinute', 0) <= 10)
             )
           )
         ) && (
           !affected.hasAny(['eventCountDay', 'lastEventDay']) || (
-            after.lastWriteAt == request.time &&
+            after.get('lastWriteAt', null) == request.time &&
             (
               !('lastEventDay' in before) ||
-              (after.lastEventDay != before.lastEventDay && after.eventCountDay == 1) ||
-              (after.eventCountDay == before.eventCountDay + 1 && after.eventCountDay <= 5)
+              (after.get('lastEventDay', 0) != before.get('lastEventDay', 0) && after.get('eventCountDay', 0) == 1) ||
+              (after.get('eventCountDay', 0) == before.get('eventCountDay', 0) + 1 && after.get('eventCountDay', 0) <= 5)
             )
           )
         )
@@ -92,12 +92,12 @@ service cloud.firestore {
     function checkWriteRate(userId) {
       let userData = getUserData(userId);
       let userAfter = getAfter(/databases/$(database)/documents/users/$(userId)).data;
-      return userData.role == 'admin' || (
-             userAfter.lastWriteAt == request.time &&
+      return userData.get('role', 'student') == 'admin' || (
+             userAfter.get('lastWriteAt', null) == request.time &&
              (
                !('lastWriteAt' in userData) ||
-               (request.time.toMillis() - userData.lastWriteAt.toMillis() > 60000) ||
-               userData.writeCountMinute < 10
+               (request.time.toMillis() - userData.get('lastWriteAt', request.time).toMillis() > 60000) ||
+               userData.get('writeCountMinute', 0) < 10
              )
       );
     }
@@ -106,12 +106,12 @@ service cloud.firestore {
     function checkEventDailyRate(userId) {
       let userData = getUserData(userId);
       let userAfter = getAfter(/databases/$(database)/documents/users/$(userId)).data;
-      return userData.role == 'admin' || (
-             userAfter.lastWriteAt == request.time &&
+      return userData.get('role', 'student') == 'admin' || (
+             userAfter.get('lastWriteAt', null) == request.time &&
              (
                !('lastEventDay' in userData) ||
-               userData.lastEventDay != request.time.year() * 10000 + request.time.month() * 100 + request.time.day() ||
-               userData.eventCountDay < 5
+               userData.get('lastEventDay', 0) != request.time.year() * 10000 + request.time.month() * 100 + request.time.day() ||
+               userData.get('eventCountDay', 0) < 5
              )
       );
     }
@@ -121,12 +121,25 @@ service cloud.firestore {
     // =========================================================================
 
     match /users/{userId} {
-      allow create: if request.auth != null && request.auth.uid == userId && !("role" in request.resource.data);
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && (
+      allow create: if request.auth != null && request.auth.uid == userId && (!("role" in request.resource.data) || request.resource.data.role == "student");
+      allow read: if request.auth != null;
+      allow update: if request.auth != null && resource != null && (
         isAdmin() || 
         (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) && validateRateLimitUpdate(userId))
       );
+
+      // Subcollections
+      match /savedEvents/{eventId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      match /participating/{eventId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /notifications/{notifId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
     
     match /clubs/{clubId} {
@@ -289,6 +302,50 @@ service cloud.firestore {
                       || isAdmin());
 
       allow update, delete: if isAdmin();
+    }
+
+    // Tickets Collection
+    match /tickets/{ticketId} {
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        ('userId' in resource.data && request.auth.uid == resource.data.userId)
+      );
+      allow create: if request.auth != null && (
+        isAdmin() ||
+        (request.resource.data.userId == request.auth.uid)
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    // Registrations Collection
+    match /registrations/{regId} {
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+        ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
+      );
+      allow create: if request.auth != null && (
+        isAdmin() ||
+        (request.resource.data.userId == request.auth.uid)
+      );
+      allow update, delete: if isAdmin() || (
+        request.auth != null &&
+        ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
+      );
+    }
+
+    // Feedback Requests Collection
+    match /feedbackRequests/{requestId} {
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        ('userId' in resource.data && request.auth.uid == resource.data.userId)
+      );
+      allow update: if request.auth != null && (
+        isAdmin() ||
+        ('userId' in resource.data && request.auth.uid == resource.data.userId &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt']))
+      );
+      allow create: if isAdmin();
     }
   }
 }
