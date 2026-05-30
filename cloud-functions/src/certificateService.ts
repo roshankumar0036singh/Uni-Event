@@ -16,7 +16,8 @@ type Participant = {
 type CertificateOutcome = {
     email: string | null;
     status: 'success' | 'failed' | 'error' | 'skipped';
-    id?: string;
+    messageId?: string;
+    participantId?: string;
     certificateUrl?: string;
     error?: string;
     reason?: string;
@@ -116,7 +117,8 @@ async function generatePdfBuffer(
 async function uploadPdfAndGetUrl(bucket: any, storagePath: string, pdfBuffer: Buffer) {
     const file = bucket.file(storagePath);
     await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
-    const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: '2499-12-31' });
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // Max 7 days for V4
+    const [signedUrl] = await file.getSignedUrl({ action: 'read', expires, version: 'v4' });
     return signedUrl;
 }
 
@@ -206,15 +208,16 @@ async function handleExistingCertificateParticipant(
                 status: 'failed',
                 error: getErrorMessage(error),
                 certificateUrl: existingUrl,
-                id: participant.id,
+                participantId: participant.id,
             };
         }
 
         return {
             email: participant.email || null,
             status: 'success',
-            id: data?.id,
+            messageId: data?.id,
             certificateUrl: existingUrl,
+            participantId: participant.id,
         };
     } catch (err) {
         return {
@@ -222,7 +225,7 @@ async function handleExistingCertificateParticipant(
             status: 'error',
             error: getErrorMessage(err),
             certificateUrl: existingUrl,
-            id: participant.id,
+            participantId: participant.id,
         };
     }
 }
@@ -280,8 +283,9 @@ async function processParticipant(
         return {
             email: participant.email,
             status: 'success',
-            id: data?.id,
+            messageId: data?.id,
             certificateUrl: signedUrl,
+            participantId: participant.id,
         };
     } catch (error) {
         console.error(`Storage/upload error for ${participant.email}:`, error);

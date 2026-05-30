@@ -109,7 +109,8 @@ async function generatePdfBuffer(templateBytes, participantName, eventName) {
 async function uploadPdfAndGetUrl(bucket, storagePath, pdfBuffer) {
     const file = bucket.file(storagePath);
     await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
-    const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: '2499-12-31' });
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // Max 7 days for V4
+    const [signedUrl] = await file.getSignedUrl({ action: 'read', expires, version: 'v4' });
     return signedUrl;
 }
 async function persistCertificateUrl(eventId, participantId, signedUrl) {
@@ -170,14 +171,15 @@ async function handleExistingCertificateParticipant(participant, eventTitle, org
                 status: 'failed',
                 error: getErrorMessage(error),
                 certificateUrl: existingUrl,
-                id: participant.id,
+                participantId: participant.id,
             };
         }
         return {
             email: participant.email || null,
             status: 'success',
-            id: data === null || data === void 0 ? void 0 : data.id,
+            messageId: data === null || data === void 0 ? void 0 : data.id,
             certificateUrl: existingUrl,
+            participantId: participant.id,
         };
     }
     catch (err) {
@@ -186,7 +188,7 @@ async function handleExistingCertificateParticipant(participant, eventTitle, org
             status: 'error',
             error: getErrorMessage(err),
             certificateUrl: existingUrl,
-            id: participant.id,
+            participantId: participant.id,
         };
     }
 }
@@ -220,8 +222,9 @@ async function processParticipant(participant, eventId, eventTitle, organization
         return {
             email: participant.email,
             status: 'success',
-            id: data === null || data === void 0 ? void 0 : data.id,
+            messageId: data === null || data === void 0 ? void 0 : data.id,
             certificateUrl: signedUrl,
+            participantId: participant.id,
         };
     }
     catch (error) {

@@ -59,6 +59,7 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
 
     let lastDoc: admin.firestore.DocumentSnapshot | null = null;
     let processedCount = 0;
+    let failedPushes = 0;
 
     while (true) {
         let query: admin.firestore.Query = db
@@ -90,6 +91,7 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
                     pageSize: usersSnapshot.size,
                     pushMessages: pageMessages.length,
                 });
+                failedPushes += pageMessages.length;
             }
         }
 
@@ -99,6 +101,10 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
         if (usersSnapshot.size < PAGE_SIZE) {
             break;
         }
+    }
+
+    if (failedPushes > 0) {
+        return { success: false, count, processed: processedCount, failedPushes };
     }
 
     return { success: true, count, processed: processedCount };

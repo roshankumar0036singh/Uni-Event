@@ -60,7 +60,7 @@ exports.calculatePoints = calculatePoints;
  * +1 point per reminder set
  */
 exports.calculateReputation = functions.https.onCall(async (_data, context) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
     if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.admin)) {
         throw new functions.https.HttpsError('permission-denied', 'Only admin can calculate reputation.');
     }
@@ -70,9 +70,9 @@ exports.calculateReputation = functions.https.onCall(async (_data, context) => {
     let updatedUsers = 0;
     for (const userDoc of usersSnapshot.docs) {
         const userData = userDoc.data();
-        const attendanceCount = ((_b = userData.reputation) === null || _b === void 0 ? void 0 : _b.attendanceCount) || userData.attendanceCount || 0;
-        const registrationCount = ((_c = userData.reputation) === null || _c === void 0 ? void 0 : _c.registrationCount) || userData.registrationCount || 0;
-        const remindersSet = ((_d = userData.reputation) === null || _d === void 0 ? void 0 : _d.remindersSet) || userData.remindersSet || 0;
+        const attendanceCount = (_d = (_c = (_b = userData.reputation) === null || _b === void 0 ? void 0 : _b.attendanceCount) !== null && _c !== void 0 ? _c : userData.attendanceCount) !== null && _d !== void 0 ? _d : 0;
+        const registrationCount = (_g = (_f = (_e = userData.reputation) === null || _e === void 0 ? void 0 : _e.registrationCount) !== null && _f !== void 0 ? _f : userData.registrationCount) !== null && _g !== void 0 ? _g : 0;
+        const remindersSet = (_k = (_j = (_h = userData.reputation) === null || _h === void 0 ? void 0 : _h.remindersSet) !== null && _j !== void 0 ? _j : userData.remindersSet) !== null && _k !== void 0 ? _k : 0;
         const points = (0, exports.calculatePoints)(attendanceCount, registrationCount, remindersSet);
         batch.update(userDoc.ref, {
             'reputation.points': points,

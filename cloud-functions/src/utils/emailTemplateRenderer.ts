@@ -7,6 +7,8 @@ import * as path from 'node:path';
  */
 const TEMPLATES_DIR = path.resolve(__dirname, '../../templates');
 
+const templateCache: Record<string, string> = {};
+
 /**
  * Sample data for each known template, used for previews when no data is supplied.
  */
@@ -86,15 +88,29 @@ export function renderTemplate(
   }
 
   // Safe: templateName is now guaranteed to be a known basename with no path separators
-  const filePath = path.join(TEMPLATES_DIR, `${templateName}.html`);
-  const html = fs.readFileSync(filePath, 'utf-8');
+  let html = templateCache[templateName];
+  if (!html || process.env.NODE_ENV !== 'production') {
+    const filePath = path.join(TEMPLATES_DIR, `${templateName}.html`);
+    html = fs.readFileSync(filePath, 'utf-8');
+    templateCache[templateName] = html;
+  }
 
   // Merge: explicit data overrides sample data
   const sampleData = getSampleData(templateName);
   const mergedData: Record<string, string> = { ...sampleData, ...data };
 
+  // Helper to escape HTML characters
+  const escapeHtml = (unsafe: string) => {
+    return unsafe
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
+
   // Replace all {{variable}} placeholders
   return html.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
-    return mergedData[key] !== undefined ? mergedData[key] : `{{${key}}}`;
+    return mergedData[key] !== undefined ? escapeHtml(mergedData[key]) : `{{${key}}}`;
   });
 }

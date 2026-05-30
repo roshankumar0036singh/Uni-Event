@@ -167,6 +167,11 @@ import {
  * Lists all available email templates with clickable preview links.
  */
 app.get('/email-preview', (_req: express.Request, res: express.Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    res.status(403).json({ error: 'Previews are disabled in production' });
+    return;
+  }
+
   const templates = getAvailableTemplates();
 
   const links = templates
@@ -220,6 +225,11 @@ app.get('/email-preview', (_req: express.Request, res: express.Response) => {
  * overridden via query parameters (e.g. ?to_name=Alice&event_title=My+Event).
  */
 app.get('/email-preview/:templateName', (req: express.Request, res: express.Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    res.status(403).json({ error: 'Previews are disabled in production' });
+    return;
+  }
+
   const { templateName } = req.params;
 
   // Escape HTML entities to prevent XSS when reflecting user-controlled values

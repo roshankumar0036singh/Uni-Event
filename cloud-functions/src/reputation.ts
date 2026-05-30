@@ -47,12 +47,12 @@ export const calculateReputation = functions.https.onCall(async (_data, context)
         const userData = userDoc.data();
 
         const attendanceCount =
-            userData.reputation?.attendanceCount || userData.attendanceCount || 0;
+            userData.reputation?.attendanceCount ?? userData.attendanceCount ?? 0;
 
         const registrationCount =
-            userData.reputation?.registrationCount || userData.registrationCount || 0;
+            userData.reputation?.registrationCount ?? userData.registrationCount ?? 0;
 
-        const remindersSet = userData.reputation?.remindersSet || userData.remindersSet || 0;
+        const remindersSet = userData.reputation?.remindersSet ?? userData.remindersSet ?? 0;
 
         const points = calculatePoints(
             attendanceCount,

@@ -39,8 +39,9 @@ const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const push_1 = require("./utils/push");
 async function getUpcomingEvents(db) {
-    const startRange = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    const endRange = new Date(Date.now() + 11 * 60 * 1000).toISOString();
+    // Expand the window with a small buffer to avoid missing events due to scheduler drift
+    const startRange = new Date(Date.now() + 9.5 * 60 * 1000).toISOString();
+    const endRange = new Date(Date.now() + 11.5 * 60 * 1000).toISOString();
     return db
         .collection('events')
         .where('startAt', '>=', startRange)

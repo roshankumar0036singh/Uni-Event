@@ -87,6 +87,7 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
     }
     let lastDoc = null;
     let processedCount = 0;
+    let failedPushes = 0;
     while (true) {
         let query = db
             .collection('users')
@@ -113,6 +114,7 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
                     pageSize: usersSnapshot.size,
                     pushMessages: pageMessages.length,
                 });
+                failedPushes += pageMessages.length;
             }
         }
         processedCount += usersSnapshot.size;
@@ -120,6 +122,9 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
         if (usersSnapshot.size < PAGE_SIZE) {
             break;
         }
+    }
+    if (failedPushes > 0) {
+        return { success: false, count, processed: processedCount, failedPushes };
     }
     return { success: true, count, processed: processedCount };
 });
