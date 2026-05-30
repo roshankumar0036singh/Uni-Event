@@ -248,16 +248,36 @@ export default function DesktopAdmin() {
                         <View>
                             <View style={styles.tabRow}>
                                 <TouchableOpacity
-                                    style={[styles.subTab, activeSubTab === 'active' && styles.activeSubTab]}
+                                    style={[
+                                        styles.subTab,
+                                        activeSubTab === 'active' && styles.activeSubTab,
+                                    ]}
                                     onPress={() => setActiveSubTab('active')}
                                 >
-                                    <Text style={[styles.subTabText, activeSubTab === 'active' && styles.activeSubTabText]}>Active</Text>
+                                    <Text
+                                        style={[
+                                            styles.subTabText,
+                                            activeSubTab === 'active' && styles.activeSubTabText,
+                                        ]}
+                                    >
+                                        Active
+                                    </Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[styles.subTab, activeSubTab === 'deleted' && styles.activeSubTab]}
+                                    style={[
+                                        styles.subTab,
+                                        activeSubTab === 'deleted' && styles.activeSubTab,
+                                    ]}
                                     onPress={() => setActiveSubTab('deleted')}
                                 >
-                                    <Text style={[styles.subTabText, activeSubTab === 'deleted' && styles.activeSubTabText]}>Deleted</Text>
+                                    <Text
+                                        style={[
+                                            styles.subTabText,
+                                            activeSubTab === 'deleted' && styles.activeSubTabText,
+                                        ]}
+                                    >
+                                        Deleted
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
                             <View style={styles.table}>
@@ -268,26 +288,32 @@ export default function DesktopAdmin() {
                                     <Text style={styles.cell}>Action</Text>
                                 </View>
                                 {events
-                                    .filter(e => activeSubTab === 'deleted' ? e.deletedAt != null : !e.deletedAt)
+                                    .filter(e =>
+                                        activeSubTab === 'deleted'
+                                            ? e.deletedAt != null
+                                            : !e.deletedAt,
+                                    )
                                     .map(event => (
-                                    <View key={event.id} style={styles.row}>
-                                        <Text style={styles.cell}>{event.title}</Text>
-                                        <Text style={styles.cell}>
-                                            {formatEventDate(event.startAt)}
-                                        </Text>
-                                        <Text style={styles.cell}>{event.category}</Text>
-                                        <View style={styles.cell}>
-                                            {activeSubTab === 'deleted' && (
-                                                <TouchableOpacity
-                                                    style={styles.restoreBtn}
-                                                    onPress={() => handleRestoreEvent(event.id)}
-                                                >
-                                                    <Text style={styles.restoreBtnText}>Restore</Text>
-                                                </TouchableOpacity>
-                                            )}
+                                        <View key={event.id} style={styles.row}>
+                                            <Text style={styles.cell}>{event.title}</Text>
+                                            <Text style={styles.cell}>
+                                                {formatEventDate(event.startAt)}
+                                            </Text>
+                                            <Text style={styles.cell}>{event.category}</Text>
+                                            <View style={styles.cell}>
+                                                {activeSubTab === 'deleted' && (
+                                                    <TouchableOpacity
+                                                        style={styles.restoreBtn}
+                                                        onPress={() => handleRestoreEvent(event.id)}
+                                                    >
+                                                        <Text style={styles.restoreBtnText}>
+                                                            Restore
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
                                         </View>
-                                    </View>
-                                ))}
+                                    ))}
                             </View>
                         </View>
                     )}

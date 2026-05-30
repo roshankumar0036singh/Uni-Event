@@ -1,6 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-import { collection, doc, onSnapshot, query, updateDoc, where, serverTimestamp } from 'firebase/firestore';
+import {
+    collection,
+    doc,
+    onSnapshot,
+    query,
+    updateDoc,
+    where,
+    serverTimestamp,
+} from 'firebase/firestore';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     ActivityIndicator,
@@ -65,7 +73,8 @@ export default function MyEventsScreen({ navigation }) {
     }, [user, refreshNonce, isFocused]);
 
     const handleDelete = async eventId => {
-        const confirmMsg = 'Are you sure? The event will be soft-deleted and can be restored by an admin within 30 days. Attendees can no longer register.';
+        const confirmMsg =
+            'Are you sure? The event will be soft-deleted and can be restored by an admin within 30 days. Attendees can no longer register.';
         if (Platform.OS === 'web') {
             if (!globalThis.confirm(confirmMsg)) return;
             try {
