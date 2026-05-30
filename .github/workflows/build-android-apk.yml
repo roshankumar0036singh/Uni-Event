@@ -1,0 +1,132 @@
+name: Build Android APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build & Release Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+
+      - name: Setup Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          eas-cache: true
+
+      - name: Install dependencies
+        working-directory: ./app
+        run: npm ci
+
+      - name: Cache Gradle & EAS build directories
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.eas
+            app/.expo
+          key: ${{ runner.os }}-gradle-eas-${{ hashFiles('app/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-eas-
+
+      - name: Configure signing credentials
+        working-directory: ./app
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "Decoding Android Keystore..."
+            mkdir -p android/keystores
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/keystores/release.jks
+            
+            echo "Creating credentials.json for local build..."
+            cat <<EOF > credentials.json
+            {
+              "android": {
+                "keystore": {
+                  "keystorePath": "android/keystores/release.jks",
+                  "keystorePassword": "$ANDROID_KEYSTORE_PASSWORD",
+                  "keyAlias": "$ANDROID_KEY_ALIAS",
+                  "keyPassword": "$ANDROID_KEY_PASSWORD"
+                }
+              }
+            }
+            EOF
+            
+            # Modify eas.json to use local credentials source for build profiles
+            python -c "
+            import json
+            with open('eas.json', 'r') as f:
+                data = json.load(f)
+            data['build']['preview']['android']['credentialsSource'] = 'local'
+            data['build']['production']['android']['credentialsSource'] = 'local'
+            with open('eas.json', 'w') as f:
+                json.dump(data, f, indent=2)
+            "
+          else
+            echo "No ANDROID_KEYSTORE_BASE64 secret found. Will fall back to remote credentials."
+          fi
+
+      - name: Build Android APK
+        working-directory: ./app
+        env:
+          EAS_USE_CACHE: "1"
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ] && [ ! -f "credentials.json" ]; then
+            echo "WARNING: Neither EXPO_TOKEN nor local credentials are set. Skipping actual EAS build to prevent failures on forks."
+            exit 0
+          fi
+          
+          # Run local EAS build to generate APK
+          eas build --platform android --profile preview --local --non-interactive --output=app-release.apk
+
+      - name: Check if APK was built
+        id: check_apk
+        working-directory: ./app
+        run: |
+          if [ -f "app-release.apk" ]; then
+            echo "apk_exists=true" >> $GITHUB_OUTPUT
+            echo "Android APK build completed successfully."
+            ls -lh app-release.apk
+          else
+            echo "apk_exists=false" >> $GITHUB_OUTPUT
+            echo "APK build not found (or build was skipped)."
+          fi
+
+      - name: Create GitHub Release and Upload APK
+        if: startsWith(github.ref, 'refs/tags/v') && steps.check_apk.outputs.apk_exists == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/app-release.apk
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
