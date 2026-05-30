@@ -509,7 +509,7 @@ export const backfillReputationBuckets = functions.https.onCall(async (_data, co
             const data = doc.data();
             const userId = data?.userId;
             const eventId = data?.eventId;
-            const eventStartAt = await resolveEventStartAt(eventId, data?.eventStartAt, eventCache);
+            const eventStartAt = await resolveEventStartAt(eventId, data?.eventStartAt ?? data?.eventDate,eventCache,);
 
             if (!userId || !eventStartAt) {
                 scanned.skipped += 1;
@@ -536,9 +536,9 @@ export const backfillReputationBuckets = functions.https.onCall(async (_data, co
             bucketRef,
             {
                 monthKey: bucket.monthKey,
-                registrations: bucket.registrations,
-                attendances: bucket.attendances,
-                reminders: bucket.reminders,
+                registrations: admin.firestore.FieldValue.increment(bucket.registrations),
+                attendances: admin.firestore.FieldValue.increment(bucket.attendances),
+                reminders: admin.firestore.FieldValue.increment(bucket.reminders),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             },
             { merge: true },

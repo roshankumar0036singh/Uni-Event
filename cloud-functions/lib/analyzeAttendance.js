@@ -67,6 +67,9 @@ exports.analyzeAttendance = (0, firestore_1.onDocumentCreated)("events/{eventId}
         }, { merge: true });
     }
 });
+/**
+ * Checks if a participant rapidly duplicated check-ins across events.
+ */
 async function checkRapidDuplicate(eventId, currentUserId, qrId, checkedInAt, result) {
     const snapshot = await db
         .collection("events")
@@ -96,6 +99,9 @@ async function checkRapidDuplicate(eventId, currentUserId, qrId, checkedInAt, re
         }
     });
 }
+/**
+ * Identifies if an attendee traveled an impossible distance between check-ins.
+ */
 async function checkImpossibleDistance(eventId, latitude, longitude, result) {
     const eventDoc = await db
         .collection("events")
@@ -116,6 +122,9 @@ async function checkImpossibleDistance(eventId, latitude, longitude, result) {
         result.reasons.push("Attendance too far from venue");
     }
 }
+/**
+ * Checks if the same device was used excessively to check in different participants.
+ */
 async function checkDeviceAbuse(deviceId, result) {
     const snapshot = await db
         .collectionGroup("checkIns")
@@ -130,6 +139,9 @@ async function checkDeviceAbuse(deviceId, result) {
         result.reasons.push("Multiple accounts using same device");
     }
 }
+/**
+ * Verifies if the same participant is simultaneously checking into overlapping events.
+ */
 async function checkMultipleEvents(userId, checkedInAt, currentEventId, result) {
     const snapshot = await db
         .collectionGroup("checkIns")

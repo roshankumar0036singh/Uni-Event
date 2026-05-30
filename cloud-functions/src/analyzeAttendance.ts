@@ -87,6 +87,9 @@ export const analyzeAttendance = onDocumentCreated(
   }
 );
 
+/**
+ * Checks if a participant rapidly duplicated check-ins across events.
+ */
 async function checkRapidDuplicate(
   eventId: string,
   currentUserId: string,
@@ -137,6 +140,9 @@ async function checkRapidDuplicate(
   });
 }
 
+/**
+ * Identifies if an attendee traveled an impossible distance between check-ins.
+ */
 async function checkImpossibleDistance(
   eventId: string,
   latitude: number,
@@ -177,6 +183,9 @@ async function checkImpossibleDistance(
   }
 }
 
+/**
+ * Checks if the same device was used excessively to check in different participants.
+ */
 async function checkDeviceAbuse(
   deviceId: string,
   result: any
@@ -201,6 +210,9 @@ async function checkDeviceAbuse(
   }
 }
 
+/**
+ * Verifies if the same participant is simultaneously checking into overlapping events.
+ */
 async function checkMultipleEvents(
   userId: string,
   checkedInAt: any,

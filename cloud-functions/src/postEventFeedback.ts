@@ -6,6 +6,9 @@ const PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY;
 const TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_FEEDBACK;
 
 // Step 1: Send one email
+/**
+ * Sends a post-event feedback email to a participant using Resend.
+ */
 async function sendEmail(name: string, email: string, eventTitle: string, eventId: string) {
     const payload = {
         service_id: SERVICE_ID,
@@ -34,12 +37,18 @@ async function sendEmail(name: string, email: string, eventTitle: string, eventI
 }
 
 // Step 2: Get event end time (returns null if invalid)
+/**
+ * Safely extracts or infers the end time of an event.
+ */
 function getEndTime(event: admin.firestore.DocumentData): Date | null {
     const date = event.endAt?.toDate ? event.endAt.toDate() : new Date(event.endAt);
     return date && !Number.isNaN(date.getTime()) ? date : null;
 }
 
 // Step 3: Claim event so no other function run processes it twice
+/**
+ * Atomically claims an event for feedback processing to prevent duplicate processing.
+ */
 async function claimEvent(ref: admin.firestore.DocumentReference): Promise<boolean> {
     try {
         await ref.firestore.runTransaction(async (t) => {
@@ -55,6 +64,9 @@ async function claimEvent(ref: admin.firestore.DocumentReference): Promise<boole
 }
 
 // Step 4: Send emails to all participants of an event
+/**
+ * Dispatches feedback emails to all attendees of a specific event.
+ */
 async function notifyParticipants(db: admin.firestore.Firestore, eventId: string, eventTitle: string) {
     const snap = await db.collection(`events/${eventId}/participants`).get();
     for (const p of snap.docs) {

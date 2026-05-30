@@ -22,10 +22,16 @@ type CertificateOutcome = {
     reason?: string;
 };
 
+/**
+ * Gets a reliable participant ID from their payload.
+ */
 function getParticipantId(participant: Participant) {
     return participant.id || (participant.email || '').replace(/[^a-z0-9@.]/gi, '_');
 }
 
+/**
+ * Builds a LinkedIn Add to Profile URL for the certificate.
+ */
 function buildLinkedInUrl(
     eventTitle: string,
     organizationName: string,
@@ -50,10 +56,16 @@ function buildLinkedInUrl(
     )}`;
 }
 
+/**
+ * Safely extracts an error message string from an unknown error object.
+ */
 function getErrorMessage(error: unknown) {
     return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * Escapes HTML characters in a string to prevent XSS.
+ */
 function escapeHtml(unsafe: string) {
     // Replace fixed tokens using split/join for compatibility with older lib targets
     return unsafe
@@ -69,11 +81,17 @@ function escapeHtml(unsafe: string) {
         .join('&#039;');
 }
 
+/**
+ * Sanitizes a string for safe use as a filename.
+ */
 function sanitizeFilename(name: string) {
     // remove path separators and control chars, allow basic set
     return name.replace(/[^a-zA-Z0-9_.\- ]+/g, '_').slice(0, 200);
 }
 
+/**
+ * Overlays the participant's name onto the PDF certificate template.
+ */
 async function generatePdfBuffer(
     templateBytes: Uint8Array | ArrayBuffer | Buffer,
     participantName: string,
@@ -113,6 +131,9 @@ async function generatePdfBuffer(
     return Buffer.from(pdfBytes);
 }
 
+/**
+ * Uploads a generated PDF certificate buffer to Firebase Storage and returns its signed URL.
+ */
 async function uploadPdfAndGetUrl(bucket: any, storagePath: string, pdfBuffer: Buffer, eventId: string, participantId: string) {
     const file = bucket.file(storagePath);
     await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
@@ -121,6 +142,9 @@ async function uploadPdfAndGetUrl(bucket: any, storagePath: string, pdfBuffer: B
     return `${baseUrl}/api/certificate?eventId=${eventId}&participantId=${participantId}`;
 }
 
+/**
+ * Saves the generated certificate's signed URL to the participant's Firestore document.
+ */
 async function persistCertificateUrl(eventId: string, participantId: string, signedUrl: string) {
     const participantRef = admin
         .firestore()
@@ -132,6 +156,9 @@ async function persistCertificateUrl(eventId: string, participantId: string, sig
     });
 }
 
+/**
+ * Sends an email containing the certificate attachment to the participant.
+ */
 async function sendCertificateEmail(
     p: Participant,
     eventName: string,
@@ -159,6 +186,9 @@ async function sendCertificateEmail(
     });
 }
 
+/**
+ * Sends an email to the participant including a link to download their certificate.
+ */
 async function sendCertificateEmailUsingUrl(
     p: Participant,
     eventName: string,
@@ -180,10 +210,16 @@ async function sendCertificateEmailUsingUrl(
     });
 }
 
+/**
+ * Safely parses the event start date from a generic event payload.
+ */
 function getEventStartDate(event: any) {
     return event?.startAt || event?.startDate || event?.start || event?.startTime;
 }
 
+/**
+ * Handles the logic for a participant who already has a generated certificate.
+ */
 async function handleExistingCertificateParticipant(
     participant: Participant,
     eventTitle: string,
@@ -228,6 +264,9 @@ async function handleExistingCertificateParticipant(
     }
 }
 
+/**
+ * Fully processes a single participant: generates PDF, saves to storage, and emails them.
+ */
 async function processParticipant(
     participant: Participant,
     eventId: string,
@@ -294,6 +333,9 @@ async function processParticipant(
     }
 }
 
+/**
+ * Main entry point: Generates and distributes certificates for all attendees of a specific event.
+ */
 export async function sendCertificatesForEvent(eventId: string, ownerId: string) {
     // 1. Fetch Event Details
     const eventDoc = await admin.firestore().collection('events').doc(eventId).get();

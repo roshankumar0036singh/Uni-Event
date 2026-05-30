@@ -38,6 +38,9 @@ const expo_server_sdk_1 = require("expo-server-sdk");
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const push_1 = require("./utils/push");
+/**
+ * Fetches events happening within the next 15 minutes.
+ */
 async function getUpcomingEvents(db) {
     const startRange = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const endRange = new Date(Date.now() + 11 * 60 * 1000).toISOString();
@@ -48,6 +51,9 @@ async function getUpcomingEvents(db) {
         .where('status', '==', 'active')
         .get();
 }
+/**
+ * Builds push notification message payloads for all participants of an event.
+ */
 async function buildMessagesForEvent(db, eventDoc) {
     const eventData = eventDoc.data();
     if (eventData.notified10Min)

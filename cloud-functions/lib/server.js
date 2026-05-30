@@ -188,6 +188,10 @@ app.get('/api/certificate', async (req, res) => {
         res.status(400).send('Invalid eventId or participantId format');
         return;
     }
+    if (!eventId.trim() || !participantId.trim()) {
+        res.status(400).send('eventId and participantId cannot be empty');
+        return;
+    }
     if (eventId.includes('/') || participantId.includes('/')) {
         res.status(400).send('Invalid eventId or participantId content');
         return;

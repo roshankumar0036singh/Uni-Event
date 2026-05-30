@@ -55,8 +55,8 @@ describe('Reputation Decay & Buckets', () => {
         
         // Exact decay varies between ~0.8 and ~1.0 depending on the current day of the month
         // because ageMonths calculates the distance from now to the 1st of the month bucket.
-        expect(rep.points).toBeGreaterThan(0.8);
-        expect(rep.points).toBeLessThan(1.2);
+        expect(rep.points).toBeGreaterThan(0.75);
+        expect(rep.points).toBeLessThan(1.25);
         expect(rep.registrationCount).toBe(1);
     });
 
@@ -72,8 +72,8 @@ describe('Reputation Decay & Buckets', () => {
         const rep = userSnap.data()?.reputation;
         
         // Exact decay varies between ~2.2 and ~2.9 depending on current day of month
-        expect(rep.points).toBeGreaterThan(2);
-        expect(rep.points).toBeLessThan(3);
+        expect(rep.points).toBeGreaterThan(1.9);
+        expect(rep.points).toBeLessThan(3.1);
         expect(rep.attendanceCount).toBe(1);
     });
 

@@ -403,12 +403,13 @@ exports.backfillReputationBuckets = functions.https.onCall(async (_data, context
         }
     });
     await paginateQuery(db.collection('reminders'), async (docs) => {
+        var _a;
         for (const doc of docs) {
             scanned.reminders += 1;
             const data = doc.data();
             const userId = data === null || data === void 0 ? void 0 : data.userId;
             const eventId = data === null || data === void 0 ? void 0 : data.eventId;
-            const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, data === null || data === void 0 ? void 0 : data.eventStartAt, eventCache);
+            const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, (_a = data === null || data === void 0 ? void 0 : data.eventStartAt) !== null && _a !== void 0 ? _a : data === null || data === void 0 ? void 0 : data.eventDate, eventCache);
             if (!userId || !eventStartAt) {
                 scanned.skipped += 1;
                 continue;
@@ -428,9 +429,9 @@ exports.backfillReputationBuckets = functions.https.onCall(async (_data, context
             .doc(bucket.monthKey);
         batch.set(bucketRef, {
             monthKey: bucket.monthKey,
-            registrations: bucket.registrations,
-            attendances: bucket.attendances,
-            reminders: bucket.reminders,
+            registrations: admin.firestore.FieldValue.increment(bucket.registrations),
+            attendances: admin.firestore.FieldValue.increment(bucket.attendances),
+            reminders: admin.firestore.FieldValue.increment(bucket.reminders),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         }, { merge: true });
         opCount += 1;
