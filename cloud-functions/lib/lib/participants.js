@@ -15,4 +15,3 @@ async function getParticipantContacts(db, eventId) {
     }
     return participantsSnap.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
 }
-//# sourceMappingURL=participants.js.map

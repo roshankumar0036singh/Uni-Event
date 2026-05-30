@@ -40,6 +40,8 @@ const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
+const rateLimiter_1 = require("./utils/rateLimiter");
 // Load environment variables
 dotenv_1.default.config();
 // Initialize Firebase Admin (ensure service account is available or uses default credentials)
@@ -67,11 +69,13 @@ if (admin.apps.length === 0) {
     }
 }
 const app = (0, express_1.default)();
+app.disable('x-powered-by');
 app.use((0, cors_1.default)({ origin: true }));
 app.use(express_1.default.json());
 // Auth Middleware to mimic Firebase Callable Context
 const validateFirebaseIdToken = async (req, res, next) => {
-    if ((!req.headers.authorization || !req.headers.authorization.startsWith('Bearer '))) {
+    var _a;
+    if (!((_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.startsWith('Bearer '))) {
         res.status(403).send('Unauthorized');
         return;
     }
@@ -86,8 +90,34 @@ const validateFirebaseIdToken = async (req, res, next) => {
         res.status(403).send('Unauthorized');
     }
 };
+// Rate Limiting Middleware for Server Endpoints
+const rateLimitMiddleware = async (req, res, next) => {
+    const user = req.user;
+    if (!user) {
+        return next();
+    }
+    try {
+        // Determine if the operation is event creation or regular write
+        const isEventCreation = req.path === '/api/createEvent';
+        const limitResult = await (0, rateLimiter_1.checkAndUpdateRateLimit)(user.uid, isEventCreation);
+        if (!limitResult.allowed) {
+            return res.status(limitResult.statusCode).json({
+                error: 'too-many-requests',
+                message: limitResult.message
+            });
+        }
+        next();
+    }
+    catch (error) {
+        console.error('Rate limiter middleware error:', error);
+        return res.status(503).json({
+            error: 'rate-limit-unavailable',
+            message: 'Rate limiting is temporarily unavailable. Please retry shortly.'
+        });
+    }
+};
 // setRole Implementation (adapted from setRole.ts logic)
-app.post('/api/setRole', validateFirebaseIdToken, async (req, res) => {
+app.post('/api/setRole', validateFirebaseIdToken, rateLimitMiddleware, async (req, res) => {
     const user = req.user;
     // 1. Check Auth (already done by middleware, but check existence)
     if (!user) {
@@ -127,7 +157,7 @@ app.post('/api/setRole', validateFirebaseIdToken, async (req, res) => {
 });
 // Send Certificates Endpoint
 const certificateService_1 = require("./certificateService");
-app.post('/api/sendCertificates', validateFirebaseIdToken, async (req, res) => {
+app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, async (req, res) => {
     const user = req.user;
     const { eventId } = req.body;
     if (!user) {
@@ -149,7 +179,7 @@ app.post('/api/sendCertificates', validateFirebaseIdToken, async (req, res) => {
 app.get('/', (req, res) => {
     res.send('UniEvent Backend is Running');
 });
-app.post('/api/sendDailyDigest', validateFirebaseIdToken, async (req, res) => {
+app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, async (req, res) => {
     try {
         // Optional: Check if admin
         const user = req.user;
@@ -158,16 +188,6 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, async (req, res) => {
             res.status(403).json({ message: 'Unauthorized: Only admins can trigger this.' });
             return;
         }
-        // const { sendDailyDigest } = require('./dailyDigest'); // Unused
-        // Since sendDailyDigest is an onCall, we can reuse logic or extract logic.
-        // But onCall expects (data, context).
-        // Let's just run logic here or duplicate/extract.
-        // Actually, better to import the Logic function if I separated it.
-        // But since I wrote it as `functions.https.onCall`, it's not directly callable as a plain JS function easily without mock.
-        // Let's rewrite dailyDigest to be a shared function or just call it if it was separate.
-        // For simplicity in this structure, I will copy the logic or simpler: use the firebase-admin directly here 
-        // OR better: Invoke the function? No.
-        // I will implement the logic directly here for the API endpoint to ensure it works smoothly with Express req/res.
         const db = admin.firestore();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -194,7 +214,7 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, async (req, res) => {
                 batch.set(notifRef, {
                     title: 'Daily Digest 📅',
                     body: `There are ${count} events happening today!`,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    createdAt: firestore_1.FieldValue.serverTimestamp(),
                     read: false
                 });
                 if (pushToken && Expo.isExpoPushToken(pushToken)) {
@@ -232,4 +252,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
-//# sourceMappingURL=server.js.map

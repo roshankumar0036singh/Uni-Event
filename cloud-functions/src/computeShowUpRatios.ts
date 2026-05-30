@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { FieldValue } from 'firebase-admin/firestore';
 
 const db = admin.firestore();
 
@@ -89,7 +90,7 @@ export const computeShowUpRatios = functions.pubsub
                 totalRsvps: overallTotalRsvps,
                 totalAttendees: overallTotalAttendees,
             },
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
         });
 
         await batch.commit();

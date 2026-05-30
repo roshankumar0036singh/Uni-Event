@@ -13,6 +13,11 @@ config.resolver.extraNodeModules = {
 
 // Workaround for Windows issue with node:sea
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+    if (platform === 'web' && moduleName === 'react-native-maps') {
+        return {
+            type: 'empty',
+        };
+    }
     if (moduleName === 'node:sea') {
         return {
             type: 'empty',

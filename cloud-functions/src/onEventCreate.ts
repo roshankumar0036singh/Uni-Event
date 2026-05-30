@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { FieldValue } from 'firebase-admin/firestore';
 import { sendPushNotifications } from "./utils/push";
 
 const BATCH_SIZE = 500;
@@ -34,7 +35,7 @@ async function processUserBatch(
     const pushToken = userDoc.get('pushToken');
 
     if (pushToken) {
-      const notifRef = userDoc.ref.collection('notifications').doc();
+      const notifRef = userDoc.ref.collection('notifications').doc(`${eventId}_${userDoc.id}`);
       batch.set(notifRef, {
         title: 'New Event Alert! 📢',
         body: `Check out: "${eventTitle}"`,

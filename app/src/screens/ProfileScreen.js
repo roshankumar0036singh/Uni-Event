@@ -719,7 +719,7 @@ export default function ProfileScreen({ navigation }) {
                                                         { color: theme.colors.primary },
                                                     ]}
                                                 >
-                                                    {badge.replace(/_/g, ' ').toUpperCase()}
+                                                    {badge.replaceAll('_', ' ').toUpperCase()}
                                                 </Text>
                                             </View>
                                         ))}
@@ -909,28 +909,26 @@ export default function ProfileScreen({ navigation }) {
                         <View style={styles.menuGroup}>
                             <Text style={styles.groupTitle}>Activity</Text>
                             {role === 'admin' && (
-                                <>
-                                    <View style={styles.bentoRow}>
-                                        <MenuItem
-                                            icon="calendar-outline"
-                                            label="My Created Events"
-                                            description="Manage your hosted events"
-                                            width="48%"
-                                            onPress={() => navigation.navigate('MyEvents')}
-                                            theme={theme}
-                                            styles={styles}
-                                        />
-                                        <MenuItem
-                                            icon="notifications-outline"
-                                            label="Send Daily Update"
-                                            description="Notify users instantly"
-                                            width="48%"
-                                            onPress={handleSendDailyDigest}
-                                            theme={theme}
-                                            styles={styles}
-                                        />
-                                    </View>
-                                </>
+                                <View style={styles.bentoRow}>
+                                    <MenuItem
+                                        icon="calendar-outline"
+                                        label="My Created Events"
+                                        description="Manage your hosted events"
+                                        width="48%"
+                                        onPress={() => navigation.navigate('MyEvents')}
+                                        theme={theme}
+                                        styles={styles}
+                                    />
+                                    <MenuItem
+                                        icon="notifications-outline"
+                                        label="Send Daily Update"
+                                        description="Notify users instantly"
+                                        width="48%"
+                                        onPress={handleSendDailyDigest}
+                                        theme={theme}
+                                        styles={styles}
+                                    />
+                                </View>
                             )}
                             <View style={styles.bentoRow}>
                                 <MenuItem
@@ -973,17 +971,15 @@ export default function ProfileScreen({ navigation }) {
                                 />
                             </View>
                             {role !== 'club' && role !== 'admin' && (
-                                <>
-                                    <MenuItem
-                                        icon="briefcase-outline"
-                                        label="Request Organizer Access"
-                                        description="Apply to create and manage events"
-                                        width="100%"
-                                        onPress={() => setShowRequestModal(true)}
-                                        theme={theme}
-                                        styles={styles}
-                                    />
-                                </>
+                                <MenuItem
+                                    icon="briefcase-outline"
+                                    label="Request Organizer Access"
+                                    description="Apply to create and manage events"
+                                    width="100%"
+                                    onPress={() => setShowRequestModal(true)}
+                                    theme={theme}
+                                    styles={styles}
+                                />
                             )}
                         </View>
 
