@@ -2002,9 +2002,14 @@ export default function EventDetail({ route, navigation }) {
                         const registrationsVal = participantCount || 0;
                         const viewsVal = event.views || 0;
                         const savesVal = event.savedCount || 0;
-                        const scoreVal = Math.min(Math.round((registrationsVal * 1.5) + (savesVal * 1) + (viewsVal * 0.2)), 100);
+                        const scoreVal = Math.min(
+                            Math.round(registrationsVal * 1.5 + savesVal * 1 + viewsVal * 0.2),
+                            100,
+                        );
                         const isTrendingVal = scoreVal >= 75;
-                        const remainingSeatsVal = event.capacity ? Math.max(0, event.capacity - registrationsVal) : null;
+                        const remainingSeatsVal = event.capacity
+                            ? Math.max(0, event.capacity - registrationsVal)
+                            : null;
 
                         return (
                             <View
@@ -2018,8 +2023,21 @@ export default function EventDetail({ route, navigation }) {
                                     ...theme.shadows.small,
                                 }}
                             >
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                    <Text style={{ fontSize: 16, fontWeight: '800', color: theme.colors.text }}>
+                                <View
+                                    style={{
+                                        flexDirection: 'row',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        marginBottom: 12,
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            fontSize: 16,
+                                            fontWeight: '800',
+                                            color: theme.colors.text,
+                                        }}
+                                    >
                                         📊 Popularity Analytics
                                     </Text>
                                     {isTrendingVal && (
@@ -2033,50 +2051,209 @@ export default function EventDetail({ route, navigation }) {
                                                 borderColor: '#FF4D4D',
                                             }}
                                         >
-                                            <Text style={{ color: '#FF4D4D', fontWeight: '800', fontSize: 10 }}>
+                                            <Text
+                                                style={{
+                                                    color: '#FF4D4D',
+                                                    fontWeight: '800',
+                                                    fontSize: 10,
+                                                }}
+                                            >
                                                 🔥 TRENDING
                                             </Text>
                                         </View>
                                     )}
                                 </View>
 
-                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-                                    <View style={{ flex: 1, minWidth: 70, backgroundColor: theme.colors.background, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center' }}>
-                                        <Text style={{ fontSize: 8, color: theme.colors.textSecondary, fontWeight: '700', textTransform: 'uppercase' }}>Joined</Text>
-                                        <Text style={{ fontSize: 16, fontWeight: '900', color: theme.colors.text, marginTop: 4 }}>{registrationsVal}</Text>
+                                <View
+                                    style={{
+                                        flexDirection: 'row',
+                                        flexWrap: 'wrap',
+                                        gap: 8,
+                                        marginBottom: 14,
+                                    }}
+                                >
+                                    <View
+                                        style={{
+                                            flex: 1,
+                                            minWidth: 70,
+                                            backgroundColor: theme.colors.background,
+                                            padding: 10,
+                                            borderRadius: 8,
+                                            borderWidth: 1,
+                                            borderColor: theme.colors.border,
+                                            alignItems: 'center',
+                                        }}
+                                    >
+                                        <Text
+                                            style={{
+                                                fontSize: 8,
+                                                color: theme.colors.textSecondary,
+                                                fontWeight: '700',
+                                                textTransform: 'uppercase',
+                                            }}
+                                        >
+                                            Joined
+                                        </Text>
+                                        <Text
+                                            style={{
+                                                fontSize: 16,
+                                                fontWeight: '900',
+                                                color: theme.colors.text,
+                                                marginTop: 4,
+                                            }}
+                                        >
+                                            {registrationsVal}
+                                        </Text>
                                     </View>
                                     {remainingSeatsVal !== null && (
-                                        <View style={{ flex: 1, minWidth: 70, backgroundColor: theme.colors.background, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center' }}>
-                                            <Text style={{ fontSize: 8, color: theme.colors.textSecondary, fontWeight: '700', textTransform: 'uppercase' }}>Left</Text>
-                                            <Text style={{ fontSize: 16, fontWeight: '900', color: remainingSeatsVal === 0 ? theme.colors.error : theme.colors.success, marginTop: 4 }}>
-                                                {remainingSeatsVal === 0 ? 'Full' : remainingSeatsVal}
+                                        <View
+                                            style={{
+                                                flex: 1,
+                                                minWidth: 70,
+                                                backgroundColor: theme.colors.background,
+                                                padding: 10,
+                                                borderRadius: 8,
+                                                borderWidth: 1,
+                                                borderColor: theme.colors.border,
+                                                alignItems: 'center',
+                                            }}
+                                        >
+                                            <Text
+                                                style={{
+                                                    fontSize: 8,
+                                                    color: theme.colors.textSecondary,
+                                                    fontWeight: '700',
+                                                    textTransform: 'uppercase',
+                                                }}
+                                            >
+                                                Left
+                                            </Text>
+                                            <Text
+                                                style={{
+                                                    fontSize: 16,
+                                                    fontWeight: '900',
+                                                    color:
+                                                        remainingSeatsVal === 0
+                                                            ? theme.colors.error
+                                                            : theme.colors.success,
+                                                    marginTop: 4,
+                                                }}
+                                            >
+                                                {remainingSeatsVal === 0
+                                                    ? 'Full'
+                                                    : remainingSeatsVal}
                                             </Text>
                                         </View>
                                     )}
-                                    <View style={{ flex: 1, minWidth: 70, backgroundColor: theme.colors.background, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center' }}>
-                                        <Text style={{ fontSize: 8, color: theme.colors.textSecondary, fontWeight: '700', textTransform: 'uppercase' }}>Views</Text>
-                                        <Text style={{ fontSize: 16, fontWeight: '900', color: theme.colors.text, marginTop: 4 }}>{viewsVal}</Text>
+                                    <View
+                                        style={{
+                                            flex: 1,
+                                            minWidth: 70,
+                                            backgroundColor: theme.colors.background,
+                                            padding: 10,
+                                            borderRadius: 8,
+                                            borderWidth: 1,
+                                            borderColor: theme.colors.border,
+                                            alignItems: 'center',
+                                        }}
+                                    >
+                                        <Text
+                                            style={{
+                                                fontSize: 8,
+                                                color: theme.colors.textSecondary,
+                                                fontWeight: '700',
+                                                textTransform: 'uppercase',
+                                            }}
+                                        >
+                                            Views
+                                        </Text>
+                                        <Text
+                                            style={{
+                                                fontSize: 16,
+                                                fontWeight: '900',
+                                                color: theme.colors.text,
+                                                marginTop: 4,
+                                            }}
+                                        >
+                                            {viewsVal}
+                                        </Text>
                                     </View>
-                                    <View style={{ flex: 1, minWidth: 70, backgroundColor: theme.colors.background, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center' }}>
-                                        <Text style={{ fontSize: 8, color: theme.colors.textSecondary, fontWeight: '700', textTransform: 'uppercase' }}>Saves</Text>
-                                        <Text style={{ fontSize: 16, fontWeight: '900', color: theme.colors.text, marginTop: 4 }}>{savesVal}</Text>
+                                    <View
+                                        style={{
+                                            flex: 1,
+                                            minWidth: 70,
+                                            backgroundColor: theme.colors.background,
+                                            padding: 10,
+                                            borderRadius: 8,
+                                            borderWidth: 1,
+                                            borderColor: theme.colors.border,
+                                            alignItems: 'center',
+                                        }}
+                                    >
+                                        <Text
+                                            style={{
+                                                fontSize: 8,
+                                                color: theme.colors.textSecondary,
+                                                fontWeight: '700',
+                                                textTransform: 'uppercase',
+                                            }}
+                                        >
+                                            Saves
+                                        </Text>
+                                        <Text
+                                            style={{
+                                                fontSize: 16,
+                                                fontWeight: '900',
+                                                color: theme.colors.text,
+                                                marginTop: 4,
+                                            }}
+                                        >
+                                            {savesVal}
+                                        </Text>
                                     </View>
                                 </View>
 
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                    <Text style={{ fontSize: 12, color: theme.colors.textSecondary, fontWeight: '600' }}>
+                                <View
+                                    style={{
+                                        flexDirection: 'row',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        marginBottom: 6,
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            fontSize: 12,
+                                            color: theme.colors.textSecondary,
+                                            fontWeight: '600',
+                                        }}
+                                    >
                                         Popularity Score:
                                     </Text>
-                                    <Text style={{ fontSize: 14, fontWeight: '800', color: theme.colors.primary }}>
+                                    <Text
+                                        style={{
+                                            fontSize: 14,
+                                            fontWeight: '800',
+                                            color: theme.colors.primary,
+                                        }}
+                                    >
                                         {scoreVal} / 100
                                     </Text>
                                 </View>
-                                <View style={{ height: 8, backgroundColor: theme.colors.border, borderRadius: 4, overflow: 'hidden' }}>
+                                <View
+                                    style={{
+                                        height: 8,
+                                        backgroundColor: theme.colors.border,
+                                        borderRadius: 4,
+                                        overflow: 'hidden',
+                                    }}
+                                >
                                     <View
                                         style={{
                                             width: `${scoreVal}%`,
                                             height: '100%',
-                                            backgroundColor: scoreVal >= 75 ? '#FF4D4D' : theme.colors.primary,
+                                            backgroundColor:
+                                                scoreVal >= 75 ? '#FF4D4D' : theme.colors.primary,
                                         }}
                                     />
                                 </View>

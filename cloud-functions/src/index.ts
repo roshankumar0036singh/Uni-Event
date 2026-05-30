@@ -1,4 +1,6 @@
 import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
+import { cleanupOldRateLimits } from "./middleware/rateLimiter";
 
 admin.initializeApp();
 
@@ -18,3 +20,10 @@ export * from './postEventFeedback';
 export * from './sendBulkEmails';
 export * from './auditLog';
 export * from './permanentCleanup';
+
+export const cleanupRateLimits = functions.pubsub
+  .schedule("every 1 hour")
+  .onRun(async () => {
+    await cleanupOldRateLimits();
+    return null;
+  });

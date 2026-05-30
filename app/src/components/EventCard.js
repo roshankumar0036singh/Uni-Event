@@ -191,7 +191,10 @@ const EventCard = memo(
         const registrations = event.participantCount || 0;
         const views = event.views || 0;
         const saves = event.savedCount || 0;
-        const popularityScore = Math.min(Math.round((registrations * 1.5) + (saves * 1) + (views * 0.2)), 100);
+        const popularityScore = Math.min(
+            Math.round(registrations * 1.5 + saves * 1 + views * 0.2),
+            100,
+        );
         const isTrending = popularityScore >= 75;
 
         const renderBannerBadges = () => (
