@@ -271,7 +271,7 @@ export default function MobileAdmin() {
                 <Text style={[styles.cardDesc, { color: '#888', fontSize: 12, marginTop: 4 }]}>
                     Permanently deleted after{' '}
                     {new Date(
-                        item.deletedAt.toDate().getTime() + 30 * 24 * 60 * 60 * 1000
+                        item.deletedAt.toDate().getTime() + 30 * 24 * 60 * 60 * 1000,
                     ).toLocaleDateString()}
                 </Text>
             )}
@@ -376,9 +376,7 @@ export default function MobileAdmin() {
                     style={[styles.tab, activeTab === 'appeals' && styles.activeTab]}
                     onPress={() => setActiveTab('appeals')}
                 >
-                    <Text
-                        style={[styles.tabText, activeTab === 'appeals' && styles.activeTabText]}
-                    >
+                    <Text style={[styles.tabText, activeTab === 'appeals' && styles.activeTabText]}>
                         Appeals
                     </Text>
                 </TouchableOpacity>
@@ -386,9 +384,7 @@ export default function MobileAdmin() {
                     style={[styles.tab, activeTab === 'deleted' && styles.activeTab]}
                     onPress={() => setActiveTab('deleted')}
                 >
-                    <Text
-                        style={[styles.tabText, activeTab === 'deleted' && styles.activeTabText]}
-                    >
+                    <Text style={[styles.tabText, activeTab === 'deleted' && styles.activeTabText]}>
                         Deleted
                     </Text>
                 </TouchableOpacity>
