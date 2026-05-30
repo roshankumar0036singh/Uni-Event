@@ -15,31 +15,35 @@ import {
     Alert,
     FlatList,
     Image,
-    RefreshControl,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
 import ScreenWrapper from '../components/ScreenWrapper';
+import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { cancelScheduledNotification } from '../lib/notificationService';
 import { useTheme } from '../lib/ThemeContext';
+import { useIsFocused } from '@react-navigation/native';
 import PropTypes from 'prop-types';
 
 export default function RemindersScreen({ navigation }) {
     const { user } = useAuth();
     const { theme, isDarkMode } = useTheme();
+    const isFocused = useIsFocused();
     const styles = useMemo(() => getStyles(theme, isDarkMode), [theme, isDarkMode]);
 
     const [reminders, setReminders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const isMounted = useRef(true);
+    const isMounted = useRef(false);
     useEffect(() => {
+        isMounted.current = true;
         return () => {
             isMounted.current = false;
         };
@@ -83,7 +87,7 @@ export default function RemindersScreen({ navigation }) {
     };
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || !isFocused) return;
 
         setLoading(true);
         const q = query(collection(db, 'reminders'), where('userId', '==', user.uid));
@@ -106,7 +110,7 @@ export default function RemindersScreen({ navigation }) {
         );
 
         return () => unsubscribe();
-    }, [user]);
+    }, [user, isFocused]);
 
     // Manual refresh allows the user to explicitly retry fetching data if network is unstable
     const handleRefresh = async () => {
@@ -124,11 +128,13 @@ export default function RemindersScreen({ navigation }) {
             console.error('Refresh error:', error);
             Alert.alert('Error', 'Failed to refresh reminders.');
         } finally {
-            if (isMounted.current) {
-                setRefreshing(false);
-            }
+            setRefreshing(false);
         }
     };
+
+    const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
+        handleRefresh();
+    });
 
     const handleDelete = async item => {
         // Directly delete without confirmation as requested
@@ -188,9 +194,9 @@ export default function RemindersScreen({ navigation }) {
                 <FlatList
                     data={reminders}
                     keyExtractor={item => item.id}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-                    }
+                    onScroll={handleScroll}
+                    onScrollEndDrag={handleScrollEndDrag}
+                    scrollEventThrottle={16}
                     renderItem={({ item }) => {
                         const dateObj = item.remindAt?.toDate
                             ? item.remindAt.toDate()
@@ -287,6 +293,11 @@ export default function RemindersScreen({ navigation }) {
                     contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 16 }}
                 />
             )}
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
+            />
         </ScreenWrapper>
     );
 }

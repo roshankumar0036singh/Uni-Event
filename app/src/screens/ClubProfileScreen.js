@@ -93,7 +93,7 @@ export default function ClubProfileScreen({ route, navigation }) {
         };
 
         fetchClub();
-        return () => unsubscribeClub && unsubscribeClub();
+        return () => unsubscribeClub?.();
     }, [clubId, clubName, navigation]);
 
     // Fetch Events by this Club
@@ -119,7 +119,7 @@ export default function ClubProfileScreen({ route, navigation }) {
 
     // Calculate Average Rating from club's reputation field
     const { avgRating, totalRatings } = useMemo(() => {
-        if (!club || !club.reputation) return { avgRating: 0, totalRatings: 0 };
+        if (!club?.reputation) return { avgRating: 0, totalRatings: 0 };
 
         const reputation = club.reputation;
         if (reputation.totalRatings && reputation.totalRatings > 0) {
@@ -201,6 +201,102 @@ export default function ClubProfileScreen({ route, navigation }) {
         if (url) Linking.openURL(url).catch(() => {});
     };
 
+    const renderStatsRow = () => (
+        <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+                <Text style={[styles.statNum, { color: theme.colors.text }]}>{events.length}</Text>
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
+                    Events
+                </Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.statItem}>
+                <Text style={[styles.statNum, { color: theme.colors.text }]}>{followersCount}</Text>
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
+                    Followers
+                </Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.statItem}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={[styles.statNum, { color: theme.colors.text }]}>
+                        {avgRating > 0 ? avgRating : '—'}
+                    </Text>
+                    <Ionicons name="star" size={16} color="#FFD700" />
+                </View>
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
+                    {totalRatings ? `${totalRatings} ratings` : 'No ratings'}
+                </Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.statItem}>
+                <Text style={[styles.statNum, { color: theme.colors.text }]}>
+                    {totalRatings ? `${successScore}%` : '—%'}
+                </Text>
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
+                    Success Score
+                </Text>
+            </View>
+        </View>
+    );
+
+    const renderSocialLinks = () => (
+        <View style={styles.socialRow}>
+            {club?.instagram ? (
+                <TouchableOpacity
+                    onPress={() => openLink(club.instagram)}
+                    style={[styles.socialIcon, { backgroundColor: theme.colors.surface }]}
+                >
+                    <Ionicons name="logo-instagram" size={24} color={theme.colors.primary} />
+                </TouchableOpacity>
+            ) : null}
+            {club?.linkedin ? (
+                <TouchableOpacity
+                    onPress={() => openLink(club.linkedin)}
+                    style={[styles.socialIcon, { backgroundColor: theme.colors.surface }]}
+                >
+                    <Ionicons name="logo-linkedin" size={24} color={theme.colors.primary} />
+                </TouchableOpacity>
+            ) : null}
+        </View>
+    );
+
+    const renderEventTab = () => {
+        if (events.length === 0) {
+            return (
+                <View style={styles.empty}>
+                    <Ionicons
+                        name="calendar-outline"
+                        size={64}
+                        color={theme.colors.textSecondary}
+                    />
+                    <Text style={{ color: theme.colors.textSecondary, marginTop: 10 }}>
+                        No events yet.
+                    </Text>
+                </View>
+            );
+        }
+        return events.map(event => <EventCard key={event.id} event={event} />);
+    };
+
+    const renderAboutTab = () => (
+        <View style={styles.aboutContainer}>
+            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>Bio</Text>
+            <Text style={[styles.bioText, { color: theme.colors.textSecondary }]}>
+                {club?.bio || 'No bio available.'}
+            </Text>
+            <Text style={[styles.inputLabel, { color: theme.colors.text, marginTop: 20 }]}>
+                Contact
+            </Text>
+            <View style={styles.contactRow}>
+                <Ionicons name="mail-outline" size={20} color={theme.colors.textSecondary} />
+                <Text style={{ color: theme.colors.textSecondary }}>
+                    {club?.email || 'No email available'}
+                </Text>
+            </View>
+        </View>
+    );
+
     if (loading)
         return (
             <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -214,7 +310,6 @@ export default function ClubProfileScreen({ route, navigation }) {
                 style={[styles.container, { backgroundColor: theme.colors.background }]}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Header / Banner */}
                 <View style={styles.headerContainer}>
                     <Image
                         source={{ uri: club?.bannerUrl || 'https://via.placeholder.com/800x400' }}
@@ -224,7 +319,6 @@ export default function ClubProfileScreen({ route, navigation }) {
                         colors={['transparent', 'rgba(0,0,0,0.7)', theme.colors.background]}
                         style={styles.bannerGradient}
                     />
-
                     <View style={styles.profileMeta}>
                         <Image
                             source={{
@@ -243,70 +337,7 @@ export default function ClubProfileScreen({ route, navigation }) {
                                     ? 'Official Student Chapter'
                                     : 'Event Organizer')}
                         </Text>
-
-                        <View style={styles.statsRow}>
-                            <View style={styles.statItem}>
-                                <Text style={[styles.statNum, { color: theme.colors.text }]}>
-                                    {events.length}
-                                </Text>
-                                <Text
-                                    style={[
-                                        styles.statLabel,
-                                        { color: theme.colors.textSecondary },
-                                    ]}
-                                >
-                                    Events
-                                </Text>
-                            </View>
-                            <View style={styles.divider} />
-                            <View style={styles.statItem}>
-                                <Text style={[styles.statNum, { color: theme.colors.text }]}>
-                                    {followersCount}
-                                </Text>
-                                <Text
-                                    style={[
-                                        styles.statLabel,
-                                        { color: theme.colors.textSecondary },
-                                    ]}
-                                >
-                                    Followers
-                                </Text>
-                            </View>
-                            <View style={styles.divider} />
-                            <View style={styles.statItem}>
-                                <View
-                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                                >
-                                    <Text style={[styles.statNum, { color: theme.colors.text }]}>
-                                        {avgRating > 0 ? avgRating : '—'}
-                                    </Text>
-                                    <Ionicons name="star" size={16} color="#FFD700" />
-                                </View>
-                                <Text
-                                    style={[
-                                        styles.statLabel,
-                                        { color: theme.colors.textSecondary },
-                                    ]}
-                                >
-                                    {totalRatings ? `${totalRatings} ratings` : 'No ratings'}
-                                </Text>
-                            </View>
-                            <View style={styles.divider} />
-                            <View style={styles.statItem}>
-                                <Text style={[styles.statNum, { color: theme.colors.text }]}>
-                                    {totalRatings ? `${successScore}%` : '—%'}
-                                </Text>
-                                <Text
-                                    style={[
-                                        styles.statLabel,
-                                        { color: theme.colors.textSecondary },
-                                    ]}
-                                >
-                                    Success Score
-                                </Text>
-                            </View>
-                        </View>
-
+                        {renderStatsRow()}
                         <TouchableOpacity
                             style={[
                                 styles.followBtn,
@@ -332,31 +363,8 @@ export default function ClubProfileScreen({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* Social Links Rail */}
-                <View style={styles.socialRow}>
-                    {club?.instagram ? (
-                        <TouchableOpacity
-                            onPress={() => openLink(club.instagram)}
-                            style={[styles.socialIcon, { backgroundColor: theme.colors.surface }]}
-                        >
-                            <Ionicons
-                                name="logo-instagram"
-                                size={24}
-                                color={theme.colors.primary}
-                            />
-                        </TouchableOpacity>
-                    ) : null}
-                    {club?.linkedin ? (
-                        <TouchableOpacity
-                            onPress={() => openLink(club.linkedin)}
-                            style={[styles.socialIcon, { backgroundColor: theme.colors.surface }]}
-                        >
-                            <Ionicons name="logo-linkedin" size={24} color={theme.colors.primary} />
-                        </TouchableOpacity>
-                    ) : null}
-                </View>
+                {renderSocialLinks()}
 
-                {/* Tabs */}
                 <View style={[styles.tabContainer, { borderBottomColor: theme.colors.border }]}>
                     <TouchableOpacity
                         onPress={() => setActiveTab('events')}
@@ -402,57 +410,10 @@ export default function ClubProfileScreen({ route, navigation }) {
                     </TouchableOpacity>
                 </View>
 
-                {/* Tab Content */}
                 <View style={styles.content}>
-                    {activeTab === 'events' ? (
-                        <View>
-                            {events.length === 0 ? (
-                                <View style={styles.empty}>
-                                    <Ionicons
-                                        name="calendar-outline"
-                                        size={64}
-                                        color={theme.colors.textSecondary}
-                                    />
-                                    <Text
-                                        style={{ color: theme.colors.textSecondary, marginTop: 10 }}
-                                    >
-                                        No events yet.
-                                    </Text>
-                                </View>
-                            ) : (
-                                events.map(event => <EventCard key={event.id} event={event} />)
-                            )}
-                        </View>
-                    ) : (
-                        <View style={styles.aboutContainer}>
-                            <Text style={[styles.inputLabel, { color: theme.colors.text }]}>
-                                Bio
-                            </Text>
-                            <Text style={[styles.bioText, { color: theme.colors.textSecondary }]}>
-                                {club?.bio || 'No bio available.'}
-                            </Text>
-
-                            <Text
-                                style={[
-                                    styles.inputLabel,
-                                    { color: theme.colors.text, marginTop: 20 },
-                                ]}
-                            >
-                                Contact
-                            </Text>
-                            <View style={styles.contactRow}>
-                                <Ionicons
-                                    name="mail-outline"
-                                    size={20}
-                                    color={theme.colors.textSecondary}
-                                />
-                                <Text style={{ color: theme.colors.textSecondary }}>
-                                    {club?.email || 'No email available'}
-                                </Text>
-                            </View>
-                        </View>
-                    )}
+                    {activeTab === 'events' ? renderEventTab() : renderAboutTab()}
                 </View>
+
                 <View style={{ height: 50 }} />
                 <View style={{ height: 50 }} />
             </ScrollView>

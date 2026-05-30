@@ -11,7 +11,9 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
 jest.mock('expo-device', () => ({
-    isDevice: true,
+    get isDevice() {
+        return true;
+    },
 }));
 
 jest.mock('expo-constants', () => ({
@@ -116,10 +118,7 @@ describe('usePushNotifications', () => {
     });
 
     test('handles non-device environment', async () => {
-        Object.defineProperty(Device, 'isDevice', {
-            configurable: true,
-            value: false,
-        });
+        jest.spyOn(Device, 'isDevice', 'get').mockReturnValue(false);
 
         const { getByTestId } = render(<TestComponent />);
 

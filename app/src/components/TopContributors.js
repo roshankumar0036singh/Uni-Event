@@ -125,6 +125,46 @@ const TopContributors = () => {
         );
     };
 
+    let content;
+    if (loading) {
+        content = (
+            <ActivityIndicator
+                size="small"
+                style={styles.loader}
+                color={theme?.colors?.primary || '#2563eb'}
+            />
+        );
+    } else if (contributors.length === 0) {
+        content = (
+            <Text style={[styles.emptyText, { color: theme?.colors?.muted || '#6b7280' }]}>
+                No contributors found yet.
+            </Text>
+        );
+    } else {
+        content = (
+            <>
+                <FlatList
+                    data={visibleContributors}
+                    keyExtractor={(item, index) => item.userId || item.id || `contributor-${index}`}
+                    scrollEnabled={false}
+                    renderItem={renderContributor}
+                />
+
+                {visibleCount < contributors.length && (
+                    <TouchableOpacity
+                        style={[
+                            styles.loadMoreButton,
+                            { backgroundColor: theme?.colors?.primary || '#2563eb' },
+                        ]}
+                        onPress={() => setVisibleCount(currentCount => currentCount + PAGE_SIZE)}
+                    >
+                        <Text style={styles.loadMoreText}>Load More</Text>
+                    </TouchableOpacity>
+                )}
+            </>
+        );
+    }
+
     return (
         <View
             style={[
@@ -149,42 +189,7 @@ const TopContributors = () => {
                 </View>
             </View>
 
-            {loading ? (
-                <ActivityIndicator
-                    size="small"
-                    style={styles.loader}
-                    color={theme?.colors?.primary || '#2563eb'}
-                />
-            ) : contributors.length === 0 ? (
-                <Text style={[styles.emptyText, { color: theme?.colors?.muted || '#6b7280' }]}>
-                    No contributors found yet.
-                </Text>
-            ) : (
-                <>
-                    <FlatList
-                        data={visibleContributors}
-                        keyExtractor={(item, index) =>
-                            item.userId || item.id || `contributor-${index}`
-                        }
-                        scrollEnabled={false}
-                        renderItem={renderContributor}
-                    />
-
-                    {visibleCount < contributors.length && (
-                        <TouchableOpacity
-                            style={[
-                                styles.loadMoreButton,
-                                { backgroundColor: theme?.colors?.primary || '#2563eb' },
-                            ]}
-                            onPress={() =>
-                                setVisibleCount(currentCount => currentCount + PAGE_SIZE)
-                            }
-                        >
-                            <Text style={styles.loadMoreText}>Load More</Text>
-                        </TouchableOpacity>
-                    )}
-                </>
-            )}
+            {content}
         </View>
     );
 };

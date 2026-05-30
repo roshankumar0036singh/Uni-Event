@@ -1,9 +1,36 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import Expo from 'expo-server-sdk';
-const expo = new Expo();
+import { sendPushNotifications } from './utils/push';
 
 const PAGE_SIZE = 500;
+
+function processUserPage(userDoc: admin.firestore.QueryDocumentSnapshot, count: number, batch: admin.firestore.WriteBatch, pageMessages: any[]) {
+    const userData = userDoc.data();
+
+    if (userData.digestOptIn === false) {
+        return;
+    }
+
+    const notifRef = userDoc.ref.collection('notifications').doc();
+    batch.set(notifRef, {
+        title: 'Daily Digest 📅',
+        body: `There are ${count} events happening today!`,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false
+    });
+
+    const pushToken = userData.pushToken;
+    if (pushToken && Expo.isExpoPushToken(pushToken)) {
+        pageMessages.push({
+            to: pushToken,
+            sound: 'default',
+            title: 'Daily Digest 📅',
+            body: `There are ${count} events happening today!`,
+            data: { url: '/home' },
+        });
+    }
+}
 
 export const sendDailyDigest = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
@@ -19,8 +46,7 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const eventsRef = db.collection('events');
-    const snapshot = await eventsRef
+    const snapshot = await db.collection('events')
         .where('startAt', '>=', today.toISOString())
         .where('startAt', '<', tomorrow.toISOString())
         .get();
@@ -53,48 +79,21 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
         const batch = db.batch();
         const pageMessages: any[] = [];
 
-        usersSnapshot.forEach(userDoc => {
-            const userData = userDoc.data();
-
-            if (userData.digestOptIn === false) {
-                return;
-            }
-
-            const notifRef = userDoc.ref.collection('notifications').doc();
-            batch.set(notifRef, {
-                title: 'Daily Digest 📅',
-                body: `There are ${count} events happening today!`,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                read: false
-            });
-
-            const pushToken = userData.pushToken;
-            if (pushToken && Expo.isExpoPushToken(pushToken)) {
-                pageMessages.push({
-                    to: pushToken,
-                    sound: 'default',
-                    title: 'Daily Digest 📅',
-                    body: `There are ${count} events happening today!`,
-                    data: { url: '/home' },
-                });
-            }
-        });
-
+        usersSnapshot.forEach(userDoc => processUserPage(userDoc, count, batch, pageMessages));
         await batch.commit();
-
         if (pageMessages.length > 0) {
-            let chunks = expo.chunkPushNotifications(pageMessages);
-            for (let chunk of chunks) {
-                try {
-                    await expo.sendPushNotificationsAsync(chunk);
-                } catch (error) {
-                    console.error("Error sending digest chunks", error);
-                }
+            try {
+                await sendPushNotifications(pageMessages);
+            } catch (error) {
+                functions.logger.error('Daily digest push delivery failed for page', {
+                    error,
+                    pageSize: usersSnapshot.size,
+                    pushMessages: pageMessages.length,
+                });
             }
         }
 
         processedCount += usersSnapshot.size;
-
         lastDoc = usersSnapshot.docs[usersSnapshot.docs.length - 1];
 
         if (usersSnapshot.size < PAGE_SIZE) {

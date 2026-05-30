@@ -4,6 +4,15 @@ import {
     sendBulkFeedbackRequest,
     sendBulkCertificates,
 } from '../EmailService';
+import { httpsCallable } from 'firebase/functions';
+
+jest.mock('firebase/functions', () => ({
+    httpsCallable: jest.fn(),
+}));
+
+jest.mock('../firebaseConfig', () => ({
+    functions: {},
+}));
 
 global.fetch = jest.fn();
 
@@ -15,11 +24,14 @@ const mockUser = {
 const mockParticipants = [mockUser];
 
 describe('EmailService', () => {
+    let mockSendBulkEmails;
+
     beforeEach(() => {
         fetch.mockClear();
+        mockSendBulkEmails = jest.fn();
+        httpsCallable.mockReturnValue(mockSendBulkEmails);
 
         jest.spyOn(console, 'log').mockImplementation(() => {});
-
         jest.spyOn(console, 'error').mockImplementation(() => {});
     });
 
@@ -33,9 +45,7 @@ describe('EmailService', () => {
         });
 
         const result = await sendEmail(mockUser.name, mockUser.email, 'Hello', 'Test message');
-
         expect(result).toBe(true);
-
         expect(fetch).toHaveBeenCalled();
     });
 
@@ -46,9 +56,7 @@ describe('EmailService', () => {
         });
 
         const result = await sendEmail(mockUser.name, mockUser.email, 'Hello', 'Test message');
-
         expect(result).toBe(false);
-
         expect(console.error).toHaveBeenCalled();
     });
 
@@ -56,16 +64,12 @@ describe('EmailService', () => {
         fetch.mockRejectedValueOnce(new Error('Network failure'));
 
         const result = await sendEmail(mockUser.name, mockUser.email, 'Hello', 'Test message');
-
         expect(result).toBe(false);
-
         expect(console.error).toHaveBeenCalled();
     });
 
     test('sendBulkAnnouncement sends emails', async () => {
-        fetch.mockResolvedValue({
-            ok: true,
-        });
+        mockSendBulkEmails.mockResolvedValue({ data: 2 });
 
         const participants = [
             mockUser,
@@ -76,26 +80,23 @@ describe('EmailService', () => {
         ];
 
         const result = await sendBulkAnnouncement(participants, 'Announcement', 'Message');
-
         expect(result).toBe(2);
-
-        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'sendBulkEmails');
+        expect(mockSendBulkEmails).toHaveBeenCalledTimes(1);
+        expect(mockSendBulkEmails.mock.calls[0][0].participants).toEqual(participants);
     });
 
     test('sendBulkFeedbackRequest sends feedback emails', async () => {
-        fetch.mockResolvedValue({
-            ok: true,
-        });
+        mockSendBulkEmails.mockResolvedValue({ data: 1 });
 
         const result = await sendBulkFeedbackRequest(mockParticipants, 'Tech Fest', 'event123');
-
         expect(result).toBe(1);
+        expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'sendBulkEmails');
+        expect(mockSendBulkEmails).toHaveBeenCalledTimes(1);
     });
 
     test('sendBulkCertificates sends certificates', async () => {
-        fetch.mockResolvedValue({
-            ok: true,
-        });
+        mockSendBulkEmails.mockResolvedValue({ data: 1 });
 
         const result = await sendBulkCertificates(
             mockParticipants,
@@ -103,25 +104,8 @@ describe('EmailService', () => {
             new Date().toLocaleDateString(),
             'https://example.com',
         );
-
         expect(result).toBe(1);
-    });
-
-    test('skips participants without email', async () => {
-        fetch.mockResolvedValue({
-            ok: true,
-        });
-
-        const participants = [
-            {
-                name: 'No Email User',
-            },
-        ];
-
-        const result = await sendBulkAnnouncement(participants, 'Announcement', 'Message');
-
-        expect(result).toBe(0);
-
-        expect(fetch).not.toHaveBeenCalled();
+        expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), 'sendBulkEmails');
+        expect(mockSendBulkEmails).toHaveBeenCalledTimes(1);
     });
 });

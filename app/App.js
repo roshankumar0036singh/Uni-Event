@@ -4,7 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, Suspense, lazy } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import PropTypes from 'prop-types';
 
@@ -18,9 +18,9 @@ import ScreenWrapper from './src/components/ScreenWrapper';
 import { AuthProvider, useAuth } from './src/lib/AuthContext';
 import { ThemeProvider, useTheme } from './src/lib/ThemeContext';
 import { db } from './src/lib/firebaseConfig';
+import { BASE_URL } from './src/lib/config';
 import { registerForPushNotificationsAsync } from './src/lib/notificationService';
 import AdminDashboard from './src/screens/AdminDashboard';
-import AppearanceScreen from './src/screens/AppearanceScreen';
 import AttendanceDashboard from './src/screens/AttendanceDashboard';
 import AuthScreen from './src/screens/AuthScreen';
 import ClubProfileScreen from './src/screens/ClubProfileScreen';
@@ -31,7 +31,6 @@ import EventDetail from './src/screens/EventDetail';
 import EventRegistrationFormScreen from './src/screens/EventRegistrationFormScreen';
 import FormBuilderScreen from './src/screens/FormBuilderScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
-import LocationHeatmapScreen from './src/screens/LocationHeatmapScreen';
 import MyEventsScreen from './src/screens/MyEventsScreen';
 import MyRegisteredEventsScreen from './src/screens/MyRegisteredEventsScreen';
 import ParticipatingEventsScreen from './src/screens/ParticipatingEventsScreen';
@@ -39,12 +38,26 @@ import PaymentScreen from './src/screens/PaymentScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import QRScannerScreen from './src/screens/QRScannerScreen';
 import RemindersScreen from './src/screens/RemindersScreen';
-import ReportBugScreen from './src/screens/ReportBugScreen';
 import SavedEventsScreen from './src/screens/SavedEventsScreen';
 import TicketScreen from './src/screens/TicketScreen';
 import UserFeed from './src/screens/UserFeed';
 import WalletScreen from './src/screens/WalletScreen';
 import WrappedScreen from './src/screens/WrappedScreen';
+
+const CustomTabBarWrapper = props => <CustomTabBar {...props} />;
+const AppearanceScreen = lazy(() => import('./src/screens/AppearanceScreen'));
+const LocationHeatmapScreen = lazy(() => import('./src/screens/LocationHeatmapScreen'));
+const ReportBugScreen = lazy(() => import('./src/screens/ReportBugScreen'));
+
+const LazyScreenFallback = ({ color }) => (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={color} />
+    </View>
+);
+
+LazyScreenFallback.propTypes = {
+    color: PropTypes.string.isRequired,
+};
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -122,7 +135,7 @@ function TabNavigator() {
 
     return (
         <Tab.Navigator
-            tabBar={props => <CustomTabBar {...props} />}
+            tabBar={CustomTabBarWrapper}
             screenOptions={{
                 headerShown: false,
                 tabBarStyle: {
@@ -169,7 +182,7 @@ function TabNavigator() {
 }
 
 const linking = {
-    prefixes: ['https://unievent-ez2w.onrender.com', 'unievent://', 'http://localhost:19006'],
+    prefixes: [BASE_URL, 'unievent://', 'http://localhost:19006'],
     config: {
         screens: {
             Main: {
@@ -258,11 +271,15 @@ function Navigation() {
                             component={QRScannerScreen}
                             options={{ title: 'Scan QR', headerShown: false }}
                         />
-                        <Stack.Screen
-                            name="Appearance"
-                            component={AppearanceScreen}
-                            options={{ title: 'Appearance' }}
-                        />
+                        <Stack.Screen name="Appearance" options={{ title: 'Appearance' }}>
+                            {props => (
+                                <Suspense
+                                    fallback={<LazyScreenFallback color={theme.colors.primary} />}
+                                >
+                                    <AppearanceScreen {...props} />
+                                </Suspense>
+                            )}
+                        </Stack.Screen>
                         <Stack.Screen
                             name="ClubProfile"
                             component={ClubProfileScreen}
@@ -313,16 +330,24 @@ function Navigation() {
                             component={WrappedScreen}
                             options={{ headerShown: false }}
                         />
-                        <Stack.Screen
-                            name="ReportBug"
-                            component={ReportBugScreen}
-                            options={{ title: 'Report a Bug' }}
-                        />
-                        <Stack.Screen
-                            name="LocationHeatmap"
-                            component={LocationHeatmapScreen}
-                            options={{ title: 'Event Heatmap' }}
-                        />
+                        <Stack.Screen name="ReportBug" options={{ title: 'Report a Bug' }}>
+                            {props => (
+                                <Suspense
+                                    fallback={<LazyScreenFallback color={theme.colors.primary} />}
+                                >
+                                    <ReportBugScreen {...props} />
+                                </Suspense>
+                            )}
+                        </Stack.Screen>
+                        <Stack.Screen name="LocationHeatmap" options={{ title: 'Event Heatmap' }}>
+                            {props => (
+                                <Suspense
+                                    fallback={<LazyScreenFallback color={theme.colors.primary} />}
+                                >
+                                    <LocationHeatmapScreen {...props} />
+                                </Suspense>
+                            )}
+                        </Stack.Screen>
                     </>
                 ) : (
                     <Stack.Screen

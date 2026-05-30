@@ -1,12 +1,12 @@
 import React from 'react';
 
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { cleanup, render, fireEvent, waitFor } from '@testing-library/react-native';
 
 import { ThemeProvider, useTheme } from '../ThemeContext';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { Text, TouchableOpacity } from 'react-native';
+import { Animated, Text, TouchableOpacity } from 'react-native';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
     getItem: jest.fn(),
@@ -30,11 +30,13 @@ const TestComponent = () => {
 describe('ThemeContext', () => {
     beforeEach(() => {
         jest.spyOn(console, 'log').mockImplementation(() => {});
+        jest.spyOn(Animated, 'timing').mockReturnValue({ start: jest.fn() });
 
         AsyncStorage.getItem.mockResolvedValue(null);
     });
 
     afterEach(() => {
+        cleanup();
         jest.restoreAllMocks();
     });
 
