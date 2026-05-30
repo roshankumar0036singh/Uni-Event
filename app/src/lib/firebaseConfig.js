@@ -33,19 +33,27 @@ if (!firebaseConfig.apiKey) {
 
 const app = initializeApp(firebaseConfig);
 
-if (__DEV__ || Platform.OS !== 'web') {
+if (__DEV__) {
     globalThis.FIREBASE_APPCHECK_DEBUG_TOKEN = process.env.EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN;
 }
 
-const appCheckProvider = new ReCaptchaV3Provider(
-    process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY || ''
-);
+// ReCaptchaV3Provider only works on web; for mobile production,
+// consider DeviceCheck (iOS) or Play Integrity (Android) providers can be tracked in another issue
+const appCheckProvider = Platform.OS === 'web'
+    ? new ReCaptchaV3Provider(process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY || '')
+    : null;
+
+if (!appCheckProvider && !__DEV__) {
+    console.error('App Check: No provider available for this platform in production');
+}
 
 try {
-    initializeAppCheck(app, {
-        provider: appCheckProvider,
-        isTokenAutoRefreshEnabled: true,
-    });
+    if (appCheckProvider) {
+        initializeAppCheck(app, {
+            provider: appCheckProvider,
+            isTokenAutoRefreshEnabled: true,
+        });
+    }
 } catch (error) {
     console.warn('AppCheck initialization failed:', error);
 }
