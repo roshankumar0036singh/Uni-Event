@@ -1,5 +1,6 @@
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp } from 'firebase/app';
+import { initializeAppCheck, ReCaptchaV3Provider, CustomProvider } from 'firebase/app-check';
 import {
     browserLocalPersistence,
     // eslint-disable-next-line import/named
@@ -31,6 +32,29 @@ if (!firebaseConfig.apiKey) {
 }
 
 const app = initializeApp(firebaseConfig);
+
+let appCheckProvider;
+if (Platform.OS === 'web') {
+    appCheckProvider = new ReCaptchaV3Provider(process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY || '');
+} else {
+    appCheckProvider = new CustomProvider({
+        getToken: async () => {
+            return {
+                token: process.env.EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN || 'debug-token',
+                expireTimeMillis: Date.now() + 3600000,
+            };
+        }
+    });
+}
+
+try {
+    initializeAppCheck(app, {
+        provider: appCheckProvider,
+        isTokenAutoRefreshEnabled: true,
+    });
+} catch (error) {
+    console.warn('AppCheck initialization failed:', error);
+}
 
 const auth = initializeAuth(app, {
     persistence:

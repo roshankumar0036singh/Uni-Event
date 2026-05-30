@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { enforceAppCheck } from "./middleware/appcheck";
 
 // Assumes admin.initializeApp() is called in index.ts
 
@@ -16,6 +17,8 @@ export const setRole = functions.https.onCall(async (data, context) => {
       "The function must be called while authenticated."
     );
   }
+
+  enforceAppCheck(context);
 
   // Check if caller is admin
   // Note: For initial bootstrap, this check might need to be bypassed temporarily or the first admin set manually.

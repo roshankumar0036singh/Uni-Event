@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { enforceAppCheck } from './middleware/appcheck';
 
 // Interface for Email Participant
 interface Participant {
@@ -30,6 +31,9 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
             'You must be logged in to send bulk emails.'
         );
     }
+
+    // 1b. Validate App Check
+    enforceAppCheck(context);
 
     const { uid } = context.auth;
     const token = context.auth.token;

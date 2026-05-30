@@ -35,7 +35,7 @@ const app = express();
 app.disable('x-powered-by');
 app.use(cors({ origin: true }));
 app.use(express.json());
-
+app.use(ipWhiteList)
 // Auth Middleware to mimic Firebase Callable Context
 const validateFirebaseIdToken = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (!req.headers.authorization?.startsWith('Bearer ')) {
@@ -65,7 +65,7 @@ const rateLimitMiddleware = async (req: express.Request, res: express.Response, 
     // Determine if the operation is event creation or regular write
     const isEventCreation = req.path === '/api/createEvent';
     const limitResult = await checkAndUpdateRateLimit(user.uid, isEventCreation);
-    
+
     if (!limitResult.allowed) {
       return res.status(limitResult.statusCode).json({
         error: 'too-many-requests',
@@ -133,6 +133,7 @@ app.post('/api/setRole', validateFirebaseIdToken, rateLimitMiddleware, async (re
 
 // Send Certificates Endpoint
 import { sendCertificatesForEvent } from './certificateService';
+import { ipWhiteList } from './middleware/ipWhiteList';
 
 app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, async (req: express.Request, res: express.Response) => {
   const user = (req as any).user;

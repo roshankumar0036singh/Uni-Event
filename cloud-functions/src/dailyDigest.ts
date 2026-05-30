@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import Expo from 'expo-server-sdk';
 import { sendPushNotifications } from './utils/push';
+import { enforceAppCheck } from './middleware/appcheck';
 
 const PAGE_SIZE = 500;
 
@@ -36,6 +37,7 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
+    enforceAppCheck(context);
     if (!context.auth.token.admin) {
         throw new functions.https.HttpsError('permission-denied', 'Only admins can trigger daily digest.');
     }
