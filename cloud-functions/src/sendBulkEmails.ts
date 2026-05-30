@@ -121,22 +121,26 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
         lastDoc = partSnap.docs[partSnap.docs.length - 1];
     } while (lastDoc);
 
-    const invalidParticipants = participants.filter(
-        p => !participantEmailSet.has(p.email.toLowerCase())
+    const validParticipants = participants.filter(
+        p => participantEmailSet.has(p.email.toLowerCase())
     );
 
-    if (invalidParticipants.length > 0) {
+    const skippedCount = participants.length - validParticipants.length;
+    if (skippedCount > 0) {
         console.warn(
-            `Blocked bulk email: ${invalidParticipants.length} emails not registered for event ${eventId}`,
-            invalidParticipants.map(p => p.email)
-        );
-        throw new functions.https.HttpsError(
-            'permission-denied',
-            `Some recipients are not registered for this event. All participants must be registered attendees.`
+            `Skipped ${skippedCount} unregistered emails for event ${eventId}:`,
+            participants.filter(p => !participantEmailSet.has(p.email.toLowerCase())).map(p => p.email)
         );
     }
 
-    const emailCount = participants.length;
+    if (validParticipants.length === 0) {
+        throw new functions.https.HttpsError(
+            'failed-precondition',
+            'None of the provided participants are registered for this event.'
+        );
+    }
+
+    const emailCount = validParticipants.length;
 
     // 5. Validate Provider Config before reserving quota
     const EMAILJS_SERVICE_ID = process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID;
@@ -200,7 +204,7 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
         console.error('Failed to create initial audit log:', auditError);
     }
 
-    const emailPromises = participants.map(async (p) => {
+    const emailPromises = validParticipants.map(async (p) => {
         if (!p.email) {
             failureCount++;
             return;
@@ -263,6 +267,7 @@ export const sendBulkEmails = functions.https.onCall(async (data: SendBulkEmails
         success: failureCount === 0,
         successCount,
         failureCount,
+        skippedCount,
         totalAttempted: emailCount
     };
 });
