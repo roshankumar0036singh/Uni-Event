@@ -54,6 +54,7 @@ import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { predictAttendance } from '../lib/capacityPredictor';
 import PropTypes from 'prop-types';
 import logger from '../lib/logger';
+import { getReadTime } from '../lib/readTimeEstimator';
 import { BASE_URL } from '../lib/config';
 
 // Constants to eliminate SonarQube Magic Numbers
@@ -2128,9 +2129,50 @@ export default function EventDetail({ route, navigation }) {
                     {/* About Tab Content */}
                     {activeTab === 'about' && (
                         <View style={styles.aboutSection}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                                ABOUT EVENT
-                            </Text>
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginBottom: 10,
+                                }}
+                            >
+                                <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 0 }]}>
+                                    ABOUT EVENT
+                                </Text>
+                                {(() => {
+                                    const readTime = getReadTime(event.description);
+                                    if (readTime <= 0) return null;
+                                    return (
+                                        <View
+                                            style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                backgroundColor: theme.colors.primary + '15',
+                                                paddingVertical: 4,
+                                                paddingHorizontal: 8,
+                                                borderRadius: 12,
+                                                gap: 4,
+                                            }}
+                                        >
+                                            <Ionicons
+                                                name="time-outline"
+                                                size={14}
+                                                color={theme.colors.primary}
+                                            />
+                                            <Text
+                                                style={{
+                                                    fontSize: 12,
+                                                    fontWeight: '700',
+                                                    color: theme.colors.primary,
+                                                }}
+                                            >
+                                                {readTime} min read
+                                            </Text>
+                                        </View>
+                                    );
+                                })()}
+                            </View>
                             <Text
                                 style={[styles.description, { color: theme.colors.textSecondary }]}
                             >
