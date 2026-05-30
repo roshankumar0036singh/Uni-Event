@@ -67,7 +67,7 @@ export default function MyEventsScreen({ navigation }) {
     const handleDelete = async eventId => {
         const confirmMsg = 'Are you sure? The event will be soft-deleted and can be restored by an admin within 30 days.';
         if (Platform.OS === 'web') {
-            if (!window.confirm(confirmMsg)) return;
+            if (!globalThis.confirm(confirmMsg)) return;
             try {
                 await updateDoc(doc(db, 'events', eventId), {
                     deletedAt: serverTimestamp(),

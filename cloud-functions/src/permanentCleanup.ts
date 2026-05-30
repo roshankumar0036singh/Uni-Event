@@ -47,9 +47,8 @@ export const permanentCleanup = functions.pubsub
       }
     } catch (error) {
       console.error(`Permanent cleanup failed after deleting ${totalDeleted} events:`, error);
-      return null;
+      throw error;
     }
 
     console.log(`Permanent cleanup completed. Removed ${totalDeleted} events.`);
-    return null;
   });
