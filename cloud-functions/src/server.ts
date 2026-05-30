@@ -36,7 +36,7 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(cors({ origin: true }));
-app.use(ipWhitelist)
+app.use("/api/*", ipWhitelist)
 app.use(express.json());
 
 // Auth Middleware to mimic Firebase Callable Context

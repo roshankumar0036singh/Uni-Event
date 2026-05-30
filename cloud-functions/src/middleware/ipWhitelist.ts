@@ -20,7 +20,8 @@ export function ipWhitelist(req: Request, res: Response, next: NextFunction): vo
     }
 
 
-    const callerIp = req.ip;
+    const normalizeIp = (ip: string) => ip.replace(/^::ffff:/, '');
+    const callerIp = normalizeIp(req.ip || '');
 
     if (!callerIp || !allowedIps.includes(callerIp)) {
         console.warn(`[ipWhitelist] Blocked request from IP: ${callerIp}`);
