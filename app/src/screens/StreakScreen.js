@@ -1,4 +1,4 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -190,9 +190,9 @@ export default function MyStreakScreen() {
                                 { borderBottomColor: theme.colors.border },
                             ]}
                         >
-                            <MaterialIcons
+                            <MaterialCommunityIcons
                                 name="school-outline"
-                                size={36}
+                                size={28}
                                 color={theme.colors.primary}
                             />
                             <View style={styles.certText}>

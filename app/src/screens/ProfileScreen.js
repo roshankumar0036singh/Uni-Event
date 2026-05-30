@@ -981,7 +981,7 @@ export default function ProfileScreen({ navigation }) {
                                     icon="lightning-bolt-outline"
                                     label="Streak"
                                     description="Your consistency in events"
-                                    width="48%"
+                                    width="100%"
                                     onPress={() => navigation.navigate('Streak')}
                                     theme={theme}
                                     styles={styles}
