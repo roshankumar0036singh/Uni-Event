@@ -229,6 +229,13 @@ app.get('/email-preview', (_req, res) => {
  */
 app.get('/email-preview/:templateName', (req, res) => {
     const { templateName } = req.params;
+    // Escape HTML entities to prevent XSS when reflecting user-controlled values
+    const escHtml = (s) => s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     // Query params override sample data
     const overrides = {};
     for (const [key, value] of Object.entries(req.query)) {
@@ -242,12 +249,14 @@ app.get('/email-preview/:templateName', (req, res) => {
         const sampleData = (0, emailTemplateRenderer_1.getSampleData)(templateName);
         const allVars = Object.assign(Object.assign({}, sampleData), overrides);
         const varsJson = JSON.stringify(allVars, null, 2);
+        // templateName is validated by renderTemplate's allowlist — escape for display only
+        const safeTemplateName = escHtml(templateName);
         res.send(`
       <!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8" />
-        <title>Preview: ${templateName}</title>
+        <title>Preview: ${safeTemplateName}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; }
@@ -269,7 +278,7 @@ app.get('/email-preview/:templateName', (req, res) => {
       </head>
       <body>
         <div class="toolbar">
-          <h2>📧 ${templateName}</h2>
+          <h2>📧 ${safeTemplateName}</h2>
           <a href="/email-preview">← All Templates</a>
         </div>
         <div class="preview-frame">
@@ -277,16 +286,17 @@ app.get('/email-preview/:templateName', (req, res) => {
         </div>
         <div class="vars-panel">
           <h3>Template Variables (current)</h3>
-          <pre>${varsJson}</pre>
+          <pre>${escHtml(varsJson)}</pre>
         </div>
       </body>
       </html>
     `);
     }
     catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
         res.status(404).send(`
       <h1>Template Not Found</h1>
-      <p>${err.message}</p>
+      <p>${escHtml(message)}</p>
       <a href="/email-preview">← Back to template list</a>
     `);
     }

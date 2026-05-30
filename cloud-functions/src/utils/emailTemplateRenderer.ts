@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 /**
  * Directory containing the EmailJS HTML templates.
@@ -40,16 +40,16 @@ const SAMPLE_DATA: Record<string, Record<string, string>> = {
 
 /**
  * Returns the list of available template names (without the .html extension).
+ * Only returns names whose corresponding .html files exist in TEMPLATES_DIR.
  */
 export function getAvailableTemplates(): string[] {
-  if (!fs.existsSync(TEMPLATES_DIR)) {
-    return [];
+  if (fs.existsSync(TEMPLATES_DIR)) {
+    return fs
+      .readdirSync(TEMPLATES_DIR)
+      .filter((file) => file.endsWith('.html'))
+      .map((file) => file.replace(/\.html$/, ''));
   }
-
-  return fs
-    .readdirSync(TEMPLATES_DIR)
-    .filter((file) => file.endsWith('.html'))
-    .map((file) => file.replace(/\.html$/, ''));
+  return [];
 }
 
 /**
@@ -57,7 +57,7 @@ export function getAvailableTemplates(): string[] {
  * If no sample data is defined, returns an empty object.
  */
 export function getSampleData(templateName: string): Record<string, string> {
-  return SAMPLE_DATA[templateName] || {};
+  return SAMPLE_DATA[templateName] ?? {};
 }
 
 /**
@@ -65,23 +65,28 @@ export function getSampleData(templateName: string): Record<string, string> {
  * with the corresponding values from `data`. Any placeholders not present in
  * `data` will fall back to built-in sample data for that template.
  *
+ * The templateName is validated against the known allowlist to prevent
+ * path traversal attacks (CWE-22).
+ *
  * @param templateName - Name of the template file (without .html extension)
  * @param data - Optional key-value pairs to inject into the template
  * @returns The rendered HTML string
- * @throws Error if the template file does not exist
+ * @throws Error if the template name is unknown or the file does not exist
  */
 export function renderTemplate(
   templateName: string,
   data?: Record<string, string>,
 ): string {
-  const filePath = path.join(TEMPLATES_DIR, `${templateName}.html`);
-
-  if (!fs.existsSync(filePath)) {
+  // Validate against the known allowlist — prevents path traversal
+  const available = getAvailableTemplates();
+  if (!available.includes(templateName)) {
     throw new Error(
-      `Template "${templateName}" not found at ${filePath}`,
+      `Template "${templateName}" not found. Available: ${available.join(', ')}`,
     );
   }
 
+  // Safe: templateName is now guaranteed to be a known basename with no path separators
+  const filePath = path.join(TEMPLATES_DIR, `${templateName}.html`);
   const html = fs.readFileSync(filePath, 'utf-8');
 
   // Merge: explicit data overrides sample data
