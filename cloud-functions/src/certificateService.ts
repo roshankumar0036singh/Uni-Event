@@ -5,7 +5,9 @@ import * as path from 'path';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResendClient() {
+  return new Resend(process.env.RESEND_API_KEY || "re_test_placeholder");
+}
 
 type Participant = {
     id: string;
@@ -142,7 +144,7 @@ async function sendCertificateEmail(
     const safeEvent = escapeHtml(eventName);
     const safeFilename = `${sanitizeFilename(p.name || 'participant')}_Certificate.pdf`;
 
-    return resend.emails.send({
+    return getResendClient().emails.send({
         from: process.env.EMAIL_SENDER || 'onboarding@resend.dev',
         to: [p.email!],
         subject: `Certificate for ${eventName || ''}`,
@@ -168,7 +170,7 @@ async function sendCertificateEmailUsingUrl(
     const safeName = escapeHtml(p.name || 'Participant');
     const safeEvent = escapeHtml(eventName);
 
-    return resend.emails.send({
+    return getResendClient().emails.send({
         from: process.env.EMAIL_SENDER || 'onboarding@resend.dev',
         to: [p.email!],
         subject: `Certificate for ${eventName || ''}`,
