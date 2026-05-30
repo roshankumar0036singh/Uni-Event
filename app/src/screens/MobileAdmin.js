@@ -41,8 +41,20 @@ export default function MobileAdmin() {
                 const now = new Date();
                 snapshot.forEach(doc => {
                     const data = doc.data();
+                    if (data.deletedAt != null) return;
                     // Filter future/ongoing events (endAt >= now, or startAt >= now if no endAt)
                     if (new Date(data.endAt || data.startAt) >= now) {
+                        list.push({ id: doc.id, ...data });
+                    }
+                });
+                setEvents(list);
+            } else if (activeTab === 'deleted') {
+                const q = query(collection(db, 'events'), where('status', '==', 'active'));
+                const snapshot = await getDocs(q);
+                const list = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.deletedAt != null) {
                         list.push({ id: doc.id, ...data });
                     }
                 });
@@ -113,6 +125,20 @@ export default function MobileAdmin() {
         }
     };
 
+    const handleRestoreEvent = async eventId => {
+        try {
+            await updateDoc(doc(db, 'events', eventId), {
+                deletedAt: null,
+                deletedBy: null,
+            });
+            Alert.alert('Restored', 'Event restored successfully.');
+            fetchData();
+        } catch (_e) {
+            console.error('Restore failed:', _e);
+            Alert.alert('Error', 'Failed to restore event');
+        }
+    };
+
     const handleRejectAppeal = async eventId => {
         try {
             await updateDoc(doc(db, 'events', eventId), {
@@ -156,6 +182,8 @@ export default function MobileAdmin() {
         let emptyMessage;
         if (activeTab === 'events') {
             emptyMessage = 'No active events found';
+        } else if (activeTab === 'deleted') {
+            emptyMessage = 'No deleted events';
         } else if (activeTab === 'requests') {
             emptyMessage = 'No pending club requests';
         } else {
@@ -229,6 +257,31 @@ export default function MobileAdmin() {
         </View>
     );
 
+    const renderDeletedItem = ({ item }) => (
+        <View style={styles.card}>
+            <View style={styles.cardHeader}>
+                <View style={[styles.iconContainer, { backgroundColor: '#FF444420' }]}>
+                    <Ionicons name="trash" size={24} color="#FF4444" />
+                </View>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.cardTitle}>{item.title}</Text>
+                    <Text style={[styles.cardSubtitle, { color: '#FF4444' }]}>DELETED</Text>
+                </View>
+            </View>
+            <Text style={styles.cardDesc}>
+                {formatEventDate(item.startAt)} at {item.location}
+            </Text>
+            <View style={styles.actionRow}>
+                <TouchableOpacity
+                    style={[styles.actionBtn, styles.approveBtn]}
+                    onPress={() => handleRestoreEvent(item.id)}
+                >
+                    <Text style={[styles.actionBtnText, { color: '#4CAF50' }]}>Restore</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+
     const renderAppealItem = ({ item }) => (
         <View style={styles.card}>
             <View style={styles.cardHeader}>
@@ -269,6 +322,9 @@ export default function MobileAdmin() {
     if (activeTab === 'events') {
         listData = events;
         listRenderItem = renderEventItem;
+    } else if (activeTab === 'deleted') {
+        listData = events;
+        listRenderItem = renderDeletedItem;
     } else if (activeTab === 'requests') {
         listData = requests;
         listRenderItem = renderRequestItem;
@@ -303,21 +359,23 @@ export default function MobileAdmin() {
                     </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.tab, activeTab === 'requests' && styles.activeTab]}
-                    onPress={() => setActiveTab('requests')}
-                >
-                    <Text
-                        style={[styles.tabText, activeTab === 'requests' && styles.activeTabText]}
-                    >
-                        Club Requests
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
                     style={[styles.tab, activeTab === 'appeals' && styles.activeTab]}
                     onPress={() => setActiveTab('appeals')}
                 >
-                    <Text style={[styles.tabText, activeTab === 'appeals' && styles.activeTabText]}>
+                    <Text
+                        style={[styles.tabText, activeTab === 'appeals' && styles.activeTabText]}
+                    >
                         Appeals
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.tab, activeTab === 'deleted' && styles.activeTab]}
+                    onPress={() => setActiveTab('deleted')}
+                >
+                    <Text
+                        style={[styles.tabText, activeTab === 'deleted' && styles.activeTabText]}
+                    >
+                        Deleted
                     </Text>
                 </TouchableOpacity>
             </View>

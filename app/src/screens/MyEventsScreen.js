@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-import { collection, deleteDoc, doc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, updateDoc, where, serverTimestamp } from 'firebase/firestore';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     ActivityIndicator,
@@ -63,22 +63,29 @@ export default function MyEventsScreen({ navigation }) {
     }, [user, refreshNonce, isFocused]);
 
     const handleDelete = async eventId => {
+        const confirmMsg = 'Are you sure? The event will be soft-deleted and can be restored by an admin within 30 days.';
         if (Platform.OS === 'web') {
             try {
-                await deleteDoc(doc(db, 'events', eventId));
+                await updateDoc(doc(db, 'events', eventId), {
+                    deletedAt: serverTimestamp(),
+                    deletedBy: user.uid,
+                });
             } catch (_e) {
                 console.error('Delete event failed (Web):', _e);
                 alert('Error: Could not delete event');
             }
         } else {
-            Alert.alert('Delete Event', 'Are you sure? This cannot be undone.', [
+            Alert.alert('Delete Event', confirmMsg, [
                 { text: 'Cancel', style: 'cancel' },
                 {
                     text: 'Delete',
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            await deleteDoc(doc(db, 'events', eventId));
+                            await updateDoc(doc(db, 'events', eventId), {
+                                deletedAt: serverTimestamp(),
+                                deletedBy: user.uid,
+                            });
                         } catch (_e) {
                             console.error('Delete event failed (Native):', _e);
                             Alert.alert('Error', 'Could not delete event');

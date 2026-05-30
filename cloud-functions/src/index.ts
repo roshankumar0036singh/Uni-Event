@@ -17,3 +17,4 @@ export * from './branchReport';
 export * from './postEventFeedback';
 export * from './sendBulkEmails';
 export * from './auditLog';
+export * from './permanentCleanup';
