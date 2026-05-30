@@ -43,6 +43,12 @@ const functions = __importStar(require("firebase-functions"));
 const expo_server_sdk_1 = __importDefault(require("expo-server-sdk"));
 const push_1 = require("./utils/push");
 const PAGE_SIZE = 500;
+/**
+ * Fetches the total number of events occurring today.
+ *
+ * @param db The Firestore database instance
+ * @returns A promise that resolves to the count of today's events
+ */
 async function getTodayEventCount(db) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -54,6 +60,15 @@ async function getTodayEventCount(db) {
         .get();
     return snapshot.size;
 }
+/**
+ * Processes a single user document for the daily digest, appending an in-app
+ * notification and a push notification payload if the user has opted in.
+ *
+ * @param userDoc The Firestore query document snapshot for the user
+ * @param count The total number of events today
+ * @param batch The Firestore batch to write notifications to
+ * @param pageMessages An array to push Expo push notification payloads into
+ */
 function processUserPage(userDoc, count, batch, pageMessages) {
     const userData = userDoc.data();
     if (userData.digestOptIn === false) {
@@ -77,6 +92,10 @@ function processUserPage(userDoc, count, batch, pageMessages) {
         });
     }
 }
+/**
+ * Callable HTTPS function that sends the daily digest to all eligible users.
+ * Requires an authenticated admin user.
+ */
 exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');

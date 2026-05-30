@@ -49,6 +49,13 @@ const DAYS_PER_MONTH = 30.44;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const REPUTATION_BUCKETS_COLLECTION = 'reputationBuckets';
 const PAGE_SIZE = 500;
+/**
+ * Robustly parses a mixed input into a Date object or null.
+ * Handles Firestore Timestamps, Date objects, and ISO strings.
+ *
+ * @param value The raw date value
+ * @returns A parsed Date object or null if invalid
+ */
 const toDate = (value) => {
     if (!value)
         return null;
@@ -68,12 +75,24 @@ const toDate = (value) => {
     }
     return null;
 };
+/**
+ * Formats a Date object into a string key representing the month.
+ *
+ * @param date The Date object to format
+ * @returns A string in the format YYYY-MM
+ */
 const getMonthKeyFromDate = (date) => {
     const year = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
     return `${year}-${month}`;
 };
 exports.getMonthKeyFromDate = getMonthKeyFromDate;
+/**
+ * Parses a month key string into a Date representing the first day of that month.
+ *
+ * @param monthKey The YYYY-MM string
+ * @returns The Date object for the 1st of the month, or null if invalid
+ */
 const getMonthStartFromKey = (monthKey) => {
     const [yearStr, monthStr] = monthKey.split('-');
     const year = Number(yearStr);
@@ -84,6 +103,15 @@ const getMonthStartFromKey = (monthKey) => {
     return new Date(Date.UTC(year, month - 1, 1));
 };
 exports.getMonthStartFromKey = getMonthStartFromKey;
+/**
+ * Resolves the start date of an event securely. Uses an authoritative lookup if
+ * the eventId is provided, falling back to client-provided data if necessary.
+ *
+ * @param eventId The optional event ID
+ * @param eventStartAt The fallback client-provided start date
+ * @param eventCache A cache of already looked-up events
+ * @returns A promise resolving to the start date or null
+ */
 const resolveEventStartAt = async (eventId, eventStartAt, eventCache) => {
     var _a;
     // Priority 1: Authoritative DB lookup (mitigates client spoofing)
@@ -107,6 +135,15 @@ const resolveEventStartAt = async (eventId, eventStartAt, eventCache) => {
     return toDate(eventStartAt);
 };
 exports.resolveEventStartAt = resolveEventStartAt;
+/**
+ * Updates a user's reputation bucket by applying deltas. Handles idempotency if a key is provided.
+ *
+ * @param userId The ID of the user
+ * @param eventStartAt The date determining which monthly bucket to update
+ * @param deltas The incremental changes to apply (registrations, attendances, reminders)
+ * @param idempotencyKey An optional key to prevent duplicate trigger processing
+ * @returns A promise resolving when the transaction/update completes
+ */
 const updateBucket = (userId, eventStartAt, deltas, idempotencyKey) => {
     const monthKey = (0, exports.getMonthKeyFromDate)(eventStartAt);
     const bucketRef = db
@@ -145,6 +182,12 @@ const updateBucket = (userId, eventStartAt, deltas, idempotencyKey) => {
     });
 };
 exports.updateBucket = updateBucket;
+/**
+ * Recalculates reputation points for all users by paginating through Firestore.
+ * Points are decayed based on the age of their respective monthly buckets.
+ *
+ * @returns A promise resolving to the total number of users updated
+ */
 const runReputationRefresh = async () => {
     const now = new Date();
     let updatedUsers = 0;
@@ -191,6 +234,12 @@ const runReputationRefresh = async () => {
     return updatedUsers;
 };
 exports.runReputationRefresh = runReputationRefresh;
+/**
+ * Helper to paginate through a Firestore query in chunks of PAGE_SIZE.
+ *
+ * @param query The Firestore query to paginate
+ * @param handleDocs A callback to process each page of documents
+ */
 const paginateQuery = async (query, handleDocs) => {
     let lastDoc = null;
     while (true) {
@@ -244,6 +293,17 @@ exports.refreshReputationDaily = functions.pubsub.schedule('every 24 hours').onR
     await (0, exports.runReputationRefresh)();
     return null;
 });
+/**
+ * Standardized handler for all reputation-affecting Firestore triggers.
+ *
+ * @param userId The ID of the affected user
+ * @param eventId The ID of the related event
+ * @param data The document data containing fallback event metadata
+ * @param contextId The trigger context ID for idempotency
+ * @param deltas The points deltas to apply to the bucket
+ * @param prefix The idempotency prefix identifier
+ * @returns A promise resolving when the processing completes
+ */
 const handleReputationTrigger = async (userId, eventId, data, contextId, deltas, prefix) => {
     var _a;
     const eventCache = new Map();
@@ -255,24 +315,42 @@ const handleReputationTrigger = async (userId, eventId, data, contextId, deltas,
     await (0, exports.updateBucket)(userId, eventStartAt, deltas, `${prefix}_${contextId}`);
     return null;
 };
+/**
+ * Trigger: Fires when a user registers for an event.
+ */
 exports.onParticipatingCreate = functions.firestore
     .document('users/{userId}/participating/{eventId}')
     .onCreate((snap, context) => handleReputationTrigger(context.params.userId, context.params.eventId, snap.data(), context.eventId, { registrations: 1 }, 'participating_create'));
+/**
+ * Trigger: Fires when a user cancels their registration.
+ */
 exports.onParticipatingDelete = functions.firestore
     .document('users/{userId}/participating/{eventId}')
     .onDelete((snap, context) => handleReputationTrigger(context.params.userId, context.params.eventId, snap.data(), context.eventId, { registrations: -1 }, 'participating_delete'));
+/**
+ * Trigger: Fires when a user is marked as checked-in (attended).
+ */
 exports.onCheckInCreate = functions.firestore
     .document('events/{eventId}/checkIns/{userId}')
     .onCreate((snap, context) => handleReputationTrigger(context.params.userId, context.params.eventId, snap.data(), context.eventId, { attendances: 1 }, 'checkin_create'));
+/**
+ * Trigger: Fires when a user's check-in is revoked.
+ */
 exports.onCheckInDelete = functions.firestore
     .document('events/{eventId}/checkIns/{userId}')
     .onDelete((snap, context) => handleReputationTrigger(context.params.userId, context.params.eventId, snap.data(), context.eventId, { attendances: -1 }, 'checkin_delete'));
+/**
+ * Trigger: Fires when a user sets a reminder for an event.
+ */
 exports.onReminderCreate = functions.firestore
     .document('reminders/{reminderId}')
     .onCreate((snap, context) => {
     const data = snap.data();
     return handleReputationTrigger(data === null || data === void 0 ? void 0 : data.userId, data === null || data === void 0 ? void 0 : data.eventId, data, context.eventId, { reminders: 1 }, 'reminder_create');
 });
+/**
+ * Trigger: Fires when a user deletes a reminder for an event.
+ */
 exports.onReminderDelete = functions.firestore
     .document('reminders/{reminderId}')
     .onDelete((snap, context) => {

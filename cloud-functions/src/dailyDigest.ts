@@ -5,6 +5,12 @@ import { sendPushNotifications } from './utils/push';
 
 const PAGE_SIZE = 500;
 
+/**
+ * Fetches the total number of events occurring today.
+ *
+ * @param db The Firestore database instance
+ * @returns A promise that resolves to the count of today's events
+ */
 export async function getTodayEventCount(db: admin.firestore.Firestore): Promise<number> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -19,6 +25,15 @@ export async function getTodayEventCount(db: admin.firestore.Firestore): Promise
     return snapshot.size;
 }
 
+/**
+ * Processes a single user document for the daily digest, appending an in-app
+ * notification and a push notification payload if the user has opted in.
+ *
+ * @param userDoc The Firestore query document snapshot for the user
+ * @param count The total number of events today
+ * @param batch The Firestore batch to write notifications to
+ * @param pageMessages An array to push Expo push notification payloads into
+ */
 function processUserPage(userDoc: admin.firestore.QueryDocumentSnapshot, count: number, batch: admin.firestore.WriteBatch, pageMessages: any[]) {
     const userData = userDoc.data();
 
@@ -46,6 +61,10 @@ function processUserPage(userDoc: admin.firestore.QueryDocumentSnapshot, count: 
     }
 }
 
+/**
+ * Callable HTTPS function that sends the daily digest to all eligible users.
+ * Requires an authenticated admin user.
+ */
 export const sendDailyDigest = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');

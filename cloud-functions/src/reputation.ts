@@ -31,6 +31,13 @@ type BucketTotals = {
     reminders: number;
 };
 
+/**
+ * Robustly parses a mixed input into a Date object or null.
+ * Handles Firestore Timestamps, Date objects, and ISO strings.
+ *
+ * @param value The raw date value
+ * @returns A parsed Date object or null if invalid
+ */
 const toDate = (value: unknown): Date | null => {
     if (!value) return null;
     if (value instanceof admin.firestore.Timestamp) {
@@ -50,12 +57,24 @@ const toDate = (value: unknown): Date | null => {
     return null;
 };
 
+/**
+ * Formats a Date object into a string key representing the month.
+ *
+ * @param date The Date object to format
+ * @returns A string in the format YYYY-MM
+ */
 export const getMonthKeyFromDate = (date: Date): string => {
     const year = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
     return `${year}-${month}`;
 };
 
+/**
+ * Parses a month key string into a Date representing the first day of that month.
+ *
+ * @param monthKey The YYYY-MM string
+ * @returns The Date object for the 1st of the month, or null if invalid
+ */
 export const getMonthStartFromKey = (monthKey: string): Date | null => {
     const [yearStr, monthStr] = monthKey.split('-');
     const year = Number(yearStr);
@@ -66,6 +85,15 @@ export const getMonthStartFromKey = (monthKey: string): Date | null => {
     return new Date(Date.UTC(year, month - 1, 1));
 };
 
+/**
+ * Resolves the start date of an event securely. Uses an authoritative lookup if
+ * the eventId is provided, falling back to client-provided data if necessary.
+ *
+ * @param eventId The optional event ID
+ * @param eventStartAt The fallback client-provided start date
+ * @param eventCache A cache of already looked-up events
+ * @returns A promise resolving to the start date or null
+ */
 export const resolveEventStartAt = async (
     eventId: string | undefined,
     eventStartAt: unknown,
@@ -94,6 +122,15 @@ export const resolveEventStartAt = async (
     return toDate(eventStartAt);
 };
 
+/**
+ * Updates a user's reputation bucket by applying deltas. Handles idempotency if a key is provided.
+ *
+ * @param userId The ID of the user
+ * @param eventStartAt The date determining which monthly bucket to update
+ * @param deltas The incremental changes to apply (registrations, attendances, reminders)
+ * @param idempotencyKey An optional key to prevent duplicate trigger processing
+ * @returns A promise resolving when the transaction/update completes
+ */
 export const updateBucket = (
     userId: string,
     eventStartAt: Date,
@@ -138,6 +175,12 @@ export const updateBucket = (
     });
 };
 
+/**
+ * Recalculates reputation points for all users by paginating through Firestore.
+ * Points are decayed based on the age of their respective monthly buckets.
+ *
+ * @returns A promise resolving to the total number of users updated
+ */
 export const runReputationRefresh = async () => {
     const now = new Date();
     let updatedUsers = 0;
@@ -199,6 +242,12 @@ export const runReputationRefresh = async () => {
     return updatedUsers;
 };
 
+/**
+ * Helper to paginate through a Firestore query in chunks of PAGE_SIZE.
+ *
+ * @param query The Firestore query to paginate
+ * @param handleDocs A callback to process each page of documents
+ */
 const paginateQuery = async (
     query: FirebaseFirestore.Query,
     handleDocs: (docs: FirebaseFirestore.QueryDocumentSnapshot[]) => Promise<void>,
@@ -268,6 +317,17 @@ export const refreshReputationDaily = functions.pubsub.schedule('every 24 hours'
     return null;
 });
 
+/**
+ * Standardized handler for all reputation-affecting Firestore triggers.
+ *
+ * @param userId The ID of the affected user
+ * @param eventId The ID of the related event
+ * @param data The document data containing fallback event metadata
+ * @param contextId The trigger context ID for idempotency
+ * @param deltas The points deltas to apply to the bucket
+ * @param prefix The idempotency prefix identifier
+ * @returns A promise resolving when the processing completes
+ */
 const handleReputationTrigger = async (
     userId: string | undefined,
     eventId: string | undefined,
@@ -292,6 +352,9 @@ const handleReputationTrigger = async (
     return null;
 };
 
+/**
+ * Trigger: Fires when a user registers for an event.
+ */
 export const onParticipatingCreate = functions.firestore
     .document('users/{userId}/participating/{eventId}')
     .onCreate((snap, context) => handleReputationTrigger(
@@ -303,6 +366,9 @@ export const onParticipatingCreate = functions.firestore
         'participating_create'
     ));
 
+/**
+ * Trigger: Fires when a user cancels their registration.
+ */
 export const onParticipatingDelete = functions.firestore
     .document('users/{userId}/participating/{eventId}')
     .onDelete((snap, context) => handleReputationTrigger(
@@ -314,6 +380,9 @@ export const onParticipatingDelete = functions.firestore
         'participating_delete'
     ));
 
+/**
+ * Trigger: Fires when a user is marked as checked-in (attended).
+ */
 export const onCheckInCreate = functions.firestore
     .document('events/{eventId}/checkIns/{userId}')
     .onCreate((snap, context) => handleReputationTrigger(
@@ -325,6 +394,9 @@ export const onCheckInCreate = functions.firestore
         'checkin_create'
     ));
 
+/**
+ * Trigger: Fires when a user's check-in is revoked.
+ */
 export const onCheckInDelete = functions.firestore
     .document('events/{eventId}/checkIns/{userId}')
     .onDelete((snap, context) => handleReputationTrigger(
@@ -336,6 +408,9 @@ export const onCheckInDelete = functions.firestore
         'checkin_delete'
     ));
 
+/**
+ * Trigger: Fires when a user sets a reminder for an event.
+ */
 export const onReminderCreate = functions.firestore
     .document('reminders/{reminderId}')
     .onCreate((snap, context) => {
@@ -350,6 +425,9 @@ export const onReminderCreate = functions.firestore
         );
     });
 
+/**
+ * Trigger: Fires when a user deletes a reminder for an event.
+ */
 export const onReminderDelete = functions.firestore
     .document('reminders/{reminderId}')
     .onDelete((snap, context) => {
