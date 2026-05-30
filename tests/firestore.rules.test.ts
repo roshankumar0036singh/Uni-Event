@@ -313,19 +313,23 @@ describe('Firestore Security Rules', () => {
 
     test('User creates own feedback -> allowed', async () => {
         const db = getFirestoreContext('student1');
-        await assertSucceeds(setDoc(doc(db, 'events/event1/feedback/student1'), { rating: 5 }));
+        await assertSucceeds(
+            setDoc(doc(db, 'events/event1/feedback/student1'), { rating: 5, comments: 'Good' }),
+        );
     });
 
     test('User creates feedback for another user -> denied', async () => {
         const db = getFirestoreContext('student1');
-        await assertFails(setDoc(doc(db, 'events/event1/feedback/student2'), { rating: 5 }));
+        await assertFails(
+            setDoc(doc(db, 'events/event1/feedback/student2'), { rating: 5, comments: 'Bad' }),
+        );
     });
 
-    // ---------------- EVENT MESSAGES ----------------
+    // ---------------- MESSAGES ----------------
 
     test('Authenticated participant reads event message -> allowed', async () => {
-        await seedDocument('events/event1/messages/msg1', { text: 'Hello' });
-        await seedDocument('events/event1/participants/student1', { joined: true }); // Make student1 a participant
+        await seedDocument('events/event1', { title: 'Tech Fest', ownerId: 'clubOwner1' });
+        await seedDocument('events/event1/participants/student1', { joined: true });
 
         const db = getFirestoreContext('student1');
         await assertSucceeds(getDoc(doc(db, 'events/event1/messages/msg1')));
@@ -337,69 +341,149 @@ describe('Firestore Security Rules', () => {
     });
 
     test('Authenticated participant creates event message -> allowed', async () => {
-        await seedDocument('events/event1/participants/student1', { joined: true }); // Make student1 a participant
+        await seedDocument('events/event1', { title: 'Tech Fest', ownerId: 'clubOwner1' });
+        await seedDocument('events/event1/participants/student1', { joined: true });
 
         const db = getFirestoreContext('student1');
-        await assertSucceeds(setDoc(doc(db, 'events/event1/messages/msg1'), { text: 'Hello' }));
+        await assertSucceeds(
+            setDoc(doc(db, 'events/event1/messages/msg1'), {
+                userId: 'student1',
+                text: 'Hello',
+            }),
+        );
     });
 
     test('Unauthenticated user creates event message -> denied', async () => {
         const db = getFirestoreContext();
-        await assertFails(setDoc(doc(db, 'events/event1/messages/msg1'), { text: 'Hello' }));
+        await assertFails(
+            setDoc(doc(db, 'events/event1/messages/msg1'), {
+                userId: 'student1',
+                text: 'Hello',
+            }),
+        );
     });
-});
-// =========================================================================
-// ISSUE #342: REGRESSION TESTS FOR NEW COLLECTIONS (Optimized)
-// =========================================================================
 
-const setupIssue342Data = async () => {
-    await seedDocument('events/event342', { title: 'Test Event', ownerId: 'eventOwner' });
-    // Root collections
-    await seedDocument('certificates/rootCert', { eventId: 'event342', userId: 'student1' });
-    await seedDocument('analytics/rootStat', { eventId: 'event342' });
-    // Subcollections
-    await seedDocument('events/event342/attendance/att1', { userId: 'student1' });
-    await seedDocument('events/event342/certificates/subCert', { userId: 'student1' });
-    await seedDocument('events/event342/analytics/subStat', { metrics: true });
-};
-
-// Define all our new paths and whether they have a specific 'user' owner
-const newCollections = [
-    { name: 'root certificate', path: 'certificates/rootCert', hasOwner: true },
-    { name: 'root analytics', path: 'analytics/rootStat', hasOwner: false },
-    { name: 'event attendance', path: 'events/event342/attendance/att1', hasOwner: true },
-    { name: 'event certificates', path: 'events/event342/certificates/subCert', hasOwner: true },
-    { name: 'event analytics', path: 'events/event342/analytics/subStat', hasOwner: false },
-];
-
-// Dynamically generate the tests to satisfy SonarCloud duplication limits
-newCollections.forEach(({ name, path, hasOwner }) => {
-    describe(`Access control for ${name}`, () => {
+    // ---------------- ROOT CERTIFICATE & ANALYTICS ----------------
+    describe('Access control for root certificate', () => {
         test('Admin reads -> allowed', async () => {
-            await setupIssue342Data();
+            await seedDocument('certificates/cert1', { userId: 'student1', eventId: 'event1' });
             const db = getFirestoreContext('admin1', { admin: true });
-            await assertSucceeds(getDoc(doc(db, path)));
+            await assertSucceeds(getDoc(doc(db, 'certificates/cert1')));
         });
 
         test('Event owner reads -> allowed', async () => {
-            await setupIssue342Data();
-            const db = getFirestoreContext('eventOwner');
-            await assertSucceeds(getDoc(doc(db, path)));
+            await seedDocument('events/event1', { ownerId: 'club1' });
+            await seedDocument('certificates/cert1', { eventId: 'event1' });
+            const db = getFirestoreContext('club1', { club: true });
+            await assertSucceeds(getDoc(doc(db, 'certificates/cert1')));
         });
 
         test('Unrelated user reads -> denied', async () => {
-            await setupIssue342Data();
-            const db = getFirestoreContext('unrelatedUser');
-            await assertFails(getDoc(doc(db, path)));
+            await seedDocument('certificates/cert1', { userId: 'student1', eventId: 'event1' });
+            const db = getFirestoreContext('student2');
+            await assertFails(getDoc(doc(db, 'certificates/cert1')));
         });
 
-        // This fixes the CodeRabbit missing test warning!
-        if (hasOwner) {
-            test('Document owner (student1) reads -> allowed', async () => {
-                await setupIssue342Data();
-                const db = getFirestoreContext('student1');
-                await assertSucceeds(getDoc(doc(db, path)));
-            });
-        }
+        test('Document owner (student1) reads -> allowed', async () => {
+            await seedDocument('certificates/cert1', { userId: 'student1', eventId: 'event1' });
+            const db = getFirestoreContext('student1');
+            await assertSucceeds(getDoc(doc(db, 'certificates/cert1')));
+        });
+    });
+
+    describe('Access control for root analytics', () => {
+        test('Admin reads -> allowed', async () => {
+            await seedDocument('analytics/a1', { eventId: 'event1' });
+            const db = getFirestoreContext('admin1', { admin: true });
+            await assertSucceeds(getDoc(doc(db, 'analytics/a1')));
+        });
+
+        test('Event owner reads -> allowed', async () => {
+            await seedDocument('events/event1', { ownerId: 'club1' });
+            await seedDocument('analytics/a1', { eventId: 'event1' });
+            const db = getFirestoreContext('club1', { club: true });
+            await assertSucceeds(getDoc(doc(db, 'analytics/a1')));
+        });
+
+        test('Unrelated user reads -> denied', async () => {
+            await seedDocument('analytics/a1', { eventId: 'event1' });
+            const db = getFirestoreContext('student1');
+            await assertFails(getDoc(doc(db, 'analytics/a1')));
+        });
+    });
+
+    describe('Access control for event attendance', () => {
+        test('Admin reads -> allowed', async () => {
+            await seedDocument('events/event1/attendance/att1', { userId: 'student1' });
+            const db = getFirestoreContext('admin1', { admin: true });
+            await assertSucceeds(getDoc(doc(db, 'events/event1/attendance/att1')));
+        });
+
+        test('Event owner reads -> allowed', async () => {
+            await seedDocument('events/event1', { ownerId: 'club1' });
+            await seedDocument('events/event1/attendance/att1', { userId: 'student1' });
+            const db = getFirestoreContext('club1', { club: true });
+            await assertSucceeds(getDoc(doc(db, 'events/event1/attendance/att1')));
+        });
+
+        test('Unrelated user reads -> denied', async () => {
+            await seedDocument('events/event1/attendance/att1', { userId: 'student1' });
+            const db = getFirestoreContext('student2');
+            await assertFails(getDoc(doc(db, 'events/event1/attendance/att1')));
+        });
+
+        test('Document owner (student1) reads -> allowed', async () => {
+            await seedDocument('events/event1/attendance/att1', { userId: 'student1' });
+            const db = getFirestoreContext('student1');
+            await assertSucceeds(getDoc(doc(db, 'events/event1/attendance/att1')));
+        });
+    });
+
+    describe('Access control for event certificates', () => {
+        test('Admin reads -> allowed', async () => {
+            await seedDocument('events/event1/certificates/cert1', { userId: 'student1' });
+            const db = getFirestoreContext('admin1', { admin: true });
+            await assertSucceeds(getDoc(doc(db, 'events/event1/certificates/cert1')));
+        });
+
+        test('Event owner reads -> allowed', async () => {
+            await seedDocument('events/event1', { ownerId: 'club1' });
+            await seedDocument('events/event1/certificates/cert1', { userId: 'student1' });
+            const db = getFirestoreContext('club1', { club: true });
+            await assertSucceeds(getDoc(doc(db, 'events/event1/certificates/cert1')));
+        });
+
+        test('Unrelated user reads -> denied', async () => {
+            await seedDocument('events/event1/certificates/cert1', { userId: 'student1' });
+            const db = getFirestoreContext('student2');
+            await assertFails(getDoc(doc(db, 'events/event1/certificates/cert1')));
+        });
+
+        test('Document owner (student1) reads -> allowed', async () => {
+            await seedDocument('events/event1/certificates/cert1', { userId: 'student1' });
+            const db = getFirestoreContext('student1');
+            await assertSucceeds(getDoc(doc(db, 'events/event1/certificates/cert1')));
+        });
+    });
+
+    describe('Access control for event analytics', () => {
+        test('Admin reads -> allowed', async () => {
+            await seedDocument('events/event1/analytics/a1', { eventId: 'event1' });
+            const db = getFirestoreContext('admin1', { admin: true });
+            await assertSucceeds(getDoc(doc(db, 'events/event1/analytics/a1')));
+        });
+
+        test('Event owner reads -> allowed', async () => {
+            await seedDocument('events/event1', { ownerId: 'club1' });
+            await seedDocument('events/event1/analytics/a1', { eventId: 'event1' });
+            const db = getFirestoreContext('club1', { club: true });
+            await assertSucceeds(getDoc(doc(db, 'events/event1/analytics/a1')));
+        });
+
+        test('Unrelated user reads -> denied', async () => {
+            await seedDocument('events/event1/analytics/a1', { eventId: 'event1' });
+            const db = getFirestoreContext('student1');
+            await assertFails(getDoc(doc(db, 'events/event1/analytics/a1')));
+        });
     });
 });

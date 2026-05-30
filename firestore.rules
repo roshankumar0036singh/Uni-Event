@@ -45,9 +45,10 @@ service cloud.firestore {
     }
 
     function isEventOwnerAfter(database, eventId) {
+      let after = getAfter(/databases/$(database)/documents/events/$(eventId)).data;
       return existsAfter(/databases/$(database)/documents/events/$(eventId))
-          && ('ownerId' in getAfter(/databases/$(database)/documents/events/$(eventId)).data)
-          && request.auth.uid == getAfter(/databases/$(database)/documents/events/$(eventId)).data.ownerId;
+          && ('ownerId' in after)
+          && request.auth.uid == after.ownerId;
     }
 
     function isParticipant(database, eventId) {
@@ -186,13 +187,13 @@ service cloud.firestore {
            isEventOwner(database, eventId)
          );
          allow create, update, delete: if request.auth != null
-          && existsAfter(/databases/$(database)/documents/events/$(eventId))
-          && (
-            isAdmin() ||
-            isClub() ||
-            isEventOwner(database, eventId) ||
-            isEventOwnerAfter(database, eventId)
-          );
+           && existsAfter(/databases/$(database)/documents/events/$(eventId))
+           && (
+             isAdmin() ||
+             isClub() ||
+             isEventOwner(database, eventId) ||
+             isEventOwnerAfter(database, eventId)
+           );
       }
 
       // Event Participants Registry

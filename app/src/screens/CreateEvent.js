@@ -313,7 +313,6 @@ export default function CreateEvent({ navigation, route }) {
                 await updateDoc(doc(db, 'events', event.id), eventData);
                 Alert.alert('Success', 'Event Updated!');
             } else {
-                const nowIso = new Date().toISOString();
                 const eventRef = doc(collection(db, 'events'));
                 const attendancePlaceholderRef = doc(
                     db,
@@ -336,7 +335,7 @@ export default function CreateEvent({ navigation, route }) {
                         ownerId: user.uid,
                         ownerEmail: user.email,
                         organizerName: user.displayName || 'Club Admin',
-                        createdAt: nowIso,
+                        createdAt: serverTimestamp(),
                         status: 'active',
                         appealStatus: null,
                     });
@@ -346,8 +345,8 @@ export default function CreateEvent({ navigation, route }) {
                         ownerId: user.uid,
                         type: 'bootstrap',
                         checkInCount: 0,
-                        createdAt: nowIso,
-                        updatedAt: nowIso,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp(),
                     });
 
                     if (organizerSnap.exists()) {

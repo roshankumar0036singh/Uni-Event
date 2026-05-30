@@ -23,11 +23,12 @@ jest.mock('react-native-maps', () => ({
 }));
 
 jest.mock('../../components/ScreenWrapper', () => {
+    const React = require('react');
     const PropTypes = require('prop-types');
     const { View } = require('react-native');
 
     function MockScreenWrapper({ children }) {
-        return <View>{children}</View>;
+        return React.createElement(View, null, children);
     }
 
     MockScreenWrapper.propTypes = {
@@ -38,15 +39,20 @@ jest.mock('../../components/ScreenWrapper', () => {
 });
 
 jest.mock('../../components/PremiumInput', () => {
+    const React = require('react');
     const PropTypes = require('prop-types');
     const { TextInput, View, Text } = require('react-native');
 
     function MockPremiumInput({ label, value, onChangeText, placeholder }) {
-        return (
-            <View>
-                <Text>{label}</Text>
-                <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} />
-            </View>
+        return React.createElement(
+            View,
+            null,
+            React.createElement(Text, null, label),
+            React.createElement(TextInput, {
+                value,
+                onChangeText,
+                placeholder,
+            }),
         );
     }
 
@@ -119,10 +125,14 @@ jest.mock('firebase/storage', () => ({
 
 const mockIncrement = jest.fn(value => ({ __op: 'increment', value }));
 const mockServerTimestamp = jest.fn(() => ({ __op: 'serverTimestamp' }));
+const mockExistingDocs = new Set(['users/organizer-1']);
 
 const mockTransactionSet = jest.fn();
 const mockTransactionUpdate = jest.fn();
-const mockTransactionGet = jest.fn(async () => ({ exists: () => true }));
+const mockTransactionGet = jest.fn(async ref => ({
+    exists: () => mockExistingDocs.has(ref.path),
+    data: () => ({}),
+}));
 const mockRunTransaction = jest.fn(async (dbArg, callback) => {
     const tx = {
         get: mockTransactionGet,
@@ -193,13 +203,16 @@ describe('CreateEvent transaction flow', () => {
         fireEvent.changeText(getByPlaceholderText('e.g. Auditorium / Room 302'), 'Main Hall');
 
         fireEvent.press(getByText('Tech'));
-        fireEvent.press(getAllByText('Create Event')[1]);
+        fireEvent.press(getAllByText('Create Event').at(1));
 
         await waitFor(() => {
             expect(mockRunTransaction).toHaveBeenCalledTimes(1);
         });
 
         expect(mockEnforceRateLimit).toHaveBeenCalledWith(true);
+        expect(mockTransactionGet).toHaveBeenCalledWith(
+            expect.objectContaining({ path: 'users/organizer-1' }),
+        );
 
         expect(mockTransactionSet).toHaveBeenCalledWith(
             expect.objectContaining({ path: 'events/event_tx_1' }),
@@ -210,6 +223,7 @@ describe('CreateEvent transaction flow', () => {
                 organizerName: 'Organizer One',
                 participantCount: 0,
                 participantsPreview: [],
+                createdAt: { __op: 'serverTimestamp' },
             }),
         );
 
@@ -220,6 +234,8 @@ describe('CreateEvent transaction flow', () => {
                 ownerId: 'organizer-1',
                 type: 'bootstrap',
                 checkInCount: 0,
+                createdAt: { __op: 'serverTimestamp' },
+                updatedAt: { __op: 'serverTimestamp' },
             }),
         );
 
