@@ -11,15 +11,18 @@ on:
 
 permissions:
     contents: write
+    pull-requests: write
 
 jobs:
     update-lockfile:
         runs-on: ubuntu-latest
 
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
 
-            - uses: actions/setup-node@v6
+            - uses: actions/setup-node@v4
               with:
                   node-version: 22
 
@@ -36,6 +39,11 @@ jobs:
                   cd cloud-functions
                   npm install --package-lock-only --ignore-scripts
 
-            - uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9
+            - name: Create Pull Request
+              uses: peter-evans/create-pull-request@v6
               with:
-                  commit_message: 'chore: update package-lock.json [skip ci]'
+                  commit-message: 'chore: update package-lock.json'
+                  title: 'chore: update package-lock.json'
+                  body: 'Automated PR to update package-lock.json.'
+                  branch: 'update-lockfiles-pr'
+                  base: 'main'
