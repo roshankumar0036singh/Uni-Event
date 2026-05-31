@@ -53,8 +53,8 @@ async function runMigrations() {
         await migration.up(db);
 
         // Mark it as done
-        await markAsDone(file, applied);
-        applied.push(file);
+       applied.push(file);
+       await markAsDone(file, applied);
 
         console.log(`Finished: ${file} ✓`);
     }
