@@ -13,6 +13,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import {
     Alert,
+    ActivityIndicator,
     Image,
     Linking,
     Platform,
@@ -29,6 +30,39 @@ import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
+const PLACEHOLDER_BANNER_URL = 'https://via.placeholder.com/800x400';
+
+const getClubAvatarUrl = club => {
+    if (club?.photoURL) return club.photoURL;
+
+    const displayName = encodeURIComponent(club?.displayName || 'Club');
+    return `https://ui-avatars.com/api/?name=${displayName}&background=random`;
+};
+
+const getClubHeadline = club =>
+    club?.headline || (club?.role === 'club' ? 'Official Student Chapter' : 'Event Organizer');
+
+const getFollowButtonStyles = (isFollowing, theme) => ({
+    button: {
+        backgroundColor: isFollowing ? theme.colors.surface : theme.colors.primary,
+        borderColor: theme.colors.primary,
+        borderWidth: 1,
+    },
+    contentColor: isFollowing ? theme.colors.primary : '#fff',
+});
+
+const getTabStyle = (tabName, activeTab, theme) =>
+    activeTab === tabName
+        ? {
+              borderBottomWidth: 2,
+              borderBottomColor: theme.colors.primary,
+          }
+        : null;
+
+const getTabTextStyle = (tabName, activeTab, theme) => ({
+    color: activeTab === tabName ? theme.colors.primary : theme.colors.textSecondary,
+});
+
 export default function ClubProfileScreen({ route, navigation }) {
     const { clubId, clubName } = route.params || {};
     const { user } = useAuth();
@@ -38,6 +72,7 @@ export default function ClubProfileScreen({ route, navigation }) {
     const [events, setEvents] = useState([]);
     const [isFollowing, setIsFollowing] = useState(false);
     const [followersCount, setFollowersCount] = useState(0);
+    const [followLoading, setFollowLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('events'); // 'events' | 'about'
 
     // Fetch Club Data
@@ -141,8 +176,10 @@ export default function ClubProfileScreen({ route, navigation }) {
         : 0;
 
     const successScore = Math.round(attendanceRate * 0.4 + ratingScore * 0.6);
+    const followButtonStyles = getFollowButtonStyles(isFollowing, theme);
 
     const toggleFollow = async () => {
+        if (followLoading) return;
         if (!user) return;
         if (!clubId) {
             Alert.alert('Demo', 'Cannot follow a test club without ID.');
@@ -152,13 +189,15 @@ export default function ClubProfileScreen({ route, navigation }) {
         const myFollowingRef = doc(db, 'users', user.uid, 'following', clubId);
         const clubFollowerRef = doc(db, 'users', clubId, 'followers', user.uid);
         const clubRef = doc(db, 'users', clubId);
+        const previousFollowing = isFollowing;
 
         // Optimistic update
-        setIsFollowing(!isFollowing);
-        setFollowersCount(prev => (isFollowing ? Math.max(0, prev - 1) : prev + 1));
+        setIsFollowing(!previousFollowing);
+        setFollowersCount(prev => (previousFollowing ? Math.max(0, prev - 1) : prev + 1));
 
         try {
-            if (isFollowing) {
+            setFollowLoading(true);
+            if (previousFollowing) {
                 // Unfollow
                 await deleteDoc(myFollowingRef);
                 await deleteDoc(clubFollowerRef);
@@ -189,11 +228,20 @@ export default function ClubProfileScreen({ route, navigation }) {
                     { merge: true },
                 );
             }
+            Alert.alert(
+                previousFollowing ? 'Unfollowed' : 'Following',
+                previousFollowing
+                    ? 'Club removed from your following list.'
+                    : 'Club added to your following list.',
+            );
         } catch (e) {
             console.error(e);
             // Revert on error
-            setIsFollowing(!isFollowing);
-            setFollowersCount(prev => (isFollowing ? prev + 1 : Math.max(0, prev - 1)));
+            setIsFollowing(previousFollowing);
+            setFollowersCount(prev => (previousFollowing ? prev + 1 : Math.max(0, prev - 1)));
+            Alert.alert('Error', 'Failed to update follow status.');
+        } finally {
+            setFollowLoading(false);
         }
     };
 
@@ -312,7 +360,7 @@ export default function ClubProfileScreen({ route, navigation }) {
             >
                 <View style={styles.headerContainer}>
                     <Image
-                        source={{ uri: club?.bannerUrl || 'https://via.placeholder.com/800x400' }}
+                        source={{ uri: club?.bannerUrl || PLACEHOLDER_BANNER_URL }}
                         style={styles.bannerImage}
                     />
                     <LinearGradient
@@ -321,44 +369,36 @@ export default function ClubProfileScreen({ route, navigation }) {
                     />
                     <View style={styles.profileMeta}>
                         <Image
-                            source={{
-                                uri:
-                                    club?.photoURL ||
-                                    `https://ui-avatars.com/api/?name=${club?.displayName}&background=random`,
-                            }}
+                            source={{ uri: getClubAvatarUrl(club) }}
                             style={[styles.avatar, { borderColor: theme.colors.background }]}
                         />
                         <Text style={[styles.name, { color: theme.colors.text }]}>
                             {club?.displayName}
                         </Text>
                         <Text style={[styles.role, { color: theme.colors.textSecondary }]}>
-                            {club?.headline ||
-                                (club?.role === 'club'
-                                    ? 'Official Student Chapter'
-                                    : 'Event Organizer')}
+                            {getClubHeadline(club)}
                         </Text>
                         {renderStatsRow()}
                         <TouchableOpacity
-                            style={[
-                                styles.followBtn,
-                                {
-                                    backgroundColor: isFollowing
-                                        ? theme.colors.surface
-                                        : theme.colors.primary,
-                                    borderColor: theme.colors.primary,
-                                    borderWidth: 1,
-                                },
-                            ]}
+                            style={[styles.followBtn, followButtonStyles.button]}
                             onPress={toggleFollow}
+                            disabled={followLoading}
                         >
-                            <Text
-                                style={[
-                                    styles.followText,
-                                    { color: isFollowing ? theme.colors.primary : '#fff' },
-                                ]}
-                            >
-                                {isFollowing ? 'Following' : 'Follow'}
-                            </Text>
+                            {followLoading ? (
+                                <ActivityIndicator
+                                    size="small"
+                                    color={followButtonStyles.contentColor}
+                                />
+                            ) : (
+                                <Text
+                                    style={[
+                                        styles.followText,
+                                        { color: followButtonStyles.contentColor },
+                                    ]}
+                                >
+                                    {isFollowing ? 'Following' : 'Follow'}
+                                </Text>
+                            )}
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -368,43 +408,17 @@ export default function ClubProfileScreen({ route, navigation }) {
                 <View style={[styles.tabContainer, { borderBottomColor: theme.colors.border }]}>
                     <TouchableOpacity
                         onPress={() => setActiveTab('events')}
-                        style={[
-                            styles.tab,
-                            activeTab === 'events' && {
-                                borderBottomWidth: 2,
-                                borderBottomColor: theme.colors.primary,
-                            },
-                        ]}
+                        style={[styles.tab, getTabStyle('events', activeTab, theme)]}
                     >
-                        <Text
-                            style={[
-                                styles.tabText,
-                                activeTab === 'events'
-                                    ? { color: theme.colors.primary }
-                                    : { color: theme.colors.textSecondary },
-                            ]}
-                        >
+                        <Text style={[styles.tabText, getTabTextStyle('events', activeTab, theme)]}>
                             Events
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         onPress={() => setActiveTab('about')}
-                        style={[
-                            styles.tab,
-                            activeTab === 'about' && {
-                                borderBottomWidth: 2,
-                                borderBottomColor: theme.colors.primary,
-                            },
-                        ]}
+                        style={[styles.tab, getTabStyle('about', activeTab, theme)]}
                     >
-                        <Text
-                            style={[
-                                styles.tabText,
-                                activeTab === 'about'
-                                    ? { color: theme.colors.primary }
-                                    : { color: theme.colors.textSecondary },
-                            ]}
-                        >
+                        <Text style={[styles.tabText, getTabTextStyle('about', activeTab, theme)]}>
                             About
                         </Text>
                     </TouchableOpacity>
