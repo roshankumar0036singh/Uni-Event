@@ -62,25 +62,43 @@ async function generatePdfBuffer(
 
 export async function awardDedicatedStudentCertificate(userId: string) {
     const db = admin.firestore();
-    //fetch user
-    const userSnap = await db.collection("users").doc(userId).get();
-    if (!userSnap.exists) throw new Error(`User ${userId} not found`);
+    const userRef = db.collection("users").doc(userId);
+    const now = Timestamp.fromDate(new Date());
 
-    const user = userSnap.data()!;
-    const userName: string = user.name || user.displayName || "Student";
-    const userEmail: string | undefined = user.email;
+    let userName = "Student";
+    let userEmail: string | undefined;
+
+    //don't re-issue if already awarded
+    const claimed = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        if (!snap.exists) throw new Error(`User ${userId} not found`);
+
+        const data = snap.data() || {};
+        userName = data.name || data.displayName || "Student";
+        userEmail = data.email;
+
+        const already = (data.certificates || []).some(
+            (c: { type: string }) => c.type === "dedicated_student"
+        );
+        if (already) return false;
+
+        tx.update(userRef, {
+            certificates: FieldValue.arrayUnion({
+                type: "dedicated_student",
+                status: "pending_delivery",
+                claimedAt: now.toDate().toISOString(),
+            }),
+        });
+        return true;
+    });
+
+    if (!claimed) {
+        console.log(`User ${userId} already has dedicated_student certificate`);
+        return;
+    }
 
     if (!userEmail) {
         console.warn(`User ${userId} has no email — skipping certificate email`);
-    }
-
-    //don't re-issue if already awarded
-    const alreadyAwarded = (user.certificates || []).some(
-        (c: { type: string }) => c.type === "dedicated_student"
-    );
-    if (alreadyAwarded) {
-        console.log(`User ${userId} already has dedicated_student certificate`);
-        return;
     }
 
     // load template
@@ -118,10 +136,17 @@ export async function awardDedicatedStudentCertificate(userId: string) {
     }
 
     //add certificate on user doc 
-    const now = Timestamp.fromDate(new Date());
-    await db.collection("users").doc(userId).update({
+    await userRef.update({
+        certificates: FieldValue.arrayRemove({
+            type: "dedicated_student",
+            status: "pending_delivery",
+            claimedAt: now.toDate().toISOString(),
+        }),
+    });
+    await userRef.update({
         certificates: FieldValue.arrayUnion({
             type: "dedicated_student",
+            status: "delivered",
             awardedAt: now.toDate().toISOString(),
             certificateUrl: signedUrl,
         }),

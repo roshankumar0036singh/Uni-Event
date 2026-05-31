@@ -3,12 +3,18 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { awardDedicatedStudentCertificate } from "./dedicatedStudentCertificate";
 import { Timestamp } from "@google-cloud/firestore";
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+function getISOWeekKey(date: Date): string {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const year = d.getUTCFullYear();
+    const week = Math.ceil(((d.getTime() - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7);
+    return `${year}-W${week}`;
+}
 
 export const attendanceStreak = onDocumentCreated(
     "events/{eventId}/checkIns/{userId}",
     async (event) => {
-        const userId = event.data?.data()?.userId;
+        const userId = event.params.userId ?? event.data?.data()?.userId;
 
         if (!userId) {
             console.error("No userId in checkIn document");
@@ -37,16 +43,16 @@ export const attendanceStreak = onDocumentCreated(
             let newStreak = 1;
 
             if (lastAttendanceAt) {
-                const diffMs = now.toMillis() - lastAttendanceAt.toMillis();
+                const currentWeek = getISOWeekKey(now.toDate());
+                const lastWeek = getISOWeekKey(lastAttendanceAt.toDate());
+                const prevWeek = getISOWeekKey(
+                    new Date(now.toDate().getTime() - 7 * 24 * 60 * 60 * 1000)
+                );
 
-                console.log("diffMs:", diffMs);
-
-                if (diffMs < WEEK_MS) {
-                    //already attended within current 7-day window
-                    return;
-                } else if (diffMs < WEEK_MS * 2) {
-                    //attended during the next consecutive week
-                    newStreak = currentStreak + 1;
+                if (currentWeek === lastWeek) {
+                    return;      //already attended this calendar week
+                } else if (lastWeek === prevWeek) {
+                    newStreak = currentStreak + 1;    //consecutive week
                 }
             }
 
@@ -65,12 +71,15 @@ export const attendanceStreak = onDocumentCreated(
         });
 
         //dedicated student certificate award
-        const db2 = admin.firestore();
-        const updatedSnap = await db2.collection("users").doc(userId).get();
+        const updatedSnap = await db.collection("users").doc(userId).get();
         const updatedStreak: number = updatedSnap.data()?.currentStreak || 0;
 
         if (updatedStreak >= 4) {
-            await awardDedicatedStudentCertificate(userId);
+            try {
+                await awardDedicatedStudentCertificate(userId);
+            } catch (err) {
+                console.error("Failed to award certificate:", err);
+            }
         }
     }
 );

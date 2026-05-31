@@ -20,12 +20,19 @@ export default function MyStreakScreen() {
         }
 
         const userRef = doc(db, 'users', user.uid);
-        const unsubscribe = onSnapshot(userRef, snapshot => {
-            if (snapshot.exists()) {
-                setUserData(snapshot.data());
-            }
-            setLoading(false);
-        });
+        const unsubscribe = onSnapshot(
+            userRef,
+            snapshot => {
+                if (snapshot.exists()) {
+                    setUserData(snapshot.data());
+                }
+                setLoading(false);
+            },
+            error => {
+                console.error('Error fetching streak data:', error);
+                setLoading(false);
+            },
+        );
 
         return () => unsubscribe();
     }, [user]);
@@ -186,7 +193,7 @@ export default function MyStreakScreen() {
                     </Text>
                     {certificates.map((cert, i) => (
                         <View
-                            key={`${cert.type}-${cert.awardedAt}`}
+                            key={`${cert.type}-${cert.awardedAt}-${i}`}
                             style={[
                                 styles.certRow,
                                 i < certificates.length - 1 && styles.certDivider,
