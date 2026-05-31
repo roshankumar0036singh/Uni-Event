@@ -2,8 +2,11 @@ import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 
 // In-memory listener registry to dedupe reads and subscriptions per event
 const registry = new Map(); // eventId -> { subscribers: Set(fn), unsubscribe: fn|null, data: any, lastFetched: number, fetchPromise: Promise<any>|null }
-
-const TTL_MS = 60 * 1000; // 1 minute cache for one-off fetches
+const cacheStats = {
+    hits: 0,
+    misses: 0,
+};
+const TTL_MS = 5 * 60 * 1000; // 5 minute cache for one-off participant fetches
 
 export async function fetchParticipantsOnce(db, eventId) {
     const key = String(eventId);
@@ -11,12 +14,15 @@ export async function fetchParticipantsOnce(db, eventId) {
     const now = Date.now();
 
     if (entry?.data && entry?.lastFetched && now - entry.lastFetched < TTL_MS) {
+        cacheStats.hits += 1;
         return entry.data;
     }
-
     if (entry?.fetchPromise) {
+        cacheStats.hits += 1;
         return entry.fetchPromise;
     }
+
+    cacheStats.misses += 1;
 
     if (!entry) {
         entry = {
@@ -128,6 +134,15 @@ export function clearParticipantCache(eventId) {
         registry.clear();
     }
 }
+export function getParticipantCacheStats() {
+    const total = cacheStats.hits + cacheStats.misses;
+
+    return {
+        hits: cacheStats.hits,
+        misses: cacheStats.misses,
+        hitRate: total === 0 ? 0 : Number(((cacheStats.hits / total) * 100).toFixed(2)),
+    };
+}
 
 export const safeToggleEventAction = async () => {
     throw new Error(
@@ -139,5 +154,6 @@ export default {
     fetchParticipantsOnce,
     subscribeParticipants,
     clearParticipantCache,
+    getParticipantCacheStats,
     safeToggleEventAction,
 };

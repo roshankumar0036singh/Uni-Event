@@ -37,3 +37,6 @@ cloud-functions/emulator-data/
 
 # Scratch / local dev tooling (not part of the contribution)
 scratch/
+
+# Local dev/test scripts (not for production)
+cloud-functions/src/scripts/

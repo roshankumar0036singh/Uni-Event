@@ -221,7 +221,6 @@ export default function UserFeed() {
 
     const updateHistory = useCallback(query => {
         if (!query) return;
-        // Update in-memory only; no AsyncStorage side‑effect
         setSearchHistory(prev => {
             const filtered = prev.filter(q => q !== query);
             return [query, ...filtered].slice(0, 5);

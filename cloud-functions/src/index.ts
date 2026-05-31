@@ -19,6 +19,7 @@ export * from './branchReport';
 export * from './postEventFeedback';
 export * from './sendBulkEmails';
 export * from './auditLog';
+export * from './attendanceStreak';
 export * from './permanentCleanup';
 
 export const cleanupRateLimits = functions.pubsub

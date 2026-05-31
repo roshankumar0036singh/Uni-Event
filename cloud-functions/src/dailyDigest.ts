@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import Expo from 'expo-server-sdk';
+import { FieldPath } from 'firebase-admin/firestore';
 import { sendPushNotifications } from './utils/push';
 
 const PAGE_SIZE = 500;

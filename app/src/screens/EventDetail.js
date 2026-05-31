@@ -307,9 +307,6 @@ export default function EventDetail({ route, navigation }) {
             if (isBookmarked) {
                 logger.debug('Removing bookmark...');
                 await deleteDoc(bookmarkRef);
-                await updateDoc(doc(db, 'events', eventId), {
-                    savedCount: increment(-1),
-                });
                 setIsBookmarked(false);
                 Alert.alert('Removed', 'Event removed from saved events.');
             } else {
@@ -317,9 +314,6 @@ export default function EventDetail({ route, navigation }) {
                 await setDoc(bookmarkRef, {
                     eventId: eventId,
                     savedAt: new Date().toISOString(),
-                });
-                await updateDoc(doc(db, 'events', eventId), {
-                    savedCount: increment(1),
                 });
                 setIsBookmarked(true);
                 Alert.alert('Saved', 'Event saved for later!');
@@ -536,6 +530,8 @@ export default function EventDetail({ route, navigation }) {
                     transaction.update(eventRef, eventUpdates);
                 }
             });
+
+            participantService.clearParticipantCache(eventId);
 
             // Post-transaction effects
             if (rsvpStatus === 'going') {
@@ -1996,270 +1992,6 @@ export default function EventDetail({ route, navigation }) {
                             </>
                         )}
                     </View>
-
-                    {/* Event Popularity Analytics Card (GSSoC Feature) */}
-                    {(() => {
-                        const registrationsVal = participantCount || 0;
-                        const viewsVal = event.views || 0;
-                        const savesVal = event.savedCount || 0;
-                        const scoreVal = Math.min(
-                            Math.round(registrationsVal * 1.5 + savesVal * 1 + viewsVal * 0.2),
-                            100,
-                        );
-                        const isTrendingVal = scoreVal >= 75;
-                        const remainingSeatsVal = event.capacity
-                            ? Math.max(0, event.capacity - registrationsVal)
-                            : null;
-
-                        return (
-                            <View
-                                style={{
-                                    backgroundColor: theme.colors.surface,
-                                    borderRadius: 16,
-                                    padding: 18,
-                                    marginTop: 20,
-                                    borderWidth: 1,
-                                    borderColor: theme.colors.border,
-                                    ...theme.shadows.small,
-                                }}
-                            >
-                                <View
-                                    style={{
-                                        flexDirection: 'row',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        marginBottom: 12,
-                                    }}
-                                >
-                                    <Text
-                                        style={{
-                                            fontSize: 16,
-                                            fontWeight: '800',
-                                            color: theme.colors.text,
-                                        }}
-                                    >
-                                        📊 Popularity Analytics
-                                    </Text>
-                                    {isTrendingVal && (
-                                        <View
-                                            style={{
-                                                backgroundColor: '#FF4D4D20',
-                                                paddingVertical: 4,
-                                                paddingHorizontal: 10,
-                                                borderRadius: 20,
-                                                borderWidth: 1,
-                                                borderColor: '#FF4D4D',
-                                            }}
-                                        >
-                                            <Text
-                                                style={{
-                                                    color: '#FF4D4D',
-                                                    fontWeight: '800',
-                                                    fontSize: 10,
-                                                }}
-                                            >
-                                                🔥 TRENDING
-                                            </Text>
-                                        </View>
-                                    )}
-                                </View>
-
-                                <View
-                                    style={{
-                                        flexDirection: 'row',
-                                        flexWrap: 'wrap',
-                                        gap: 8,
-                                        marginBottom: 14,
-                                    }}
-                                >
-                                    <View
-                                        style={{
-                                            flex: 1,
-                                            minWidth: 70,
-                                            backgroundColor: theme.colors.background,
-                                            padding: 10,
-                                            borderRadius: 8,
-                                            borderWidth: 1,
-                                            borderColor: theme.colors.border,
-                                            alignItems: 'center',
-                                        }}
-                                    >
-                                        <Text
-                                            style={{
-                                                fontSize: 8,
-                                                color: theme.colors.textSecondary,
-                                                fontWeight: '700',
-                                                textTransform: 'uppercase',
-                                            }}
-                                        >
-                                            Joined
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                fontSize: 16,
-                                                fontWeight: '900',
-                                                color: theme.colors.text,
-                                                marginTop: 4,
-                                            }}
-                                        >
-                                            {registrationsVal}
-                                        </Text>
-                                    </View>
-                                    {remainingSeatsVal !== null && (
-                                        <View
-                                            style={{
-                                                flex: 1,
-                                                minWidth: 70,
-                                                backgroundColor: theme.colors.background,
-                                                padding: 10,
-                                                borderRadius: 8,
-                                                borderWidth: 1,
-                                                borderColor: theme.colors.border,
-                                                alignItems: 'center',
-                                            }}
-                                        >
-                                            <Text
-                                                style={{
-                                                    fontSize: 8,
-                                                    color: theme.colors.textSecondary,
-                                                    fontWeight: '700',
-                                                    textTransform: 'uppercase',
-                                                }}
-                                            >
-                                                Left
-                                            </Text>
-                                            <Text
-                                                style={{
-                                                    fontSize: 16,
-                                                    fontWeight: '900',
-                                                    color:
-                                                        remainingSeatsVal === 0
-                                                            ? theme.colors.error
-                                                            : theme.colors.success,
-                                                    marginTop: 4,
-                                                }}
-                                            >
-                                                {remainingSeatsVal === 0
-                                                    ? 'Full'
-                                                    : remainingSeatsVal}
-                                            </Text>
-                                        </View>
-                                    )}
-                                    <View
-                                        style={{
-                                            flex: 1,
-                                            minWidth: 70,
-                                            backgroundColor: theme.colors.background,
-                                            padding: 10,
-                                            borderRadius: 8,
-                                            borderWidth: 1,
-                                            borderColor: theme.colors.border,
-                                            alignItems: 'center',
-                                        }}
-                                    >
-                                        <Text
-                                            style={{
-                                                fontSize: 8,
-                                                color: theme.colors.textSecondary,
-                                                fontWeight: '700',
-                                                textTransform: 'uppercase',
-                                            }}
-                                        >
-                                            Views
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                fontSize: 16,
-                                                fontWeight: '900',
-                                                color: theme.colors.text,
-                                                marginTop: 4,
-                                            }}
-                                        >
-                                            {viewsVal}
-                                        </Text>
-                                    </View>
-                                    <View
-                                        style={{
-                                            flex: 1,
-                                            minWidth: 70,
-                                            backgroundColor: theme.colors.background,
-                                            padding: 10,
-                                            borderRadius: 8,
-                                            borderWidth: 1,
-                                            borderColor: theme.colors.border,
-                                            alignItems: 'center',
-                                        }}
-                                    >
-                                        <Text
-                                            style={{
-                                                fontSize: 8,
-                                                color: theme.colors.textSecondary,
-                                                fontWeight: '700',
-                                                textTransform: 'uppercase',
-                                            }}
-                                        >
-                                            Saves
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                fontSize: 16,
-                                                fontWeight: '900',
-                                                color: theme.colors.text,
-                                                marginTop: 4,
-                                            }}
-                                        >
-                                            {savesVal}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                <View
-                                    style={{
-                                        flexDirection: 'row',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        marginBottom: 6,
-                                    }}
-                                >
-                                    <Text
-                                        style={{
-                                            fontSize: 12,
-                                            color: theme.colors.textSecondary,
-                                            fontWeight: '600',
-                                        }}
-                                    >
-                                        Popularity Score:
-                                    </Text>
-                                    <Text
-                                        style={{
-                                            fontSize: 14,
-                                            fontWeight: '800',
-                                            color: theme.colors.primary,
-                                        }}
-                                    >
-                                        {scoreVal} / 100
-                                    </Text>
-                                </View>
-                                <View
-                                    style={{
-                                        height: 8,
-                                        backgroundColor: theme.colors.border,
-                                        borderRadius: 4,
-                                        overflow: 'hidden',
-                                    }}
-                                >
-                                    <View
-                                        style={{
-                                            width: `${scoreVal}%`,
-                                            height: '100%',
-                                            backgroundColor:
-                                                scoreVal >= 75 ? '#FF4D4D' : theme.colors.primary,
-                                        }}
-                                    />
-                                </View>
-                            </View>
-                        );
-                    })()}
 
                     {/* Tabs Navigation — Interactive */}
                     <View

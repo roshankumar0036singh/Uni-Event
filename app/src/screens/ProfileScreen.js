@@ -1,4 +1,4 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { updateProfile } from 'firebase/auth';
 import { addDoc, collection, doc, getCountFromServer, getDoc, updateDoc } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -66,7 +66,11 @@ const MenuItem = ({
                     },
                 ]}
             >
-                <Ionicons name={icon} size={20} color={theme.colors.primary} />
+                {icon === 'lightning-bolt-outline' ? (
+                    <MaterialCommunityIcons name={icon} size={20} color={theme.colors.primary} />
+                ) : (
+                    <Ionicons name={icon} size={20} color={theme.colors.primary} />
+                )}
             </View>
             <View style={styles.bentoContent}>
                 <Text style={styles.bentoLabel}>{label}</Text>
@@ -966,6 +970,17 @@ export default function ProfileScreen({ navigation }) {
                                     description="Rewards and transactions"
                                     width="48%"
                                     onPress={() => navigation.navigate('Wallet')}
+                                    theme={theme}
+                                    styles={styles}
+                                />
+                            </View>
+                            <View style={styles.bentoRow}>
+                                <MenuItem
+                                    icon="lightning-bolt-outline"
+                                    label="Streak"
+                                    description="Your consistency in events"
+                                    width="100%"
+                                    onPress={() => navigation.navigate('Streak')}
                                     theme={theme}
                                     styles={styles}
                                 />

@@ -5,7 +5,9 @@ import * as path from 'path';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResendClient() {
+    return new Resend(process.env.RESEND_API_KEY || 're_test_placeholder');
+}
 
 type Participant = {
     id: string;
@@ -166,7 +168,7 @@ async function sendCertificateEmail(
         mailOptions.attachments = [{ filename: safeFilename, content: attachmentOrUrl }];
     }
 
-    return resend.emails.send(mailOptions);
+    return getResendClient().emails.send(mailOptions);
 }
 
 function getEventStartDate(event: any) {

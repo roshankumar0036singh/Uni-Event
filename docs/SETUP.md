@@ -321,6 +321,7 @@ This is a known Firebase SDK behavior. The warning is suppressed in the code but
 
 ## Additional Resources
 
+- [Android Build and Release Guide](./ANDROID_BUILD_SETUP.md)
 - [Firebase Documentation](https://firebase.google.com/docs)
 - [Expo Documentation](https://docs.expo.dev/)
 - [React Native Documentation](https://reactnative.dev/docs/getting-started)
