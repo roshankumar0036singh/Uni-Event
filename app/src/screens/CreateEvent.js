@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { addDoc, collection, updateDoc, doc } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { getDownloadURL, ref, uploadBytes, uploadBytesResumable } from 'firebase/storage';
 import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -89,6 +89,7 @@ export default function CreateEvent({ navigation, route }) {
     const [imageUri, setImageUri] = useState(null);
     const [capacity, setCapacity] = useState('');
     const [capacityWarning, setCapacityWarning] = useState(null);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     // Custom Form
     const [useCustomForm, setUseCustomForm] = useState(false);
@@ -135,18 +136,58 @@ export default function CreateEvent({ navigation, route }) {
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [16, 9],
-            quality: 0.8,
+            quality: 0.7,
         });
-        if (!result.canceled) setImageUri(result.assets[0].uri);
+        if (!result.canceled) {
+            const uri = result.assets[0].uri;
+            try {
+                const response = await fetch(uri);
+                const blob = await response.blob();
+                if (blob.size > 5 * 1024 * 1024) {
+                    Alert.alert('Image Too Large', 'Please select an image smaller than 5MB.');
+                    return;
+                }
+                setImageUri(uri);
+            } catch (error) {
+                console.error('Error reading image size:', error);
+                setImageUri(uri);
+            }
+        }
     };
 
     const uploadImage = async uri => {
         const response = await fetch(uri);
         const blob = await response.blob();
+        if (blob.size > 5 * 1024 * 1024) {
+            throw new Error('Image size exceeds 5MB limit.');
+        }
         const filename = `events/${Date.now()}_${Math.random().toString(36).substring(7)}`;
         const refLink = ref(storage, filename);
-        await uploadBytes(refLink, blob);
-        return await getDownloadURL(refLink);
+        const uploadTask = uploadBytesResumable(refLink, blob);
+
+        return new Promise((resolve, reject) => {
+            uploadTask.on(
+                'state_changed',
+                snapshot => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    setUploadProgress(progress);
+                },
+                error => {
+                    setUploadProgress(0);
+                    reject(error);
+                },
+                async () => {
+                    try {
+                        const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                        setUploadProgress(0);
+                        resolve(downloadUrl);
+                    } catch (err) {
+                        setUploadProgress(0);
+                        reject(err);
+                    }
+                }
+            );
+        });
     };
 
     const toggleBranch = b => {
@@ -261,7 +302,9 @@ export default function CreateEvent({ navigation, route }) {
                     bannerUrl = await uploadImage(imageUri);
                 } catch (error) {
                     console.error('Image upload failed:', error);
-                    bannerUrl = DEFAULT_BANNERS[0];
+                    Alert.alert('Upload Failed', error.message || 'Failed to upload event cover photo.');
+                    setLoading(false);
+                    return;
                 }
             } else if (!bannerUrl) {
                 bannerUrl = DEFAULT_BANNERS[Math.floor(Math.random() * DEFAULT_BANNERS.length)];
@@ -445,7 +488,7 @@ export default function CreateEvent({ navigation, route }) {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Banner Picker - Immersive Style */}
-                <TouchableOpacity style={styles.bannerPicker} onPress={pickImage}>
+                <TouchableOpacity style={styles.bannerPicker} onPress={pickImage} disabled={loading}>
                     {imageUri ? (
                         <Image source={{ uri: imageUri }} style={styles.bannerImage} />
                     ) : (
@@ -458,9 +501,22 @@ export default function CreateEvent({ navigation, route }) {
                             <Text style={styles.placeholderText}>Add Cover Image</Text>
                         </View>
                     )}
-                    <View style={styles.editIcon}>
-                        <Ionicons name="pencil" size={16} color="#fff" />
-                    </View>
+                    {uploadProgress > 0 && uploadProgress < 100 && (
+                        <View style={styles.uploadOverlay}>
+                            <ActivityIndicator size="large" color="#fff" />
+                            <Text style={styles.uploadProgressText}>
+                                Uploading Cover Photo: {Math.round(uploadProgress)}%
+                            </Text>
+                            <View style={styles.progressBarBg}>
+                                <View style={[styles.progressBarFill, { width: `${uploadProgress}%` }]} />
+                            </View>
+                        </View>
+                    )}
+                    {!loading && (
+                        <View style={styles.editIcon}>
+                            <Ionicons name="pencil" size={16} color="#fff" />
+                        </View>
+                    )}
                 </TouchableOpacity>
 
                 {/* Section 1: Basic Info */}
@@ -984,6 +1040,32 @@ const getStyles = theme =>
             backgroundColor: 'rgba(0,0,0,0.5)',
             padding: 8,
             borderRadius: 20,
+        },
+        uploadOverlay: {
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+        },
+        uploadProgressText: {
+            color: '#fff',
+            fontWeight: 'bold',
+            marginTop: 10,
+            marginBottom: 10,
+            fontSize: 14,
+        },
+        progressBarBg: {
+            width: '80%',
+            height: 6,
+            backgroundColor: 'rgba(255,255,255,0.3)',
+            borderRadius: 3,
+            overflow: 'hidden',
+        },
+        progressBarFill: {
+            height: '100%',
+            backgroundColor: '#fff',
+            borderRadius: 3,
         },
 
         section: { marginBottom: 30 },
