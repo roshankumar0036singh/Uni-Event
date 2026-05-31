@@ -40,7 +40,6 @@ const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
 const admin = __importStar(require("firebase-admin"));
-const rateLimiter_1 = require("./utils/rateLimiter");
 // Load environment variables
 dotenv_1.default.config();
 // Initialize Firebase Admin (ensure service account is available or uses default credentials)
@@ -73,7 +72,7 @@ app.use((0, cors_1.default)({ origin: true }));
 app.use(express_1.default.json());
 // Auth Middleware to mimic Firebase Callable Context
 const validateFirebaseIdToken = async (req, res, next) => {
-    if (!req.headers.authorization?.startsWith('Bearer ')) {
+    if ((!req.headers.authorization || !req.headers.authorization.startsWith('Bearer '))) {
         res.status(403).send('Unauthorized');
         return;
     }
@@ -349,7 +348,7 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, a
                 batch.set(notifRef, {
                     title: 'Daily Digest 📅',
                     body: `There are ${count} events happening today!`,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    createdAt: firestore_1.FieldValue.serverTimestamp(),
                     read: false
                 });
                 if (pushToken && Expo.isExpoPushToken(pushToken)) {

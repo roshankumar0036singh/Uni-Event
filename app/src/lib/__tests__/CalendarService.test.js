@@ -1,6 +1,6 @@
 import { createMeetEvent, addToCalendar } from '../CalendarService';
 
-global.fetch = jest.fn();
+globalThis.fetch = jest.fn();
 
 describe('CalendarService', () => {
     let startAt;

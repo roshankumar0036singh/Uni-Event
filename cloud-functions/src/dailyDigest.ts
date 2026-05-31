@@ -1,5 +1,5 @@
-import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
 import Expo from 'expo-server-sdk';
 import { sendPushNotifications } from './utils/push';
 
@@ -22,7 +22,7 @@ function processUserPage(
         title: 'Daily Digest 📅',
         body: `There are ${count} events happening today!`,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        read: false,
+        read: false
     });
 
     const pushToken = userData.pushToken;
@@ -45,7 +45,7 @@ async function processUsersInBatches(db: admin.firestore.Firestore, count: numbe
     while (true) {
         let query: admin.firestore.Query = db
             .collection('users')
-            .orderBy(admin.firestore.FieldPath.documentId())
+            .orderBy(FieldPath.documentId())
             .limit(PAGE_SIZE);
 
         if (lastDoc) {

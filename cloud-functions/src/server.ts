@@ -2,6 +2,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { checkAndUpdateRateLimit } from './utils/rateLimiter';
 
 // Load environment variables
@@ -391,14 +392,14 @@ app.post(
                     const userData = userDoc.data();
                     const pushToken = userData.pushToken;
 
-                    // In-App
-                    const notifRef = userDoc.ref.collection('notifications').doc();
-                    batch.set(notifRef, {
-                        title: 'Daily Digest 📅',
-                        body: `There are ${count} events happening today!`,
-                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                        read: false,
-                    });
+        // In-App
+        const notifRef = userDoc.ref.collection('notifications').doc();
+        batch.set(notifRef, {
+          title: 'Daily Digest 📅',
+          body: `There are ${count} events happening today!`,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          read: false
+        });
 
                     if (pushToken && Expo.isExpoPushToken(pushToken)) {
                         messages.push({

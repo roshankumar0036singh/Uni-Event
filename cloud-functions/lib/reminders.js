@@ -36,7 +36,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkReminders = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const push_1 = require("./utils/push");
+/**
+ * Scheduled function to check for reminders.
+ * Runs every minute.
+ */
 const { Expo } = require('expo-server-sdk');
 /**
  * Scheduled function to check for reminders.
@@ -44,7 +47,7 @@ const { Expo } = require('expo-server-sdk');
  */
 exports.checkReminders = functions.pubsub.schedule('every 1 minutes').onRun(async (context) => {
     const db = admin.firestore();
-    const now = admin.firestore.Timestamp.now();
+    const now = firestore_1.Timestamp.now();
     // Find reminders that need to be sent (remindAt <= now) and haven't been sent yet
     const remindersRef = db.collection('reminders');
     const q = remindersRef.where('remindAt', '<=', now).where('sent', '==', false);
@@ -65,7 +68,7 @@ exports.checkReminders = functions.pubsub.schedule('every 1 minutes').onRun(asyn
             title: 'Event Reminder',
             body: `Your event is starting soon!`,
             eventId: data.eventId,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
             read: false
         });
         // 2. Prepare Push Notification

@@ -14,7 +14,7 @@ jest.mock('../firebaseConfig', () => ({
     functions: {},
 }));
 
-global.fetch = jest.fn();
+globalThis.fetch = jest.fn();
 
 const mockUser = {
     name: 'Test User',

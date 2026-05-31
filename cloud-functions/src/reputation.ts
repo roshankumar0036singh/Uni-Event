@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { FieldValue, FieldPath } from 'firebase-admin/firestore';
 
 // Initialize only once (important for tests + Firebase runtime)
 if (!admin.apps.length) {
@@ -64,7 +65,7 @@ export const calculateReputation = functions.https.onCall(async (_data, context)
             'reputation.attendanceCount': attendanceCount,
             'reputation.registrationCount': registrationCount,
             'reputation.remindersSet': remindersSet,
-            'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+            'reputation.updatedAt': FieldValue.serverTimestamp(),
         });
         opCount += 1;
         updatedUsers += 1;
@@ -97,7 +98,7 @@ export const refreshTopContributorsLeaderboard = functions.pubsub
         const usersSnapshot = await db
             .collection('users')
             .orderBy('reputation.points', 'desc')
-            .orderBy(admin.firestore.FieldPath.documentId())
+            .orderBy(FieldPath.documentId())
             .limit(10)
             .get();
 
@@ -121,7 +122,7 @@ export const refreshTopContributorsLeaderboard = functions.pubsub
         await db.collection('leaderboards').doc('topContributors').set({
             type: 'topContributors',
             contributors,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
         });
 
         return null;
@@ -145,7 +146,7 @@ export const getTopContributors = functions.https.onCall(async (data, context) =
     let query: FirebaseFirestore.Query = db
         .collection('users')
         .orderBy('reputation.points', 'desc')
-        .orderBy(admin.firestore.FieldPath.documentId())
+        .orderBy(FieldPath.documentId())
         .limit(limit);
 
     if (typeof lastPoints === 'number' && typeof lastUserId === 'string') {

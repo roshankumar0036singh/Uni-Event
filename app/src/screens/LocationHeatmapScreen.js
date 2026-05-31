@@ -67,8 +67,7 @@ export default function LocationHeatmapScreen() {
                     </Text>
                     <Text style={styles.venueSubtitle}>
                         {item.weight} event{item.weight === 1 ? '' : 's'} ·{' '}
-                        {[...new Set(item.events.map(e => e.category).filter(Boolean))].length}{' '}
-                        categories
+                        {new Set(item.events.map(e => e.category).filter(Boolean)).size} categories
                     </Text>
                     <View style={styles.categoryRow}>
                         {[...new Set(item.events.map(e => e.category).filter(Boolean))]
