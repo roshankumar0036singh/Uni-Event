@@ -31,7 +31,7 @@ async function claimMigration(migrationName: string): Promise<boolean> {
     }
 }
 
-// Remove a migration from tracker (for rollback)
+// Remove a migration from tracker (for rollback or failed retry)
 async function unclaimMigration(migrationName: string): Promise<void> {
     const ref = db.doc(TRACKER_DOC);
     await db.runTransaction(async t => {
@@ -69,9 +69,16 @@ async function runMigrations() {
         }
 
         console.log(`Running: ${file}`);
-        const migration = await import(path.join(__dirname, file));
-        await migration.up(db);
-        console.log(`Finished: ${file} ✓`);
+        try {
+            const migration = await import(path.join(__dirname, file));
+            await migration.up(db);
+            console.log(`Finished: ${file} ✓`);
+        } catch (err) {
+            // If migration fails, unclaim it so it can be retried next time
+            console.error(`Migration ${file} failed — unclaiming for retry.`, err);
+            await unclaimMigration(file);
+            throw err;
+        }
     }
 
     console.log('All migrations done!');
