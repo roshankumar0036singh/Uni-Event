@@ -52,7 +52,7 @@
         "@react-navigation/stack": "^6.0.0",
         "@shopify/flash-list": "1.7.3",
         "@shopify/react-native-skia": "2.6.4",
-        "expo": "~52.0.0",
+        "expo": "~56.0.8",
         "expo-auth-session": "~6.0.3",
         "expo-barcode-scanner": "~12.5.3",
         "expo-blur": "~14.0.3",
