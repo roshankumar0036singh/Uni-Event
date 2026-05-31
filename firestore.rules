@@ -187,6 +187,16 @@ service cloud.firestore {
         ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
       );
     }
+
+    // Collection-group rule for any `participating` subcollection to support
+    // collection-group and aggregation queries while enforcing per-doc access.
+    match /{path=**}/participating/{docId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.userId ||
+        isAdmin() ||
+        ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
+      );
+    }
     
     // =========================================================================
     // EVENTS COLLECTION & SUBCOLLECTIONS

@@ -25,7 +25,7 @@
     "@types/dotenv": "^6.1.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "expo-server-sdk": "^4.0.0",
+    "expo-server-sdk": "^6.1.0",
     "express": "^5.2.1",
     "firebase-admin": "^11.11.1",
     "firebase-functions": "~4.9.0",
@@ -46,13 +46,13 @@
     "babel-jest": "^30.4.1",
     "eslint": "^10.4.0",
     "firebase-functions-test": "^3.1.0",
-    "firebase-tools": "^15.4.0",
+    "firebase-tools": "^15.19.0",
     "globals": "^17.6.0",
     "jest": "^30.4.2",
     "prettier": "^3.0.0",
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "private": true
 }
