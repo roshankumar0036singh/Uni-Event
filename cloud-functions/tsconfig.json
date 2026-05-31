@@ -9,5 +9,6 @@
         "skipLibCheck": true,
         "types": ["node", "jest"]
     },
-    "include": ["src"]
+    "include": ["src"],
+    "exclude": ["src/**/*.test.ts", "src/**/__tests__"]
 }
