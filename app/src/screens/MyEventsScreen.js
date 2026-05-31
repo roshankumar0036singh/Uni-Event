@@ -149,7 +149,7 @@ export default function MyEventsScreen({ navigation }) {
                 </View>
             </View>
         ),
-        [theme, navigation],
+        [theme, navigation, handleDelete],
     );
 
     if (loading)

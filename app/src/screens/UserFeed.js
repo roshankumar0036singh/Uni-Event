@@ -219,17 +219,15 @@ export default function UserFeed() {
         loadHistory();
     }, []);
 
-    const updateHistory = query => {
+    const updateHistory = useCallback(query => {
         if (!query) return;
-        // Update in-memory only; no AsyncStorage side‑effect
         setSearchHistory(prev => {
             const filtered = prev.filter(q => q !== query);
             return [query, ...filtered].slice(0, 5);
         });
-    };
+    }, []);
 
-    // Persist search history to AsyncStorage (called on submit/blur)
-    const persistSearchHistory = async raw => {
+    const persistSearchHistory = useCallback(async raw => {
         const normalized = raw?.trim();
         if (!normalized) return;
         setSearchHistory(prev => {
@@ -240,17 +238,16 @@ export default function UserFeed() {
             );
             return newHist;
         });
-    };
+    }, []);
 
-    // Clear history handler
-    const clearHistory = async () => {
+    const clearHistory = useCallback(async () => {
         try {
             await AsyncStorage.removeItem('searchHistory');
         } catch (e) {
             console.error('Failed to clear search history', e);
         }
         setSearchHistory([]);
-    };
+    }, []);
     useEffect(() => {
         if (!user || !isFocused) return;
         const participatingQuery = collection(db, 'users', user.uid, 'participating');
