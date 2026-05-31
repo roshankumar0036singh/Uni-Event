@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { enforceAppCheck } from './middleware/appCheck';
 
 // Initialize only once (important for tests + Firebase runtime)
 if (!admin.apps.length) {
@@ -618,6 +619,7 @@ export const getTopContributors = functions.https.onCall(async (data, context) =
             'The function must be called while authenticated.',
         );
     }
+    enforceAppCheck(context);
     const limit = Math.min(data?.limit || 10, 25);
     const lastPoints = data?.lastPoints;
     const lastUserId = data?.lastUserId;

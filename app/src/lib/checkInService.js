@@ -408,7 +408,7 @@ const syncOfflineCheckInItem = async (item, eventId, organizerId, eventStartAt) 
     try {
         checkInSnap = await getDoc(checkInRef);
     } catch (err) {
-        console.error('Error fetching check-in status during offline sync:', err);
+        logger.error('Error fetching check-in status during offline sync:', err);
         return;
     }
     

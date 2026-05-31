@@ -32,8 +32,6 @@ export default defineConfig([
                 ignoreTemplateLiterals: true,
             }],
 
-            "require-jsdoc": "off",
-            "valid-jsdoc": "off",
             "prefer-const": "error",
             "no-var": "error",
             "prefer-rest-params": "off",

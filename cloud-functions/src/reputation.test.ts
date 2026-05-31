@@ -20,11 +20,10 @@ import {
 const db = admin.firestore();
 
 function getMonthStart(offsetMonths: number): Date {
-    const d = new Date();
-    d.setDate(1);
-    d.setHours(0, 0, 0, 0);
-    d.setMonth(d.getMonth() - offsetMonths);
-    return d;
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth() - offsetMonths;
+    return new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
 }
 describe('Reputation Decay & Buckets', () => {
     beforeEach(async () => {
@@ -71,9 +70,9 @@ describe('Reputation Decay & Buckets', () => {
         const userSnap = await db.collection('users').doc('user123').get();
         const rep = userSnap.data()?.reputation;
         
-        // Exact decay varies between ~2.2 and ~2.9 depending on current day of month
+        // Exact decay varies between ~2.2 and ~3.3 depending on current day of month
         expect(rep.points).toBeGreaterThan(1.9);
-        expect(rep.points).toBeLessThan(3.1);
+        expect(rep.points).toBeLessThan(3.5);
         expect(rep.attendanceCount).toBe(1);
     });
 

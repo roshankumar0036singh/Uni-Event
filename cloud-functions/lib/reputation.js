@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getTopContributors = exports.refreshTopContributorsLeaderboard = exports.backfillReputationBuckets = exports.onReminderDelete = exports.onReminderCreate = exports.onCheckInDelete = exports.onCheckInCreate = exports.onParticipatingDelete = exports.onParticipatingCreate = exports.refreshReputationDaily = exports.calculateReputation = exports.runReputationRefresh = exports.updateBucket = exports.resolveEventStartAt = exports.getMonthStartFromKey = exports.getMonthKeyFromDate = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
+const appCheck_1 = require("./middleware/appCheck");
 // Initialize only once (important for tests + Firebase runtime)
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -497,6 +498,7 @@ exports.getTopContributors = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
+    (0, appCheck_1.enforceAppCheck)(context);
     const limit = Math.min((data === null || data === void 0 ? void 0 : data.limit) || 10, 25);
     const lastPoints = data === null || data === void 0 ? void 0 : data.lastPoints;
     const lastUserId = data === null || data === void 0 ? void 0 : data.lastUserId;

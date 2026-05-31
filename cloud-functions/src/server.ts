@@ -6,6 +6,8 @@ import { checkAndUpdateRateLimit } from './utils/rateLimiter';
 import { getTodayEventCount } from './dailyDigest';
 import { sendPushNotifications } from './utils/push';
 import { Expo } from 'expo-server-sdk';
+import { sendCertificatesForEvent } from './certificateService';
+import { ipWhitelist } from './middleware/ipWhitelist';
 // Load environment variables
 dotenv.config();
 
@@ -163,8 +165,6 @@ app.post(
 );
 
 // Send Certificates Endpoint
-import { sendCertificatesForEvent } from './certificateService';
-import { ipWhitelist } from './middleware/ipWhitelist';
 
 app.post(
     '/api/sendCertificates',

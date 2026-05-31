@@ -44,6 +44,8 @@ const rateLimiter_1 = require("./utils/rateLimiter");
 const dailyDigest_1 = require("./dailyDigest");
 const push_1 = require("./utils/push");
 const expo_server_sdk_1 = require("expo-server-sdk");
+const certificateService_1 = require("./certificateService");
+const ipWhitelist_1 = require("./middleware/ipWhitelist");
 // Load environment variables
 dotenv_1.default.config();
 // Initialize Firebase Admin (ensure service account is available or uses default credentials)
@@ -55,7 +57,7 @@ if (admin.apps.length === 0) {
         try {
             const serviceAccount = JSON.parse(credentialsJson);
             admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount)
+                credential: admin.credential.cert(serviceAccount),
             });
             console.log('✅ Firebase Admin initialized with service account from env');
         }
@@ -74,7 +76,7 @@ const app = (0, express_1.default)();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use((0, cors_1.default)({ origin: true }));
-app.use("/api", ipWhitelist_1.ipWhitelist);
+app.use('/api', ipWhitelist_1.ipWhitelist);
 app.use(express_1.default.json());
 // Auth Middleware to mimic Firebase Callable Context
 const validateFirebaseIdToken = async (req, res, next) => {
@@ -107,7 +109,7 @@ const rateLimitMiddleware = async (req, res, next) => {
         if (!limitResult.allowed) {
             return res.status(limitResult.statusCode).json({
                 error: 'too-many-requests',
-                message: limitResult.message
+                message: limitResult.message,
             });
         }
         next();
@@ -116,7 +118,7 @@ const rateLimitMiddleware = async (req, res, next) => {
         console.error('Rate limiter middleware error:', error);
         return res.status(503).json({
             error: 'rate-limit-unavailable',
-            message: 'Rate limiting is temporarily unavailable. Please retry shortly.'
+            message: 'Rate limiting is temporarily unavailable. Please retry shortly.',
         });
     }
 };
@@ -125,33 +127,50 @@ app.post('/api/setRole', validateFirebaseIdToken, rateLimitMiddleware, async (re
     const user = req.user;
     // 1. Check Auth (already done by middleware, but check existence)
     if (!user) {
-        return res.status(401).json({ error: 'unauthenticated', message: 'The function must be called while authenticated.' });
+        return res
+            .status(401)
+            .json({
+            error: 'unauthenticated',
+            message: 'The function must be called while authenticated.',
+        });
     }
     // 2. Check Admin
-    // Note: We use the token claims. 
+    // Note: We use the token claims.
     // IMPORTANT: For the very first admin, manual entry in DB or claims is needed.
     if (!user.admin) {
-        return res.status(403).json({ error: 'permission-denied', message: 'Only admins can set roles.' });
+        return res
+            .status(403)
+            .json({ error: 'permission-denied', message: 'Only admins can set roles.' });
     }
     const { uid, role } = req.body;
     // 3. Validation
     if (!uid || !role) {
-        return res.status(400).json({ error: 'invalid-argument', message: "The function must be called with 'uid' and 'role' arguments." });
+        return res
+            .status(400)
+            .json({
+            error: 'invalid-argument',
+            message: "The function must be called with 'uid' and 'role' arguments.",
+        });
     }
-    const validRoles = ["admin", "club", "student"];
+    const validRoles = ['admin', 'club', 'student'];
     if (!validRoles.includes(role)) {
-        return res.status(400).json({ error: 'invalid-argument', message: `Role must be one of: ${validRoles.join(", ")}` });
+        return res
+            .status(400)
+            .json({
+            error: 'invalid-argument',
+            message: `Role must be one of: ${validRoles.join(', ')}`,
+        });
     }
     // 4. Logic
     const claims = {};
-    if (role === "admin")
+    if (role === 'admin')
         claims.admin = true;
-    if (role === "club")
+    if (role === 'club')
         claims.club = true;
     try {
         await admin.auth().setCustomUserClaims(uid, claims);
         // Optional: Update Firestore
-        await admin.firestore().collection("users").doc(uid).set({ role }, { merge: true });
+        await admin.firestore().collection('users').doc(uid).set({ role }, { merge: true });
         return res.json({ result: { success: true } }); // Structure matches Callable response
     }
     catch (error) {
@@ -160,8 +179,6 @@ app.post('/api/setRole', validateFirebaseIdToken, rateLimitMiddleware, async (re
     }
 });
 // Send Certificates Endpoint
-const certificateService_1 = require("./certificateService");
-const ipWhitelist_1 = require("./middleware/ipWhitelist");
 app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, async (req, res) => {
     const user = req.user;
     const { eventId } = req.body;
@@ -169,14 +186,16 @@ app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, 
         return res.status(401).json({ error: 'unauthenticated' });
     }
     if (!eventId) {
-        return res.status(400).json({ error: 'invalid-argument', message: 'eventId is required' });
+        return res
+            .status(400)
+            .json({ error: 'invalid-argument', message: 'eventId is required' });
     }
     try {
         const result = await (0, certificateService_1.sendCertificatesForEvent)(eventId, user.uid);
         return res.json({ result });
     }
     catch (error) {
-        console.error("Certificate Error:", error);
+        console.error('Certificate Error:', error);
         return res.status(500).json({ error: 'internal', message: error.message });
     }
 });
@@ -200,7 +219,10 @@ app.get('/api/certificate', async (req, res) => {
         return;
     }
     try {
-        const participantRef = admin.firestore().collection(`events/${eventId}/participants`).doc(participantId);
+        const participantRef = admin
+            .firestore()
+            .collection(`events/${eventId}/participants`)
+            .doc(participantId);
         const doc = await participantRef.get();
         if (!doc.exists) {
             res.status(404).send('Certificate not found');
@@ -221,12 +243,12 @@ app.get('/api/certificate', async (req, res) => {
         // Generate a short-lived (15 min) signed URL and redirect
         const [url] = await file.getSignedUrl({
             action: 'read',
-            expires: Date.now() + 15 * 60 * 1000
+            expires: Date.now() + 15 * 60 * 1000,
         });
         res.redirect(url);
     }
     catch (error) {
-        console.error("Error serving certificate:", error);
+        console.error('Error serving certificate:', error);
         res.status(500).send('Internal Server Error');
     }
 });
@@ -269,7 +291,7 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, a
                         title: 'Daily Digest 📅',
                         body: `There are ${count} events happening today!`,
                         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                        read: false
+                        read: false,
                     });
                     if (pushToken && expo_server_sdk_1.Expo.isExpoPushToken(pushToken)) {
                         messages.push({
@@ -289,10 +311,14 @@ app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, a
                     break;
             }
         }
-        res.json({ success: true, count, message: `Digest sent for ${count} events to all users.` });
+        res.json({
+            success: true,
+            count,
+            message: `Digest sent for ${count} events to all users.`,
+        });
     }
     catch (error) {
-        console.error("Digest Error", error);
+        console.error('Digest Error', error);
         res.status(500).json({ error: error.message });
     }
 });
