@@ -411,7 +411,7 @@ const syncOfflineCheckInItem = async (item, eventId, organizerId, eventStartAt) 
         logger.error('Error fetching check-in status during offline sync:', err);
         return;
     }
-    
+
     if (!checkInSnap?.exists()) {
         const offlineCheckedInAt = item.queuedAt
             ? Timestamp.fromDate(new Date(item.queuedAt))
