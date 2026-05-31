@@ -72,7 +72,9 @@ if (admin.apps.length === 0) {
 }
 const app = (0, express_1.default)();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 app.use((0, cors_1.default)({ origin: true }));
+app.use("/api", ipWhitelist_1.ipWhitelist);
 app.use(express_1.default.json());
 // Auth Middleware to mimic Firebase Callable Context
 const validateFirebaseIdToken = async (req, res, next) => {
@@ -159,6 +161,7 @@ app.post('/api/setRole', validateFirebaseIdToken, rateLimitMiddleware, async (re
 });
 // Send Certificates Endpoint
 const certificateService_1 = require("./certificateService");
+const ipWhitelist_1 = require("./middleware/ipWhitelist");
 app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, async (req, res) => {
     const user = req.user;
     const { eventId } = req.body;

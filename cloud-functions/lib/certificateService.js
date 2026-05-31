@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendCertificatesForEvent = sendCertificatesForEvent;
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const pdf_lib_1 = require("pdf-lib");
@@ -143,7 +144,7 @@ async function persistCertificateUrl(eventId, participantId, signedUrl) {
         .doc(participantId);
     await participantRef.update({
         certificateUrl: signedUrl,
-        certificateIssuedAt: admin.firestore.FieldValue.serverTimestamp(),
+        certificateIssuedAt: firestore_1.FieldValue.serverTimestamp(),
     });
 }
 /**
@@ -321,7 +322,7 @@ async function sendCertificatesForEvent(eventId, ownerId) {
         results.every(result => result.status === 'success' || result.status === 'skipped')) {
         await admin.firestore().collection('events').doc(eventId).update({
             certificatesSent: true,
-            certificatesSentAt: admin.firestore.FieldValue.serverTimestamp(),
+            certificatesSentAt: firestore_1.FieldValue.serverTimestamp(),
         });
     }
     else {

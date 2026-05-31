@@ -40,8 +40,10 @@ exports.sendDailyDigest = void 0;
 exports.getTodayEventCount = getTodayEventCount;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
+const firestore_1 = require("firebase-admin/firestore");
 const expo_server_sdk_1 = __importDefault(require("expo-server-sdk"));
 const push_1 = require("./utils/push");
+const appCheck_1 = require("./middleware/appCheck");
 const PAGE_SIZE = 500;
 /**
  * Fetches the total number of events occurring today.
@@ -78,7 +80,7 @@ function processUserPage(userDoc, count, batch, pageMessages) {
     batch.set(notifRef, {
         title: 'Daily Digest 📅',
         body: `There are ${count} events happening today!`,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: firestore_1.FieldValue.serverTimestamp(),
         read: false
     });
     const pushToken = userData.pushToken;
@@ -100,6 +102,7 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
+    (0, appCheck_1.enforceAppCheck)(context);
     if (!context.auth.token.admin) {
         throw new functions.https.HttpsError('permission-denied', 'Only admins can trigger daily digest.');
     }
@@ -113,7 +116,7 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
     while (true) {
         let query = db
             .collection('users')
-            .orderBy(admin.firestore.FieldPath.documentId())
+            .orderBy(firestore_1.FieldPath.documentId())
             .limit(PAGE_SIZE);
         if (lastDoc) {
             query = query.startAfter(lastDoc);

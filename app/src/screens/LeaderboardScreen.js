@@ -47,10 +47,21 @@ export default function LeaderboardScreen({ navigation }) {
     const isFocused = useIsFocused();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [currentUserDoc, setCurrentUserDoc] = useState(null);
 
-    // Find my user doc to get current privacy setting
-    const myUserDoc = users.find(u => u.id === user?.uid);
-    const isAnonymous = myUserDoc?.isAnonymous || false;
+    const isAnonymous = currentUserDoc?.isAnonymous || false;
+
+    // Listen to current user's document for accurate anonymity toggle state
+    useEffect(() => {
+        if (!user) return;
+        const userRef = doc(db, 'users', user.uid);
+        const unsubscribe = onSnapshot(userRef, docSnap => {
+            if (docSnap.exists()) {
+                setCurrentUserDoc(docSnap.data());
+            }
+        });
+        return () => unsubscribe();
+    }, [user]);
 
     useEffect(() => {
         if (!isFocused) return;

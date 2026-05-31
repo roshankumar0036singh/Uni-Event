@@ -2,6 +2,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { checkAndUpdateRateLimit } from './utils/rateLimiter';
 import { getTodayEventCount } from './dailyDigest';
 import { sendPushNotifications } from './utils/push';
@@ -35,7 +36,9 @@ if (admin.apps.length === 0) {
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 app.use(cors({ origin: true }));
+app.use("/api", ipWhitelist)
 app.use(express.json());
 
 // Auth Middleware to mimic Firebase Callable Context
@@ -67,7 +70,7 @@ const rateLimitMiddleware = async (req: express.Request, res: express.Response, 
     // Determine if the operation is event creation or regular write
     const isEventCreation = req.path === '/api/createEvent';
     const limitResult = await checkAndUpdateRateLimit(user.uid, isEventCreation);
-    
+
     if (!limitResult.allowed) {
       return res.status(limitResult.statusCode).json({
         error: 'too-many-requests',
@@ -135,6 +138,7 @@ app.post('/api/setRole', validateFirebaseIdToken, rateLimitMiddleware, async (re
 
 // Send Certificates Endpoint
 import { sendCertificatesForEvent } from './certificateService';
+import { ipWhitelist } from './middleware/ipWhitelist';
 
 app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, async (req: express.Request, res: express.Response) => {
   const user = (req as any).user;

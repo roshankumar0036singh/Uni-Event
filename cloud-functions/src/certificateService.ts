@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
@@ -152,7 +153,7 @@ async function persistCertificateUrl(eventId: string, participantId: string, sig
         .doc(participantId);
     await participantRef.update({
         certificateUrl: signedUrl,
-        certificateIssuedAt: admin.firestore.FieldValue.serverTimestamp(),
+        certificateIssuedAt: FieldValue.serverTimestamp(),
     });
 }
 
@@ -408,7 +409,7 @@ export async function sendCertificatesForEvent(eventId: string, ownerId: string)
     ) {
         await admin.firestore().collection('events').doc(eventId).update({
             certificatesSent: true,
-            certificatesSentAt: admin.firestore.FieldValue.serverTimestamp(),
+            certificatesSentAt: FieldValue.serverTimestamp(),
         });
     } else {
         console.log(
