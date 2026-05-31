@@ -40,9 +40,8 @@ if (__DEV__) {
 // ReCaptchaV3Provider only works on web; for mobile production,
 // consider DeviceCheck (iOS) or Play Integrity (Android) providers can be tracked in another issue
 const recaptchaSiteKey = process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY;
-const appCheckProvider = Platform.OS === 'web' && recaptchaSiteKey
-    ? new ReCaptchaV3Provider(recaptchaSiteKey)
-    : null;
+const appCheckProvider =
+    Platform.OS === 'web' && recaptchaSiteKey ? new ReCaptchaV3Provider(recaptchaSiteKey) : null;
 
 if (!appCheckProvider && !__DEV__) {
     console.error('App Check: No provider available for this platform in production');
