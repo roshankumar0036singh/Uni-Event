@@ -41,6 +41,8 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async () => {
+        if (loading) return;
+
         if (attended === null) {
             Alert.alert('Required', 'Please confirm if you attended the event');
             return;
@@ -77,7 +79,18 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
     if (!feedbackRequest) return null;
 
     return (
-        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+        <Modal
+            visible={visible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => {
+                if (loading) {
+                    Alert.alert('Submitting', 'Please wait while your feedback is submitted.');
+                    return;
+                }
+                onClose();
+            }}
+        >
             <View style={styles.overlay}>
                 <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
                     <ScrollView showsVerticalScrollIndicator={false}>
@@ -111,6 +124,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                 <TouchableOpacity
                                     style={[
                                         styles.attendanceButton,
+                                        loading && styles.disabledControl,
                                         {
                                             backgroundColor:
                                                 attended === true
@@ -123,6 +137,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                         },
                                     ]}
                                     onPress={() => setAttended(true)}
+                                    disabled={loading}
                                 >
                                     <Ionicons
                                         name="checkmark-circle"
@@ -147,6 +162,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                 <TouchableOpacity
                                     style={[
                                         styles.attendanceButton,
+                                        loading && styles.disabledControl,
                                         {
                                             backgroundColor:
                                                 attended === false
@@ -159,6 +175,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                         },
                                     ]}
                                     onPress={() => setAttended(false)}
+                                    disabled={loading}
                                 >
                                     <Ionicons
                                         name="close-circle"
@@ -201,6 +218,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                         ratingCount={5}
                                         imageSize={40}
                                         startingValue={eventRating}
+                                        readonly={loading}
                                         onFinishRating={setEventRating}
                                         tintColor={theme.colors.background}
                                         style={styles.rating}
@@ -227,6 +245,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                         ratingCount={5}
                                         imageSize={40}
                                         startingValue={clubRating}
+                                        readonly={loading}
                                         onFinishRating={setClubRating}
                                         tintColor={theme.colors.background}
                                         style={styles.rating}
@@ -256,11 +275,13 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                                 color: theme.colors.text,
                                                 borderColor: theme.colors.border,
                                             },
+                                            loading && styles.disabledControl,
                                         ]}
                                         placeholder="Share your experience..."
                                         placeholderTextColor={theme.colors.textSecondary}
                                         value={feedback}
                                         onChangeText={setFeedback}
+                                        editable={!loading}
                                         multiline
                                         numberOfLines={4}
                                         textAlignVertical="top"
@@ -295,7 +316,10 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                                 disabled={loading || attended === null}
                             >
                                 {loading ? (
-                                    <ActivityIndicator color="#fff" />
+                                    <View style={styles.submitLoadingContent}>
+                                        <ActivityIndicator color="#fff" />
+                                        <Text style={styles.submitButtonText}>Submitting...</Text>
+                                    </View>
                                 ) : (
                                     <Text style={styles.submitButtonText}>Submit Feedback</Text>
                                 )}
@@ -414,6 +438,15 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '700',
+    },
+    submitLoadingContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+    },
+    disabledControl: {
+        opacity: 0.65,
     },
 });
 

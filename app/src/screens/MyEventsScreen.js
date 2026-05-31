@@ -1,6 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-import { collection, deleteDoc, doc, onSnapshot, query, where } from 'firebase/firestore';
+import {
+    collection,
+    doc,
+    onSnapshot,
+    query,
+    serverTimestamp,
+    updateDoc,
+    where,
+} from 'firebase/firestore';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     ActivityIndicator,
@@ -23,28 +31,32 @@ import PropTypes from 'prop-types';
 
 export default function MyEventsScreen({ navigation }) {
     const { user } = useAuth();
+    const userId = user?.uid;
     const { theme } = useTheme();
     const isFocused = useIsFocused();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [refreshNonce, setRefreshNonce] = useState(0);
+    const [deletingEventId, setDeletingEventId] = useState(null);
     const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
         setRefreshing(true);
         setRefreshNonce(n => n + 1);
     });
 
     useEffect(() => {
-        if (!user || !isFocused) return;
+        if (!userId || !isFocused) return;
 
-        const q = query(collection(db, 'events'), where('ownerId', '==', user.uid));
+        const q = query(collection(db, 'events'), where('ownerId', '==', userId));
 
         const unsubscribe = onSnapshot(
             q,
             snapshot => {
                 const list = [];
                 snapshot.forEach(doc => {
-                    list.push({ id: doc.id, ...doc.data() });
+                    const data = doc.data();
+                    if (data.deletedAt != null) return;
+                    list.push({ id: doc.id, ...data });
                 });
                 // Sort client-side by date
                 list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -60,34 +72,47 @@ export default function MyEventsScreen({ navigation }) {
         );
 
         return () => unsubscribe();
-    }, [user, refreshNonce, isFocused]);
+    }, [userId, refreshNonce, isFocused]);
 
-    const handleDelete = async eventId => {
-        if (Platform.OS === 'web') {
-            try {
-                await deleteDoc(doc(db, 'events', eventId));
-            } catch (_e) {
-                console.error('Delete event failed (Web):', _e);
-                alert('Error: Could not delete event');
-            }
-        } else {
-            Alert.alert('Delete Event', 'Are you sure? This cannot be undone.', [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await deleteDoc(doc(db, 'events', eventId));
-                        } catch (_e) {
-                            console.error('Delete event failed (Native):', _e);
-                            Alert.alert('Error', 'Could not delete event');
-                        }
+    const handleDelete = useCallback(
+        async eventId => {
+            if (deletingEventId === eventId) return;
+
+            const confirmMsg =
+                'Are you sure? The event will be soft-deleted and can be restored by an admin within 30 days. Attendees can no longer register.';
+            const deleteEvent = async () => {
+                setDeletingEventId(eventId);
+                try {
+                    await updateDoc(doc(db, 'events', eventId), {
+                        deletedAt: serverTimestamp(),
+                        deletedBy: userId,
+                        status: 'deleted',
+                    });
+                    Alert.alert('Deleted', 'Event deleted successfully.');
+                } catch (_e) {
+                    console.error('Delete event failed:', _e);
+                    Alert.alert('Error', 'Could not delete event');
+                } finally {
+                    setDeletingEventId(null);
+                }
+            };
+
+            if (Platform.OS === 'web') {
+                if (!globalThis.confirm(confirmMsg)) return;
+                await deleteEvent();
+            } else {
+                Alert.alert('Delete Event', confirmMsg, [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: deleteEvent,
                     },
-                },
-            ]);
-        }
-    };
+                ]);
+            }
+        },
+        [deletingEventId, userId],
+    );
 
     // 🚀 Task 3: Wrap component renderer with useCallback to avoid functional rebuilds on updates
     const renderItem = useCallback(
@@ -140,16 +165,26 @@ export default function MyEventsScreen({ navigation }) {
                             style={[
                                 styles.actionBtn,
                                 { backgroundColor: theme.colors.error + '15' },
+                                deletingEventId === item.id && { opacity: 0.6 },
                             ]}
                             onPress={() => handleDelete(item.id)}
+                            disabled={deletingEventId === item.id}
                         >
-                            <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
+                            {deletingEventId === item.id ? (
+                                <ActivityIndicator size="small" color={theme.colors.error} />
+                            ) : (
+                                <Ionicons
+                                    name="trash-outline"
+                                    size={18}
+                                    color={theme.colors.error}
+                                />
+                            )}
                         </TouchableOpacity>
                     </View>
                 </View>
             </View>
         ),
-        [theme, navigation, handleDelete],
+        [deletingEventId, handleDelete, theme, navigation],
     );
 
     if (loading)
