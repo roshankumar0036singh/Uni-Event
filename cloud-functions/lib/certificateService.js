@@ -41,7 +41,11 @@ const path = __importStar(require("path"));
 const pdf_lib_1 = require("pdf-lib");
 const resend_1 = require("resend");
 function getResendClient() {
-    return new resend_1.Resend(process.env.RESEND_API_KEY || 're_test_placeholder');
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+        throw new Error('RESEND_API_KEY is required to send certificate emails.');
+    }
+    return new resend_1.Resend(apiKey);
 }
 function getParticipantId(participant) {
     return participant.id || (participant.email || '').replace(/[^a-z0-9@.]/gi, '_');
@@ -280,15 +284,14 @@ async function sendCertificatesForEvent(eventId, ownerId) {
         return acc;
     }, { success: 0, failed: 0, error: 0, skipped: 0 });
     const allSucceeded = results.length === participants.length && summary.success === participants.length;
-    await admin
-        .firestore()
-        .collection('events')
-        .doc(eventId)
-        .update({
+    const eventUpdate = {
         certificatesSent: allSucceeded,
-        certificatesSentAt: allSucceeded ? firestore_1.FieldValue.serverTimestamp() : null,
         certificatesLastAttemptAt: firestore_1.FieldValue.serverTimestamp(),
         certificateSummary: summary,
-    });
+    };
+    if (allSucceeded) {
+        eventUpdate.certificatesSentAt = firestore_1.FieldValue.serverTimestamp();
+    }
+    await admin.firestore().collection('events').doc(eventId).update(eventUpdate);
     return { total: participants.length, summary, results };
 }

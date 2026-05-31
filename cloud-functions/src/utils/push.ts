@@ -13,7 +13,7 @@ export function isExpoPushToken(token: string) {
  * @param messages Array of ExpoPushMessage objects
  */
 export async function sendPushNotifications(messages: ExpoPushMessage[]) {
-    if (messages.length === 0) return;
+    if (messages.length === 0) return [];
 
     const chunks = expo.chunkPushNotifications(messages);
     const tickets = [];

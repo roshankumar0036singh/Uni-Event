@@ -6,7 +6,12 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { Resend } from 'resend';
 
 function getResendClient() {
-    return new Resend(process.env.RESEND_API_KEY || 're_test_placeholder');
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+        throw new Error('RESEND_API_KEY is required to send certificate emails.');
+    }
+
+    return new Resend(apiKey);
 }
 
 type Participant = {
@@ -362,16 +367,17 @@ export async function sendCertificatesForEvent(eventId: string, ownerId: string)
     const allSucceeded =
         results.length === participants.length && summary.success === participants.length;
 
-    await admin
-        .firestore()
-        .collection('events')
-        .doc(eventId)
-        .update({
-            certificatesSent: allSucceeded,
-            certificatesSentAt: allSucceeded ? FieldValue.serverTimestamp() : null,
-            certificatesLastAttemptAt: FieldValue.serverTimestamp(),
-            certificateSummary: summary,
-        });
+    const eventUpdate: Record<string, unknown> = {
+        certificatesSent: allSucceeded,
+        certificatesLastAttemptAt: FieldValue.serverTimestamp(),
+        certificateSummary: summary,
+    };
+
+    if (allSucceeded) {
+        eventUpdate.certificatesSentAt = FieldValue.serverTimestamp();
+    }
+
+    await admin.firestore().collection('events').doc(eventId).update(eventUpdate);
 
     return { total: participants.length, summary, results };
 }
