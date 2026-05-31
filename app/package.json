@@ -69,7 +69,7 @@
         "expo-print": "~14.0.3",
         "expo-secure-store": "~14.0.1",
         "expo-sharing": "~13.0.1",
-        "expo-status-bar": "~2.0.1",
+        "expo-status-bar": "~56.0.4",
         "expo-web-browser": "~14.0.2",
         "firebase": "^10.0.0",
         "generator-function": "^2.0.1",
