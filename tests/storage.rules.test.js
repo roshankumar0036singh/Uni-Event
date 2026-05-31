@@ -1,5 +1,5 @@
 const { assertFails, assertSucceeds, initializeTestEnvironment } = require('@firebase/rules-unit-testing');
-const fs = require('fs');
+const fs = require('node:fs');
 
 describe('Firebase Storage Security Rules', () => {
     let testEnv;

@@ -35,11 +35,12 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.analyzeAttendance = void 0;
 const admin = __importStar(require("firebase-admin"));
-const firestore_1 = require("firebase-functions/v2/firestore");
+const firestore_1 = require("firebase-admin/firestore");
+const firestore_2 = require("firebase-functions/v2/firestore");
 const distance_1 = require("./utils/distance");
 const fraudScore_1 = require("./utils/fraudScore");
 const db = admin.firestore();
-exports.analyzeAttendance = (0, firestore_1.onDocumentCreated)("events/{eventId}/checkIns/{userId}", async (event) => {
+exports.analyzeAttendance = (0, firestore_2.onDocumentCreated)("events/{eventId}/checkIns/{userId}", async (event) => {
     const snap = event.data;
     if (!snap)
         return;
@@ -63,7 +64,7 @@ exports.analyzeAttendance = (0, firestore_1.onDocumentCreated)("events/{eventId}
             fraudScore: result.fraudScore,
             reasons: result.reasons,
             resolved: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
         }, { merge: true });
     }
 });
@@ -152,4 +153,3 @@ async function checkMultipleEvents(userId, checkedInAt, currentEventId, result) 
         }
     });
 }
-//# sourceMappingURL=analyzeAttendance.js.map

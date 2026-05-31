@@ -1,6 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-import { collection, deleteDoc, doc, onSnapshot, query, where } from 'firebase/firestore';
+import {
+    collection,
+    doc,
+    onSnapshot,
+    query,
+    updateDoc,
+    where,
+    serverTimestamp,
+} from 'firebase/firestore';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     ActivityIndicator,
@@ -44,7 +52,9 @@ export default function MyEventsScreen({ navigation }) {
             snapshot => {
                 const list = [];
                 snapshot.forEach(doc => {
-                    list.push({ id: doc.id, ...doc.data() });
+                    const data = doc.data();
+                    if (data.deletedAt != null) return;
+                    list.push({ id: doc.id, ...data });
                 });
                 // Sort client-side by date
                 list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -63,22 +73,33 @@ export default function MyEventsScreen({ navigation }) {
     }, [user, refreshNonce, isFocused]);
 
     const handleDelete = async eventId => {
+        const confirmMsg =
+            'Are you sure? The event will be soft-deleted and can be restored by an admin within 30 days. Attendees can no longer register.';
         if (Platform.OS === 'web') {
+            if (!globalThis.confirm(confirmMsg)) return;
             try {
-                await deleteDoc(doc(db, 'events', eventId));
+                await updateDoc(doc(db, 'events', eventId), {
+                    deletedAt: serverTimestamp(),
+                    deletedBy: user.uid,
+                    status: 'deleted',
+                });
             } catch (_e) {
                 console.error('Delete event failed (Web):', _e);
                 alert('Error: Could not delete event');
             }
         } else {
-            Alert.alert('Delete Event', 'Are you sure? This cannot be undone.', [
+            Alert.alert('Delete Event', confirmMsg, [
                 { text: 'Cancel', style: 'cancel' },
                 {
                     text: 'Delete',
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            await deleteDoc(doc(db, 'events', eventId));
+                            await updateDoc(doc(db, 'events', eventId), {
+                                deletedAt: serverTimestamp(),
+                                deletedBy: user.uid,
+                                status: 'deleted',
+                            });
                         } catch (_e) {
                             console.error('Delete event failed (Native):', _e);
                             Alert.alert('Error', 'Could not delete event');

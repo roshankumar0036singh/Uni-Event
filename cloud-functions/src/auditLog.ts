@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { FieldValue } from 'firebase-admin/firestore';
 
 /**
  * Determines the action type from before/after existence.
@@ -59,7 +60,7 @@ export const auditLog = functions.firestore
       const userId = getUserId(action, beforeData, afterData);
 
       const logEntry = {
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: FieldValue.serverTimestamp(),
         userId,
         action,
         collection,

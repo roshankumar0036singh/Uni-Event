@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { FieldValue } from 'firebase-admin/firestore';
 
 function getLastActiveDate(lastActive: any): Date {
     if (typeof lastActive.toDate === "function") {
@@ -45,7 +46,7 @@ export const detectInactiveUsers = functions.pubsub
       if (isInactive) {
         if (!userData.inactiveSince) {
           updateData.inactiveSince =
-            admin.firestore.FieldValue.serverTimestamp();
+            FieldValue.serverTimestamp();
         }
       } else {
         updateData.inactiveSince = null;

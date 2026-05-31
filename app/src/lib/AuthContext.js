@@ -130,7 +130,7 @@ export const AuthProvider = ({ children }) => {
                     uid: user.uid,
                     provider: provider,
                     // Save password only on native systems (with secure hardware storage)
-                    password: Platform.OS !== 'web' ? password : null,
+                    password: Platform.OS === 'web' ? null : password,
                     lastSignedInAt: new Date().toISOString(),
                 };
 
@@ -215,6 +215,7 @@ export const AuthProvider = ({ children }) => {
             await setDoc(doc(db, 'users', user.uid), {
                 email: user.email,
                 role: 'student', // Default role
+                points: 0,
                 createdAt: new Date().toISOString(),
                 ...additionalData,
             });
