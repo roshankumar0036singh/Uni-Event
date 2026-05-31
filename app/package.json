@@ -59,7 +59,7 @@
         "expo-camera": "~16.0.18",
         "expo-clipboard": "~7.0.1",
         "expo-crypto": "~14.0.2",
-        "expo-device": "~7.0.3",
+        "expo-device": "~56.0.4",
         "expo-file-system": "~18.0.12",
         "expo-image-picker": "~16.0.6",
         "expo-linear-gradient": "~14.0.2",
