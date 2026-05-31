@@ -40,6 +40,7 @@ const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
 const admin = __importStar(require("firebase-admin"));
+const rateLimiter_1 = require("./utils/rateLimiter");
 // Load environment variables
 dotenv_1.default.config();
 // Initialize Firebase Admin (ensure service account is available or uses default credentials)
@@ -51,7 +52,7 @@ if (admin.apps.length === 0) {
         try {
             const serviceAccount = JSON.parse(credentialsJson);
             admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount)
+                credential: admin.credential.cert(serviceAccount),
             });
             console.log('✅ Firebase Admin initialized with service account from env');
         }
@@ -72,7 +73,7 @@ app.use((0, cors_1.default)({ origin: true }));
 app.use(express_1.default.json());
 // Auth Middleware to mimic Firebase Callable Context
 const validateFirebaseIdToken = async (req, res, next) => {
-    if ((!req.headers.authorization || !req.headers.authorization.startsWith('Bearer '))) {
+    if (!req.headers.authorization?.startsWith('Bearer ')) {
         res.status(403).send('Unauthorized');
         return;
     }
@@ -100,7 +101,7 @@ const rateLimitMiddleware = async (req, res, next) => {
         if (!limitResult.allowed) {
             return res.status(limitResult.statusCode).json({
                 error: 'too-many-requests',
-                message: limitResult.message
+                message: limitResult.message,
             });
         }
         next();
@@ -109,7 +110,7 @@ const rateLimitMiddleware = async (req, res, next) => {
         console.error('Rate limiter middleware error:', error);
         return res.status(503).json({
             error: 'rate-limit-unavailable',
-            message: 'Rate limiting is temporarily unavailable. Please retry shortly.'
+            message: 'Rate limiting is temporarily unavailable. Please retry shortly.',
         });
     }
 };
@@ -118,33 +119,44 @@ app.post('/api/setRole', validateFirebaseIdToken, rateLimitMiddleware, async (re
     const user = req.user;
     // 1. Check Auth (already done by middleware, but check existence)
     if (!user) {
-        return res.status(401).json({ error: 'unauthenticated', message: 'The function must be called while authenticated.' });
+        return res.status(401).json({
+            error: 'unauthenticated',
+            message: 'The function must be called while authenticated.',
+        });
     }
     // 2. Check Admin
-    // Note: We use the token claims. 
+    // Note: We use the token claims.
     // IMPORTANT: For the very first admin, manual entry in DB or claims is needed.
     if (!user.admin) {
-        return res.status(403).json({ error: 'permission-denied', message: 'Only admins can set roles.' });
+        return res
+            .status(403)
+            .json({ error: 'permission-denied', message: 'Only admins can set roles.' });
     }
     const { uid, role } = req.body;
     // 3. Validation
     if (!uid || !role) {
-        return res.status(400).json({ error: 'invalid-argument', message: "The function must be called with 'uid' and 'role' arguments." });
+        return res.status(400).json({
+            error: 'invalid-argument',
+            message: "The function must be called with 'uid' and 'role' arguments.",
+        });
     }
-    const validRoles = ["admin", "club", "student"];
+    const validRoles = ['admin', 'club', 'student'];
     if (!validRoles.includes(role)) {
-        return res.status(400).json({ error: 'invalid-argument', message: `Role must be one of: ${validRoles.join(", ")}` });
+        return res.status(400).json({
+            error: 'invalid-argument',
+            message: `Role must be one of: ${validRoles.join(', ')}`,
+        });
     }
     // 4. Logic
     const claims = {};
-    if (role === "admin")
+    if (role === 'admin')
         claims.admin = true;
-    if (role === "club")
+    if (role === 'club')
         claims.club = true;
     try {
         await admin.auth().setCustomUserClaims(uid, claims);
         // Optional: Update Firestore
-        await admin.firestore().collection("users").doc(uid).set({ role }, { merge: true });
+        await admin.firestore().collection('users').doc(uid).set({ role }, { merge: true });
         return res.json({ result: { success: true } }); // Structure matches Callable response
     }
     catch (error) {
@@ -161,14 +173,16 @@ app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, 
         return res.status(401).json({ error: 'unauthenticated' });
     }
     if (!eventId) {
-        return res.status(400).json({ error: 'invalid-argument', message: 'eventId is required' });
+        return res
+            .status(400)
+            .json({ error: 'invalid-argument', message: 'eventId is required' });
     }
     try {
         const result = await (0, certificateService_1.sendCertificatesForEvent)(eventId, user.uid);
         return res.json({ result });
     }
     catch (error) {
-        console.error("Certificate Error:", error);
+        console.error('Certificate Error:', error);
         return res.status(500).json({ error: 'internal', message: error.message });
     }
 });
@@ -185,7 +199,7 @@ app.get('/email-preview', (_req, res) => {
     }
     const templates = (0, emailTemplateRenderer_1.getAvailableTemplates)();
     const links = templates
-        .map((name) => `<li style="margin:8px 0">
+        .map(name => `<li style="margin:8px 0">
           <a href="/email-preview/${name}" style="color:#FF6B35;font-size:18px">${name}</a>
           <span style="color:#888;font-size:13px;margin-left:8px">
             (variables: ${Object.keys((0, emailTemplateRenderer_1.getSampleData)(name)).join(', ') || 'none'})
@@ -312,74 +326,6 @@ app.get('/email-preview/:templateName', (req, res) => {
 // Basic Health Check
 app.get('/', (req, res) => {
     res.send('UniEvent Backend is Running');
-});
-app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, async (req, res) => {
-    try {
-        // Optional: Check if admin
-        const user = req.user;
-        // Check for admin claim (boolean) or role property (string)
-        if (!user.admin && user.role !== 'admin') {
-            res.status(403).json({ message: 'Unauthorized: Only admins can trigger this.' });
-            return;
-        }
-        const db = admin.firestore();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const eventsRef = db.collection('events');
-        const snapshot = await eventsRef
-            .where('startAt', '>=', today.toISOString())
-            .where('startAt', '<', tomorrow.toISOString())
-            .get();
-        const count = snapshot.size;
-        if (count > 0) {
-            const usersSnapshot = await db.collection('users').get();
-            const messages = [];
-            const batch = db.batch();
-            // Lazy import Expo to ensure it works
-            const { Expo } = require('expo-server-sdk');
-            const expo = new Expo();
-            usersSnapshot.forEach(userDoc => {
-                const userData = userDoc.data();
-                const pushToken = userData.pushToken;
-                // In-App
-                const notifRef = userDoc.ref.collection('notifications').doc();
-                batch.set(notifRef, {
-                    title: 'Daily Digest 📅',
-                    body: `There are ${count} events happening today!`,
-                    createdAt: firestore_1.FieldValue.serverTimestamp(),
-                    read: false
-                });
-                if (pushToken && Expo.isExpoPushToken(pushToken)) {
-                    messages.push({
-                        to: pushToken,
-                        sound: 'default',
-                        title: 'Daily Digest 📅',
-                        body: `There are ${count} events happening today!`,
-                        data: { url: '/home' },
-                    });
-                }
-            });
-            await batch.commit();
-            if (messages.length > 0) {
-                let chunks = expo.chunkPushNotifications(messages);
-                for (let chunk of chunks) {
-                    try {
-                        await expo.sendPushNotificationsAsync(chunk);
-                    }
-                    catch (e) {
-                        console.error(e);
-                    }
-                }
-            }
-        }
-        res.json({ success: true, count, message: `Digest sent for ${count} events to all users.` });
-    }
-    catch (error) {
-        console.error("Digest Error", error);
-        res.status(500).json({ error: error.message });
-    }
 });
 // Start Server
 const PORT = process.env.PORT || 3000;

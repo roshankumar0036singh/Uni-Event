@@ -1,8 +1,7 @@
-import * as admin from "firebase-admin";
-import * as functions from "firebase-functions";
-import Expo from 'expo-server-sdk';
+import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 import { FieldPath } from 'firebase-admin/firestore';
-import { sendPushNotifications } from './utils/push';
+import { isExpoPushToken, sendPushNotifications } from './utils/push';
 
 const PAGE_SIZE = 500;
 
@@ -23,11 +22,11 @@ function processUserPage(
         title: 'Daily Digest 📅',
         body: `There are ${count} events happening today!`,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        read: false
+        read: false,
     });
 
     const pushToken = userData.pushToken;
-    if (pushToken && Expo.isExpoPushToken(pushToken)) {
+    if (pushToken && isExpoPushToken(pushToken)) {
         pageMessages.push({
             to: pushToken,
             sound: 'default',

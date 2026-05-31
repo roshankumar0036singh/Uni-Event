@@ -120,8 +120,7 @@ async function generatePdfBuffer(
 async function uploadPdfAndGetUrl(bucket: any, storagePath: string, pdfBuffer: Buffer) {
     const file = bucket.file(storagePath);
     await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
-    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // Max 7 days for V4
-    const [signedUrl] = await file.getSignedUrl({ action: 'read', expires, version: 'v4' });
+    const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: '2499-12-31' });
     return signedUrl;
 }
 
@@ -353,19 +352,26 @@ export async function sendCertificatesForEvent(eventId: string, ownerId: string)
         results.push(outcome);
     }
 
-    if (
-        results.length === participants.length &&
-        results.every(result => result.status === 'success')
-    ) {
-        await admin.firestore().collection('events').doc(eventId).update({
-            certificatesSent: true,
-            certificatesSentAt: FieldValue.serverTimestamp(),
-        });
-    } else {
-        console.log(
-            `Not all participants succeeded. total=${participants.length} results=${results.length}`,
-        );
-    }
+    const summary = results.reduce(
+        (acc, result) => {
+            acc[result.status] += 1;
+            return acc;
+        },
+        { success: 0, failed: 0, error: 0, skipped: 0 },
+    );
+    const allSucceeded =
+        results.length === participants.length && summary.success === participants.length;
 
-    return { total: participants.length, results };
+    await admin
+        .firestore()
+        .collection('events')
+        .doc(eventId)
+        .update({
+            certificatesSent: allSucceeded,
+            certificatesSentAt: allSucceeded ? FieldValue.serverTimestamp() : null,
+            certificatesLastAttemptAt: FieldValue.serverTimestamp(),
+            certificateSummary: summary,
+        });
+
+    return { total: participants.length, summary, results };
 }

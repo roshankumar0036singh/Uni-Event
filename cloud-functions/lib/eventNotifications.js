@@ -37,9 +37,19 @@ exports.checkUpcomingEvents = void 0;
 const expo_server_sdk_1 = require("expo-server-sdk");
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const participants_1 = require("./lib/participants");
-const expo = new expo_server_sdk_1.Expo();
-async function gatherMessagesForEvent(db, eventDoc) {
+const push_1 = require("./utils/push");
+async function getUpcomingEvents(db) {
+    // Expand the window with a small buffer to avoid missing events due to scheduler drift
+    const startRange = new Date(Date.now() + 9.5 * 60 * 1000).toISOString();
+    const endRange = new Date(Date.now() + 11.5 * 60 * 1000).toISOString();
+    return db
+        .collection('events')
+        .where('startAt', '>=', startRange)
+        .where('startAt', '<=', endRange)
+        .where('status', '==', 'active')
+        .get();
+}
+async function buildMessagesForEvent(db, eventDoc) {
     const eventData = eventDoc.data();
     if (eventData.notified10Min)
         return [];
@@ -47,15 +57,15 @@ async function gatherMessagesForEvent(db, eventDoc) {
     const participantIds = participantsSnapshot.docs.map(doc => doc.id);
     if (participantIds.length === 0)
         return [];
-    const userDocs = await Promise.all(participantIds.map((uid) => db.collection('users').doc(uid).get()));
-    const messages = [];
-    for (const userDoc of userDocs) {
+    const userDocs = await Promise.all(participantIds.map(uid => db.collection('users').doc(uid).get()));
+    return userDocs.flatMap(userDoc => {
         if (!userDoc.exists)
-            continue;
-        const userData = userDoc.data();
-        const pushToken = userData === null || userData === void 0 ? void 0 : userData.pushToken;
-        if (pushToken && expo_server_sdk_1.Expo.isExpoPushToken(pushToken)) {
-            messages.push({
+            return [];
+        const pushToken = userDoc.data()?.pushToken;
+        if (!pushToken || !expo_server_sdk_1.Expo.isExpoPushToken(pushToken))
+            return [];
+        return [
+            {
                 to: pushToken,
                 sound: 'default',
                 title: 'Event Starting Soon!',

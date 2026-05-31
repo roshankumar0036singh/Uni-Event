@@ -36,7 +36,10 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.cleanupRateLimits = void 0;
 const admin = __importStar(require("firebase-admin"));
+const functions = __importStar(require("firebase-functions"));
+const rateLimiter_1 = require("./middleware/rateLimiter");
 admin.initializeApp();
 // Export functions here
 __exportStar(require("./dailyDigest"), exports);
@@ -53,3 +56,11 @@ __exportStar(require("./branchReport"), exports);
 __exportStar(require("./postEventFeedback"), exports);
 __exportStar(require("./sendBulkEmails"), exports);
 __exportStar(require("./auditLog"), exports);
+__exportStar(require("./attendanceStreak"), exports);
+__exportStar(require("./permanentCleanup"), exports);
+exports.cleanupRateLimits = functions.pubsub
+    .schedule("every 1 hour")
+    .onRun(async () => {
+    await (0, rateLimiter_1.cleanupOldRateLimits)();
+    return null;
+});

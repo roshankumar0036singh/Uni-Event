@@ -4,8 +4,14 @@ import * as emailTemplateRenderer from './emailTemplateRenderer';
 // Mock dependencies
 jest.mock('./emailTemplateRenderer');
 
-const mockFetch = jest.fn();
-globalThis.fetch = mockFetch as any;
+const mockResendSend = jest.fn();
+jest.mock('resend', () => ({
+    Resend: jest.fn().mockImplementation(() => ({
+        emails: {
+            send: mockResendSend,
+        },
+    })),
+}));
 
 describe('sendEmail', () => {
     const originalEnv = process.env;
@@ -32,7 +38,7 @@ describe('sendEmail', () => {
 
         expect(result.success).toBe(true);
         expect(result.html).toBe('<h1>Hello World</h1>');
-        expect(mockFetch).not.toHaveBeenCalled();
+        expect(mockResendSend).not.toHaveBeenCalled();
     });
 
     it('returns an error if renderTemplate fails', async () => {
@@ -49,14 +55,11 @@ describe('sendEmail', () => {
 
         expect(result.success).toBe(false);
         expect(result.error).toBe('Template not found');
-        expect(mockFetch).not.toHaveBeenCalled();
+        expect(mockResendSend).not.toHaveBeenCalled();
     });
 
     it('returns an error if credentials are missing', async () => {
-        delete process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID;
-        delete process.env.EMAILJS_SERVICE_ID;
-        delete process.env.EXPO_PUBLIC_EMAILJS_PUBLIC_KEY;
-        delete process.env.EMAILJS_PUBLIC_KEY;
+        delete process.env.RESEND_API_KEY;
 
         (emailTemplateRenderer.renderTemplate as jest.Mock).mockReturnValue('<h1>Hello World</h1>');
 
@@ -68,19 +71,15 @@ describe('sendEmail', () => {
         });
 
         expect(result.success).toBe(false);
-        expect(result.error).toMatch(/EmailJS credentials.*not configured/);
-        expect(mockFetch).not.toHaveBeenCalled();
+        expect(result.error).toMatch(/Resend credentials.*not configured/);
+        expect(mockResendSend).not.toHaveBeenCalled();
     });
 
-    it('calls fetch and returns success message on OK response', async () => {
-        process.env.EMAILJS_SERVICE_ID = 'test_service';
-        process.env.EMAILJS_PUBLIC_KEY = 'test_pk';
+    it('calls Resend and returns success message id', async () => {
+        process.env.RESEND_API_KEY = 'test_key';
 
         (emailTemplateRenderer.renderTemplate as jest.Mock).mockReturnValue('<h1>Hello World</h1>');
-        mockFetch.mockResolvedValueOnce({
-            ok: true,
-            text: async () => 'OK',
-        });
+        mockResendSend.mockResolvedValueOnce({ data: { id: 'message_123' }, error: null });
 
         const result = await sendEmail({
             to: 'test@example.com',
@@ -90,24 +89,23 @@ describe('sendEmail', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(result.messageId).toBe('OK');
-        expect(mockFetch).toHaveBeenCalledTimes(1);
-        expect(mockFetch).toHaveBeenCalledWith(
-            'https://api.emailjs.com/api/v1.0/email/send',
-            expect.objectContaining({ method: 'POST' }),
+        expect(result.messageId).toBe('message_123');
+        expect(mockResendSend).toHaveBeenCalledTimes(1);
+        expect(mockResendSend).toHaveBeenCalledWith(
+            expect.objectContaining({
+                from: 'onboarding@resend.dev',
+                to: ['test@example.com'],
+                subject: 'Test Subject',
+                html: '<h1>Hello World</h1>',
+            }),
         );
     });
 
-    it('returns an error on non-OK response', async () => {
-        process.env.EMAILJS_SERVICE_ID = 'test_service';
-        process.env.EMAILJS_PUBLIC_KEY = 'test_pk';
+    it('returns an error on Resend provider errors', async () => {
+        process.env.RESEND_API_KEY = 'test_key';
 
         (emailTemplateRenderer.renderTemplate as jest.Mock).mockReturnValue('<h1>Hello World</h1>');
-        mockFetch.mockResolvedValueOnce({
-            ok: false,
-            status: 400,
-            text: async () => 'Bad Request',
-        });
+        mockResendSend.mockResolvedValueOnce({ data: null, error: { message: 'Bad Request' } });
 
         const result = await sendEmail({
             to: 'test@example.com',
@@ -117,15 +115,14 @@ describe('sendEmail', () => {
         });
 
         expect(result.success).toBe(false);
-        expect(result.error).toContain('EmailJS error (400): Bad Request');
+        expect(result.error).toBe('Bad Request');
     });
 
     it('returns an error on network exception', async () => {
-        process.env.EMAILJS_SERVICE_ID = 'test_service';
-        process.env.EMAILJS_PUBLIC_KEY = 'test_pk';
+        process.env.RESEND_API_KEY = 'test_key';
 
         (emailTemplateRenderer.renderTemplate as jest.Mock).mockReturnValue('<h1>Hello World</h1>');
-        mockFetch.mockRejectedValueOnce(new Error('Network failure'));
+        mockResendSend.mockRejectedValueOnce(new Error('Network failure'));
 
         const result = await sendEmail({
             to: 'test@example.com',

@@ -36,10 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkReminders = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-/**
- * Scheduled function to check for reminders.
- * Runs every minute.
- */
+const firestore_1 = require("firebase-admin/firestore");
+const push_1 = require("./utils/push");
 const { Expo } = require('expo-server-sdk');
 /**
  * Scheduled function to check for reminders.

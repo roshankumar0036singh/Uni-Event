@@ -1,6 +1,6 @@
 {
     "scripts": {
-        "build": "tsc -p cloud-functions/tsconfig.json",
+        "build": "tsc -p cloud-functions/tsconfig.build.json",
         "test:rules": "firebase emulators:exec --only firestore \"jest tests/firestore.rules.test.ts --runInBand\"",
         "prepare": "husky"
     },

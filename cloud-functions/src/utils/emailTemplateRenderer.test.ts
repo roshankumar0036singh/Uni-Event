@@ -115,6 +115,19 @@ describe('emailTemplateRenderer', () => {
             expectNoPlaceholders(html, ['event_title', 'feedback_link']);
         });
 
+        it('should escape unsafe override values', () => {
+            const html = renderTemplate('feedback_email_template', {
+                to_name: '<script>alert(1)</script> & Friends',
+                event_title: 'Security & Safety',
+            });
+
+            expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt; &amp; Friends');
+            expect(html).toContain('Security &amp; Safety');
+            expect(html).not.toContain('<script>alert(1)</script> & Friends');
+            expect(html).not.toContain('Security & Safety');
+            expectNoPlaceholders(html, ['to_name', 'event_title', 'feedback_link']);
+        });
+
         it('should throw an error for a non-existent template', () => {
             expect(() => renderTemplate('nonexistent_template')).toThrow(
                 /Template "nonexistent_template" not found/,
