@@ -15,6 +15,7 @@ export default function PremiumInput({
     keyboardType = 'default',
     autoCapitalize = 'none',
     style,
+    disabled = false,
 }) {
     const { theme } = useTheme();
     const [isFocused, setIsFocused] = useState(false);
@@ -28,7 +29,7 @@ export default function PremiumInput({
     }
 
     return (
-        <View style={[styles.container, style]}>
+        <View style={[styles.container, disabled && styles.disabled, style]}>
             {label && (
                 <Text style={[styles.label, { color: theme.colors.textSecondary }]}>{label}</Text>
             )}
@@ -49,6 +50,7 @@ export default function PremiumInput({
                     style={[styles.input, { color: theme.colors.text }]}
                     value={value}
                     onChangeText={onChangeText}
+                    editable={!disabled}
                     placeholder={placeholder}
                     placeholderTextColor={theme.colors.textSecondary}
                     secureTextEntry={secureTextEntry && !isPasswordVisible}
@@ -59,16 +61,22 @@ export default function PremiumInput({
                     accessible={true}
                     accessibilityRole="textbox"
                     accessibilityLabel={label ? String(label).replace(/ \*$/, '') : 'input'}
+                    accessibilityState={{ disabled }}
                 />
 
                 {secureTextEntry && (
                     <TouchableOpacity
-                        onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                        onPress={() => {
+                            if (!disabled) {
+                                setIsPasswordVisible(!isPasswordVisible);
+                            }
+                        }}
                         style={styles.eyeIcon}
+                        disabled={disabled}
                         accessibilityRole="button"
                         accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
                         accessibilityHint="Toggles password visibility"
-                        accessibilityState={{ checked: isPasswordVisible }}
+                        accessibilityState={{ checked: isPasswordVisible, disabled }}
                     >
                         <Ionicons
                             name={isPasswordVisible ? 'eye-off' : 'eye'}
@@ -119,6 +127,9 @@ const styles = StyleSheet.create({
         marginTop: 4,
         marginLeft: 4,
     },
+    disabled: {
+        opacity: 0.65,
+    },
 });
 
 PremiumInput.propTypes = {
@@ -132,4 +143,5 @@ PremiumInput.propTypes = {
     keyboardType: PropTypes.any,
     autoCapitalize: PropTypes.any,
     style: PropTypes.any,
+    disabled: PropTypes.bool,
 };

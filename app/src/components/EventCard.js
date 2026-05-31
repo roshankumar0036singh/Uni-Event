@@ -12,7 +12,17 @@ import {
     getDocs,
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState, memo } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View, Switch, Platform } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    Switch,
+    Platform,
+} from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme as globalTheme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
@@ -65,6 +75,7 @@ const EventCard = memo(
         const [isNavigatingToDetail, setIsNavigatingToDetail] = useState(false);
         const navigationLockRef = useRef(false);
         const navigationUnlockTimerRef = useRef(null);
+        const [buddyLoading, setBuddyLoading] = useState(false);
 
         useEffect(() => {
             if (!isRegistered || !user || !event?.id) return;
@@ -80,8 +91,10 @@ const EventCard = memo(
         }, [isRegistered, user, event?.id]);
 
         const handleToggleBuddy = async value => {
+            if (buddyLoading) return;
             if (!user || !event?.id) return;
             try {
+                setBuddyLoading(true);
                 const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
                 await updateDoc(participantRef, {
                     lookingForBuddy: value,
@@ -96,8 +109,15 @@ const EventCard = memo(
                         await triggerBuddyMatchNotification(event, otherBuddies.length);
                     }
                 }
+                Alert.alert(
+                    'Buddy Preference Updated',
+                    value ? 'Buddy matching is now enabled.' : 'Buddy matching is now disabled.',
+                );
             } catch (error) {
                 console.error('Error updating buddy preference:', error);
+                Alert.alert('Error', 'Failed to update buddy preference.');
+            } finally {
+                setBuddyLoading(false);
             }
         };
 
@@ -300,6 +320,7 @@ const EventCard = memo(
                             <Switch
                                 value={lookingForBuddy}
                                 onValueChange={handleToggleBuddy}
+                                disabled={buddyLoading}
                                 trackColor={{
                                     false: theme.colors.border,
                                     true: theme.colors.primary + '80',
@@ -331,7 +352,11 @@ const EventCard = memo(
                     onPress={handleRegisterPress}
                     testID="event-card-register-button"
                 >
-                    <Text style={styles.registerText}>REGISTER</Text>
+                    {isNavigatingToDetail ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                        <Text style={styles.registerText}>REGISTER</Text>
+                    )}
                 </TouchableOpacity>
             );
         };
