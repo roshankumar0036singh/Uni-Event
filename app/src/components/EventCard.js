@@ -26,6 +26,7 @@ import PropTypes from 'prop-types';
 // Module-level profile cache registry
 // profileCache: resolved data keyed by ownerId
 // profileRequestCache: in-flight promises to prevent duplicate concurrent reads
+const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
 const profileCache = new Map();
 const profileRequestCache = new Map();
 
@@ -115,10 +116,14 @@ const EventCard = memo(
             setHostName(event?.organization || 'Club Name');
 
             // Cache hit: apply memoized data and short-circuit, no network call
-            if (profileCache.has(event.ownerId)) {
-                const cached = profileCache.get(event.ownerId);
-                setHostName(cached.displayName || event.organization || 'Club Name');
+            const cachedProfile = profileCache.get(event.ownerId);
+            if (cachedProfile && Date.now() - cachedProfile.cachedAt < PROFILE_CACHE_TTL_MS) {
+                setHostName(cachedProfile.data.displayName || event.organization || 'Club Name');
                 return;
+            }
+
+            if (cachedProfile) {
+                profileCache.delete(event.ownerId);
             }
 
             let cancelled = false;
@@ -134,7 +139,7 @@ const EventCard = memo(
                 .then(snap => {
                     if (snap.exists()) {
                         const data = snap.data();
-                        profileCache.set(event.ownerId, data);
+                        profileCache.set(event.ownerId, { data, cachedAt: Date.now() });
                         profileRequestCache.delete(event.ownerId);
                         if (!cancelled) {
                             setHostName(data.displayName || event.organization || 'Club Name');

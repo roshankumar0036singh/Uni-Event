@@ -537,6 +537,8 @@ export default function EventDetail({ route, navigation }) {
                 }
             });
 
+            participantService.clearParticipantCache(eventId);
+
             // Post-transaction effects
             if (rsvpStatus === 'going') {
                 Alert.alert(
