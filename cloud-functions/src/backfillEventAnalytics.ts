@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { FieldPath } from 'firebase-admin/firestore';
+import { enforceAppCheck } from "./middleware/appCheck";
 
 const normalizeCounterKey = (value: unknown) => {
   if (value == null) return "Unknown";
@@ -18,6 +19,7 @@ export const backfillEventAnalyticsCounters = functions.https.onCall(
         "Admin privileges required."
       );
     }
+    enforceAppCheck(context);
 
     const db = admin.firestore();
     const limit = Math.min(Math.max(Number(data?.limit) || 25, 1), 100);

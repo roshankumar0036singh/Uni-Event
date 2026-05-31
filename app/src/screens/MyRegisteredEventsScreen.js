@@ -9,7 +9,6 @@ import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 
-
 export default function MyRegisteredEventsScreen() {
     const { user } = useAuth();
     const { theme } = useTheme();

@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { enforceAppCheck } from "./middleware/appCheck";
 
 interface BranchStats {
   branch: string;
@@ -294,6 +295,8 @@ export const generateBranchParticipationReport = functions.https.onCall(
         "Admin privileges required."
       );
     }
+    enforceAppCheck(context);
+
 
     const fromDate = toDateInput(data?.fromDate, "fromDate");
     const toDate = toDateInput(data?.toDate, "toDate");
