@@ -41,12 +41,17 @@ export default function MyStreakScreen() {
     const currentStreak = userData?.currentStreak || 0;
     const longestStreak = userData?.longestStreak || 0;
     const certificates = userData?.certificates || [];
-    const dedicatedCert = certificates.find(c => c.type === 'dedicated_student');
 
     // progress toward next milestone (every 4 weeks)
-    const nextMilestone = Math.ceil((currentStreak + 1) / 4) * 4;
     const progress = currentStreak % 4 === 0 && currentStreak > 0 ? 4 : currentStreak % 4;
     const progressPercent = (progress / 4) * 100;
+
+    const weeksLeft = 4 - progress;
+    const weekSuffix = weeksLeft === 1 ? '' : 's';
+    const progressHint =
+        progress === 4
+            ? '🎉 Milestone reached! Certificate awarded.'
+            : `${weeksLeft} more week${weekSuffix} to earn the Dedicated Student certificate`;
 
     return (
         <ScrollView
@@ -74,7 +79,7 @@ export default function MyStreakScreen() {
                     </Text>
                 </View>
                 <Text style={[styles.streakLabel, { color: theme.colors.textSecondary }]}>
-                    {currentStreak === 1 ? 'week streak' : 'week streak'}
+                    week streak
                 </Text>
                 {currentStreak === 0 && (
                     <Text style={[styles.streakHint, { color: theme.colors.textSecondary }]}>
@@ -131,9 +136,7 @@ export default function MyStreakScreen() {
                 </View>
 
                 <Text style={[styles.progressHint, { color: theme.colors.textSecondary }]}>
-                    {progress === 4
-                        ? '🎉 Milestone reached! Certificate awarded.'
-                        : `${4 - progress} more week${4 - progress !== 1 ? 's' : ''} to earn the Dedicated Student certificate`}
+                    {progressHint}
                 </Text>
             </View>
 
@@ -183,7 +186,7 @@ export default function MyStreakScreen() {
                     </Text>
                     {certificates.map((cert, i) => (
                         <View
-                            key={i}
+                            key={`${cert.type}-${cert.awardedAt}`}
                             style={[
                                 styles.certRow,
                                 i < certificates.length - 1 && styles.certDivider,
@@ -239,8 +242,8 @@ export default function MyStreakScreen() {
                         icon: 'trending-up-outline',
                         text: 'Your longest streak is saved even if your current one resets',
                     },
-                ].map((item, i) => (
-                    <View key={i} style={styles.infoRow}>
+                ].map(item => (
+                    <View key={item.icon} style={styles.infoRow}>
                         <Ionicons
                             name={item.icon}
                             size={20}

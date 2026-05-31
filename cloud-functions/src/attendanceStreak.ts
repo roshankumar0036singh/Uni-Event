@@ -47,9 +47,6 @@ export const attendanceStreak = onDocumentCreated(
                 } else if (diffMs < WEEK_MS * 2) {
                     //attended during the next consecutive week
                     newStreak = currentStreak + 1;
-                } else {
-                    //missed a week -> streak resets to 1
-                    newStreak = 1;
                 }
             }
 
