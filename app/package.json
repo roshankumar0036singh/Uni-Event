@@ -89,7 +89,7 @@
         "react-native-reanimated-carousel": "^4.0.3",
         "react-native-safe-area-context": "5.8.0",
         "react-native-screens": "~4.4.0",
-        "react-native-svg": "15.8.0",
+        "react-native-svg": "15.15.5",
         "react-native-web": "~0.19.13",
         "xlsx": "^0.18.5"
     },
