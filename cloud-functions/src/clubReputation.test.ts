@@ -259,7 +259,7 @@ describe('computeDecayedScore', () => {
             WINDOW,
         );
         // weight = 1 - 11/12 ≈ 0.0833
-        expect(decayedPoints).toBeCloseTo(1.0, 1);
+        expect(decayedPoints).toBeCloseTo(1, 1);
         expect(decayedRatings).toBeCloseTo(0.0833, 3);
     });
 

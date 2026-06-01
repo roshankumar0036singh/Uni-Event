@@ -52,8 +52,7 @@ const monthsAgo = (n: number): Date => {
     const d = new Date();
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - n, 1));
 };
-
-import * as http from 'http';
+import * as http from 'node:http';
 
 /** Wipes the emulator DB before each test */
 async function clearFirestore(): Promise<void> {
@@ -294,7 +293,7 @@ describe('clubReputation — integration tests', () => {
             expect(avg).toBeCloseTo(5, 1);
 
             // The recent review contributes MORE raw points to the pool
-            const recentContribution = 5 * 1.0; // 5
+            const recentContribution = 5 * 1; // 5
             const oldContribution = 5 * 0.5; // 2.5
             expect(recentContribution).toBeGreaterThan(oldContribution);
         });
