@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Feedback Request</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #F8F9FA; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #F8F9FA; padding-bottom: 40px; }
+        .main-table { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-spacing: 0; font-family: sans-serif; color: #333333; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        
+        /* Vibrant Header */
+        .header { background: #ffffff; padding: 40px 20px 10px; text-align: center; }
+        .icon-circle { background: linear-gradient(135deg, #FFB74D 0%, #F57C00 100%); width: 70px; height: 70px; border-radius: 50%; display: inline-block; line-height: 70px; color: #333333; font-size: 32px; font-weight: bold; box-shadow: 0 4px 10px rgba(245, 124, 0, 0.3); margin-bottom: 20px; }
+        .header h1 { color: #333; margin: 0; font-size: 24px; font-weight: 800; }
+        
+        .content { padding: 20px 40px 50px; text-align: center; }
+        .event-title { font-size: 22px; color: #F57C00; font-weight: 700; margin: 10px 0 25px; }
+        
+        /* Attractive Button */
+        .btn { display: inline-block; background-color: #BF360C; background-image: linear-gradient(90deg, #C83B0E 0%, #BF360C 100%); color: #ffffff; padding: 16px 40px; font-size: 16px; font-weight: bold; text-decoration: none; border-radius: 30px; box-shadow: 0 5px 15px rgba(216, 67, 21, 0.3); transition: transform 0.2s; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(216, 67, 21, 0.4); }
+        
+        .footer { padding: 25px; text-align: center; background-color: #FAFAFA; border-top: 1px solid #eeeeee; color: #666666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="main-table">
+            <div class="header">
+                <!-- Star Icon Placeholder -->
+                <div class="icon-circle">&#9733;</div> 
+                <h1>How was your experience?</h1>
+            </div>
+            <div class="content">
+                <p style="font-size: 16px; color: #666;">Hi {{to_name}}, thanks for joining us at:</p>
+                    <div class="event-title">{{event_title}}</div>
+                    
+                    <p style="font-size: 15px; color: #555; margin-bottom: 30px; line-height: 1.5;">
+                        We'd love to know what you thought. It only takes a minute and helps us improve!
+                    </p>
+                    
+                    <a href="{{feedback_link}}" class="btn">Rate Event</a>
+                    
+                <p style="margin-top: 30px; font-size: 13px; color: #999;">
+                    Or paste this link: <a href="{{feedback_link}}" style="color: #F57C00;">{{feedback_link}}</a>
+                </p>
+            </div>
+            <div class="footer">
+                &copy; 2026 UniEvent Team
+            </div>
+        </div>
+    </div>
+</body>
+</html>

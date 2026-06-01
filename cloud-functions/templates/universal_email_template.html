@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UniEvent Email</title>
+</head>
+
+<body style="margin: 0; padding: 0; background-color: #f4f4f4;">
+    <div class="container"
+        style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; font-family: 'Helvetica', 'Arial', sans-serif; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+
+        <!-- Header -->
+        <div class="header"
+            style="background-color: #BF360C; background-image: linear-gradient(135deg, #BF360C 0%, #A02700 100%); padding: 30px; text-align: center; color: #ffffff;">
+            <h1 style="margin: 0; font-size: 28px; font-weight: bold; color: #ffffff; letter-spacing: 1px;">UniEvent
+            </h1>
+            <p style="margin: 5px 0 0; opacity: 0.9; color: #ffffff; font-size: 14px;">Campus Events Simplified</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content" style="padding: 30px; color: #333333; line-height: 1.6;">
+            <h2 style="color: #f77748; font-size: 20px; margin-top: 0;">{{subject}}</h2>
+
+            <p style="font-size: 16px;">Hello <strong style="color: #333;">{{to_name}}</strong>,</p>
+
+            <!-- Message / Announcement Box -->
+            <div
+                style="background-color: #fff8e1; border-left: 4px solid #FF6B35; padding: 20px; margin: 20px 0; border-radius: 4px; color: #444; font-size: 16px; line-height: 1.6;">
+                {{message}}
+            </div>
+
+            <!-- CERTIFICATE SECTION -->
+            <!-- Controlled by {{cert_display}} being 'block' or 'none' -->
+            <div class="certificate-section" style="display: {{cert_display}}; margin-top: 30px; padding-top: 10px;">
+                <!-- Added Hint for Downlaod -->
+                <div style="text-align: center; font-size: 11px; color: #999; margin-bottom: 10px;">
+                    Tip: Use your email's <b>Print</b> &rarr; <b>Save as PDF</b> option to download this certificate.
+                </div>
+
+                <div class="certificate-container"
+                    style="border: 4px solid #FF6B35; padding: 15px; text-align: center; background-color: #FFF8F0; border-radius: 8px; position: relative;">
+                    <!-- Inner Border -->
+                    <div
+                        style="border: 1px solid #FF6B35; padding: 15px; border-radius: 4px; background-color: #ffffff;">
+
+                        <!-- Certificate Header -->
+                        <h1
+                            style="color: #FF6B35; font-size: 22px; text-transform: uppercase; margin: 0 0 10px 0; font-family: 'Georgia', serif; letter-spacing: 1px;">
+                            Certificate of Participation</h1>
+
+                        <p style="font-size: 14px; color: #555555; font-style: italic; margin: 0;">This is to certify that
+                        </p>
+
+                        <!-- Name -->
+                        <h2
+                            style="font-size: 24px; color: #222; margin: 15px 0; font-family: 'Helvetica', sans-serif; border-bottom: 2px solid #ddd; display: inline-block; padding-bottom: 5px; min-width: 150px; word-wrap: break-word;">
+                            {{to_name}}
+                        </h2>
+
+                        <!-- Details -->
+                        <p style="font-size: 14px; color: #555555; margin: 10px 0;">has successfully participated in</p>
+
+                        <h3 style="color: #E65100; font-size: 18px; margin: 10px 0; font-weight: bold;">{{event_title}}
+                        </h3>
+
+                        <div style="margin-top: 25px; padding-top: 15px; border-top: 1px dashed #ddd;">
+                            <p style="font-size: 12px; color: #999; line-height: 1.4;">
+                                Verified by <strong>UniEvent</strong><br>
+                                Date: {{date}}
+                            </p>
+                        </div>
+
+                        <!-- Seal/Badge -->
+                        <div style="margin-top: 15px;">
+                            <img src="https://img.icons8.com/color/96/guarantee.png" alt="Certified" width="50"
+                                height="50" style="vertical-align: middle; opacity: 0.9;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Download Button (For Certificates) -->
+            <div style="margin-top: 30px; text-align: center; display: {{download_btn_display}};">
+                <a href="{{event_link}}"
+                    style="background-color: #C83B0E; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; display: inline-block;">View
+                    Event & Download Certificate</a>
+            </div>
+
+            <!-- Browse Button (For Announcements) -->
+            <div style="margin-top: 30px; text-align: center; display: {{browse_btn_display}};">
+                <a href="{{event_link}}"
+                    style="background-color: #C83B0E; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 14px; display: inline-block;">Browse
+                    Events</a>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer"
+            style="padding: 20px; text-align: center; background-color: #FFF3E0; font-size: 12px; color: #666666; border-top: 1px solid #FFE0B2;">
+            <p style="margin: 5px 0;">© 2026 UniEvent. All rights reserved.</p>
+            <p style="margin: 5px 0;">You received this email because you are registered for our events.</p>
+        </div>
+    </div>
+</body>
+
+</html>

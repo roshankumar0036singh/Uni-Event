@@ -73,7 +73,7 @@ exports.checkReminders = functions.pubsub.schedule('every 1 minutes').onRun(asyn
         const userDoc = await db.collection('users').doc(userId).get();
         if (userDoc.exists) {
             const userData = userDoc.data();
-            const pushToken = userData === null || userData === void 0 ? void 0 : userData.pushToken;
+            const pushToken = userData?.pushToken;
             if (pushToken && Expo.isExpoPushToken(pushToken)) {
                 messages.push({
                     to: pushToken,

@@ -189,53 +189,57 @@ export const runReputationRefresh = async () => {
     await paginateQuery(db.collection('users'), async (docs) => {
         const batch = db.batch();
 
-        await Promise.all(docs.map(async (userDoc) => {
-            const bucketsSnapshot = await userDoc.ref
-                .collection(REPUTATION_BUCKETS_COLLECTION)
-                .get();
+        const CONCURRENCY_LIMIT = 50;
+        for (let i = 0; i < docs.length; i += CONCURRENCY_LIMIT) {
+            const chunk = docs.slice(i, i + CONCURRENCY_LIMIT);
+            await Promise.all(chunk.map(async (userDoc) => {
+                const bucketsSnapshot = await userDoc.ref
+                    .collection(REPUTATION_BUCKETS_COLLECTION)
+                    .get();
 
-            let attendanceCount = 0;
-            let registrationCount = 0;
-            let remindersSet = 0;
-            let points = 0;
+                let attendanceCount = 0;
+                let registrationCount = 0;
+                let remindersSet = 0;
+                let points = 0;
 
-            for (const bucketDoc of bucketsSnapshot.docs) {
-                const bucketData = bucketDoc.data() || {};
-                const monthKey =
-                    typeof bucketData.monthKey === 'string' ? bucketData.monthKey : bucketDoc.id;
-                const monthStart = getMonthStartFromKey(monthKey);
-                if (!monthStart) {
-                    continue;
+                for (const bucketDoc of bucketsSnapshot.docs) {
+                    const bucketData = bucketDoc.data() || {};
+                    const monthKey =
+                        typeof bucketData.monthKey === 'string' ? bucketData.monthKey : bucketDoc.id;
+                    const monthStart = getMonthStartFromKey(monthKey);
+                    if (!monthStart) {
+                        continue;
+                    }
+
+                    const ageMonths = Math.max(
+                        0,
+                        (now.getTime() - monthStart.getTime()) / (MS_PER_DAY * DAYS_PER_MONTH),
+                    );
+                    const decay = Math.pow(2, -ageMonths / HALF_LIFE_MONTHS);
+
+                    const registrations = Number(bucketData.registrations || 0);
+                    const attendances = Number(bucketData.attendances || 0);
+                    const reminders = Number(bucketData.reminders || 0);
+
+                    registrationCount += registrations;
+                    attendanceCount += attendances;
+                    remindersSet += reminders;
+
+                    points += registrations * REGISTRATION_POINTS * decay;
+                    points += attendances * ATTENDANCE_POINTS * decay;
+                    points += reminders * REMINDER_POINTS * decay;
                 }
-
-                const ageMonths = Math.max(
-                    0,
-                    (now.getTime() - monthStart.getTime()) / (MS_PER_DAY * DAYS_PER_MONTH),
-                );
-                const decay = Math.pow(2, -ageMonths / HALF_LIFE_MONTHS);
-
-                const registrations = Number(bucketData.registrations || 0);
-                const attendances = Number(bucketData.attendances || 0);
-                const reminders = Number(bucketData.reminders || 0);
-
-                registrationCount += registrations;
-                attendanceCount += attendances;
-                remindersSet += reminders;
-
-                points += registrations * REGISTRATION_POINTS * decay;
-                points += attendances * ATTENDANCE_POINTS * decay;
-                points += reminders * REMINDER_POINTS * decay;
-            }
-            
-            batch.update(userDoc.ref, {
-                'reputation.points': points,
-                'reputation.attendanceCount': attendanceCount,
-                'reputation.registrationCount': registrationCount,
-                'reputation.remindersSet': remindersSet,
-                'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
-            });
-            updatedUsers += 1;
-        }));
+                
+                batch.update(userDoc.ref, {
+                    'reputation.points': points,
+                    'reputation.attendanceCount': attendanceCount,
+                    'reputation.registrationCount': registrationCount,
+                    'reputation.remindersSet': remindersSet,
+                    'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+                });
+                updatedUsers += 1;
+            }));
+        }
 
         await batch.commit();
     });
@@ -298,6 +302,7 @@ const addToBucketTotals = (
  * +1 point per reminder set
  */
 export const calculateReputation = functions.https.onCall(async (_data, context) => {
+    enforceAppCheck(context);
     if (!context.auth?.token.admin) {
         throw new functions.https.HttpsError(
             'permission-denied',
@@ -444,6 +449,7 @@ export const onReminderDelete = functions.firestore
     });
 
 export const backfillReputationBuckets = functions.https.onCall(async (_data, context) => {
+    enforceAppCheck(context);
     if (!context.auth?.token.admin) {
         throw new functions.https.HttpsError(
             'permission-denied',

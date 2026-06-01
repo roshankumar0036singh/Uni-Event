@@ -40,16 +40,16 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const pdf_lib_1 = require("pdf-lib");
 const resend_1 = require("resend");
-const resend = new resend_1.Resend(process.env.RESEND_API_KEY);
-/**
- * Gets a reliable participant ID from their payload.
- */
+function getResendClient() {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+        throw new Error('RESEND_API_KEY is required to send certificate emails.');
+    }
+    return new resend_1.Resend(apiKey);
+}
 function getParticipantId(participant) {
     return participant.id || (participant.email || '').replace(/[^a-z0-9@.]/gi, '_');
 }
-/**
- * Builds a LinkedIn Add to Profile URL for the certificate.
- */
 function buildLinkedInUrl(eventTitle, organizationName, signedUrl, eventStartDate) {
     let issueDate = new Date();
     if (eventStartDate) {
@@ -62,15 +62,9 @@ function buildLinkedInUrl(eventTitle, organizationName, signedUrl, eventStartDat
     const issueMonth = issueDate.getUTCMonth() + 1;
     return `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(eventTitle)}&organizationName=${encodeURIComponent(organizationName)}&issueYear=${issueYear}&issueMonth=${issueMonth}&certUrl=${encodeURIComponent(signedUrl)}`;
 }
-/**
- * Safely extracts an error message string from an unknown error object.
- */
 function getErrorMessage(error) {
     return error instanceof Error ? error.message : String(error);
 }
-/**
- * Escapes HTML characters in a string to prevent XSS.
- */
 function escapeHtml(unsafe) {
     // Replace fixed tokens using split/join for compatibility with older lib targets
     return unsafe
@@ -85,16 +79,10 @@ function escapeHtml(unsafe) {
         .split("'")
         .join('&#039;');
 }
-/**
- * Sanitizes a string for safe use as a filename.
- */
 function sanitizeFilename(name) {
     // remove path separators and control chars, allow basic set
     return name.replace(/[^a-zA-Z0-9_.\- ]+/g, '_').slice(0, 200);
 }
-/**
- * Overlays the participant's name onto the PDF certificate template.
- */
 async function generatePdfBuffer(templateBytes, participantName, eventName) {
     const pdfDoc = await pdf_lib_1.PDFDocument.load(templateBytes);
     const pages = pdfDoc.getPages();
@@ -125,18 +113,12 @@ async function generatePdfBuffer(templateBytes, participantName, eventName) {
     const pdfBytes = await pdfDoc.save();
     return Buffer.from(pdfBytes);
 }
-/**
- * Uploads a generated PDF certificate buffer to Firebase Storage and returns its signed URL.
- */
-async function uploadPdfAndGetUrl(bucket, storagePath, pdfBuffer, eventId, participantId) {
+async function uploadPdfAndGetUrl(bucket, storagePath, pdfBuffer) {
     const file = bucket.file(storagePath);
     await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
-    const baseUrl = process.env.API_BASE_URL || 'https://unievent-ez2w.onrender.com';
-    return `${baseUrl}/api/certificate?eventId=${eventId}&participantId=${participantId}`;
+    const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: '2499-12-31' });
+    return signedUrl;
 }
-/**
- * Saves the generated certificate's signed URL to the participant's Firestore document.
- */
 async function persistCertificateUrl(eventId, participantId, signedUrl) {
     const participantRef = admin
         .firestore()
@@ -147,74 +129,55 @@ async function persistCertificateUrl(eventId, participantId, signedUrl) {
         certificateIssuedAt: firestore_1.FieldValue.serverTimestamp(),
     });
 }
-/**
- * Sends an email containing the certificate attachment to the participant.
- */
-async function sendCertificateEmail(p, eventName, linkedinUrl, pdfBuffer) {
+async function sendCertificateEmail(p, eventName, linkedinUrl, attachmentOrUrl) {
     const safeName = escapeHtml(p.name || 'Participant');
     const safeEvent = escapeHtml(eventName);
-    const safeFilename = `${sanitizeFilename(p.name || 'participant')}_Certificate.pdf`;
-    return resend.emails.send({
+    const isBuffer = Buffer.isBuffer(attachmentOrUrl);
+    let htmlContent = `<p>Hello ${safeName},</p>`;
+    if (isBuffer) {
+        htmlContent += `\n               <p>Please find your official certificate for <strong>${safeEvent}</strong> attached.</p>`;
+    }
+    else {
+        htmlContent += `\n               <p>Your certificate for <strong>${safeEvent}</strong> is available at the link below.</p>
+               <p><a href="${attachmentOrUrl}" target="_blank" rel="noopener">Download your certificate</a></p>`;
+    }
+    htmlContent += `\n               <p><a href="${linkedinUrl}" target="_blank" rel="noopener">Add this certificate to your LinkedIn profile</a></p>
+               <p>Best regards,<br/>UniEvent Team</p>`;
+    const mailOptions = {
         from: process.env.EMAIL_SENDER || 'onboarding@resend.dev',
         to: [p.email],
         subject: `Certificate for ${eventName || ''}`,
-        html: `<p>Hello ${safeName},</p>
-               <p>Please find your official certificate for <strong>${safeEvent}</strong> attached.</p>
-               <p><a href="${linkedinUrl}" target="_blank" rel="noopener">Add this certificate to your LinkedIn profile</a></p>
-               <p>Best regards,<br/>UniEvent Team</p>`,
-        attachments: [
-            {
-                filename: safeFilename,
-                content: pdfBuffer,
-            },
-        ],
-    });
+        html: htmlContent,
+    };
+    if (isBuffer) {
+        const safeFilename = `${sanitizeFilename(p.name || 'participant')}_Certificate.pdf`;
+        mailOptions.attachments = [{ filename: safeFilename, content: attachmentOrUrl }];
+    }
+    return getResendClient().emails.send(mailOptions);
 }
-/**
- * Sends an email to the participant including a link to download their certificate.
- */
-async function sendCertificateEmailUsingUrl(p, eventName, linkedinUrl, certificateUrl) {
-    const safeName = escapeHtml(p.name || 'Participant');
-    const safeEvent = escapeHtml(eventName);
-    return resend.emails.send({
-        from: process.env.EMAIL_SENDER || 'onboarding@resend.dev',
-        to: [p.email],
-        subject: `Certificate for ${eventName || ''}`,
-        html: `<p>Hello ${safeName},</p>
-               <p>Your certificate for <strong>${safeEvent}</strong> is available at the link below.</p>
-               <p><a href="${certificateUrl}" target="_blank" rel="noopener">Download your certificate</a></p>
-               <p><a href="${linkedinUrl}" target="_blank" rel="noopener">Add this certificate to your LinkedIn profile</a></p>
-               <p>Best regards,<br/>UniEvent Team</p>`,
-    });
-}
-/**
- * Safely parses the event start date from a generic event payload.
- */
 function getEventStartDate(event) {
-    return (event === null || event === void 0 ? void 0 : event.startAt) || (event === null || event === void 0 ? void 0 : event.startDate) || (event === null || event === void 0 ? void 0 : event.start) || (event === null || event === void 0 ? void 0 : event.startTime);
+    return event?.startAt || event?.startDate || event?.start || event?.startTime;
 }
-/**
- * Handles the logic for a participant who already has a generated certificate.
- */
 async function handleExistingCertificateParticipant(participant, eventTitle, organizationName, eventStartDate) {
     const existingUrl = participant.certificateUrl;
     const linkedinUrl = buildLinkedInUrl(eventTitle, organizationName, existingUrl, eventStartDate);
     try {
-        const { data, error } = await sendCertificateEmailUsingUrl(participant, eventTitle, linkedinUrl, existingUrl);
+        const { data, error } = await sendCertificateEmail(participant, eventTitle, linkedinUrl, existingUrl);
         if (error) {
             return {
                 email: participant.email || null,
                 status: 'failed',
                 error: getErrorMessage(error),
                 certificateUrl: existingUrl,
-                id: participant.id,
+                participantId: participant.id,
             };
         }
         return {
             email: participant.email || null,
             status: 'success',
-            id: data === null || data === void 0 ? void 0 : data.id,
+            messageId: data?.id,
             certificateUrl: existingUrl,
+            participantId: participant.id,
         };
     }
     catch (err) {
@@ -223,13 +186,10 @@ async function handleExistingCertificateParticipant(participant, eventTitle, org
             status: 'error',
             error: getErrorMessage(err),
             certificateUrl: existingUrl,
-            id: participant.id,
+            participantId: participant.id,
         };
     }
 }
-/**
- * Fully processes a single participant: generates PDF, saves to storage, and emails them.
- */
 async function processParticipant(participant, eventId, eventTitle, organizationName, templateBytes, eventStartDate) {
     if (!participant.email || !participant.name) {
         return {
@@ -243,7 +203,7 @@ async function processParticipant(participant, eventId, eventTitle, organization
         const bucket = admin.storage().bucket();
         const participantId = getParticipantId(participant);
         const storagePath = `certificates/${eventId}/${participantId}.pdf`;
-        const signedUrl = await uploadPdfAndGetUrl(bucket, storagePath, pdfBuffer, eventId, participantId);
+        const signedUrl = await uploadPdfAndGetUrl(bucket, storagePath, pdfBuffer);
         // Persist before sending email. If persist fails, do not send the email.
         await persistCertificateUrl(eventId, participantId, signedUrl);
         const linkedinUrl = buildLinkedInUrl(eventTitle, organizationName, signedUrl, eventStartDate);
@@ -260,8 +220,9 @@ async function processParticipant(participant, eventId, eventTitle, organization
         return {
             email: participant.email,
             status: 'success',
-            id: data === null || data === void 0 ? void 0 : data.id,
+            messageId: data?.id,
             certificateUrl: signedUrl,
+            participantId: participant.id,
         };
     }
     catch (error) {
@@ -273,16 +234,13 @@ async function processParticipant(participant, eventId, eventTitle, organization
         };
     }
 }
-/**
- * Main entry point: Generates and distributes certificates for all attendees of a specific event.
- */
 async function sendCertificatesForEvent(eventId, ownerId) {
     // 1. Fetch Event Details
     const eventDoc = await admin.firestore().collection('events').doc(eventId).get();
     if (!eventDoc.exists)
         throw new Error('Event not found');
     const event = eventDoc.data();
-    if ((event === null || event === void 0 ? void 0 : event.ownerId) !== ownerId) {
+    if (event?.ownerId !== ownerId) {
         throw new Error('Unauthorized: Only the event owner can send certificates.');
     }
     // 2. Fetch Participants
@@ -292,7 +250,10 @@ async function sendCertificatesForEvent(eventId, ownerId) {
         .get();
     if (participantsSnap.empty)
         throw new Error('No participants registered for this event.');
-    const participants = participantsSnap.docs.map(doc => (Object.assign(Object.assign({}, doc.data()), { id: doc.id })));
+    const participants = participantsSnap.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id,
+    }));
     // 3. Load Template
     // Using a reliable path for assets
     const templatePath = path.join(__dirname, '../assets/certificate_template.pdf');
@@ -303,8 +264,8 @@ async function sendCertificatesForEvent(eventId, ownerId) {
     catch (e) {
         throw new Error("Certificate Template not found. Please ensure 'assets/certificate_template.pdf' exists in cloud-functions.");
     }
-    const eventTitle = (event === null || event === void 0 ? void 0 : event.title) || 'Event';
-    const organizationName = (event === null || event === void 0 ? void 0 : event.organization) || (event === null || event === void 0 ? void 0 : event.ownerName) || 'UniEvent';
+    const eventTitle = event?.title || 'Event';
+    const organizationName = event?.organization || event?.ownerName || 'UniEvent';
     const eventStartDate = getEventStartDate(event);
     const results = [];
     for (const p of participants) {
@@ -318,15 +279,19 @@ async function sendCertificatesForEvent(eventId, ownerId) {
         eventStartDate);
         results.push(outcome);
     }
-    if (results.length === participants.length &&
-        results.every(result => result.status === 'success' || result.status === 'skipped')) {
-        await admin.firestore().collection('events').doc(eventId).update({
-            certificatesSent: true,
-            certificatesSentAt: firestore_1.FieldValue.serverTimestamp(),
-        });
+    const summary = results.reduce((acc, result) => {
+        acc[result.status] += 1;
+        return acc;
+    }, { success: 0, failed: 0, error: 0, skipped: 0 });
+    const allSucceeded = results.length === participants.length && summary.success === participants.length;
+    const eventUpdate = {
+        certificatesSent: allSucceeded,
+        certificatesLastAttemptAt: firestore_1.FieldValue.serverTimestamp(),
+        certificateSummary: summary,
+    };
+    if (allSucceeded) {
+        eventUpdate.certificatesSentAt = firestore_1.FieldValue.serverTimestamp();
     }
-    else {
-        console.log(`Not all participants succeeded. total=${participants.length} results=${results.length}`);
-    }
-    return { total: participants.length, results };
+    await admin.firestore().collection('events').doc(eventId).update(eventUpdate);
+    return { total: participants.length, summary, results };
 }

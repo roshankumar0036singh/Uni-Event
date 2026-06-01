@@ -22,31 +22,8 @@ service cloud.firestore {
       return isValidEventTitle(data) && isValidEventCapacity(data) && isValidEventDate(data);
     }
 
-    function validateSoftDelete(before, after) {
-      let affected = after.diff(before).affectedKeys();
-      return !affected.hasAny(['deletedAt', 'deletedBy']) || (
-        !('deletedAt' in before) &&
-        'deletedAt' in after &&
-        'deletedBy' in after
-      );
-    }
-
     function validateAttendanceStatus(data) {
       return !('status' in data) || (data.status in ['rsvp', 'checked_in', 'cancelled']);
-    }
-
-    function isVerifiedPaidRegistration(database) {
-      return 'status' in request.resource.data
-        && request.resource.data.status == 'paid'
-        && 'ticketId' in request.resource.data
-        && exists(/databases/$(database)/documents/tickets/$(request.resource.data.ticketId))
-        && get(/databases/$(database)/documents/tickets/$(request.resource.data.ticketId)).data.status == 'paid';
-    }
-
-    function canRegisterForEvent(database, eventId) {
-      return exists(/databases/$(database)/documents/events/$(eventId))
-        && get(/databases/$(database)/documents/events/$(eventId)).data.status != 'suspended'
-        && !('deletedAt' in get(/databases/$(database)/documents/events/$(eventId)).data);
     }
 
     // =========================================================================
@@ -65,6 +42,13 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/events/$(eventId)) 
           && ('ownerId' in get(/databases/$(database)/documents/events/$(eventId)).data)
           && request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId;
+    }
+
+    function isEventOwnerAfter(database, eventId) {
+      let after = getAfter(/databases/$(database)/documents/events/$(eventId)).data;
+      return existsAfter(/databases/$(database)/documents/events/$(eventId))
+          && ('ownerId' in after)
+          && request.auth.uid == after.ownerId;
     }
 
     function isParticipant(database, eventId) {
@@ -187,16 +171,6 @@ service cloud.firestore {
         ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
       );
     }
-
-    // Collection-group rule for any `participating` subcollection to support
-    // collection-group and aggregation queries while enforcing per-doc access.
-    match /{path=**}/participating/{docId} {
-      allow read: if request.auth != null && (
-        request.auth.uid == resource.data.userId ||
-        isAdmin() ||
-        ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
-      );
-    }
     
     // =========================================================================
     // EVENTS COLLECTION & SUBCOLLECTIONS
@@ -212,8 +186,7 @@ service cloud.firestore {
       
       allow update: if request.auth != null 
                     && (isAdmin() || ('ownerId' in resource.data && request.auth.uid == resource.data.ownerId && checkWriteRate(request.auth.uid)))
-                    && validateEventShape(request.resource.data)
-                    && (isAdmin() || validateSoftDelete(resource.data, request.resource.data));
+                    && validateEventShape(request.resource.data);
                     
       allow delete: if request.auth != null 
                     && (isAdmin() || ('ownerId' in resource.data && request.auth.uid == resource.data.ownerId));
@@ -226,6 +199,14 @@ service cloud.firestore {
            request.auth.uid == attendanceId ||
            isEventOwner(database, eventId)
          );
+         allow create, update, delete: if request.auth != null
+           && existsAfter(/databases/$(database)/documents/events/$(eventId))
+           && (
+             isAdmin() ||
+             isClub() ||
+             isEventOwner(database, eventId) ||
+             isEventOwnerAfter(database, eventId)
+           );
       }
 
       // Event Participants Registry
@@ -238,20 +219,10 @@ service cloud.firestore {
         
         allow create: if request.auth != null &&
           request.auth.uid == participantId &&
+          validateAttendanceStatus(request.resource.data) &&
           !request.resource.data.keys().hasAny([
-            'role', 'approved'
-          ]) &&
-          canRegisterForEvent(database, eventId) &&
-          (
-            !('capacity' in get(/databases/$(database)/documents/events/$(eventId)).data) ||
-            get(/databases/$(database)/documents/events/$(eventId)).data.capacity == null ||
-            get(/databases/$(database)/documents/events/$(eventId)).data.get('participantCount', 0) <
-            get(/databases/$(database)/documents/events/$(eventId)).data.capacity
-          ) &&
-          (
-            validateAttendanceStatus(request.resource.data) ||
-            isVerifiedPaidRegistration(database)
-          );
+            'isPaid', 'paymentStatus', 'paymentId', 'role', 'approved'
+          ]);
           
         allow delete: if request.auth != null && request.auth.uid == participantId;
         

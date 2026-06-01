@@ -358,12 +358,10 @@ Centralized control panel with two main sections:
 
 ### 9. **Leaderboard & Gamification**
 
-#### Time-Decayed Reputation System
-- **Time-Decayed Scoring**: Continuous 6-month time-decay model where points halve every 6 months. Active, recent engagement is prioritized over older interactions.
+#### Points System
+- **Event Registration**: +10 points
 - **Event Attendance**: +10 points (via QR check-in)
-- **Event Registration**: +2 points
-- **Event Reminder**: +1 point
-- **Withdrawals**: Removing participation/reminders accurately decrements from the respective historical bucket.
+- **Event Withdrawal**: -10 points
 - **Profile Display**: Total points badge
 
 #### Leaderboard Rankings

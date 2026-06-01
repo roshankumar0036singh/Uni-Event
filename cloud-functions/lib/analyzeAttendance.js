@@ -79,7 +79,6 @@ async function checkRapidDuplicate(eventId, currentUserId, qrId, checkedInAt, re
         .where("qrId", "==", qrId)
         .get();
     snapshot.forEach((doc) => {
-        var _a;
         // Skip current check-in
         if (doc.id === currentUserId) {
             return;
@@ -87,10 +86,10 @@ async function checkRapidDuplicate(eventId, currentUserId, qrId, checkedInAt, re
         const data = doc.data();
         if (!data.checkedInAt)
             return;
-        const currentTime = (checkedInAt === null || checkedInAt === void 0 ? void 0 : checkedInAt.toDate)
+        const currentTime = checkedInAt?.toDate
             ? checkedInAt.toDate().getTime()
             : new Date(checkedInAt).getTime();
-        const existingTime = ((_a = data.checkedInAt) === null || _a === void 0 ? void 0 : _a.toDate)
+        const existingTime = data.checkedInAt?.toDate
             ? data.checkedInAt.toDate().getTime()
             : new Date(data.checkedInAt).getTime();
         const diff = Math.abs(currentTime - existingTime);
@@ -149,12 +148,11 @@ async function checkMultipleEvents(userId, checkedInAt, currentEventId, result) 
         .where("userId", "==", userId)
         .get();
     snapshot.forEach((doc) => {
-        var _a;
         const data = doc.data();
-        const currentTime = (checkedInAt === null || checkedInAt === void 0 ? void 0 : checkedInAt.toDate)
+        const currentTime = checkedInAt?.toDate
             ? checkedInAt.toDate().getTime()
             : new Date(checkedInAt).getTime();
-        const existingTime = ((_a = data.checkedInAt) === null || _a === void 0 ? void 0 : _a.toDate)
+        const existingTime = data.checkedInAt?.toDate
             ? data.checkedInAt.toDate().getTime()
             : new Date(data.checkedInAt).getTime();
         const diff = Math.abs(currentTime - existingTime);

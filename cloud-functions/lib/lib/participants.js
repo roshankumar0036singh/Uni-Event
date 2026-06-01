@@ -13,5 +13,8 @@ async function getParticipantContacts(db, eventId) {
     if (participantsSnap.empty) {
         return [];
     }
-    return participantsSnap.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
+    return participantsSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+    }));
 }

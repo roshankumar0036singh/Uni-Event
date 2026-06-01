@@ -114,12 +114,11 @@ exports.getMonthStartFromKey = getMonthStartFromKey;
  * @returns A promise resolving to the start date or null
  */
 const resolveEventStartAt = async (eventId, eventStartAt, eventCache) => {
-    var _a;
     // Priority 1: Authoritative DB lookup (mitigates client spoofing)
     if (eventId) {
         if (!eventCache.has(eventId)) {
             const eventSnap = await db.collection('events').doc(eventId).get();
-            const authoritativeDate = eventSnap.exists ? toDate((_a = eventSnap.data()) === null || _a === void 0 ? void 0 : _a.startAt) : null;
+            const authoritativeDate = eventSnap.exists ? toDate(eventSnap.data()?.startAt) : null;
             eventCache.set(eventId, authoritativeDate);
         }
         const cachedDate = eventCache.get(eventId);
@@ -194,42 +193,46 @@ const runReputationRefresh = async () => {
     let updatedUsers = 0;
     await paginateQuery(db.collection('users'), async (docs) => {
         const batch = db.batch();
-        await Promise.all(docs.map(async (userDoc) => {
-            const bucketsSnapshot = await userDoc.ref
-                .collection(REPUTATION_BUCKETS_COLLECTION)
-                .get();
-            let attendanceCount = 0;
-            let registrationCount = 0;
-            let remindersSet = 0;
-            let points = 0;
-            for (const bucketDoc of bucketsSnapshot.docs) {
-                const bucketData = bucketDoc.data() || {};
-                const monthKey = typeof bucketData.monthKey === 'string' ? bucketData.monthKey : bucketDoc.id;
-                const monthStart = (0, exports.getMonthStartFromKey)(monthKey);
-                if (!monthStart) {
-                    continue;
+        const CONCURRENCY_LIMIT = 50;
+        for (let i = 0; i < docs.length; i += CONCURRENCY_LIMIT) {
+            const chunk = docs.slice(i, i + CONCURRENCY_LIMIT);
+            await Promise.all(chunk.map(async (userDoc) => {
+                const bucketsSnapshot = await userDoc.ref
+                    .collection(REPUTATION_BUCKETS_COLLECTION)
+                    .get();
+                let attendanceCount = 0;
+                let registrationCount = 0;
+                let remindersSet = 0;
+                let points = 0;
+                for (const bucketDoc of bucketsSnapshot.docs) {
+                    const bucketData = bucketDoc.data() || {};
+                    const monthKey = typeof bucketData.monthKey === 'string' ? bucketData.monthKey : bucketDoc.id;
+                    const monthStart = (0, exports.getMonthStartFromKey)(monthKey);
+                    if (!monthStart) {
+                        continue;
+                    }
+                    const ageMonths = Math.max(0, (now.getTime() - monthStart.getTime()) / (MS_PER_DAY * DAYS_PER_MONTH));
+                    const decay = Math.pow(2, -ageMonths / HALF_LIFE_MONTHS);
+                    const registrations = Number(bucketData.registrations || 0);
+                    const attendances = Number(bucketData.attendances || 0);
+                    const reminders = Number(bucketData.reminders || 0);
+                    registrationCount += registrations;
+                    attendanceCount += attendances;
+                    remindersSet += reminders;
+                    points += registrations * REGISTRATION_POINTS * decay;
+                    points += attendances * ATTENDANCE_POINTS * decay;
+                    points += reminders * REMINDER_POINTS * decay;
                 }
-                const ageMonths = Math.max(0, (now.getTime() - monthStart.getTime()) / (MS_PER_DAY * DAYS_PER_MONTH));
-                const decay = Math.pow(2, -ageMonths / HALF_LIFE_MONTHS);
-                const registrations = Number(bucketData.registrations || 0);
-                const attendances = Number(bucketData.attendances || 0);
-                const reminders = Number(bucketData.reminders || 0);
-                registrationCount += registrations;
-                attendanceCount += attendances;
-                remindersSet += reminders;
-                points += registrations * REGISTRATION_POINTS * decay;
-                points += attendances * ATTENDANCE_POINTS * decay;
-                points += reminders * REMINDER_POINTS * decay;
-            }
-            batch.update(userDoc.ref, {
-                'reputation.points': points,
-                'reputation.attendanceCount': attendanceCount,
-                'reputation.registrationCount': registrationCount,
-                'reputation.remindersSet': remindersSet,
-                'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
-            });
-            updatedUsers += 1;
-        }));
+                batch.update(userDoc.ref, {
+                    'reputation.points': points,
+                    'reputation.attendanceCount': attendanceCount,
+                    'reputation.registrationCount': registrationCount,
+                    'reputation.remindersSet': remindersSet,
+                    'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+                });
+                updatedUsers += 1;
+            }));
+        }
         await batch.commit();
     });
     return updatedUsers;
@@ -280,8 +283,8 @@ const addToBucketTotals = (totals, userId, monthKey, field) => {
  * +1 point per reminder set
  */
 exports.calculateReputation = functions.https.onCall(async (_data, context) => {
-    var _a;
-    if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.admin)) {
+    (0, appCheck_1.enforceAppCheck)(context);
+    if (!context.auth?.token.admin) {
         throw new functions.https.HttpsError('permission-denied', 'Only admin can calculate reputation.');
     }
     const updatedUsers = await (0, exports.runReputationRefresh)();
@@ -306,9 +309,8 @@ exports.refreshReputationDaily = functions.pubsub.schedule('every 24 hours').onR
  * @returns A promise resolving when the processing completes
  */
 const handleReputationTrigger = async (userId, eventId, data, contextId, deltas, prefix) => {
-    var _a;
     const eventCache = new Map();
-    const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, (_a = data === null || data === void 0 ? void 0 : data.eventStartAt) !== null && _a !== void 0 ? _a : data === null || data === void 0 ? void 0 : data.eventDate, eventCache);
+    const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, data?.eventStartAt ?? data?.eventDate, eventCache);
     if (!userId || !eventStartAt) {
         console.warn(`Missing eventStartAt or userId for ${prefix}`, { userId, eventId });
         return null;
@@ -347,7 +349,7 @@ exports.onReminderCreate = functions.firestore
     .document('reminders/{reminderId}')
     .onCreate((snap, context) => {
     const data = snap.data();
-    return handleReputationTrigger(data === null || data === void 0 ? void 0 : data.userId, data === null || data === void 0 ? void 0 : data.eventId, data, context.eventId, { reminders: 1 }, 'reminder_create');
+    return handleReputationTrigger(data?.userId, data?.eventId, data, context.eventId, { reminders: 1 }, 'reminder_create');
 });
 /**
  * Trigger: Fires when a user deletes a reminder for an event.
@@ -356,11 +358,11 @@ exports.onReminderDelete = functions.firestore
     .document('reminders/{reminderId}')
     .onDelete((snap, context) => {
     const data = snap.data();
-    return handleReputationTrigger(data === null || data === void 0 ? void 0 : data.userId, data === null || data === void 0 ? void 0 : data.eventId, data, context.eventId, { reminders: -1 }, 'reminder_delete');
+    return handleReputationTrigger(data?.userId, data?.eventId, data, context.eventId, { reminders: -1 }, 'reminder_delete');
 });
 exports.backfillReputationBuckets = functions.https.onCall(async (_data, context) => {
-    var _a;
-    if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.admin)) {
+    (0, appCheck_1.enforceAppCheck)(context);
+    if (!context.auth?.token.admin) {
         throw new functions.https.HttpsError('permission-denied', 'Only admin can backfill reputation buckets.');
     }
     const eventCache = new Map();
@@ -372,13 +374,12 @@ exports.backfillReputationBuckets = functions.https.onCall(async (_data, context
         skipped: 0,
     };
     await paginateQuery(db.collectionGroup('participating'), async (docs) => {
-        var _a, _b;
         for (const doc of docs) {
             scanned.participating += 1;
             const data = doc.data();
-            const userId = (_a = doc.ref.parent.parent) === null || _a === void 0 ? void 0 : _a.id;
-            const eventId = (data === null || data === void 0 ? void 0 : data.eventId) || doc.id;
-            const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, (_b = data === null || data === void 0 ? void 0 : data.eventStartAt) !== null && _b !== void 0 ? _b : data === null || data === void 0 ? void 0 : data.eventDate, eventCache);
+            const userId = doc.ref.parent.parent?.id;
+            const eventId = data?.eventId || doc.id;
+            const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, data?.eventStartAt ?? data?.eventDate, eventCache);
             if (!userId || !eventStartAt) {
                 scanned.skipped += 1;
                 continue;
@@ -388,13 +389,12 @@ exports.backfillReputationBuckets = functions.https.onCall(async (_data, context
         }
     });
     await paginateQuery(db.collectionGroup('checkIns'), async (docs) => {
-        var _a, _b;
         for (const doc of docs) {
             scanned.checkIns += 1;
             const data = doc.data();
-            const userId = (data === null || data === void 0 ? void 0 : data.userId) || doc.id;
-            const eventId = (_a = doc.ref.parent.parent) === null || _a === void 0 ? void 0 : _a.id;
-            const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, (_b = data === null || data === void 0 ? void 0 : data.eventStartAt) !== null && _b !== void 0 ? _b : data === null || data === void 0 ? void 0 : data.eventDate, eventCache);
+            const userId = data?.userId || doc.id;
+            const eventId = doc.ref.parent.parent?.id;
+            const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, data?.eventStartAt ?? data?.eventDate, eventCache);
             if (!userId || !eventStartAt) {
                 scanned.skipped += 1;
                 continue;
@@ -404,13 +404,12 @@ exports.backfillReputationBuckets = functions.https.onCall(async (_data, context
         }
     });
     await paginateQuery(db.collection('reminders'), async (docs) => {
-        var _a;
         for (const doc of docs) {
             scanned.reminders += 1;
             const data = doc.data();
-            const userId = data === null || data === void 0 ? void 0 : data.userId;
-            const eventId = data === null || data === void 0 ? void 0 : data.eventId;
-            const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, (_a = data === null || data === void 0 ? void 0 : data.eventStartAt) !== null && _a !== void 0 ? _a : data === null || data === void 0 ? void 0 : data.eventDate, eventCache);
+            const userId = data?.userId;
+            const eventId = data?.eventId;
+            const eventStartAt = await (0, exports.resolveEventStartAt)(eventId, data?.eventStartAt ?? data?.eventDate, eventCache);
             if (!userId || !eventStartAt) {
                 scanned.skipped += 1;
                 continue;
@@ -467,7 +466,6 @@ exports.refreshTopContributorsLeaderboard = functions.pubsub
         .limit(10)
         .get();
     const contributors = usersSnapshot.docs.map((doc, index) => {
-        var _a, _b, _c, _d;
         const userData = doc.data();
         return {
             userId: doc.id,
@@ -475,10 +473,10 @@ exports.refreshTopContributorsLeaderboard = functions.pubsub
             name: userData.name || userData.fullName || userData.displayName || 'Unknown Student',
             department: userData.department || '',
             photoURL: userData.photoURL || '',
-            points: ((_a = userData.reputation) === null || _a === void 0 ? void 0 : _a.points) || 0,
-            attendanceCount: ((_b = userData.reputation) === null || _b === void 0 ? void 0 : _b.attendanceCount) || 0,
-            registrationCount: ((_c = userData.reputation) === null || _c === void 0 ? void 0 : _c.registrationCount) || 0,
-            remindersSet: ((_d = userData.reputation) === null || _d === void 0 ? void 0 : _d.remindersSet) || 0,
+            points: userData.reputation?.points || 0,
+            attendanceCount: userData.reputation?.attendanceCount || 0,
+            registrationCount: userData.reputation?.registrationCount || 0,
+            remindersSet: userData.reputation?.remindersSet || 0,
         };
     });
     await db.collection('leaderboards').doc('topContributors').set({
@@ -499,10 +497,10 @@ exports.getTopContributors = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
     (0, appCheck_1.enforceAppCheck)(context);
-    const limit = Math.min((data === null || data === void 0 ? void 0 : data.limit) || 10, 25);
-    const lastPoints = data === null || data === void 0 ? void 0 : data.lastPoints;
-    const lastUserId = data === null || data === void 0 ? void 0 : data.lastUserId;
-    const startRank = (data === null || data === void 0 ? void 0 : data.startRank) || 1;
+    const limit = Math.min(data?.limit || 10, 25);
+    const lastPoints = data?.lastPoints;
+    const lastUserId = data?.lastUserId;
+    const startRank = data?.startRank || 1;
     let query = db
         .collection('users')
         .orderBy('reputation.points', 'desc')
@@ -513,7 +511,6 @@ exports.getTopContributors = functions.https.onCall(async (data, context) => {
     }
     const usersSnapshot = await query.get();
     const contributors = usersSnapshot.docs.map((doc, index) => {
-        var _a, _b, _c, _d;
         const userData = doc.data();
         return {
             userId: doc.id,
@@ -521,10 +518,10 @@ exports.getTopContributors = functions.https.onCall(async (data, context) => {
             name: userData.name || userData.fullName || userData.displayName || 'Unknown Student',
             department: userData.department || '',
             photoURL: userData.photoURL || '',
-            points: ((_a = userData.reputation) === null || _a === void 0 ? void 0 : _a.points) || 0,
-            attendanceCount: ((_b = userData.reputation) === null || _b === void 0 ? void 0 : _b.attendanceCount) || 0,
-            registrationCount: ((_c = userData.reputation) === null || _c === void 0 ? void 0 : _c.registrationCount) || 0,
-            remindersSet: ((_d = userData.reputation) === null || _d === void 0 ? void 0 : _d.remindersSet) || 0,
+            points: userData.reputation?.points || 0,
+            attendanceCount: userData.reputation?.attendanceCount || 0,
+            registrationCount: userData.reputation?.registrationCount || 0,
+            remindersSet: userData.reputation?.remindersSet || 0,
         };
     });
     const lastContributor = contributors.length > 0 ? contributors[contributors.length - 1] : null;

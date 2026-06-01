@@ -56,6 +56,7 @@ __exportStar(require("./branchReport"), exports);
 __exportStar(require("./postEventFeedback"), exports);
 __exportStar(require("./sendBulkEmails"), exports);
 __exportStar(require("./auditLog"), exports);
+__exportStar(require("./attendanceStreak"), exports);
 __exportStar(require("./permanentCleanup"), exports);
 exports.cleanupRateLimits = functions.pubsub
     .schedule("every 1 hour")

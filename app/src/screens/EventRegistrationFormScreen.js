@@ -60,6 +60,8 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
     };
 
     const handleSubmit = async () => {
+        if (loading) return;
+
         if (!validate()) return;
 
         // 1. Paid Event Flow -> Navigate to Payment
@@ -142,7 +144,6 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 const participatingRef = doc(db, 'users', user.uid, 'participating', event.id);
                 transaction.set(participatingRef, {
                     eventId: event.id,
-                    eventStartAt: freshEvent.startAt,
                     joinedAt: new Date().toISOString(),
                 });
 
@@ -207,6 +208,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                         value={responses[field.id] || ''}
                         onChangeText={t => handleChange(field.id, t)}
                         keyboardType={field.type === 'number' ? 'numeric' : 'default'}
+                        disabled={loading}
                     />
                 );
             case 'dropdown':
@@ -224,6 +226,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                                         responses[field.id] === opt && styles.chipActive,
                                     ]}
                                     onPress={() => handleChange(field.id, opt)}
+                                    disabled={loading}
                                     accessible={true}
                                     accessibilityRole="button"
                                     accessibilityLabel={`${field.label} option ${opt}`}
@@ -253,6 +256,7 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                         <TouchableOpacity
                             style={styles.dateBtn}
                             onPress={() => setDatePickers({ ...datePickers, [field.id]: true })}
+                            disabled={loading}
                             accessible={true}
                             accessibilityRole="button"
                             accessibilityLabel={`${field.label} date`}
@@ -325,7 +329,10 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                     accessibilityLabel="Submit Registration"
                 >
                     {loading ? (
-                        <ActivityIndicator color="#fff" />
+                        <View style={styles.submitLoadingContent}>
+                            <ActivityIndicator color="#fff" />
+                            <Text style={styles.submitBtnText}>Submitting...</Text>
+                        </View>
                     ) : (
                         <Text style={styles.submitBtnText}>Submit Registration</Text>
                     )}
@@ -394,6 +401,12 @@ const getStyles = theme =>
             elevation: 5,
         },
         submitBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+        submitLoadingContent: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+        },
         confettiOverlay: {
             position: 'absolute',
             top: 0,

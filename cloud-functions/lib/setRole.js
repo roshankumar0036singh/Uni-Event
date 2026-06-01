@@ -36,33 +36,23 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.setRole = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const appCheck_1 = require("./middleware/appCheck");
 // Assumes admin.initializeApp() is called in index.ts
-const rateLimiter_1 = require("./middleware/rateLimiter");
 /**
  * Sets the role for a user.
  * Restricted to admins.
  * Payload: { uid: string, role: 'admin' | 'club' | 'student' }
- *
- * Note: Rate limiting is applied to this function as part of a phased rollout.
- * Other callable functions (calculateReputation, getTopContributors, sendDailyDigest)
- * will have rate limiting added in future updates as needed.
  */
 exports.setRole = functions.https.onCall(async (data, context) => {
     // Check if caller is authenticated
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "The function must be called while authenticated.");
     }
-    (0, appCheck_1.enforceAppCheck)(context);
     // Check if caller is admin
     // Note: For initial bootstrap, this check might need to be bypassed temporarily or the first admin set manually.
     // We will assume the first admin is set via Firebase Console or script.
-    // Check if caller is admin BEFORE rate limiting
     if (!context.auth.token.admin) {
         throw new functions.https.HttpsError("permission-denied", "Only admins can set roles.");
     }
-    // Apply rate limiting after auth checks
-    await (0, rateLimiter_1.checkRateLimit)(context.auth.uid, "setRole", rateLimiter_1.RATE_LIMITS.ADMIN_WRITE);
     const { uid, role } = data;
     if (!uid || !role) {
         throw new functions.https.HttpsError("invalid-argument", "The function must be called with 'uid' and 'role' arguments.");
@@ -86,6 +76,6 @@ exports.setRole = functions.https.onCall(async (data, context) => {
         return { success: true };
     }
     catch (error) {
-        throw new functions.https.HttpsError("internal", "Error setting role");
+        throw new functions.https.HttpsError("internal", "Error setting role", error);
     }
 });
