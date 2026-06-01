@@ -167,21 +167,16 @@ export const refreshClubReputation = functions.pubsub.schedule('every 24 hours')
                     .collection('reputationBuckets')
                     .where('bucketMonth', '>=', cutoffMonth)
                     .get();
-                let decayedPoints = 0;
-                let decayedRatings = 0;
-
                 const bucketInputs = bucketSnap.docs.map(
                     (b: FirebaseFirestore.QueryDocumentSnapshot) => ({
                         id: b.id,
                         data: b.data() as ReputationBucket,
                     }),
                 );
-                const { decayedPoints: dp, decayedRatings: dr } = computeDecayedScore(
+                const { decayedPoints, decayedRatings } = computeDecayedScore(
                     bucketInputs,
                     nowMonth,
                 );
-                decayedPoints = dp;
-                decayedRatings = dr;
 
                 batch.update(userDoc.ref, {
                     'reputation.decayedPoints': decayedPoints,

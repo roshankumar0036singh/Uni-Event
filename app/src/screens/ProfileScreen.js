@@ -19,6 +19,7 @@ import PremiumInput from '../components/PremiumInput';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
+import { calculateAverageRating } from '../lib/feedbackService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -312,14 +313,8 @@ export default function ProfileScreen({ navigation }) {
                 // Fetch Club Rating (for club/admin users) from reputation field
                 if (role === 'club' || role === 'admin') {
                     const reputation = data.reputation || {};
-                    if (reputation.totalRatings && reputation.totalRatings > 0) {
-                        const avgRating = (
-                            reputation.totalPoints / reputation.totalRatings
-                        ).toFixed(1);
-                        setRating(parseFloat(avgRating));
-                    } else {
-                        setRating(0);
-                    }
+                    const avgRating = calculateAverageRating(reputation);
+                    setRating(avgRating);
                 }
             }
 
