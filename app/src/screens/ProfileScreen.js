@@ -23,6 +23,7 @@ import { calculateAverageRating } from '../lib/feedbackService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Clipboard from 'expo-clipboard';
 import { getUserLevel, getUserLevelProgress } from '../lib/userLevels';
 import {
     getSafeSelectedProfileBadge,
@@ -51,13 +52,14 @@ const MenuItem = ({
     label,
     description,
     onPress,
+    onLongPress,
     theme,
     styles,
     width = '50%',
     showChevron = true,
     rightElement,
 }) => (
-    <TouchableOpacity onPress={onPress} style={[styles.bentoMenuItem, { width }]}>
+    <TouchableOpacity onPress={onPress} onLongPress={onLongPress} style={[styles.bentoMenuItem, { width }]}>
         <View style={styles.bentoTop}>
             <View
                 style={[
@@ -282,6 +284,25 @@ export default function ProfileScreen({ navigation }) {
     const [requestMessage, setRequestMessage] = useState('');
     const [loading, setLoading] = useState(false);
     const updatingBadgeRef = useRef(null);
+    const [activeCopiedField, setActiveCopiedField] = useState('');
+    const [toastMessage, setToastMessage] = useState('');
+
+    const handleCopyToClipboard = async (text, fieldName) => {
+        if (!text) return;
+        try {
+            await Clipboard.setStringAsync(text);
+            setActiveCopiedField(fieldName);
+            setToastMessage(`${fieldName} copied to clipboard!`);
+            setTimeout(() => {
+                setActiveCopiedField(prev => (prev === fieldName ? '' : prev));
+            }, 2000);
+            setTimeout(() => {
+                setToastMessage(prev => (prev === `${fieldName} copied to clipboard!` ? '' : prev));
+            }, 2000);
+        } catch (error) {
+            console.error('Failed to copy to clipboard', error);
+        }
+    };
     const levelInfo = useMemo(() => getUserLevel(points), [points]);
     const progressInfo = useMemo(() => getUserLevelProgress(points), [points]);
     const activeProfileBadge = useMemo(
@@ -503,8 +524,32 @@ export default function ProfileScreen({ navigation }) {
                                 </View>
                             </View>
                             <View style={styles.profileInfo}>
-                                <Text style={styles.profileName}>{name || 'User'}</Text>
-                                <Text style={styles.profileEmail}>{user?.email}</Text>
+                                <TouchableOpacity
+                                    onPress={() => handleCopyToClipboard(name || 'User', 'Username')}
+                                    onLongPress={() => handleCopyToClipboard(name || 'User', 'Username')}
+                                    activeOpacity={0.7}
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
+                                >
+                                    <Text style={styles.profileName}>{name || 'User'}</Text>
+                                    {activeCopiedField === 'Username' ? (
+                                        <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                                    ) : (
+                                        <Ionicons name="copy-outline" size={14} color={theme.colors.textSecondary} />
+                                    )}
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => handleCopyToClipboard(user?.email, 'Email')}
+                                    onLongPress={() => handleCopyToClipboard(user?.email, 'Email')}
+                                    activeOpacity={0.7}
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}
+                                >
+                                    <Text style={styles.profileEmail}>{user?.email}</Text>
+                                    {activeCopiedField === 'Email' ? (
+                                        <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+                                    ) : (
+                                        <Ionicons name="copy-outline" size={12} color={theme.colors.textSecondary} />
+                                    )}
+                                </TouchableOpacity>
                             </View>
                         </View>
                         {!isEditing && (
@@ -993,6 +1038,7 @@ export default function ProfileScreen({ navigation }) {
                             )}
                         </View>
 
+
                         {/* Settings Section */}
                         <View style={styles.menuGroup}>
                             <Text style={styles.groupTitle}>Settings</Text>
@@ -1330,6 +1376,11 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                 </View>
             </Modal>
+            {toastMessage ? (
+                <View style={styles.toastContainer}>
+                    <Text style={styles.toastText}>{toastMessage}</Text>
+                </View>
+            ) : null}
         </ScreenWrapper>
     );
 }
@@ -1847,6 +1898,31 @@ const getStyles = theme =>
             fontWeight: '700',
             fontSize: 17,
         },
+        toastContainer: {
+            position: 'absolute',
+            bottom: 120,
+            left: 20,
+            right: 20,
+            backgroundColor: theme.colors.text,
+            paddingVertical: 12,
+            paddingHorizontal: 20,
+            borderRadius: 25,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+            zIndex: 9999,
+        },
+        toastText: {
+            color: theme.colors.background,
+            fontSize: 14,
+            fontWeight: '600',
+            textAlign: 'center',
+        },
     });
 
 MenuItem.propTypes = {
@@ -1854,6 +1930,7 @@ MenuItem.propTypes = {
     label: PropTypes.any,
     description: PropTypes.any,
     onPress: PropTypes.any,
+    onLongPress: PropTypes.any,
     theme: PropTypes.object,
     styles: PropTypes.object,
     showChevron: PropTypes.any,
