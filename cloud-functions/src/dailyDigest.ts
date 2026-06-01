@@ -2,6 +2,7 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { FieldPath } from 'firebase-admin/firestore';
 import { isExpoPushToken, sendPushNotifications } from './utils/push';
+import { logEntry } from './logger';
 
 const PAGE_SIZE = 500;
 
@@ -114,6 +115,7 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
         .get();
 
     const count = snapshot.size;
+    logEntry('dailyDigest', 'sendDailyDigest started', { input: { count } });
 
     if (count === 0) {
         return { success: true, message: 'No events today.', count: 0, processed: 0 };
@@ -125,5 +127,6 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
         return { success: false, count, processed: processedCount, failedPushes };
     }
 
+    logEntry('dailyDigest', 'sendDailyDigest completed', { output: { success: true, count, processed: processedCount } });
     return { success: true, count, processed: processedCount };
 });
