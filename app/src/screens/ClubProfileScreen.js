@@ -26,6 +26,7 @@ import {
 import { EventListSkeleton } from '../components/SkeletonLoader';
 import EventCard from '../components/EventCard';
 import { useAuth } from '../lib/AuthContext';
+import { calculateAverageRating } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
@@ -157,12 +158,8 @@ export default function ClubProfileScreen({ route, navigation }) {
         if (!club?.reputation) return { avgRating: 0, totalRatings: 0 };
 
         const reputation = club.reputation;
-        if (reputation.totalRatings && reputation.totalRatings > 0) {
-            const avg = (reputation.totalPoints / reputation.totalRatings).toFixed(1);
-            return { avgRating: avg, totalRatings: reputation.totalRatings };
-        }
-
-        return { avgRating: 0, totalRatings: 0 };
+        const avg = calculateAverageRating(reputation);
+        return { avgRating: avg, totalRatings: reputation.totalRatings || 0 };
     }, [club]);
 
     const rawAttendanceRate = Number(club?.metrics?.attendanceRate);

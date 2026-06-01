@@ -58,6 +58,7 @@ __exportStar(require("./sendBulkEmails"), exports);
 __exportStar(require("./auditLog"), exports);
 __exportStar(require("./attendanceStreak"), exports);
 __exportStar(require("./permanentCleanup"), exports);
+__exportStar(require("./clubReputation"), exports);
 exports.cleanupRateLimits = functions.pubsub
     .schedule("every 1 hour")
     .onRun(async () => {
