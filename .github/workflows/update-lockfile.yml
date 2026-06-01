@@ -1,41 +1,54 @@
 name: Update package-lock.json
 
 on:
-    push:
-        branches:
-            - main
-        paths:
-            - 'package.json'
-            - 'app/package.json'
-            - 'cloud-functions/package.json'
+  push:
+    branches:
+      - main
+    paths:
+      - 'package.json'
+      - 'app/package.json'
+      - 'cloud-functions/package.json'
 
 permissions:
-    contents: write
+  contents: write
+  pull-requests: write  
 
 jobs:
-    update-lockfile:
-        runs-on: ubuntu-latest
+  update-lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-        steps:
-            - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: 22
+      - name: Update root lockfile
+        run: npm install --package-lock-only --ignore-scripts
 
-            - name: Update root lockfile
-              run: npm install --package-lock-only --ignore-scripts
+      - name: Update app lockfile
+        run: |
+          cd app
+          npm install --package-lock-only --ignore-scripts
 
-            - name: Update app lockfile
-              run: |
-                  cd app
-                  npm install --package-lock-only --ignore-scripts
+      - name: Update cloud-functions lockfile
+        run: |
+          cd cloud-functions
+          npm install --package-lock-only --ignore-scripts
 
-            - name: Update cloud-functions lockfile
-              run: |
-                  cd cloud-functions
-                  npm install --package-lock-only --ignore-scripts
+      - name: Open Pull Request with updated lockfiles
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update package-lock.json"
+          branch: chore/update-package-lock
+          delete-branch: true        # auto-deletes branch after PR merge
+          title: "chore: update package-lock.json"
+          body: |
+            Automated PR triggered by a `package.json` change.
 
-            - uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403
-              with:
-                  commit_message: 'chore: update package-lock.json [skip ci]'
+            Updated lockfiles:
+            - `/package-lock.json`
+            - `/app/package-lock.json`
+            - `/cloud-functions/package-lock.json`
+          labels: dependencies
