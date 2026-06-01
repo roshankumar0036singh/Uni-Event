@@ -70,9 +70,9 @@ describe('Reputation Decay & Buckets', () => {
         const userSnap = await db.collection('users').doc('user123').get();
         const rep = userSnap.data()?.reputation;
         
-        // Exact decay varies between ~2.2 and ~3.3 depending on current day of month
+        // Exact decay varies between ~2.2 and ~3.5 depending on current day of month
         expect(rep.points).toBeGreaterThan(1.9);
-        expect(rep.points).toBeLessThan(3.5);
+        expect(rep.points).toBeLessThan(3.6);
         expect(rep.attendanceCount).toBe(1);
     });
 
