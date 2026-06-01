@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Map Live Preview</title>
+    <!-- Ionicons for the toggle icons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <!-- Leaflet for an actual interactive web map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --surface: #ffffff;
+            --primary: #4F46E5;
+            --text: #1f2937;
+            --text-secondary: #6b7280;
+            --border: #e5e7eb;
+            --radius: 16px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #e2e8f0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .mobile-container {
+            width: 390px;
+            height: 844px; /* iPhone 13/14 Pro dimensions */
+            background-color: var(--bg-color);
+            border-radius: 40px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            border: 8px solid #111;
+        }
+
+        /* Header / Search Bar */
+        .header {
+            padding: 40px 20px 15px 20px;
+            background-color: var(--bg-color);
+            z-index: 10;
+        }
+
+        .search-bar {
+            background-color: var(--surface);
+            border-radius: 25px;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .search-bar input {
+            border: none;
+            outline: none;
+            font-size: 16px;
+            color: var(--text);
+            width: 100%;
+        }
+
+        /* View Toggle Header */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px 15px 20px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        .toggle-group {
+            display: flex;
+            background-color: var(--surface);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .toggle-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-btn.active {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .toggle-btn:not(.active) {
+            color: var(--text-secondary);
+        }
+
+        /* Map Container */
+        .map-wrapper {
+            flex: 1;
+            margin: 0 20px 20px 20px;
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Custom Leaflet Popup Styling to match React Native Callout */
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+        }
+        
+        .leaflet-popup-content {
+            margin: 0;
+            width: 220px !important;
+        }
+
+        .callout-content {
+            padding: 15px;
+        }
+
+        .callout-title {
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--text);
+            margin: 0 0 5px 0;
+        }
+
+        .callout-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin: 0 0 12px 0;
+            line-height: 1.4;
+        }
+
+        .callout-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            width: 100%;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        /* Bottom Tab Bar Mockup */
+        .bottom-tabs {
+            height: 65px;
+            background-color: var(--surface);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid var(--border);
+            padding-bottom: 15px; /* iOS safe area */
+        }
+
+        .tab-item {
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+        }
+        
+        .tab-item.active {
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="mobile-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="search-bar">
+                <ion-icon name="search" style="color: var(--text-secondary); font-size: 20px;"></ion-icon>
+                <input type="text" placeholder="Search events...">
+            </div>
+        </div>
+
+        <!-- Toggle Section -->
+        <div class="section-header">
+            <div class="section-title">RECOMMENDED FOR YOU</div>
+            <div class="toggle-group">
+                <button class="toggle-btn">
+                    <ion-icon name="list" style="font-size: 18px;"></ion-icon>
+                </button>
+                <button class="toggle-btn active">
+                    <ion-icon name="map" style="font-size: 18px;"></ion-icon>
+                </button>
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div class="map-wrapper">
+            <div id="map"></div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-tabs">
+            <div class="tab-item"><ion-icon name="home-outline" style="font-size: 24px;"></ion-icon>Home</div>
+            <div class="tab-item active"><ion-icon name="compass" style="font-size: 24px;"></ion-icon>Discover</div>
+            <div class="tab-item"><ion-icon name="add-circle-outline" style="font-size: 24px;"></ion-icon>Create</div>
+            <div class="tab-item"><ion-icon name="person-outline" style="font-size: 24px;"></ion-icon>Profile</div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Map centered on a dummy campus location
+        const map = L.map('map', {
+            zoomControl: false // Hide default zoom controls for cleaner mobile look
+        }).setView([28.7041, 77.1025], 14);
+
+        // Add a nice clean map tile layer (CartoDB Positron for modern app feel)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(map);
+
+        // Define a custom red pin marker
+        const redIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="background-color: #e11d48; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+
+        // Dummy Event Data
+        const events = [
+            { id: 1, title: 'Tech Startup Pitch', desc: 'Join top investors and founders for the annual startup pitch contest.', lat: 28.7041, lng: 77.1025 },
+            { id: 2, title: 'Music Festival 2026', desc: 'Live performances by local campus bands. Food and drinks available!', lat: 28.7120, lng: 77.0950 },
+            { id: 3, title: 'AI Hackathon', desc: 'Build the future of AI. 48 hours of coding, pizza, and prizes.', lat: 28.6950, lng: 77.1100 }
+        ];
+
+        // Add markers and custom popups (mimicking React Native Callouts)
+        events.forEach(event => {
+            const popupContent = `
+                <div class="callout-content">
+                    <h3 class="callout-title">${event.title}</h3>
+                    <p class="callout-desc">${event.desc}</p>
+                    <button class="callout-btn" onclick="alert('Navigating to Event Details for: ${event.title}')">View Details</button>
+                </div>
+            `;
+
+            L.marker([event.lat, event.lng], { icon: redIcon })
+                .addTo(map)
+                .bindPopup(popupContent, {
+                    closeButton: false,
+                    offset: [0, -10],
+                    autoPanPadding: [20, 20]
+                });
+        });
+        
+        // Open the first popup by default for demonstration
+        setTimeout(() => {
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker && layer.getLatLng().lat === 28.7041) {
+                    layer.openPopup();
+                }
+            });
+        }, 500);
+
+    </script>
+</body>
+</html>

@@ -21,7 +21,7 @@ export const onFeedbackSubmit = functions.firestore
 
         // 1. Update event stats
         const eventRef = db.collection('events').doc(eventId);
-        const statsUpdate: any = {
+        const statsUpdate: Record<string, any> = {
             feedbackCount: admin.firestore.FieldValue.increment(1),
         };
 
@@ -67,8 +67,9 @@ export const onFeedbackSubmit = functions.firestore
 
         try {
             await batch.commit();
-            console.log(`Successfully processed feedback for event ${eventId} by user ${userId}`);
+            functions.logger.info(`Successfully processed feedback for event ${eventId} by user ${userId}`);
         } catch (error) {
-            console.error('Error processing feedback submission:', error);
+            functions.logger.error('Error processing feedback submission:', error);
+            throw error;
         }
     });

@@ -79,4 +79,3 @@ exports.setRole = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("internal", "Error setting role", error);
     }
 });
-//# sourceMappingURL=setRole.js.map
