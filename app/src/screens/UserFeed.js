@@ -303,7 +303,7 @@ export default function UserFeed() {
         return () => unsubscribe();
     }, [user, isFocused]);
 
-    const fetchEventsPage = useCallback(async (cursorDoc) => {
+    const fetchEventsPage = useCallback(async cursorDoc => {
         const constraints = [orderBy('startAt', 'desc')];
         if (cursorDoc) {
             constraints.push(startAfter(cursorDoc));
