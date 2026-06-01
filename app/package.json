@@ -82,7 +82,7 @@
         "react-native-chart-kit": "^6.12.2",
         "react-native-confetti-cannon": "^1.5.2",
         "react-native-gesture-handler": "~2.20.2",
-        "react-native-maps": "1.18.0",
+        "react-native-maps": "1.27.2",
         "react-native-qrcode-svg": "^6.3.21",
         "react-native-ratings": "^8.1.0",
         "react-native-reanimated": "~3.16.1",
