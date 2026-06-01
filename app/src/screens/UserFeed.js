@@ -1,11 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, limit, onSnapshot, query, where, getDocs } from 'firebase/firestore';
+import {
+    collection,
+    limit,
+    onSnapshot,
+    query,
+    where,
+    getDocs,
+    orderBy,
+    startAfter,
+} from 'firebase/firestore';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PropTypes from 'prop-types';
 import {
     Animated,
+    ActivityIndicator,
     Alert,
     Platform,
     ScrollView,
@@ -175,6 +185,8 @@ UserFeedStickyHeader.propTypes = {
     setActiveFilter: PropTypes.func.isRequired,
 };
 
+const PAGE_SIZE = 10;
+
 export default function UserFeed() {
     const { user, userData, role } = useAuth();
     const { theme } = useTheme();
@@ -187,6 +199,9 @@ export default function UserFeed() {
     const [debouncedQuery, setDebouncedQuery] = useState(''); // filtering — 300ms debounced
     const debounceTimer = useRef(null);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const lastVisibleRef = useRef(null);
     const [refreshing, setRefreshing] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [currentFeedbackRequest, setCurrentFeedbackRequest] = useState(null);
@@ -288,34 +303,63 @@ export default function UserFeed() {
         return () => unsubscribe();
     }, [user, isFocused]);
 
-    useEffect(() => {
+    const fetchEventsPage = useCallback(async (cursorDoc) => {
+        const constraints = [orderBy('startAt', 'desc'), limit(PAGE_SIZE + 1)];
+        if (cursorDoc) {
+            constraints.unshift(startAfter(cursorDoc));
+        }
+        const eventsQuery = query(collection(db, 'events'), ...constraints);
+        const snapshot = await getDocs(eventsQuery);
+        const docs = snapshot.docs;
+        const hasNextPage = docs.length > PAGE_SIZE;
+        const pageDocs = hasNextPage ? docs.slice(0, PAGE_SIZE) : docs;
+        const list = [];
+        pageDocs.forEach(doc => {
+            const data = doc.data();
+            if (data.status === 'suspended') return;
+            if (data.deletedAt != null) return;
+            list.push({ id: doc.id, ...data });
+        });
+        const lastDoc = pageDocs.length > 0 ? pageDocs[pageDocs.length - 1] : null;
+        return { list, lastDoc: lastDoc || null, hasNextPage };
+    }, []);
+
+    const loadInitialEvents = useCallback(async () => {
         if (!user || !isFocused) {
             setLoading(false);
             return;
         }
+        setLoading(true);
+        try {
+            const { list, lastDoc, hasNextPage } = await fetchEventsPage(null);
+            setEvents(list);
+            lastVisibleRef.current = lastDoc;
+            setHasMore(hasNextPage);
+        } catch (error) {
+            console.log('Event Fetch Error', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [user, isFocused, fetchEventsPage]);
 
-        // Fetching events. ideally separate query.
-        const eventsQuery = query(collection(db, 'events'));
+    const loadMore = useCallback(async () => {
+        if (loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            const { list, lastDoc, hasNextPage } = await fetchEventsPage(lastVisibleRef.current);
+            setEvents(prev => [...prev, ...list]);
+            lastVisibleRef.current = lastDoc;
+            setHasMore(hasNextPage);
+        } catch (error) {
+            console.log('Load More Error', error);
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [loadingMore, hasMore, fetchEventsPage]);
 
-        const unsubscribe = onSnapshot(
-            eventsQuery,
-            snapshot => {
-                const list = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.status === 'suspended') return;
-                    if (data.deletedAt != null) return;
-                    list.push({ id: doc.id, ...data });
-                });
-                setEvents(list);
-                setLoading(false);
-                setRefreshing(false);
-            },
-            error => console.log('Event Listener Error', error),
-        );
-
-        return () => unsubscribe();
-    }, [role, user, isFocused]);
+    useEffect(() => {
+        loadInitialEvents();
+    }, [loadInitialEvents]);
 
     // Recommendation Logic: Views + User History + Freshness
     const getRecommendedEvents = () => {
@@ -450,23 +494,17 @@ export default function UserFeed() {
         if (!user) return;
         setRefreshing(true);
         try {
-            const refreshEventsQuery = query(collection(db, 'events'));
-            const snapshot = await getDocs(refreshEventsQuery);
-            const list = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                if (data.status === 'suspended') return;
-                if (data.deletedAt != null) return;
-                list.push({ id: doc.id, ...data });
-            });
+            const { list, lastDoc, hasNextPage } = await fetchEventsPage(null);
             setEvents(list);
+            lastVisibleRef.current = lastDoc;
+            setHasMore(hasNextPage);
         } catch (error) {
             console.error('Refresh error:', error);
             Alert.alert('Error', 'Failed to refresh events.');
         } finally {
             setRefreshing(false);
         }
-    }, [user]);
+    }, [user, fetchEventsPage]);
 
     const [pullDistance, setPullDistance] = useState(0);
     const lastPullRef = useRef(0);
@@ -607,6 +645,23 @@ export default function UserFeed() {
                             </Text>
                         </View>
                     }
+                    ListFooterComponent={
+                        hasMore && events.length > 0 ? (
+                            <TouchableOpacity
+                                style={styles.loadMoreBtn}
+                                onPress={loadMore}
+                                disabled={loadingMore}
+                            >
+                                {loadingMore ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.loadMoreText}>Load More</Text>
+                                )}
+                            </TouchableOpacity>
+                        ) : events.length > 0 ? (
+                            <Text style={styles.endText}>You've reached the end</Text>
+                        ) : null
+                    }
                 />
             )}
 
@@ -712,4 +767,20 @@ const styles = StyleSheet.create({
     },
     emptyContainer: { alignItems: 'center', marginTop: 50, padding: 20 },
     emptyText: { marginTop: 10, fontSize: 16 },
+    loadMoreBtn: {
+        backgroundColor: '#6C63FF',
+        paddingVertical: 14,
+        paddingHorizontal: 40,
+        borderRadius: 25,
+        alignSelf: 'center',
+        marginVertical: 20,
+    },
+    loadMoreText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    endText: {
+        textAlign: 'center',
+        marginVertical: 20,
+        fontSize: 13,
+        opacity: 0.5,
+        color: '#fff',
+    },
 });
