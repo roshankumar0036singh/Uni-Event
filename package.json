@@ -1,14 +1,44 @@
 {
     "scripts": {
-        "build": "tsc -p cloud-functions/tsconfig.json",
-        "test:rules": "firebase emulators:exec --only firestore \"jest tests/firestore.rules.test.ts --runInBand\""
+        "build": "tsc -p cloud-functions/tsconfig.build.json",
+        "test:rules": "firebase emulators:exec --only firestore \"jest tests/firestore.rules.test.ts --runInBand\"",
+        "prepare": "husky"
     },
     "devDependencies": {
         "@firebase/rules-unit-testing": "^5.0.1",
         "@types/jest": "^30.0.0",
         "@types/node": "^25.8.0",
+        "eslint": "^10.4.0",
         "firebase-tools": "^15.18.0",
+        "husky": "^9.1.7",
         "jest": "^30.4.2",
-        "ts-jest": "^29.4.9"
+        "lint-staged": "^17.0.5",
+        "prettier": "^3.8.3",
+        "ts-jest": "^29.4.11"
+    },
+    "dependencies": {
+        "expo-clipboard": "^56.0.3"
+    },
+    "lint-staged": {
+        "app/**/*.{js,jsx,ts,tsx}": [
+            "npx --prefix app eslint --config app/eslint.config.mjs --fix",
+            "prettier --write"
+        ],
+        "cloud-functions/src/**/*.{ts,tsx}": [
+            "npx --prefix cloud-functions eslint --config cloud-functions/.eslintrc.json --fix",
+            "prettier --write"
+        ],
+        "cloud-functions/*.js": [
+            "prettier --write"
+        ],
+        "tests/**/*.{js,ts}": [
+            "prettier --write"
+        ],
+        "jest.config.js": [
+            "prettier --write"
+        ],
+        "*.{json,md,yml,yaml}": [
+            "prettier --write"
+        ]
     }
 }

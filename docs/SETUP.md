@@ -251,6 +251,10 @@ npm run build
 
 ## Troubleshooting
 
+> [!TIP]
+> For a comprehensive, production-grade diagnostic guide covering startup crashes, push notification failures, database security rules, and functions latency, please refer to our dedicated **[Troubleshooting Guide](./TROUBLESHOOTING.md)**.
+
+
 ### Issue: "Firebase Emulators not starting"
 
 **Solution**:
@@ -317,6 +321,7 @@ This is a known Firebase SDK behavior. The warning is suppressed in the code but
 
 ## Additional Resources
 
+- [Android Build and Release Guide](./ANDROID_BUILD_SETUP.md)
 - [Firebase Documentation](https://firebase.google.com/docs)
 - [Expo Documentation](https://docs.expo.dev/)
 - [React Native Documentation](https://reactnative.dev/docs/getting-started)

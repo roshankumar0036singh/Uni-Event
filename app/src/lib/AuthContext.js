@@ -55,6 +55,16 @@ export const AuthProvider = ({ children }) => {
     }, [getItemAsync]);
 
     useEffect(() => {
+        if ('window' in globalThis && globalThis.Cypress) {
+            globalThis.setMockUser = (mockUser, mockRole = 'student', mockData = {}) => {
+                setUser(mockUser);
+                setRole(mockRole);
+                setUserData(mockData);
+                setLoading(false);
+            };
+            setLoading(false);
+        }
+
         loadSavedAccounts(); // Load accounts on mount
         const unsubscribe = onAuthStateChanged(auth, async currentUser => {
             setLoading(true);
@@ -93,7 +103,12 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         });
 
-        return unsubscribe;
+        return () => {
+            unsubscribe();
+            if (globalThis.setMockUser) {
+                delete globalThis.setMockUser;
+            }
+        };
     }, [loadSavedAccounts]);
 
     // Unified DRY saving logic that safely stores password on Mobile (SecureStore)
@@ -115,7 +130,7 @@ export const AuthProvider = ({ children }) => {
                     uid: user.uid,
                     provider: provider,
                     // Save password only on native systems (with secure hardware storage)
-                    password: Platform.OS !== 'web' ? password : null,
+                    password: Platform.OS === 'web' ? null : password,
                     lastSignedInAt: new Date().toISOString(),
                 };
 
@@ -200,7 +215,11 @@ export const AuthProvider = ({ children }) => {
             await setDoc(doc(db, 'users', user.uid), {
                 email: user.email,
                 role: 'student', // Default role
+                points: 0,
                 createdAt: new Date().toISOString(),
+                currentStreak: 0,
+                longestStreak: 0,
+                lastAttendanceAt: null,
                 ...additionalData,
             });
 

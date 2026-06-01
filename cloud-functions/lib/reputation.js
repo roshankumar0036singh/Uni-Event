@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getTopContributors = exports.refreshTopContributorsLeaderboard = exports.calculateReputation = exports.calculatePoints = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
+const firestore_1 = require("firebase-admin/firestore");
 // Initialize only once (important for tests + Firebase runtime)
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -60,8 +61,7 @@ exports.calculatePoints = calculatePoints;
  * +1 point per reminder set
  */
 exports.calculateReputation = functions.https.onCall(async (_data, context) => {
-    var _a, _b, _c, _d;
-    if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.admin)) {
+    if (!context.auth?.token.admin) {
         throw new functions.https.HttpsError('permission-denied', 'Only admin can calculate reputation.');
     }
     const usersSnapshot = await db.collection('users').get();
@@ -70,16 +70,16 @@ exports.calculateReputation = functions.https.onCall(async (_data, context) => {
     let updatedUsers = 0;
     for (const userDoc of usersSnapshot.docs) {
         const userData = userDoc.data();
-        const attendanceCount = ((_b = userData.reputation) === null || _b === void 0 ? void 0 : _b.attendanceCount) || userData.attendanceCount || 0;
-        const registrationCount = ((_c = userData.reputation) === null || _c === void 0 ? void 0 : _c.registrationCount) || userData.registrationCount || 0;
-        const remindersSet = ((_d = userData.reputation) === null || _d === void 0 ? void 0 : _d.remindersSet) || userData.remindersSet || 0;
+        const attendanceCount = userData.reputation?.attendanceCount ?? userData.attendanceCount ?? 0;
+        const registrationCount = userData.reputation?.registrationCount ?? userData.registrationCount ?? 0;
+        const remindersSet = userData.reputation?.remindersSet ?? userData.remindersSet ?? 0;
         const points = (0, exports.calculatePoints)(attendanceCount, registrationCount, remindersSet);
         batch.update(userDoc.ref, {
             'reputation.points': points,
             'reputation.attendanceCount': attendanceCount,
             'reputation.registrationCount': registrationCount,
             'reputation.remindersSet': remindersSet,
-            'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+            'reputation.updatedAt': firestore_1.FieldValue.serverTimestamp(),
         });
         opCount += 1;
         updatedUsers += 1;
@@ -108,11 +108,10 @@ exports.refreshTopContributorsLeaderboard = functions.pubsub
     const usersSnapshot = await db
         .collection('users')
         .orderBy('reputation.points', 'desc')
-        .orderBy(admin.firestore.FieldPath.documentId())
+        .orderBy(firestore_1.FieldPath.documentId())
         .limit(10)
         .get();
     const contributors = usersSnapshot.docs.map((doc, index) => {
-        var _a, _b, _c, _d;
         const userData = doc.data();
         return {
             userId: doc.id,
@@ -120,16 +119,16 @@ exports.refreshTopContributorsLeaderboard = functions.pubsub
             name: userData.name || userData.fullName || userData.displayName || 'Unknown Student',
             department: userData.department || '',
             photoURL: userData.photoURL || '',
-            points: ((_a = userData.reputation) === null || _a === void 0 ? void 0 : _a.points) || 0,
-            attendanceCount: ((_b = userData.reputation) === null || _b === void 0 ? void 0 : _b.attendanceCount) || 0,
-            registrationCount: ((_c = userData.reputation) === null || _c === void 0 ? void 0 : _c.registrationCount) || 0,
-            remindersSet: ((_d = userData.reputation) === null || _d === void 0 ? void 0 : _d.remindersSet) || 0,
+            points: userData.reputation?.points || 0,
+            attendanceCount: userData.reputation?.attendanceCount || 0,
+            registrationCount: userData.reputation?.registrationCount || 0,
+            remindersSet: userData.reputation?.remindersSet || 0,
         };
     });
     await db.collection('leaderboards').doc('topContributors').set({
         type: 'topContributors',
         contributors,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firestore_1.FieldValue.serverTimestamp(),
     });
     return null;
 });
@@ -143,21 +142,20 @@ exports.getTopContributors = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
-    const limit = Math.min((data === null || data === void 0 ? void 0 : data.limit) || 10, 25);
-    const lastPoints = data === null || data === void 0 ? void 0 : data.lastPoints;
-    const lastUserId = data === null || data === void 0 ? void 0 : data.lastUserId;
-    const startRank = (data === null || data === void 0 ? void 0 : data.startRank) || 1;
+    const limit = Math.min(data?.limit || 10, 25);
+    const lastPoints = data?.lastPoints;
+    const lastUserId = data?.lastUserId;
+    const startRank = data?.startRank || 1;
     let query = db
         .collection('users')
         .orderBy('reputation.points', 'desc')
-        .orderBy(admin.firestore.FieldPath.documentId())
+        .orderBy(firestore_1.FieldPath.documentId())
         .limit(limit);
     if (typeof lastPoints === 'number' && typeof lastUserId === 'string') {
         query = query.startAfter(lastPoints, lastUserId);
     }
     const usersSnapshot = await query.get();
     const contributors = usersSnapshot.docs.map((doc, index) => {
-        var _a, _b, _c, _d;
         const userData = doc.data();
         return {
             userId: doc.id,
@@ -165,10 +163,10 @@ exports.getTopContributors = functions.https.onCall(async (data, context) => {
             name: userData.name || userData.fullName || userData.displayName || 'Unknown Student',
             department: userData.department || '',
             photoURL: userData.photoURL || '',
-            points: ((_a = userData.reputation) === null || _a === void 0 ? void 0 : _a.points) || 0,
-            attendanceCount: ((_b = userData.reputation) === null || _b === void 0 ? void 0 : _b.attendanceCount) || 0,
-            registrationCount: ((_c = userData.reputation) === null || _c === void 0 ? void 0 : _c.registrationCount) || 0,
-            remindersSet: ((_d = userData.reputation) === null || _d === void 0 ? void 0 : _d.remindersSet) || 0,
+            points: userData.reputation?.points || 0,
+            attendanceCount: userData.reputation?.attendanceCount || 0,
+            registrationCount: userData.reputation?.registrationCount || 0,
+            remindersSet: userData.reputation?.remindersSet || 0,
         };
     });
     const lastContributor = contributors.length > 0 ? contributors[contributors.length - 1] : null;

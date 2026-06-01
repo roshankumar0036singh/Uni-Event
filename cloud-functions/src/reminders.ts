@@ -1,12 +1,8 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
-
-/**
- * Scheduled function to check for reminders.
- * Runs every minute.
- */
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { sendPushNotifications } from './utils/push';
 const { Expo } = require('expo-server-sdk');
-const expo = new Expo();
 
 /**
  * Scheduled function to check for reminders.
@@ -14,7 +10,7 @@ const expo = new Expo();
  */
 export const checkReminders = functions.pubsub.schedule('every 1 minutes').onRun(async (context) => {
     const db = admin.firestore();
-    const now = admin.firestore.Timestamp.now();
+    const now = Timestamp.now();
     
     // Find reminders that need to be sent (remindAt <= now) and haven't been sent yet
     const remindersRef = db.collection('reminders');
@@ -41,7 +37,7 @@ export const checkReminders = functions.pubsub.schedule('every 1 minutes').onRun
             title: 'Event Reminder',
             body: `Your event is starting soon!`,
             eventId: data.eventId,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
             read: false
         });
         
@@ -68,14 +64,7 @@ export const checkReminders = functions.pubsub.schedule('every 1 minutes').onRun
     
     // Send Pushes
     if (messages.length > 0) {
-        let chunks = expo.chunkPushNotifications(messages);
-        for (let chunk of chunks) {
-            try {
-                await expo.sendPushNotificationsAsync(chunk);
-            } catch (error) {
-                console.error("Error sending chunks", error);
-            }
-        }
+        await sendPushNotifications(messages);
     }
     
     await batch.commit();

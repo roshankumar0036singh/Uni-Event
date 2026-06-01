@@ -1,0 +1,56 @@
+name: Update package-lock.json
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - 'package.json'
+            - 'app/package.json'
+            - 'cloud-functions/package.json'
+
+permissions:
+    contents: write
+    pull-requests: write
+
+jobs:
+    update-lockfile:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  persist-credentials: false
+
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: 22
+
+            - name: Update root lockfile
+              run: npm install --package-lock-only --ignore-scripts
+
+            - name: Update app lockfile
+              run: |
+                  cd app
+                  npm install --package-lock-only --ignore-scripts
+
+            - name: Update cloud-functions lockfile
+              run: |
+                  cd cloud-functions
+                  npm install --package-lock-only --ignore-scripts
+
+            - name: Open Pull Request with updated lockfiles
+              uses: peter-evans/create-pull-request@v6
+              with:
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  commit-message: 'chore: update package-lock.json'
+                  branch: chore/update-package-lock
+                  delete-branch: true # auto-deletes branch after PR merge
+                  title: 'chore: update package-lock.json'
+                  body: |
+                      Automated PR triggered by a `package.json` change.
+
+                      Updated lockfiles:
+                      - `/package-lock.json`
+                      - `/app/package-lock.json`
+                      - `/cloud-functions/package-lock.json`
+                  labels: dependencies

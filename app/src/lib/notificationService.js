@@ -14,10 +14,69 @@ Notifications.setNotificationHandler({
     }),
 });
 
+async function getWebPushToken() {
+    try {
+        const { getWebMessaging, VAPID_KEY } = require('./firebaseConfig');
+        const { getToken } = require('firebase/messaging');
+        const messaging = await getWebMessaging();
+
+        if (!messaging) {
+            logger.info('Firebase Messaging is not supported in this browser.');
+            return;
+        }
+
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            logger.info('Web Notification permission denied');
+            return;
+        }
+
+        if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.register(
+                '/firebase-messaging-sw.js',
+            );
+            const token = await getToken(messaging, {
+                vapidKey: VAPID_KEY,
+                serviceWorkerRegistration: registration,
+            });
+            logger.debug('Web Push Token:', token);
+            return token;
+        }
+    } catch (e) {
+        logger.error('Error getting web push token:', e);
+    }
+}
+
+async function getDevicePushToken() {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+        logger.info('Failed to get push token for push notification!');
+        return;
+    }
+
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) {
+        logger.info(
+            'No EAS Project ID found. Push notifications will not work, but local reminders will.',
+        );
+        return;
+    }
+
+    try {
+        const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+        return token;
+    } catch (e) {
+        logger.error('Error getting push token:', e);
+    }
+}
+
 // Request permissions and get the push token
 export async function registerForPushNotificationsAsync() {
-    let token;
-
     if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
             name: 'default',
@@ -28,78 +87,20 @@ export async function registerForPushNotificationsAsync() {
     }
 
     if (Platform.OS === 'web') {
-        try {
-            const { getWebMessaging, VAPID_KEY } = require('./firebaseConfig');
-            const { getToken } = require('firebase/messaging');
-            const messaging = await getWebMessaging();
-
-            if (!messaging) {
-                logger.info('Firebase Messaging is not supported in this browser.');
-                return token;
-            }
-
-            // Request permission specifically for Web
-            const permission = await Notification.requestPermission();
-            if (permission === 'granted') {
-                // Register SW explicitly
-                if ('serviceWorker' in navigator) {
-                    const registration = await navigator.serviceWorker.register(
-                        '/firebase-messaging-sw.js',
-                    );
-                    token = await getToken(messaging, {
-                        vapidKey: VAPID_KEY,
-                        serviceWorkerRegistration: registration,
-                    });
-                    logger.debug('Web Push Token:', token);
-                }
-            } else {
-                logger.info('Web Notification permission denied');
-            }
-        } catch (e) {
-            logger.error('Error getting web push token:', e);
-        }
-        return token;
+        return getWebPushToken();
     }
 
-    if (Device.isDevice) {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-            const { status } = await Notifications.requestPermissionsAsync();
-            finalStatus = status;
-        }
-        if (finalStatus !== 'granted') {
-            logger.info('Failed to get push token for push notification!');
-            return;
-        }
-
-        // Get the token using the project ID from app config
-        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-        if (!projectId) {
-            logger.info(
-                'No EAS Project ID found. Push notifications will not work, but local reminders will.',
-            );
-        } else {
-            try {
-                token = (
-                    await Notifications.getExpoPushTokenAsync({
-                        projectId: projectId,
-                    })
-                ).data;
-            } catch (e) {
-                logger.error('Error getting push token:', e);
-            }
-        }
-    } else {
+    if (!Device.isDevice) {
         logger.info('Must use physical device for Push Notifications');
+        return;
     }
 
-    return token;
+    return getDevicePushToken();
 }
 
 // Schedule a local notification
 export async function scheduleEventReminder(event) {
-    if (!event || !event.startAt) return;
+    if (!event?.startAt) return;
 
     const eventDate = new Date(event.startAt);
     const triggerDate = new Date(eventDate.getTime() - 10 * 60000); // 10 minutes before

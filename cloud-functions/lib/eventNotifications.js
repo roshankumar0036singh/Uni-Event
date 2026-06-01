@@ -37,10 +37,11 @@ exports.checkUpcomingEvents = void 0;
 const expo_server_sdk_1 = require("expo-server-sdk");
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const expo = new expo_server_sdk_1.Expo();
+const push_1 = require("./utils/push");
 async function getUpcomingEvents(db) {
-    const startRange = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    const endRange = new Date(Date.now() + 11 * 60 * 1000).toISOString();
+    // Expand the window with a small buffer to avoid missing events due to scheduler drift
+    const startRange = new Date(Date.now() + 9.5 * 60 * 1000).toISOString();
+    const endRange = new Date(Date.now() + 11.5 * 60 * 1000).toISOString();
     return db
         .collection('events')
         .where('startAt', '>=', startRange)
@@ -58,10 +59,9 @@ async function buildMessagesForEvent(db, eventDoc) {
         return [];
     const userDocs = await Promise.all(participantIds.map(uid => db.collection('users').doc(uid).get()));
     return userDocs.flatMap(userDoc => {
-        var _a;
         if (!userDoc.exists)
             return [];
-        const pushToken = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.pushToken;
+        const pushToken = userDoc.data()?.pushToken;
         if (!pushToken || !expo_server_sdk_1.Expo.isExpoPushToken(pushToken))
             return [];
         return [
@@ -74,22 +74,6 @@ async function buildMessagesForEvent(db, eventDoc) {
             },
         ];
     });
-}
-async function sendPushNotifications(messages) {
-    const chunks = expo.chunkPushNotifications(messages);
-    for (const chunk of chunks) {
-        const tickets = await expo.sendPushNotificationsAsync(chunk);
-        const errors = [];
-        tickets.forEach((t, i) => {
-            if (t.status === 'error') {
-                errors.push({ ticket: t, index: i });
-            }
-        });
-        if (errors.length > 0) {
-            console.error('Push ticket errors:', JSON.stringify(errors, null, 2));
-            throw new Error('One or more push notifications failed');
-        }
-    }
 }
 /**
  * Scheduled function to check for upcoming events (10 mins before).
@@ -108,7 +92,7 @@ exports.checkUpcomingEvents = functions.pubsub.schedule('every 1 minutes').onRun
         if (messages.length === 0)
             continue;
         try {
-            await sendPushNotifications(messages);
+            await (0, push_1.sendPushNotifications)(messages);
             notificationsSent += messages.length;
             batch.update(eventDoc.ref, { notified10Min: true });
         }

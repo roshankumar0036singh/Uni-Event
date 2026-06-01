@@ -1,7 +1,7 @@
 import { Expo } from 'expo-server-sdk';
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
-const expo = new Expo();
+import { sendPushNotifications } from './utils/push';
 
 type PushMessage = {
     to: string;
@@ -12,8 +12,9 @@ type PushMessage = {
 };
 
 async function getUpcomingEvents(db: admin.firestore.Firestore) {
-    const startRange = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    const endRange = new Date(Date.now() + 11 * 60 * 1000).toISOString();
+    // Expand the window with a small buffer to avoid missing events due to scheduler drift
+    const startRange = new Date(Date.now() + 9.5 * 60 * 1000).toISOString();
+    const endRange = new Date(Date.now() + 11.5 * 60 * 1000).toISOString();
 
     return db
         .collection('events')
@@ -54,24 +55,6 @@ async function buildMessagesForEvent(
             },
         ];
     });
-}
-
-async function sendPushNotifications(messages: PushMessage[]) {
-    const chunks = expo.chunkPushNotifications(messages);
-
-    for (const chunk of chunks) {
-        const tickets = await expo.sendPushNotificationsAsync(chunk);
-        const errors: any[] = [];
-        tickets.forEach((t, i) => {
-            if (t.status === 'error') {
-                errors.push({ ticket: t, index: i });
-            }
-        });
-        if (errors.length > 0) {
-            console.error('Push ticket errors:', JSON.stringify(errors, null, 2));
-            throw new Error('One or more push notifications failed');
-        }
-    }
 }
 
 /**

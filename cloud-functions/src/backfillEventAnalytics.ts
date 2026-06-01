@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { FieldPath } from 'firebase-admin/firestore';
 
 const normalizeCounterKey = (value: unknown) => {
   if (value == null) return "Unknown";
@@ -24,7 +25,7 @@ export const backfillEventAnalyticsCounters = functions.https.onCall(
 
     let query = db
       .collection("events")
-      .orderBy(admin.firestore.FieldPath.documentId())
+      .orderBy(FieldPath.documentId())
       .limit(limit);
 
     if (startAfterId) {

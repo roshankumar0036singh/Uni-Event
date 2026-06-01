@@ -1,16 +1,12 @@
-import {
-    collection,
-    getDocs,
-    onSnapshot,
-    doc,
-    runTransaction,
-    increment,
-} from 'firebase/firestore';
+import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 
 // In-memory listener registry to dedupe reads and subscriptions per event
 const registry = new Map(); // eventId -> { subscribers: Set(fn), unsubscribe: fn|null, data: any, lastFetched: number, fetchPromise: Promise<any>|null }
-
-const TTL_MS = 60 * 1000; // 1 minute cache for one-off fetches
+const cacheStats = {
+    hits: 0,
+    misses: 0,
+};
+const TTL_MS = 5 * 60 * 1000; // 5 minute cache for one-off participant fetches
 
 export async function fetchParticipantsOnce(db, eventId) {
     const key = String(eventId);
@@ -18,12 +14,15 @@ export async function fetchParticipantsOnce(db, eventId) {
     const now = Date.now();
 
     if (entry?.data && entry?.lastFetched && now - entry.lastFetched < TTL_MS) {
+        cacheStats.hits += 1;
         return entry.data;
     }
-
     if (entry?.fetchPromise) {
+        cacheStats.hits += 1;
         return entry.fetchPromise;
     }
+
+    cacheStats.misses += 1;
 
     if (!entry) {
         entry = {
@@ -135,60 +134,26 @@ export function clearParticipantCache(eventId) {
         registry.clear();
     }
 }
+export function getParticipantCacheStats() {
+    const total = cacheStats.hits + cacheStats.misses;
 
-/**
- * 🚀 GSSoC 2026 / Issue #266: Idempotent Event Registration Processing
- * Uses an atomic transaction constraint check to ensure rapid repeated button presses
- * can never write duplicate entries or double-increment attendance counters.
- */
-export const safeToggleEventAction = async (db, userId, eventId, isRegistering) => {
-    const eventRef = doc(db, 'events', eventId);
-    const participantRef = doc(db, `events/${eventId}/participants`, userId);
+    return {
+        hits: cacheStats.hits,
+        misses: cacheStats.misses,
+        hitRate: total === 0 ? 0 : Number(((cacheStats.hits / total) * 100).toFixed(2)),
+    };
+}
 
-    try {
-        await runTransaction(db, async transaction => {
-            const eventDoc = await transaction.get(eventRef);
-            if (!eventDoc.exists()) {
-                throw new Error('Target event mapping does not exist upstream.');
-            }
-
-            // 🔍 Technical Task 3: Unique structural constraint check (User ID + Event ID)
-            const participantDoc = await transaction.get(participantRef);
-            const wasRegistered =
-                participantDoc.exists() && participantDoc.data()?.registered === true;
-
-            // 🛑 IDEMPOTENCY GUARD: If the state matches what they want, exit immediately!
-            if (wasRegistered === isRegistering) {
-                console.log('Idempotent block: Request already handled, ignoring double trigger.');
-                return;
-            }
-
-            // 1. Write registration state change securely with sync timestamp tracking
-            transaction.set(
-                participantRef,
-                {
-                    id: userId,
-                    registered: isRegistering,
-                    synchronizedAt: new Date().toISOString(),
-                },
-                { merge: true },
-            );
-
-            // 2. Atomically update seat counters without overlapping drift
-            transaction.update(eventRef, {
-                totalAttendees: increment(isRegistering ? 1 : -1),
-            });
-        });
-        console.log('Database transaction completed safely.');
-    } catch (error) {
-        console.error('Idempotent pipeline processing error:', error);
-        throw error;
-    }
+export const safeToggleEventAction = async () => {
+    throw new Error(
+        'safeToggleEventAction is deprecated. Route registration through EventDetail so payment, custom form, ticket, and analytics flows stay consistent.',
+    );
 };
 
 export default {
     fetchParticipantsOnce,
     subscribeParticipants,
     clearParticipantCache,
+    getParticipantCacheStats,
     safeToggleEventAction,
 };

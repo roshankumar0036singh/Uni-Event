@@ -47,8 +47,39 @@ export const submitFeedback = async ({
  * Calculate average rating from reputation data
  */
 export const calculateAverageRating = reputation => {
-    if (!reputation || !reputation.totalRatings || reputation.totalRatings === 0) {
+    if (!reputation) {
         return 0;
     }
-    return (reputation.totalPoints / reputation.totalRatings).toFixed(1);
+
+    const decayedRatings = Number(reputation.decayedRatings || 0);
+    const decayedPoints = Number(reputation.decayedPoints || 0);
+    if (decayedRatings > 0) {
+        return Number((decayedPoints / decayedRatings).toFixed(1));
+    }
+
+    const totalRatings = Number(reputation.totalRatings || 0);
+    const totalPoints = Number(reputation.totalPoints || 0);
+    if (totalRatings > 0) {
+        return Number((totalPoints / totalRatings).toFixed(1));
+    }
+
+    return 0;
+};
+
+/**
+ * Calculate the display count for total ratings, falling back to decayedRatings if necessary
+ */
+export const calculateDisplayCount = reputation => {
+    if (!reputation) return 0;
+
+    if (reputation.totalRatings > 0) {
+        return Number(reputation.totalRatings);
+    }
+
+    // Fallback: if totalRatings is missing but we have decayed ratings, estimate count
+    if (reputation.decayedRatings > 0) {
+        return Math.ceil(Number(reputation.decayedRatings));
+    }
+
+    return 0;
 };

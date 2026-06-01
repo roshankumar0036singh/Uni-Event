@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, documentId, getDocs, onSnapshot, query, where } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
+import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
+import usePullToRefresh from '../hooks/usePullToRefresh';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
-import PropTypes from 'prop-types';
 
 export default function MyRegisteredEventsScreen() {
     const { user } = useAuth();
@@ -15,6 +16,10 @@ export default function MyRegisteredEventsScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [refreshNonce, setRefreshNonce] = useState(0);
+    const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
+        setRefreshing(true);
+        setRefreshNonce(n => n + 1);
+    });
 
     useEffect(() => {
         if (!user) {
@@ -79,6 +84,8 @@ export default function MyRegisteredEventsScreen() {
         setRefreshNonce(n => n + 1);
     };
 
+    const renderItem = useCallback(({ item }) => <EventCard event={item} />, []);
+
     if (loading) {
         return (
             <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
@@ -108,7 +115,10 @@ export default function MyRegisteredEventsScreen() {
                         tintColor={theme.colors.primary}
                     />
                 }
-                renderItem={({ item }) => <EventCard event={item} />}
+                renderItem={renderItem}
+                onScroll={handleScroll}
+                onScrollEndDrag={handleScrollEndDrag}
+                scrollEventThrottle={16}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
                         <Ionicons
@@ -121,6 +131,11 @@ export default function MyRegisteredEventsScreen() {
                         </Text>
                     </View>
                 }
+            />
+            <LiquidPullToRefresh
+                pullDistance={pullDistance}
+                isRefreshing={refreshing}
+                color={theme.colors.primary}
             />
         </View>
     );
@@ -136,7 +151,3 @@ const styles = StyleSheet.create({
     emptyState: { alignItems: 'center', marginTop: 100 },
     emptyText: { marginTop: 10, fontSize: 16 },
 });
-
-MyRegisteredEventsScreen.propTypes = {
-    navigation: PropTypes.object,
-};

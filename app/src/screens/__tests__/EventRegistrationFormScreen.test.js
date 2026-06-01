@@ -16,7 +16,6 @@ jest.mock('expo-font', () => ({
 }));
 
 jest.mock('../../components/ScreenWrapper', () => {
-    const React = require('react');
     const PropTypes = require('prop-types');
     const { View } = require('react-native');
 

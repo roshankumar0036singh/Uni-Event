@@ -13,6 +13,8 @@ import {
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState, memo } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
     Image,
     StyleSheet,
     Text,
@@ -20,8 +22,6 @@ import {
     View,
     Switch,
     Platform,
-    ActivityIndicator,
-    Alert,
 } from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme as globalTheme } from '../lib/theme';
@@ -31,8 +31,28 @@ import { ShimmerItem } from './SkeletonLoader';
 import { useAuth } from '../lib/AuthContext';
 import { triggerBuddyMatchNotification } from '../lib/notificationService';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
-import { safeToggleEventAction } from '../lib/participantService';
 import PropTypes from 'prop-types';
+
+// Module-level profile cache registry
+// profileCache: resolved data keyed by ownerId
+// profileRequestCache: in-flight promises to prevent duplicate concurrent reads
+const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
+const profileCache = new Map();
+const profileRequestCache = new Map();
+
+/**
+ * formatMetric — adaptive pluralization helper for metric badges (Issue #308)
+ * Returns a grammatically correct string for any numeric metric.
+ *
+ * @param {number|undefined|null} value  - Raw numeric value from the database
+ * @param {string} singular              - Singular label, e.g. "View"
+ * @param {string} plural                - Plural label,   e.g. "Views"
+ * @returns {string}                     - e.g. "1 View", "0 Views", "42 Views"
+ */
+const formatMetric = (value, singular, plural) => {
+    const count = value ?? 0;
+    return `${count} ${count === 1 ? singular : plural}`;
+};
 
 const EventCard = memo(
     ({
@@ -52,11 +72,10 @@ const EventCard = memo(
         const [bannerLoaded, setBannerLoaded] = useState(false);
         const [flyerLoaded, setFlyerLoaded] = useState(false);
         const [lookingForBuddy, setLookingForBuddy] = useState(false);
-
-        // 🔒 UI Loading State
-        const [isProcessing, setIsProcessing] = useState(false);
-        // 🔒 Synchronous lock reference to block multi-taps inside the same render frame
-        const isProcessingRef = useRef(false);
+        const [isNavigatingToDetail, setIsNavigatingToDetail] = useState(false);
+        const navigationLockRef = useRef(false);
+        const navigationUnlockTimerRef = useRef(null);
+        const [buddyLoading, setBuddyLoading] = useState(false);
 
         useEffect(() => {
             if (!isRegistered || !user || !event?.id) return;
@@ -72,8 +91,10 @@ const EventCard = memo(
         }, [isRegistered, user, event?.id]);
 
         const handleToggleBuddy = async value => {
+            if (buddyLoading) return;
             if (!user || !event?.id) return;
             try {
+                setBuddyLoading(true);
                 const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
                 await updateDoc(participantRef, {
                     lookingForBuddy: value,
@@ -88,8 +109,15 @@ const EventCard = memo(
                         await triggerBuddyMatchNotification(event, otherBuddies.length);
                     }
                 }
+                Alert.alert(
+                    'Buddy Preference Updated',
+                    value ? 'Buddy matching is now enabled.' : 'Buddy matching is now disabled.',
+                );
             } catch (error) {
                 console.error('Error updating buddy preference:', error);
+                Alert.alert('Error', 'Failed to update buddy preference.');
+            } finally {
+                setBuddyLoading(false);
             }
         };
 
@@ -102,35 +130,74 @@ const EventCard = memo(
         }, [event?.detailImageUrl, event?.bannerUrl]);
 
         useEffect(() => {
-            if (event?.ownerId) {
-                getDoc(doc(db, 'users', event.ownerId)).then(snap => {
-                    if (snap.exists()) {
-                        setHostName(snap.data().displayName || event.organization || 'Club Name');
-                    }
-                });
+            if (!event?.ownerId) return;
+
+            // Reset immediately to prevent stale FlashList cells showing previous host
+            setHostName(event?.organization || 'Club Name');
+
+            // Cache hit: apply memoized data and short-circuit, no network call
+            const cachedProfile = profileCache.get(event.ownerId);
+            if (cachedProfile && Date.now() - cachedProfile.cachedAt < PROFILE_CACHE_TTL_MS) {
+                setHostName(cachedProfile.data.displayName || event.organization || 'Club Name');
+                return;
             }
+
+            if (cachedProfile) {
+                profileCache.delete(event.ownerId);
+            }
+
+            let cancelled = false;
+
+            // In-flight cache: reuse existing promise if another card already fired
+            // getDoc for this ownerId, preventing duplicate concurrent Firestore reads
+            if (!profileRequestCache.has(event.ownerId)) {
+                profileRequestCache.set(event.ownerId, getDoc(doc(db, 'users', event.ownerId)));
+            }
+
+            profileRequestCache
+                .get(event.ownerId)
+                .then(snap => {
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        profileCache.set(event.ownerId, { data, cachedAt: Date.now() });
+                        profileRequestCache.delete(event.ownerId);
+                        if (!cancelled) {
+                            setHostName(data.displayName || event.organization || 'Club Name');
+                        }
+                    }
+                })
+                .catch(() => {
+                    profileRequestCache.delete(event.ownerId);
+                });
+
+            return () => {
+                cancelled = true;
+            };
         }, [event?.ownerId, event?.organization]);
 
-        // 🚀 Gated same-frame input execution track blocker handler
-        const handleRegisterPress = async () => {
-            if (isProcessingRef.current || !user || !event?.id) return;
+        useEffect(
+            () => () => {
+                if (navigationUnlockTimerRef.current) {
+                    clearTimeout(navigationUnlockTimerRef.current);
+                }
+            },
+            [],
+        );
 
-            isProcessingRef.current = true;
-            setIsProcessing(true);
+        const navigateToDetail = () => {
+            if (!event?.id || navigationLockRef.current) return;
 
-            try {
-                await safeToggleEventAction(db, user.uid, event.id, true);
-                navigation.navigate('EventDetail', { eventId: event.id });
-            } catch (error) {
-                console.error('Spam button trigger rejected processing error:', error);
-                Alert.alert(
-                    'Registration Failed',
-                    'Unable to register for this event. Please verify your internet connection and try again.'
-                );
-            } finally {
-                isProcessingRef.current = false;
-                setIsProcessing(false);
-            }
+            navigationLockRef.current = true;
+            setIsNavigatingToDetail(true);
+            navigation.navigate('EventDetail', { eventId: event.id });
+            navigationUnlockTimerRef.current = setTimeout(() => {
+                navigationLockRef.current = false;
+                setIsNavigatingToDetail(false);
+            }, 1000);
+        };
+
+        const handleRegisterPress = () => {
+            navigateToDetail();
         };
 
         if (!event) return null;
@@ -145,6 +212,155 @@ const EventCard = memo(
         const isLive = new Date() >= new Date(event.startAt) && new Date() <= new Date(event.endAt);
         const isOnlineBadge = !isLive && event.eventMode === 'online';
 
+        const renderBannerBadges = () => (
+            <>
+                {isLive && (
+                    <View style={[styles.onlineBadge, { backgroundColor: theme.colors.error }]}>
+                        <Ionicons name="radio-button-on" size={12} color="#fff" />
+                        <Text style={styles.onlineText}>LIVE</Text>
+                    </View>
+                )}
+                {isOnlineBadge && (
+                    <View style={[styles.onlineBadge, { backgroundColor: theme.colors.primary }]}>
+                        <Ionicons name="videocam" size={12} color="#fff" />
+                        <Text style={styles.onlineText}>ONLINE</Text>
+                    </View>
+                )}
+                {event.status === 'suspended' && (
+                    <View style={[styles.onlineBadge, { backgroundColor: '#FF4444' }]}>
+                        <Ionicons name="alert-circle" size={12} color="#fff" />
+                        <Text style={styles.onlineText}>SUSPENDED</Text>
+                    </View>
+                )}
+            </>
+        );
+
+        const renderInfoBadges = () => (
+            <>
+                {isRecommended && (
+                    <View
+                        style={{
+                            backgroundColor: '#FFD700',
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 12,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            alignSelf: 'flex-start',
+                            marginTop: 4,
+                            ...theme.shadows.small,
+                        }}
+                    >
+                        <Ionicons name="star" size={12} color="#000" />
+                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#000' }}>
+                            TOP PICK
+                        </Text>
+                    </View>
+                )}
+                {isEarlyBird && !isRegistered && (
+                    <View
+                        style={{
+                            backgroundColor: '#EAB30820',
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 20,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            alignSelf: 'flex-start',
+                            marginTop: 4,
+                            borderWidth: 1,
+                            borderColor: '#EAB308',
+                        }}
+                    >
+                        <Text style={{ fontSize: 10, lineHeight: 14 }}>🐦</Text>
+                        <Text
+                            style={{
+                                fontSize: 10,
+                                fontWeight: '700',
+                                color: '#EAB308',
+                                letterSpacing: 0.5,
+                                lineHeight: 14,
+                            }}
+                        >
+                            EARLY BIRD
+                        </Text>
+                    </View>
+                )}
+            </>
+        );
+
+        const renderFooter = () => {
+            if (!showRegisterButton) return null;
+            if (isRegistered) {
+                return (
+                    <View style={styles.registeredRow}>
+                        <View
+                            style={[
+                                styles.registerBtnCompact,
+                                {
+                                    backgroundColor: theme.colors.success,
+                                    ...theme.shadows.small,
+                                },
+                            ]}
+                        >
+                            <Ionicons
+                                name="checkmark-circle"
+                                size={14}
+                                color="#fff"
+                                style={{ marginRight: 4 }}
+                            />
+                            <Text style={styles.registerTextCompact}>REGISTERED</Text>
+                        </View>
+                        <View style={styles.buddyToggleContainer}>
+                            <Text style={[styles.buddyToggleLabel, { color: theme.colors.text }]}>
+                                Find A Buddy!
+                            </Text>
+                            <Switch
+                                value={lookingForBuddy}
+                                onValueChange={handleToggleBuddy}
+                                disabled={buddyLoading}
+                                trackColor={{
+                                    false: theme.colors.border,
+                                    true: theme.colors.primary + '80',
+                                }}
+                                thumbColor={lookingForBuddy ? theme.colors.primary : '#999'}
+                                style={
+                                    Platform.OS === 'ios'
+                                        ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }
+                                        : {}
+                                }
+                            />
+                        </View>
+                    </View>
+                );
+            }
+            return (
+                <TouchableOpacity
+                    style={[
+                        styles.registerBtn,
+                        {
+                            backgroundColor: isNavigatingToDetail
+                                ? theme.colors.border
+                                : theme.colors.primary,
+                            ...theme.shadows.default,
+                        },
+                    ]}
+                    accessibilityState={{ disabled: isNavigatingToDetail }}
+                    disabled={isNavigatingToDetail}
+                    onPress={handleRegisterPress}
+                    testID="event-card-register-button"
+                >
+                    {isNavigatingToDetail ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                        <Text style={styles.registerText}>REGISTER</Text>
+                    )}
+                </TouchableOpacity>
+            );
+        };
+
         return (
             <TouchableOpacity
                 style={[
@@ -153,9 +369,8 @@ const EventCard = memo(
                     style,
                 ]}
                 activeOpacity={0.9}
-                onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
+                onPress={navigateToDetail}
             >
-                {/* 1. MAIN BANNER IMAGE (Top Layer) */}
                 <View style={[styles.bannerContainer, isRecommended && { height: 140 }]}>
                     {!bannerLoaded && (
                         <ShimmerItem
@@ -180,41 +395,15 @@ const EventCard = memo(
                         colors={['transparent', 'rgba(0,0,0,0.4)']}
                         style={StyleSheet.absoluteFillObject}
                     />
-                    {/* Category Tag on Banner */}
                     <View style={[styles.categoryBadge, { backgroundColor: theme.colors.surface }]}>
                         <Text style={[styles.categoryText, { color: theme.colors.text }]}>
                             {event.category}
                         </Text>
                     </View>
-
-                    {/* Live / Online Badge */}
-                    {isLive && (
-                        <View style={[styles.onlineBadge, { backgroundColor: theme.colors.error }]}>
-                            <Ionicons name="radio-button-on" size={12} color="#fff" />
-                            <Text style={styles.onlineText}>LIVE</Text>
-                        </View>
-                    )}
-                    {isOnlineBadge && (
-                        <View
-                            style={[styles.onlineBadge, { backgroundColor: theme.colors.primary }]}
-                        >
-                            <Ionicons name="videocam" size={12} color="#fff" />
-                            <Text style={styles.onlineText}>ONLINE</Text>
-                        </View>
-                    )}
-
-                    {/* SUSPENDED Badge */}
-                    {event.status === 'suspended' && (
-                        <View style={[styles.onlineBadge, { backgroundColor: '#FF4444' }]}>
-                            <Ionicons name="alert-circle" size={12} color="#fff" />
-                            <Text style={styles.onlineText}>SUSPENDED</Text>
-                        </View>
-                    )}
+                    {renderBannerBadges()}
                 </View>
 
-                {/* 2. CONTENT CONTAINER */}
                 <View style={styles.contentContainer}>
-                    {/* FLYER IMAGE (Overlapping) */}
                     <View
                         style={[
                             styles.flyerContainer,
@@ -231,8 +420,6 @@ const EventCard = memo(
                             onLoadEnd={() => setFlyerLoaded(true)}
                         />
                     </View>
-
-                    {/* HEADER INFO (Right of Flyer) */}
                     <View style={styles.headerInfo}>
                         <Text
                             style={[styles.title, { color: theme.colors.text }]}
@@ -244,10 +431,7 @@ const EventCard = memo(
                             Hosted by {hostName}
                         </Text>
                     </View>
-
-                    {/* DETAILS ROW (Below Flyer) */}
                     <View style={styles.detailsRow}>
-                        {/* Date & Location */}
                         <View style={styles.infoBlock}>
                             <View style={styles.infoItem}>
                                 <Ionicons
@@ -258,7 +442,7 @@ const EventCard = memo(
                                 <Text
                                     style={[styles.infoText, { color: theme.colors.textSecondary }]}
                                 >
-                                    {formatEventDate(event.startAt)} •{' '}
+                                    {formatEventDate(event.startAt)}{' '}
                                     {formatEventTime(event.startAt)}
                                 </Text>
                             </View>
@@ -275,6 +459,8 @@ const EventCard = memo(
                                     {event.eventMode === 'online' ? 'Online' : event.location}
                                 </Text>
                             </View>
+
+                            {/* ✅ Issue #308 — views metric now uses formatMetric for correct pluralization */}
                             <View style={styles.infoItem}>
                                 <Ionicons
                                     name="eye-outline"
@@ -284,69 +470,11 @@ const EventCard = memo(
                                 <Text
                                     style={[styles.infoText, { color: theme.colors.textSecondary }]}
                                 >
-                                    {event.views || 0} Views
+                                    {formatMetric(event.views, 'View', 'Views')}
                                 </Text>
                             </View>
-
-                            {/* Top Pick Badge */}
-                            {isRecommended && (
-                                <View
-                                    style={{
-                                        backgroundColor: '#FFD700',
-                                        paddingHorizontal: 8,
-                                        paddingVertical: 4,
-                                        borderRadius: 12,
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        gap: 4,
-                                        alignSelf: 'flex-start',
-                                        marginTop: 4,
-                                        ...theme.shadows.small,
-                                    }}
-                                >
-                                    <Ionicons name="star" size={12} color="#000" />
-                                    <Text
-                                        style={{ fontSize: 10, fontWeight: 'bold', color: '#000' }}
-                                    >
-                                        TOP PICK
-                                    </Text>
-                                </View>
-                            )}
-
-                            {/* Early Bird Badge */}
-                            {isEarlyBird && !isRegistered && (
-                                <View
-                                    style={{
-                                        backgroundColor: '#EAB30820',
-                                        paddingHorizontal: 8,
-                                        paddingVertical: 3,
-                                        borderRadius: 20,
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        gap: 4,
-                                        alignSelf: 'flex-start',
-                                        marginTop: 4,
-                                        borderWidth: 1,
-                                        borderColor: '#EAB308',
-                                    }}
-                                >
-                                    <Text style={{ fontSize: 10, lineHeight: 14 }}>🐦</Text>
-                                    <Text
-                                        style={{
-                                            fontSize: 10,
-                                            fontWeight: '700',
-                                            color: '#EAB308',
-                                            letterSpacing: 0.5,
-                                            lineHeight: 14,
-                                        }}
-                                    >
-                                        EARLY BIRD
-                                    </Text>
-                                </View>
-                            )}
+                            {renderInfoBadges()}
                         </View>
-
-                        {/* Price Badge */}
                         <View
                             style={[styles.priceBadge, { backgroundColor: theme.colors.secondary }]}
                         >
@@ -355,72 +483,7 @@ const EventCard = memo(
                             </Text>
                         </View>
                     </View>
-
-                    {/* FOOTER ACTION */}
-                    {showRegisterButton &&
-                        (isRegistered ? (
-                            <View style={styles.registeredRow}>
-                                <View
-                                    style={[
-                                        styles.registerBtnCompact,
-                                        {
-                                            backgroundColor: theme.colors.success,
-                                            ...theme.shadows.small,
-                                        },
-                                    ]}
-                                >
-                                    <Ionicons
-                                        name="checkmark-circle"
-                                        size={14}
-                                        color="#fff"
-                                        style={{ marginRight: 4 }}
-                                    />
-                                    <Text style={styles.registerTextCompact}>REGISTERED</Text>
-                                </View>
-                                <View style={styles.buddyToggleContainer}>
-                                    <Text
-                                        style={[
-                                            styles.buddyToggleLabel,
-                                            { color: theme.colors.text },
-                                        ]}
-                                    >
-                                        Find A Buddy!
-                                    </Text>
-                                    <Switch
-                                        value={lookingForBuddy}
-                                        onValueChange={handleToggleBuddy}
-                                        trackColor={{
-                                            false: theme.colors.border,
-                                            true: theme.colors.primary + '80',
-                                        }}
-                                        thumbColor={lookingForBuddy ? theme.colors.primary : '#999'}
-                                        style={
-                                            Platform.OS === 'ios'
-                                                ? { transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }
-                                                : {}
-                                        }
-                                    />
-                                </View>
-                            </View>
-                        ) : (
-                            <TouchableOpacity
-                                style={[
-                                    styles.registerBtn,
-                                    {
-                                        backgroundColor: isProcessing ? theme.colors.border : theme.colors.primary,
-                                        ...theme.shadows.default,
-                                    },
-                                ]}
-                                disabled={isProcessing}
-                                onPress={handleRegisterPress}
-                            >
-                                {isProcessing ? (
-                                    <ActivityIndicator size="small" color="#ffffff" />
-                                ) : (
-                                    <Text style={styles.registerText}>REGISTER</Text>
-                                )}
-                            </TouchableOpacity>
-                        ))}
+                    {renderFooter()}
                 </View>
             </TouchableOpacity>
         );

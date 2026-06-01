@@ -20,7 +20,7 @@ export const ThemeProvider = ({ children }) => {
     // Animated value for smooth color transitions (0 = light, 1 = dark)
     const themeAnimationProgress = useMemo(
         () => new Animated.Value(systemScheme === 'dark' ? 1 : 0),
-        [],
+        [systemScheme],
     );
 
     useEffect(() => {
@@ -51,7 +51,7 @@ export const ThemeProvider = ({ children }) => {
             const storedContrast = await AsyncStorage.getItem('highContrastPreference');
 
             if (storedTheme) setIsDarkMode(storedTheme === 'dark');
-            if (storedScale) setTextScale(parseFloat(storedScale));
+            if (storedScale) setTextScale(Number.parseFloat(storedScale));
             if (storedContrast) setIsHighContrast(storedContrast === 'true');
         } catch (e) {
             logger.debug('Failed to load theme preferences', e);

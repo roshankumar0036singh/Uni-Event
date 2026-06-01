@@ -1,9 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import { addDoc, collection, updateDoc, doc } from 'firebase/firestore';
+import {
+    collection,
+    updateDoc,
+    doc,
+    runTransaction,
+    increment,
+    serverTimestamp,
+} from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -25,6 +32,7 @@ import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
 import { extractTags } from '../lib/tagExtractor';
 import { predictAttendance } from '../lib/capacityPredictor';
+import { enforceRateLimit } from '../lib/rateLimiter';
 import PropTypes from 'prop-types';
 
 let MapView = null;
@@ -95,9 +103,15 @@ export default function CreateEvent({ navigation, route }) {
 
     // Google Auth
     const { request, response, promptAsync } = CalendarService.useCalendarAuth();
+    const meetAuthInProgressRef = useRef(false);
 
-    const handleGenerateMeetLink = async () => {
+    // Submit may request a Meet link while the form is loading; direct user taps stay blocked.
+    const handleGenerateMeetLink = async ({ allowWhileSubmitting = false } = {}) => {
+        if (loading && !allowWhileSubmitting) return null;
+        if (meetAuthInProgressRef.current) return null;
+
         try {
+            meetAuthInProgressRef.current = true;
             const authResult = await promptAsync();
             const token =
                 authResult?.authentication?.accessToken ||
@@ -126,10 +140,14 @@ export default function CreateEvent({ navigation, route }) {
         } catch (error) {
             Alert.alert('Error', error.message || 'Failed to generate Meet link');
             return null;
+        } finally {
+            meetAuthInProgressRef.current = false;
         }
     };
 
     const pickImage = async () => {
+        if (loading) return;
+
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
@@ -149,6 +167,8 @@ export default function CreateEvent({ navigation, route }) {
     };
 
     const toggleBranch = b => {
+        if (loading) return;
+
         if (b === 'All') {
             setTargetBranches(['All']);
             return;
@@ -160,12 +180,18 @@ export default function CreateEvent({ navigation, route }) {
     };
 
     const toggleYear = y => {
+        if (loading) return;
+
         if (targetYears.includes(y)) setTargetYears(targetYears.filter(x => x !== y));
         else setTargetYears([...targetYears, y]);
     };
 
     const { event } = route.params || {};
     const isEditMode = !!event;
+    let submitLabel = isEditMode ? 'Update Event' : 'Create Event';
+    if (loading) {
+        submitLabel = isEditMode ? 'Updating Event...' : 'Creating Event...';
+    }
 
     useEffect(() => {
         const tags = extractTags(description);
@@ -190,6 +216,8 @@ export default function CreateEvent({ navigation, route }) {
     }, [capacity, category]);
 
     const toggleTag = tag => {
+        if (loading) return;
+
         setSelectedTags(prev =>
             prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag],
         );
@@ -222,6 +250,8 @@ export default function CreateEvent({ navigation, route }) {
     }, [isEditMode, event, navigation]);
 
     const handleCreate = async () => {
+        if (loading) return;
+
         if (!title.trim() || !description.trim() || !category) {
             Alert.alert('Missing Info', 'Please fill Title, Description and Category.');
             return;
@@ -241,6 +271,18 @@ export default function CreateEvent({ navigation, route }) {
         }
         setLoading(true);
         try {
+            // Symmetrical, client-side rate-limiting checks prior to side-effects
+            try {
+                await enforceRateLimit(!isEditMode);
+            } catch (rateLimitErr) {
+                if (rateLimitErr.status === 429) {
+                    Alert.alert('Too Many Requests', rateLimitErr.message);
+                    setLoading(false);
+                    return;
+                }
+                throw rateLimitErr;
+            }
+
             let bannerUrl = imageUri;
             if (imageUri && imageUri !== event?.bannerUrl && !imageUri.startsWith('http')) {
                 // Only upload if changed and local file
@@ -257,10 +299,9 @@ export default function CreateEvent({ navigation, route }) {
             let generatedMeetLink = meetLink;
 
             if (eventMode === 'online' && !meetLink) {
-                generatedMeetLink = await handleGenerateMeetLink();
+                generatedMeetLink = await handleGenerateMeetLink({ allowWhileSubmitting: true });
             }
             if (eventMode === 'online' && !generatedMeetLink) {
-                setLoading(false);
                 return;
             }
 
@@ -276,7 +317,7 @@ export default function CreateEvent({ navigation, route }) {
                 startAt: startDate.toISOString(),
                 endAt: endDate.toISOString(),
                 isPaid,
-                price: isPaid ? price : '0',
+                price: isPaid ? Math.max(0, Number.parseFloat(price) || 0) : 0,
                 upiId: isPaid ? upiId : null,
                 registrationLink,
                 target: {
@@ -293,18 +334,57 @@ export default function CreateEvent({ navigation, route }) {
                 await updateDoc(doc(db, 'events', event.id), eventData);
                 Alert.alert('Success', 'Event Updated!');
             } else {
-                await addDoc(collection(db, 'events'), {
-                    ...eventData,
-                    participantCount: 0,
-                    branchCounts: {},
-                    yearCounts: {},
-                    participantsPreview: [],
-                    ownerId: user.uid,
-                    ownerEmail: user.email,
-                    organizerName: user.displayName || 'Club Admin',
-                    createdAt: new Date().toISOString(),
-                    status: 'active',
-                    appealStatus: null,
+                const eventRef = doc(collection(db, 'events'));
+                const attendancePlaceholderRef = doc(
+                    db,
+                    'events',
+                    eventRef.id,
+                    'attendance',
+                    'bootstrap',
+                );
+                const organizerRef = doc(db, 'users', user.uid);
+
+                await runTransaction(db, async transaction => {
+                    const organizerSnap = await transaction.get(organizerRef);
+
+                    transaction.set(eventRef, {
+                        ...eventData,
+                        participantCount: 0,
+                        branchCounts: {},
+                        yearCounts: {},
+                        participantsPreview: [],
+                        ownerId: user.uid,
+                        ownerEmail: user.email,
+                        organizerName: user.displayName || 'Club Admin',
+                        createdAt: serverTimestamp(),
+                        status: 'active',
+                        appealStatus: null,
+                    });
+
+                    transaction.set(attendancePlaceholderRef, {
+                        eventId: eventRef.id,
+                        ownerId: user.uid,
+                        type: 'bootstrap',
+                        checkInCount: 0,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp(),
+                    });
+
+                    if (organizerSnap.exists()) {
+                        transaction.update(organizerRef, {
+                            'organizerStats.eventsCreated': increment(1),
+                            lastEventCreatedAt: serverTimestamp(),
+                        });
+                    } else {
+                        transaction.set(
+                            organizerRef,
+                            {
+                                organizerStats: { eventsCreated: 1 },
+                                lastEventCreatedAt: serverTimestamp(),
+                            },
+                            { merge: true },
+                        );
+                    }
                 });
                 Alert.alert('Success', 'Event Created!');
             }
@@ -352,6 +432,7 @@ export default function CreateEvent({ navigation, route }) {
                     <input
                         type="datetime-local"
                         value={iso}
+                        disabled={loading}
                         onChange={e => setDate(new Date(e.target.value))}
                         style={{
                             padding: 10, // Shortened padding/height slightly
@@ -378,7 +459,8 @@ export default function CreateEvent({ navigation, route }) {
                         setDateMode('date');
                         setShowPicker(true);
                     }}
-                    style={styles.dateCard}
+                    style={[styles.dateCard, loading && styles.disabledControl]}
+                    disabled={loading}
                 >
                     <Ionicons name="calendar-outline" size={20} color={theme.colors.primary} />
                     <View>
@@ -432,7 +514,11 @@ export default function CreateEvent({ navigation, route }) {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Banner Picker - Immersive Style */}
-                <TouchableOpacity style={styles.bannerPicker} onPress={pickImage}>
+                <TouchableOpacity
+                    style={[styles.bannerPicker, loading && styles.disabledControl]}
+                    onPress={pickImage}
+                    disabled={loading}
+                >
                     {imageUri ? (
                         <Image source={{ uri: imageUri }} style={styles.bannerImage} />
                     ) : (
@@ -457,6 +543,7 @@ export default function CreateEvent({ navigation, route }) {
                         placeholder="e.g. Annual Tech Symposium"
                         value={title}
                         onChangeText={setTitle}
+                        disabled={loading}
                         icon={
                             <Ionicons name="text-outline" size={20} color={theme.colors.primary} />
                         }
@@ -469,6 +556,7 @@ export default function CreateEvent({ navigation, route }) {
                         onChangeText={setDescription}
                         multiline
                         style={{ height: 120 }}
+                        disabled={loading}
                         icon={
                             <Ionicons
                                 name="document-text-outline"
@@ -489,6 +577,7 @@ export default function CreateEvent({ navigation, route }) {
                                             key={tag}
                                             onPress={() => toggleTag(tag)}
                                             style={[styles.chip, isSelected && styles.chipActive]}
+                                            disabled={loading}
                                         >
                                             <Text
                                                 style={[
@@ -541,8 +630,10 @@ export default function CreateEvent({ navigation, route }) {
                             style={[
                                 styles.segment,
                                 eventMode === 'offline' && styles.segmentActive,
+                                loading && styles.disabledControl,
                             ]}
                             onPress={() => setEventMode('offline')}
+                            disabled={loading}
                         >
                             <Text
                                 style={[
@@ -554,8 +645,13 @@ export default function CreateEvent({ navigation, route }) {
                             </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.segment, eventMode === 'online' && styles.segmentActive]}
+                            style={[
+                                styles.segment,
+                                eventMode === 'online' && styles.segmentActive,
+                                loading && styles.disabledControl,
+                            ]}
                             onPress={() => setEventMode('online')}
+                            disabled={loading}
                         >
                             <Text
                                 style={[
@@ -575,6 +671,7 @@ export default function CreateEvent({ navigation, route }) {
                                 placeholder="https://meet.google.com/..."
                                 value={meetLink}
                                 onChangeText={setMeetLink}
+                                disabled={loading}
                                 icon={
                                     <Ionicons
                                         name="link-outline"
@@ -584,9 +681,9 @@ export default function CreateEvent({ navigation, route }) {
                                 }
                             />
                             <TouchableOpacity
-                                style={styles.gmeetBtn}
+                                style={[styles.gmeetBtn, loading && styles.disabledControl]}
                                 onPress={handleGenerateMeetLink}
-                                disabled={!request}
+                                disabled={!request || loading}
                             >
                                 <Ionicons name="logo-google" size={20} color="#fff" />
                                 <Text style={styles.gmeetBtnText}>Auto-Generate Meet Link</Text>
@@ -599,6 +696,7 @@ export default function CreateEvent({ navigation, route }) {
                                 placeholder="e.g. Auditorium / Room 302"
                                 value={location}
                                 onChangeText={setLocation}
+                                disabled={loading}
                                 icon={
                                     <Ionicons
                                         name="location-outline"
@@ -651,6 +749,7 @@ export default function CreateEvent({ navigation, route }) {
                                                     }
                                                 }
                                                 onDragEnd={e =>
+                                                    !loading &&
                                                     setCoordinates(e.nativeEvent.coordinate)
                                                 }
                                             />
@@ -677,6 +776,7 @@ export default function CreateEvent({ navigation, route }) {
                                 key={cat}
                                 style={[styles.chip, category === cat && styles.chipActive]}
                                 onPress={() => setCategory(cat)}
+                                disabled={loading}
                             >
                                 <Text
                                     style={[
@@ -704,6 +804,7 @@ export default function CreateEvent({ navigation, route }) {
                                     targetBranches.includes(b) && styles.chipActive,
                                 ]}
                                 onPress={() => toggleBranch(b)}
+                                disabled={loading}
                             >
                                 <Text
                                     style={[
@@ -727,6 +828,7 @@ export default function CreateEvent({ navigation, route }) {
                                     targetYears.includes(y) && styles.yearChipActive,
                                 ]}
                                 onPress={() => toggleYear(y)}
+                                disabled={loading}
                             >
                                 <Text
                                     style={[
@@ -758,6 +860,7 @@ export default function CreateEvent({ navigation, route }) {
                         <Switch
                             value={isPaid}
                             onValueChange={setIsPaid}
+                            disabled={loading}
                             trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
                         />
                     </View>
@@ -770,6 +873,7 @@ export default function CreateEvent({ navigation, route }) {
                                 value={price}
                                 onChangeText={setPrice}
                                 keyboardType="numeric"
+                                disabled={loading}
                                 icon={
                                     <Ionicons
                                         name="cash-outline"
@@ -784,6 +888,7 @@ export default function CreateEvent({ navigation, route }) {
                                 value={upiId}
                                 onChangeText={setUpiId}
                                 autoCapitalize="none"
+                                disabled={loading}
                                 icon={
                                     <Ionicons
                                         name="wallet-outline"
@@ -801,6 +906,7 @@ export default function CreateEvent({ navigation, route }) {
                             placeholder="External form link..."
                             value={registrationLink}
                             onChangeText={setRegistrationLink}
+                            disabled={loading}
                             icon={
                                 <Ionicons
                                     name="globe-outline"
@@ -829,6 +935,7 @@ export default function CreateEvent({ navigation, route }) {
                         value={capacity}
                         onChangeText={setCapacity}
                         keyboardType="numeric"
+                        disabled={loading}
                         icon={
                             <Ionicons
                                 name="people-outline"
@@ -837,7 +944,7 @@ export default function CreateEvent({ navigation, route }) {
                             />
                         }
                     />
-                    {capacityWarning && capacityWarning.warning && (
+                    {capacityWarning?.warning && (
                         <View
                             style={[
                                 styles.capacityWarning,
@@ -892,6 +999,7 @@ export default function CreateEvent({ navigation, route }) {
                         <Switch
                             value={useCustomForm}
                             onValueChange={setUseCustomForm}
+                            disabled={loading}
                             trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
                         />
                     </View>
@@ -899,13 +1007,14 @@ export default function CreateEvent({ navigation, route }) {
                     {useCustomForm && (
                         <View style={{ marginTop: 15 }}>
                             <TouchableOpacity
-                                style={styles.formBuilderBtn}
+                                style={[styles.formBuilderBtn, loading && styles.disabledControl]}
                                 onPress={() =>
                                     navigation.navigate('FormBuilder', {
                                         initialSchema: customFormSchema,
                                         onSave: schema => setCustomFormSchema(schema),
                                     })
                                 }
+                                disabled={loading}
                             >
                                 <Ionicons
                                     name="construct-outline"
@@ -928,11 +1037,12 @@ export default function CreateEvent({ navigation, route }) {
                     disabled={loading}
                 >
                     {loading ? (
-                        <ActivityIndicator color="#fff" />
+                        <View style={styles.submitLoadingContent}>
+                            <ActivityIndicator color="#fff" />
+                            <Text style={styles.createBtnText}>{submitLabel}</Text>
+                        </View>
                     ) : (
-                        <Text style={styles.createBtnText}>
-                            {isEditMode ? 'Update Event' : 'Create Event'}
-                        </Text>
+                        <Text style={styles.createBtnText}>{submitLabel}</Text>
                     )}
                 </TouchableOpacity>
 
@@ -1081,6 +1191,15 @@ const getStyles = theme =>
             elevation: 5,
         },
         createBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+        submitLoadingContent: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+        },
+        disabledControl: {
+            opacity: 0.65,
+        },
 
         // Capacity Warning
         capacityWarning: {

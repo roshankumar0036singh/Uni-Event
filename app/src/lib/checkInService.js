@@ -12,6 +12,44 @@ import {
 import { db } from './firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const PARTICIPANT_NOT_FOUND_ERROR = 'Participant not found';
+const PARTICIPANT_ALREADY_CHECKED_IN_ERROR = 'Participant already checked in';
+
+const firstPresent = (...values) =>
+    values.find(value => value !== undefined && value !== null && value !== '');
+
+const buildParticipantAttendeeData = (participant, participantData) => ({
+    ...participantData,
+    userName: firstPresent(participant.name, participant.userName, participantData.userName),
+    userEmail: firstPresent(participant.email, participant.userEmail, participantData.userEmail),
+    userYear: firstPresent(participant.year, participant.userYear, participantData.userYear),
+    userBranch: firstPresent(
+        participant.branch,
+        participant.userBranch,
+        participantData.userBranch,
+    ),
+});
+
+const buildCheckInRecord = ({
+    attendeeData,
+    userId,
+    organizerId,
+    organizerName,
+    ticketId = null,
+    checkedInAt = serverTimestamp(),
+}) => ({
+    userId,
+    userName: attendeeData.userName || attendeeData.name || 'Guest',
+    userEmail: attendeeData.userEmail || attendeeData.email || '',
+    userYear: attendeeData.userYear || attendeeData.year || 'N/A',
+    userBranch: attendeeData.userBranch || attendeeData.branch || 'N/A',
+    ticketId,
+    checkedInAt,
+    checkedInBy: organizerId,
+    checkedInByName: organizerName,
+    status: 'checked-in',
+});
+
 /**
  * Validate a ticket for check-in
  */
@@ -76,42 +114,6 @@ export const validateTicket = async (ticketId, eventId) => {
 };
 
 /**
- * Safe location helper
- */
-const getLocation = async () => {
-    try {
-        return await new Promise(resolve => {
-            navigator.geolocation.getCurrentPosition(
-                position => {
-                    resolve({
-                        latitude: position.coords.latitude,
-
-                        longitude: position.coords.longitude,
-                    });
-                },
-                () => {
-                    resolve({
-                        latitude: null,
-                        longitude: null,
-                    });
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 5000,
-                    maximumAge: 0,
-                },
-            );
-        });
-    } catch (error) {
-        console.error('Location error:', error);
-        return {
-            latitude: null,
-            longitude: null,
-        };
-    }
-};
-
-/**
  * Check in an attendee
  */
 export const checkInAttendee = async (ticketData, eventId, organizerId, organizerName) => {
@@ -139,18 +141,16 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
             const eventRef = doc(db, 'events', eventId);
             const userRef = doc(db, 'users', userId);
 
-            transaction.set(checkInRef, {
-                userId,
-                userName: ticketData.userName || 'Guest',
-                userEmail: ticketData.userEmail || '',
-                userYear: ticketData.userYear || 'N/A',
-                userBranch: ticketData.userBranch || 'N/A',
-                ticketId,
-                checkedInAt: serverTimestamp(),
-                checkedInBy: organizerId,
-                checkedInByName: organizerName,
-                status: 'checked-in',
-            });
+            transaction.set(
+                checkInRef,
+                buildCheckInRecord({
+                    attendeeData: ticketData,
+                    userId,
+                    organizerId,
+                    organizerName,
+                    ticketId,
+                }),
+            );
 
             transaction.update(ticketRef, {
                 checkInStatus: 'checked-in',
@@ -178,6 +178,112 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
         };
     } catch (error) {
         logger.error('Check-in error:', error);
+        return {
+            success: false,
+            error: 'Check-in failed',
+            message: 'Unable to complete check-in. Please try again.',
+        };
+    }
+};
+
+/**
+ * Check in a free RSVP participant without requiring a paid ticket document
+ */
+export const checkInParticipant = async (participantData, eventId, organizerId, organizerName) => {
+    try {
+        const userId = participantData.userId;
+        let checkedInName = participantData.userName || participantData.name || 'Guest';
+
+        if (!userId) {
+            throw new Error(PARTICIPANT_NOT_FOUND_ERROR);
+        }
+
+        await runTransaction(db, async transaction => {
+            const participantRef = doc(db, 'events', eventId, 'participants', userId);
+            const checkInRef = doc(db, 'events', eventId, 'checkIns', userId);
+            const eventRef = doc(db, 'events', eventId);
+            const userRef = doc(db, 'users', userId);
+
+            const participantSnap = await transaction.get(participantRef);
+            const checkInSnap = await transaction.get(checkInRef);
+
+            if (!participantSnap.exists()) {
+                throw new Error(PARTICIPANT_NOT_FOUND_ERROR);
+            }
+
+            if (checkInSnap.exists()) {
+                throw new Error(PARTICIPANT_ALREADY_CHECKED_IN_ERROR);
+            }
+
+            const participant = participantSnap.data() || {};
+            const checkedInAt = serverTimestamp();
+            const attendeeData = buildParticipantAttendeeData(participant, participantData);
+            checkedInName = attendeeData.userName || attendeeData.name || 'Guest';
+
+            transaction.set(
+                checkInRef,
+                buildCheckInRecord({
+                    attendeeData,
+                    userId,
+                    organizerId,
+                    organizerName,
+                    checkedInAt,
+                }),
+            );
+
+            transaction.set(
+                participantRef,
+                {
+                    checkInStatus: 'checked-in',
+                    checkedInAt,
+                    checkedInBy: organizerId,
+                },
+                { merge: true },
+            );
+
+            transaction.set(
+                eventRef,
+                {
+                    stats: {
+                        totalCheckedIn: increment(1),
+                        lastCheckInAt: serverTimestamp(),
+                    },
+                },
+                { merge: true },
+            );
+
+            transaction.set(
+                userRef,
+                {
+                    lastActive: serverTimestamp(),
+                },
+                { merge: true },
+            );
+        });
+
+        return {
+            success: true,
+            message: `${checkedInName} checked in successfully!`,
+        };
+    } catch (error) {
+        logger.error('Participant check-in error:', error);
+
+        if (error.message === PARTICIPANT_ALREADY_CHECKED_IN_ERROR) {
+            return {
+                success: false,
+                error: 'Already checked in',
+                message: 'This participant is already checked in.',
+            };
+        }
+
+        if (error.message === PARTICIPANT_NOT_FOUND_ERROR) {
+            return {
+                success: false,
+                error: 'Participant not found',
+                message: 'This participant is not registered for this event.',
+            };
+        }
+
         return {
             success: false,
             error: 'Check-in failed',
@@ -318,6 +424,12 @@ const syncOfflineCheckInItem = async (item, eventId, organizerId) => {
 
         if (item.ticketId) {
             await updateDoc(doc(db, 'tickets', item.ticketId), {
+                checkInStatus: 'checked-in',
+                checkedInAt: offlineCheckedInAt,
+                checkedInBy: organizerId,
+            }).catch(() => {});
+        } else {
+            await updateDoc(doc(db, 'events', eventId, 'participants', item.userId), {
                 checkInStatus: 'checked-in',
                 checkedInAt: offlineCheckedInAt,
                 checkedInBy: organizerId,

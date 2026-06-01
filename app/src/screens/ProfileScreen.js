@@ -1,5 +1,4 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-// import { Picker } from '@react-native-picker/picker'; // Removed native picker
+import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { updateProfile } from 'firebase/auth';
 import { addDoc, collection, doc, getCountFromServer, getDoc, updateDoc } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -20,6 +19,7 @@ import PremiumInput from '../components/PremiumInput';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
+import { calculateAverageRating } from '../lib/feedbackService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -67,7 +67,11 @@ const MenuItem = ({
                     },
                 ]}
             >
-                <Ionicons name={icon} size={20} color={theme.colors.primary} />
+                {icon === 'lightning-bolt-outline' ? (
+                    <MaterialCommunityIcons name={icon} size={20} color={theme.colors.primary} />
+                ) : (
+                    <Ionicons name={icon} size={20} color={theme.colors.primary} />
+                )}
             </View>
             <View style={styles.bentoContent}>
                 <Text style={styles.bentoLabel}>{label}</Text>
@@ -309,14 +313,8 @@ export default function ProfileScreen({ navigation }) {
                 // Fetch Club Rating (for club/admin users) from reputation field
                 if (role === 'club' || role === 'admin') {
                     const reputation = data.reputation || {};
-                    if (reputation.totalRatings && reputation.totalRatings > 0) {
-                        const avgRating = (
-                            reputation.totalPoints / reputation.totalRatings
-                        ).toFixed(1);
-                        setRating(parseFloat(avgRating));
-                    } else {
-                        setRating(0);
-                    }
+                    const avgRating = calculateAverageRating(reputation);
+                    setRating(avgRating);
                 }
             }
 
@@ -343,6 +341,17 @@ export default function ProfileScreen({ navigation }) {
 
     const handleSave = async () => {
         if (!name) return Alert.alert('Error', 'Name cannot be empty');
+
+        const trimmedInstagram = instagram.trim();
+        const trimmedLinkedin = linkedin.trim();
+        const urlPattern = /^https:\/\/.+/;
+        if (trimmedInstagram && !urlPattern.test(trimmedInstagram)) {
+            return Alert.alert('Invalid URL', 'Instagram link must start with https://');
+        }
+        if (trimmedLinkedin && !urlPattern.test(trimmedLinkedin)) {
+            return Alert.alert('Invalid URL', 'LinkedIn link must start with https://');
+        }
+
         setLoading(true);
         try {
             await updateProfile(user, { displayName: name });
@@ -709,7 +718,7 @@ export default function ProfileScreen({ navigation }) {
                                                         { color: theme.colors.primary },
                                                     ]}
                                                 >
-                                                    {badge.replace(/_/g, ' ').toUpperCase()}
+                                                    {badge.replaceAll('_', ' ').toUpperCase()}
                                                 </Text>
                                             </View>
                                         ))}
@@ -899,28 +908,26 @@ export default function ProfileScreen({ navigation }) {
                         <View style={styles.menuGroup}>
                             <Text style={styles.groupTitle}>Activity</Text>
                             {role === 'admin' && (
-                                <>
-                                    <View style={styles.bentoRow}>
-                                        <MenuItem
-                                            icon="calendar-outline"
-                                            label="My Created Events"
-                                            description="Manage your hosted events"
-                                            width="48%"
-                                            onPress={() => navigation.navigate('MyEvents')}
-                                            theme={theme}
-                                            styles={styles}
-                                        />
-                                        <MenuItem
-                                            icon="notifications-outline"
-                                            label="Send Daily Update"
-                                            description="Notify users instantly"
-                                            width="48%"
-                                            onPress={handleSendDailyDigest}
-                                            theme={theme}
-                                            styles={styles}
-                                        />
-                                    </View>
-                                </>
+                                <View style={styles.bentoRow}>
+                                    <MenuItem
+                                        icon="calendar-outline"
+                                        label="My Created Events"
+                                        description="Manage your hosted events"
+                                        width="48%"
+                                        onPress={() => navigation.navigate('MyEvents')}
+                                        theme={theme}
+                                        styles={styles}
+                                    />
+                                    <MenuItem
+                                        icon="notifications-outline"
+                                        label="Send Daily Update"
+                                        description="Notify users instantly"
+                                        width="48%"
+                                        onPress={handleSendDailyDigest}
+                                        theme={theme}
+                                        styles={styles}
+                                    />
+                                </View>
                             )}
                             <View style={styles.bentoRow}>
                                 <MenuItem
@@ -962,18 +969,27 @@ export default function ProfileScreen({ navigation }) {
                                     styles={styles}
                                 />
                             </View>
+                            <View style={styles.bentoRow}>
+                                <MenuItem
+                                    icon="lightning-bolt-outline"
+                                    label="Streak"
+                                    description="Your consistency in events"
+                                    width="100%"
+                                    onPress={() => navigation.navigate('Streak')}
+                                    theme={theme}
+                                    styles={styles}
+                                />
+                            </View>
                             {role !== 'club' && role !== 'admin' && (
-                                <>
-                                    <MenuItem
-                                        icon="briefcase-outline"
-                                        label="Request Organizer Access"
-                                        description="Apply to create and manage events"
-                                        width="100%"
-                                        onPress={() => setShowRequestModal(true)}
-                                        theme={theme}
-                                        styles={styles}
-                                    />
-                                </>
+                                <MenuItem
+                                    icon="briefcase-outline"
+                                    label="Request Organizer Access"
+                                    description="Apply to create and manage events"
+                                    width="100%"
+                                    onPress={() => setShowRequestModal(true)}
+                                    theme={theme}
+                                    styles={styles}
+                                />
                             )}
                         </View>
 
@@ -1034,7 +1050,7 @@ export default function ProfileScreen({ navigation }) {
                                         .filter(acc => acc.email !== user?.email)
                                         .map((acc, i) => (
                                             <TouchableOpacity
-                                                key={i}
+                                                key={acc.email}
                                                 onPress={() => switchAccount(acc.email)}
                                                 onLongPress={() => removeSavedAccount(acc.email)}
                                                 activeOpacity={0.7}

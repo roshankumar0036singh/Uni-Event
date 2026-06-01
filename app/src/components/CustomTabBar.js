@@ -4,6 +4,24 @@ import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
+const TAB_ICONS = {
+    Home: { focused: 'home', unfocused: 'home-outline' },
+    Profile: { focused: 'person', unfocused: 'person-outline' },
+    Admin: { focused: 'settings', unfocused: 'settings-outline' },
+    Reminders: { focused: 'alarm', unfocused: 'alarm-outline' },
+    MyEvents: { focused: 'calendar', unfocused: 'calendar-outline' },
+    MyEventsTab: { focused: 'calendar', unfocused: 'calendar-outline' },
+    Leaderboard: { focused: 'trophy', unfocused: 'trophy-outline' },
+};
+
+const getTabIcon = (routeName, isFocused) => {
+    const icon = TAB_ICONS[routeName];
+    if (!icon) {
+        return 'ellipse-outline';
+    }
+    return isFocused ? icon.focused : icon.unfocused;
+};
+
 export default function CustomTabBar({ state, descriptors, navigation }) {
     const { theme, isDarkMode } = useTheme();
 
@@ -32,25 +50,13 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
                             }
                         };
 
-                        let iconName;
-                        if (route.name === 'Home') iconName = isFocused ? 'home' : 'home-outline';
-                        else if (route.name === 'Profile')
-                            iconName = isFocused ? 'person' : 'person-outline';
-                        else if (route.name === 'Admin')
-                            iconName = isFocused ? 'settings' : 'settings-outline';
-                        else if (route.name === 'Reminders')
-                            iconName = isFocused ? 'alarm' : 'alarm-outline';
-                        else if (route.name === 'MyEvents' || route.name === 'MyEventsTab')
-                            iconName = isFocused ? 'calendar' : 'calendar-outline';
-                        else if (route.name === 'Leaderboard')
-                            iconName = isFocused ? 'trophy' : 'trophy-outline';
-                        else iconName = 'ellipse-outline'; // fallback
+                        const iconName = getTabIcon(route.name, isFocused);
 
                         const color = isFocused ? theme.colors.primary : theme.colors.textSecondary;
 
                         return (
                             <TouchableOpacity
-                                key={index}
+                                key={route.key}
                                 accessible={true}
                                 accessibilityRole="button"
                                 accessibilityState={isFocused ? { selected: true } : {}}

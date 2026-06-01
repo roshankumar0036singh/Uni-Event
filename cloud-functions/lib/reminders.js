@@ -36,19 +36,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkReminders = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-/**
- * Scheduled function to check for reminders.
- * Runs every minute.
- */
+const firestore_1 = require("firebase-admin/firestore");
+const push_1 = require("./utils/push");
 const { Expo } = require('expo-server-sdk');
-const expo = new Expo();
 /**
  * Scheduled function to check for reminders.
  * Runs every minute.
  */
 exports.checkReminders = functions.pubsub.schedule('every 1 minutes').onRun(async (context) => {
     const db = admin.firestore();
-    const now = admin.firestore.Timestamp.now();
+    const now = firestore_1.Timestamp.now();
     // Find reminders that need to be sent (remindAt <= now) and haven't been sent yet
     const remindersRef = db.collection('reminders');
     const q = remindersRef.where('remindAt', '<=', now).where('sent', '==', false);
@@ -69,14 +66,14 @@ exports.checkReminders = functions.pubsub.schedule('every 1 minutes').onRun(asyn
             title: 'Event Reminder',
             body: `Your event is starting soon!`,
             eventId: data.eventId,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
             read: false
         });
         // 2. Prepare Push Notification
         const userDoc = await db.collection('users').doc(userId).get();
         if (userDoc.exists) {
             const userData = userDoc.data();
-            const pushToken = userData === null || userData === void 0 ? void 0 : userData.pushToken;
+            const pushToken = userData?.pushToken;
             if (pushToken && Expo.isExpoPushToken(pushToken)) {
                 messages.push({
                     to: pushToken,
@@ -92,15 +89,7 @@ exports.checkReminders = functions.pubsub.schedule('every 1 minutes').onRun(asyn
     }
     // Send Pushes
     if (messages.length > 0) {
-        let chunks = expo.chunkPushNotifications(messages);
-        for (let chunk of chunks) {
-            try {
-                await expo.sendPushNotificationsAsync(chunk);
-            }
-            catch (error) {
-                console.error("Error sending chunks", error);
-            }
-        }
+        await (0, push_1.sendPushNotifications)(messages);
     }
     await batch.commit();
     console.log(`Processed ${snapshot.size} reminders.`);

@@ -1,0 +1,47 @@
+{
+    "root": true,
+    "env": {
+        "node": true,
+        "es2020": true,
+        "jest": true
+    },
+    "extends": [
+        "google"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": 2020,
+        "sourceType": "module",
+        "project": "./tsconfig.json"
+    },
+    "plugins": [
+        "@typescript-eslint"
+    ],
+    "ignorePatterns": [
+        "lib/**",
+        "node_modules/**",
+        "coverage/**",
+        "*.js"
+    ],
+    "rules": {
+        "max-len": ["warn", { "code": 120, "ignoreUrls": true, "ignoreStrings": true, "ignoreTemplateLiterals": true }],
+        "require-jsdoc": "off",
+        "valid-jsdoc": "off",
+        "prefer-const": "error",
+        "no-var": "error",
+        "prefer-rest-params": "off",
+        "no-throw-literal": "off",
+        "camelcase": "warn",
+        "no-unused-vars": "off",
+        "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }]
+    },
+    "overrides": [
+        {
+            "files": ["*.test.ts", "*.spec.ts"],
+            "rules": {
+                "no-unused-expressions": "off",
+                "max-len": "off"
+            }
+        }
+    ]
+}

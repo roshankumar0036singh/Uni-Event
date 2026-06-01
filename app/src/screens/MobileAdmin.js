@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { db } from '../lib/firebaseConfig';
 import { formatEventDate } from '../lib/formatEventDate';
@@ -19,6 +20,7 @@ import { useTheme } from '../lib/ThemeContext';
 export default function MobileAdmin() {
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
+    const navigation = useNavigation();
     const [activeTab, setActiveTab] = useState('events');
     const [events, setEvents] = useState([]);
     const [requests, setRequests] = useState([]);
@@ -150,6 +152,23 @@ export default function MobileAdmin() {
         fetchData();
     };
 
+    const renderEmptyComponent = useCallback(() => {
+        let emptyMessage;
+        if (activeTab === 'events') {
+            emptyMessage = 'No active events found';
+        } else if (activeTab === 'requests') {
+            emptyMessage = 'No pending club requests';
+        } else {
+            emptyMessage = 'No pending appeals';
+        }
+        return (
+            <View style={styles.emptyContainer}>
+                <Ionicons name="search-outline" size={64} color="#666" />
+                <Text style={styles.emptyText}>{emptyMessage}</Text>
+            </View>
+        );
+    }, [activeTab, styles]);
+
     const renderEventItem = ({ item }) => (
         <View style={styles.card}>
             <View style={styles.cardHeader}>
@@ -265,6 +284,13 @@ export default function MobileAdmin() {
                     <Text style={styles.headerTitle}>Admin Dashboard</Text>
                     <Text style={styles.headerSubtitle}>Manage platform activity</Text>
                 </View>
+                <TouchableOpacity
+                    style={styles.heatmapBtn}
+                    onPress={() => navigation.navigate('LocationHeatmap')}
+                >
+                    <Ionicons name="flame" size={20} color="#fff" />
+                    <Text style={styles.heatmapBtnText}>Heatmap</Text>
+                </TouchableOpacity>
             </View>
 
             <View style={styles.tabContainer}>
@@ -303,18 +329,7 @@ export default function MobileAdmin() {
                 onRefresh={onRefresh}
                 renderItem={listRenderItem}
                 contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="search-outline" size={64} color="#666" />
-                        <Text style={styles.emptyText}>
-                            {activeTab === 'events'
-                                ? 'No active events found'
-                                : activeTab === 'requests'
-                                  ? 'No pending club requests'
-                                  : 'No pending appeals'}
-                        </Text>
-                    </View>
-                }
+                ListEmptyComponent={renderEmptyComponent}
             />
 
             <Modal
@@ -446,6 +461,17 @@ const getStyles = theme =>
         actionBtnText: { fontWeight: '700', fontSize: 14 },
         emptyContainer: { alignItems: 'center', marginTop: 60, opacity: 0.5 },
         emptyText: { marginTop: 16, fontSize: 16, color: theme.colors.textSecondary },
+
+        heatmapBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            backgroundColor: theme.colors.primary,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            borderRadius: 10,
+        },
+        heatmapBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
         // Modal Styles
         modalOverlay: {
