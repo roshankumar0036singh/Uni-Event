@@ -129,3 +129,21 @@ export const calculateAverageRating = reputation => {
 
     return 0;
 };
+
+/**
+ * Calculate the display count for total ratings, falling back to decayedRatings if necessary
+ */
+export const calculateDisplayCount = reputation => {
+    if (!reputation) return 0;
+
+    if (reputation.totalRatings > 0) {
+        return Number(reputation.totalRatings);
+    }
+
+    // Fallback: if totalRatings is missing but we have decayed ratings, estimate count
+    if (reputation.decayedRatings > 0) {
+        return Math.ceil(Number(reputation.decayedRatings));
+    }
+
+    return 0;
+};

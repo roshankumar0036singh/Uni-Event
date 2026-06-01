@@ -26,7 +26,7 @@ import {
 import { EventListSkeleton } from '../components/SkeletonLoader';
 import EventCard from '../components/EventCard';
 import { useAuth } from '../lib/AuthContext';
-import { calculateAverageRating } from '../lib/feedbackService';
+import { calculateAverageRating, calculateDisplayCount } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
@@ -159,7 +159,8 @@ export default function ClubProfileScreen({ route, navigation }) {
 
         const reputation = club.reputation;
         const avg = calculateAverageRating(reputation);
-        return { avgRating: avg, totalRatings: reputation.totalRatings || 0 };
+        const count = calculateDisplayCount(reputation);
+        return { avgRating: avg, totalRatings: count };
     }, [club]);
 
     const rawAttendanceRate = Number(club?.metrics?.attendanceRate);

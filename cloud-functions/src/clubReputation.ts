@@ -24,7 +24,7 @@ export const buildBucketId = (date: Date): string => {
 };
 
 export const parseBucketId = (bucketId: string): Date | null => {
-    const match = /^([0-9]{4})-([0-9]{2})$/.exec(bucketId);
+    const match = /^(\d{4})-(\d{2})$/.exec(bucketId);
     if (!match) return null;
     const year = Number(match[1]);
     const month = Number(match[2]);
@@ -35,7 +35,7 @@ export const parseBucketId = (bucketId: string): Date | null => {
 };
 
 export const toDate = (value: unknown): Date | null => {
-    if (!value) return null;
+    if (value == null || value === '') return null;
     if (value instanceof Date) return value;
     if (typeof value === 'string' || typeof value === 'number') {
         const parsed = new Date(value);
@@ -94,7 +94,7 @@ export const onEventFeedbackCreate = functions.firestore
     .onCreate(async (snap, context) => {
         const data = snap.data();
         const clubRating = data?.clubRating;
-        if (typeof clubRating !== 'number' || clubRating <= 0) {
+        if (!Number.isFinite(clubRating) || clubRating <= 0) {
             return null;
         }
 
@@ -111,25 +111,40 @@ export const onEventFeedbackCreate = functions.firestore
             toDate(data?.submittedAt) ||
             new Date();
 
+        const userId = context.params.userId;
         const bucketId = buildBucketId(eventDate);
         const bucketRef = db.doc(`users/${clubId}/reputationBuckets/${bucketId}`);
+        const markerRef = db.doc(`users/${clubId}/processedFeedbacks/${eventId}_${userId}`);
 
-        await bucketRef.set(
-            {
-                ratingPoints: admin.firestore.FieldValue.increment(clubRating),
-                ratingCount: admin.firestore.FieldValue.increment(1),
-                bucketMonth: getMonthStart(eventDate),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            },
-            { merge: true },
-        );
+        return db.runTransaction(async transaction => {
+            const markerSnap = await transaction.get(markerRef);
+            if (markerSnap.exists) {
+                return null; // Idempotency check: already processed
+            }
 
-        return null;
+            transaction.set(markerRef, {
+                processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+
+            transaction.set(
+                bucketRef,
+                {
+                    ratingPoints: admin.firestore.FieldValue.increment(clubRating),
+                    ratingCount: admin.firestore.FieldValue.increment(1),
+                    bucketMonth: getMonthStart(eventDate),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                },
+                { merge: true },
+            );
+        });
     });
 
 export const refreshClubReputation = functions.pubsub.schedule('every 24 hours').onRun(async () => {
     const nowMonth = getMonthStart(new Date());
-    let query: FirebaseFirestore.Query = db
+    const cutoffMonth = new Date(
+        Date.UTC(nowMonth.getUTCFullYear(), nowMonth.getUTCMonth() - DECAY_WINDOW_MONTHS + 1, 1),
+    );
+    const baseQuery: FirebaseFirestore.Query = db
         .collection('users')
         .where('role', '==', 'club')
         .orderBy(FieldPath.documentId())
@@ -140,41 +155,48 @@ export const refreshClubReputation = functions.pubsub.schedule('every 24 hours')
     let opCount = 0;
 
     while (true) {
-        if (lastDoc) {
-            query = query.startAfter(lastDoc);
-        }
-        const snapshot = await query.get();
+        const pageQuery: FirebaseFirestore.Query = lastDoc
+            ? baseQuery.startAfter(lastDoc)
+            : baseQuery;
+        const snapshot: FirebaseFirestore.QuerySnapshot = await pageQuery.get();
         if (snapshot.empty) break;
 
-        for (const userDoc of snapshot.docs) {
-            const bucketSnap = await userDoc.ref.collection('reputationBuckets').get();
-            let decayedPoints = 0;
-            let decayedRatings = 0;
+        await Promise.all(
+            snapshot.docs.map(async userDoc => {
+                const bucketSnap = await userDoc.ref
+                    .collection('reputationBuckets')
+                    .where('bucketMonth', '>=', cutoffMonth)
+                    .get();
+                let decayedPoints = 0;
+                let decayedRatings = 0;
 
-            const bucketInputs = bucketSnap.docs.map(b => ({
-                id: b.id,
-                data: b.data() as ReputationBucket,
-            }));
-            const { decayedPoints: dp, decayedRatings: dr } = computeDecayedScore(
-                bucketInputs,
-                nowMonth,
-            );
-            decayedPoints = dp;
-            decayedRatings = dr;
+                const bucketInputs = bucketSnap.docs.map(
+                    (b: FirebaseFirestore.QueryDocumentSnapshot) => ({
+                        id: b.id,
+                        data: b.data() as ReputationBucket,
+                    }),
+                );
+                const { decayedPoints: dp, decayedRatings: dr } = computeDecayedScore(
+                    bucketInputs,
+                    nowMonth,
+                );
+                decayedPoints = dp;
+                decayedRatings = dr;
 
-            batch.update(userDoc.ref, {
-                'reputation.decayedPoints': decayedPoints,
-                'reputation.decayedRatings': decayedRatings,
-                'reputation.decayWindowMonths': DECAY_WINDOW_MONTHS,
-                'reputation.decayedUpdatedAt': admin.firestore.FieldValue.serverTimestamp(),
-            });
-            opCount += 1;
+                batch.update(userDoc.ref, {
+                    'reputation.decayedPoints': decayedPoints,
+                    'reputation.decayedRatings': decayedRatings,
+                    'reputation.decayWindowMonths': DECAY_WINDOW_MONTHS,
+                    'reputation.decayedUpdatedAt': admin.firestore.FieldValue.serverTimestamp(),
+                });
+                opCount += 1;
+            }),
+        );
 
-            if (opCount >= 450) {
-                await batch.commit();
-                batch = db.batch();
-                opCount = 0;
-            }
+        if (opCount >= 450) {
+            await batch.commit();
+            batch = db.batch();
+            opCount = 0;
         }
 
         lastDoc = snapshot.docs[snapshot.docs.length - 1];

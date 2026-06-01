@@ -183,7 +183,12 @@ describe('toDate', () => {
         expect(toDate(null)).toBeNull();
         expect(toDate(undefined)).toBeNull();
         expect(toDate('')).toBeNull();
-        expect(toDate(0)).toBeNull();
+    });
+
+    it('returns the Unix epoch date when given 0', () => {
+        const d = toDate(0);
+        expect(d).toBeInstanceOf(Date);
+        expect(d?.toISOString()).toBe('1970-01-01T00:00:00.000Z');
     });
 
     it('returns the same Date object when given a Date', () => {
@@ -230,8 +235,8 @@ describe('computeDecayedScore', () => {
             WINDOW,
         );
         // monthsAgo = 0 → weight = 1 - 0/12 = 1.0
-        expect(decayedPoints).toBeCloseTo(5.0);
-        expect(decayedRatings).toBeCloseTo(1.0);
+        expect(decayedPoints).toBeCloseTo(5);
+        expect(decayedRatings).toBeCloseTo(1);
     });
 
     it('gives half weight (0.5) to a review from 6 months ago', () => {
@@ -242,7 +247,7 @@ describe('computeDecayedScore', () => {
             WINDOW,
         );
         // weight = 1 - 6/12 = 0.5
-        expect(decayedPoints).toBeCloseTo(2.0);
+        expect(decayedPoints).toBeCloseTo(2);
         expect(decayedRatings).toBeCloseTo(0.5);
     });
 
@@ -300,9 +305,9 @@ describe('computeDecayedScore', () => {
             NOW,
             WINDOW,
         );
-        expect(decayedPoints).toBeCloseTo(6.0);
+        expect(decayedPoints).toBeCloseTo(6);
         expect(decayedRatings).toBeCloseTo(1.5);
-        expect(decayedPoints / decayedRatings).toBeCloseTo(4.0);
+        expect(decayedPoints / decayedRatings).toBeCloseTo(4);
     });
 
     it('averages multiple reviews within the same bucket', () => {
@@ -312,9 +317,9 @@ describe('computeDecayedScore', () => {
             NOW,
             WINDOW,
         );
-        expect(decayedPoints).toBeCloseTo(10.0);
-        expect(decayedRatings).toBeCloseTo(2.0);
-        expect(decayedPoints / decayedRatings).toBeCloseTo(5.0);
+        expect(decayedPoints).toBeCloseTo(10);
+        expect(decayedRatings).toBeCloseTo(2);
+        expect(decayedPoints / decayedRatings).toBeCloseTo(5);
     });
 
     // --- Edge Cases ---
@@ -363,14 +368,14 @@ describe('computeDecayedScore', () => {
             WINDOW,
         );
         // Should use bucketMonth → monthsAgo = 0 → weight = 1.0
-        expect(decayedPoints).toBeCloseTo(4.0);
-        expect(decayedRatings).toBeCloseTo(1.0);
+        expect(decayedPoints).toBeCloseTo(4);
+        expect(decayedRatings).toBeCloseTo(1);
     });
 
     it('skips buckets where ratingPoints is NaN', () => {
         const bad: { id: string; data: ReputationBucket } = {
             id: '2025-07',
-            data: { ratingPoints: NaN, ratingCount: 1 },
+            data: { ratingPoints: Number.NaN, ratingCount: 1 },
         };
         const { decayedPoints, decayedRatings } = computeDecayedScore([bad], NOW, WINDOW);
         expect(decayedPoints).toBe(0);
@@ -380,7 +385,7 @@ describe('computeDecayedScore', () => {
     it('skips buckets where ratingCount is NaN', () => {
         const bad: { id: string; data: ReputationBucket } = {
             id: '2025-07',
-            data: { ratingPoints: 5, ratingCount: NaN },
+            data: { ratingPoints: 5, ratingCount: Number.NaN },
         };
         const { decayedPoints, decayedRatings } = computeDecayedScore([bad], NOW, WINDOW);
         expect(decayedPoints).toBe(0);
@@ -407,13 +412,12 @@ describe('computeDecayedScore', () => {
     it('with a 6-month window, a 3-month-old bucket gets weight 0.5', () => {
         // Apr 2025 is 3 months before Jul 2025; window = 6 → weight = 1 - 3/6 = 0.5
         const { decayedPoints } = computeDecayedScore([bucket('2025-04', 4, 1)], NOW, 6);
-        expect(decayedPoints).toBeCloseTo(2.0);
+        expect(decayedPoints).toBeCloseTo(2);
     });
 
     it('handles a large number of buckets without error', () => {
         // 11 monthly buckets, all within window — just confirming no crash
         const buckets = Array.from({ length: 11 }, (_, i) => {
-            const monthNum = 7 - i; // Jul down to Sep 2024 (wrapping via Date.UTC)
             const d = new Date(Date.UTC(2025, 6 - i, 1));
             const id = buildBucketId(d);
             return bucket(id, 5, 1);

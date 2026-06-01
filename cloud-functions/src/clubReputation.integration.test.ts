@@ -53,13 +53,32 @@ const monthsAgo = (n: number): Date => {
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - n, 1));
 };
 
+import * as http from 'http';
+
 /** Wipes the emulator DB before each test */
 async function clearFirestore(): Promise<void> {
-    const res = await fetch(
-        `http://${process.env.FIRESTORE_EMULATOR_HOST}/emulator/v1/projects/uni-event-test/databases/(default)/documents`,
-        { method: 'DELETE' },
-    );
-    if (!res.ok) throw new Error(`Failed to clear Firestore emulator: ${res.status}`);
+    return new Promise((resolve, reject) => {
+        const hostEnv = process.env.FIRESTORE_EMULATOR_HOST;
+        if (!hostEnv) return reject(new Error('FIRESTORE_EMULATOR_HOST not set'));
+        const [host, port] = hostEnv.split(':');
+        const req = http.request(
+            {
+                hostname: host,
+                port: port,
+                path: '/emulator/v1/projects/uni-event-test/databases/(default)/documents',
+                method: 'DELETE',
+            },
+            res => {
+                if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve();
+                } else {
+                    reject(new Error(`Failed to clear Firestore emulator: ${res.statusCode}`));
+                }
+            },
+        );
+        req.on('error', reject);
+        req.end();
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -239,8 +258,8 @@ describe('clubReputation — integration tests', () => {
             const rep = clubDoc.data()?.reputation;
 
             expect(rep).toBeDefined();
-            expect(rep.decayedPoints).toBeCloseTo(4.0); // weight ≈ 1.0 for this month
-            expect(rep.decayedRatings).toBeCloseTo(1.0);
+            expect(rep.decayedPoints).toBeCloseTo(4); // weight ≈ 1 for this month
+            expect(rep.decayedRatings).toBeCloseTo(1);
             expect(rep.decayWindowMonths).toBe(12);
         });
 
@@ -269,10 +288,10 @@ describe('clubReputation — integration tests', () => {
             const clubDoc = await db.doc('users/club1').get();
             const rep = clubDoc.data()?.reputation;
 
-            // Decayed average = (5*1.0 + 5*0.5) / (1.0 + 0.5) = 7.5 / 1.5 = 5.0
+            // Decayed average = (5*1 + 5*0.5) / (1 + 0.5) = 7.5 / 1.5 = 5.0
             // (same avg here since both are 5-star — but check the weights)
             const avg = rep.decayedPoints / rep.decayedRatings;
-            expect(avg).toBeCloseTo(5.0, 1);
+            expect(avg).toBeCloseTo(5, 1);
 
             // The recent review contributes MORE raw points to the pool
             const recentContribution = 5 * 1.0; // 5
@@ -305,9 +324,6 @@ describe('clubReputation — integration tests', () => {
 
             const repA = (await db.doc('users/clubA').get()).data()?.reputation;
             const repB = (await db.doc('users/clubB').get()).data()?.reputation;
-
-            const avgA = repA.decayedPoints / repA.decayedRatings;
-            const avgB = repB.decayedPoints / repB.decayedRatings;
 
             // Both have the same raw 1-star average, but the weights differ.
             // The decayed *total points* for A (full weight) should be greater than B (half weight).
@@ -376,16 +392,16 @@ describe('clubReputation — integration tests', () => {
         it('prefers decayedPoints/decayedRatings over totalPoints/totalRatings', () => {
             const reputation = {
                 totalPoints: 30,
-                totalRatings: 10, // traditional avg = 3.0
+                totalRatings: 10, // traditional avg = 3
                 decayedPoints: 4.5,
-                decayedRatings: 1.0, // decayed avg = 4.5
+                decayedRatings: 1, // decayed avg = 4.5
             };
             expect(calculateAverageRating(reputation)).toBe(4.5);
         });
 
         it('falls back to traditional avg when no decayed data exists yet', () => {
             const reputation = { totalPoints: 20, totalRatings: 4 };
-            expect(calculateAverageRating(reputation)).toBe(5.0);
+            expect(calculateAverageRating(reputation)).toBe(5);
         });
 
         it('returns 0 when reputation is null or undefined', () => {
