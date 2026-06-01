@@ -17,7 +17,7 @@ export const submitFeedback = async ({
 }) => {
     try {
         const feedbackRef = doc(db, 'events', eventId, 'feedback', userId);
-        
+
         const payload = {
             userId,
             attended,
@@ -34,7 +34,7 @@ export const submitFeedback = async ({
         }
 
         await setDoc(feedbackRef, payload);
-        
+
         logger.debug('Feedback submitted successfully');
         return { success: true };
     } catch (error) {
