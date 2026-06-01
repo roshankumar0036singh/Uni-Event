@@ -304,10 +304,11 @@ export default function UserFeed() {
     }, [user, isFocused]);
 
     const fetchEventsPage = useCallback(async (cursorDoc) => {
-        const constraints = [orderBy('startAt', 'desc'), limit(PAGE_SIZE + 1)];
+        const constraints = [orderBy('startAt', 'desc')];
         if (cursorDoc) {
-            constraints.unshift(startAfter(cursorDoc));
+            constraints.push(startAfter(cursorDoc));
         }
+        constraints.push(limit(PAGE_SIZE + 1));
         const eventsQuery = query(collection(db, 'events'), ...constraints);
         const snapshot = await getDocs(eventsQuery);
         const docs = snapshot.docs;
