@@ -59,6 +59,9 @@ describe('onFeedbackSubmit', () => {
     let mockDb: any;
     let mockDoc: any;
     let mockGet: any;
+    let mockCollection: any;
+    let mockCheckInGet: any;
+    let mockParticipantGet: any;
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -70,13 +73,44 @@ describe('onFeedbackSubmit', () => {
             data: () => ({ clubId: 'club1', userId: 'user1' })
         });
         
+        mockCheckInGet = jest.fn().mockResolvedValue({
+            exists: true,
+            data: () => ({ status: 'checked-in' })
+        });
+
+        const checkInDocMock = jest.fn().mockReturnValue({
+            get: mockCheckInGet
+        });
+
+        const checkInsCollectionMock = jest.fn().mockReturnValue({
+            doc: checkInDocMock
+        });
+
+        mockParticipantGet = jest.fn().mockResolvedValue({
+            exists: true
+        });
+
+        const participantDocMock = jest.fn().mockReturnValue({
+            get: mockParticipantGet
+        });
+
+        const participantsCollectionMock = jest.fn().mockReturnValue({
+            doc: participantDocMock
+        });
+
         mockDoc = jest.fn().mockReturnValue({
-            get: mockGet
+            get: mockGet,
+            collection: jest.fn((colPath) => {
+                if (colPath === 'checkIns') return checkInsCollectionMock();
+                if (colPath === 'participants') return participantsCollectionMock();
+                return { doc: jest.fn() };
+            })
         });
         
-        mockDb.collection.mockReturnValue({
+        mockCollection = jest.fn().mockReturnValue({
             doc: mockDoc
         });
+        mockDb.collection.mockImplementation(mockCollection);
     });
 
     it('should ignore null data', async () => {
@@ -119,6 +153,41 @@ describe('onFeedbackSubmit', () => {
         const context = { params: { eventId: 'e1', userId: 'u1' } };
         
         await expect(handler(snap, context)).rejects.toThrow('User u1 does not own feedback request r1');
+    });
+
+    it('should throw if clubId is missing or not a string', async () => {
+        const handler = (onFeedbackSubmit as unknown) as Function;
+        const snap = { data: () => ({ attended: true, clubId: { obj: true } }) };
+        const context = { params: { eventId: 'e1', userId: 'u1' } };
+        
+        await expect(handler(snap, context)).rejects.toThrow('Invalid clubId');
+    });
+
+    it('should throw if user did not check in', async () => {
+        // Event get
+        mockGet.mockResolvedValueOnce({ exists: true, data: () => ({ clubId: 'club1' }) });
+        // Request get (not called here since feedbackRequestId is undefined)
+        // CheckIn get
+        mockCheckInGet.mockResolvedValueOnce({ exists: false });
+
+        const handler = (onFeedbackSubmit as unknown) as Function;
+        const snap = { data: () => ({ attended: true, clubId: 'club1' }) };
+        const context = { params: { eventId: 'e1', userId: 'u1' } };
+        
+        await expect(handler(snap, context)).rejects.toThrow('User u1 did not check in to event e1');
+    });
+
+    it('should throw if no-show user is not registered', async () => {
+        // Event get
+        mockGet.mockResolvedValueOnce({ exists: true, data: () => ({ clubId: 'club1' }) });
+        // Participants get
+        mockParticipantGet.mockResolvedValueOnce({ exists: false });
+
+        const handler = (onFeedbackSubmit as unknown) as Function;
+        const snap = { data: () => ({ attended: false, clubId: 'club1' }) };
+        const context = { params: { eventId: 'e1', userId: 'u1' } };
+        
+        await expect(handler(snap, context)).rejects.toThrow('User u1 is not registered for event e1');
     });
 
     it('should throw for invalid event rating', async () => {

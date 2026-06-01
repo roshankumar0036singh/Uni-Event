@@ -17,7 +17,15 @@ export const onFeedbackSubmit = functions.firestore
         const userId = context.params.userId;
         const { attended, eventRating, clubRating, clubId, feedbackRequestId } = data;
 
-        // 1. Validate canonical documents
+        // 1. Validate canonical documents and types
+        if (typeof clubId !== 'string' || !clubId.trim() || clubId.includes('/')) {
+            throw new functions.https.HttpsError('invalid-argument', 'Invalid clubId');
+        }
+
+        if (feedbackRequestId !== undefined && (typeof feedbackRequestId !== 'string' || !feedbackRequestId.trim() || feedbackRequestId.includes('/'))) {
+            throw new functions.https.HttpsError('invalid-argument', 'Invalid feedbackRequestId');
+        }
+
         const eventRef = db.collection('events').doc(eventId);
         const eventSnap = await eventRef.get();
         
@@ -33,6 +41,19 @@ export const onFeedbackSubmit = functions.firestore
             const requestSnap = await db.collection('feedbackRequests').doc(feedbackRequestId).get();
             if (requestSnap.exists && requestSnap.data()?.userId !== userId) {
                 throw new functions.https.HttpsError('permission-denied', `User ${userId} does not own feedback request ${feedbackRequestId}`);
+            }
+        }
+
+        // Verify attended state matches checkIns
+        if (attended) {
+            const checkInSnap = await db.collection('events').doc(eventId).collection('checkIns').doc(userId).get();
+            if (!checkInSnap.exists) {
+                throw new functions.https.HttpsError('permission-denied', `User ${userId} did not check in to event ${eventId}`);
+            }
+        } else {
+            const participantSnap = await db.collection('events').doc(eventId).collection('participants').doc(userId).get();
+            if (!participantSnap.exists) {
+                throw new functions.https.HttpsError('permission-denied', `User ${userId} is not registered for event ${eventId}`);
             }
         }
 
