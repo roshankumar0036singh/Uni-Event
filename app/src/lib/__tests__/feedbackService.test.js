@@ -1,17 +1,10 @@
 import { submitFeedback, calculateAverageRating } from '../feedbackService';
-
-import { getDoc, writeBatch } from 'firebase/firestore';
+import { setDoc } from 'firebase/firestore';
 
 jest.mock('firebase/firestore', () => ({
     doc: jest.fn(),
-
-    getDoc: jest.fn(),
-
-    increment: jest.fn(value => value),
-
+    setDoc: jest.fn(),
     serverTimestamp: jest.fn(() => 'mock-timestamp'),
-
-    writeBatch: jest.fn(),
 }));
 
 jest.mock('../firebaseConfig', () => ({
@@ -19,19 +12,9 @@ jest.mock('../firebaseConfig', () => ({
 }));
 
 describe('feedbackService', () => {
-    let mockBatch;
-
     beforeEach(() => {
-        mockBatch = {
-            set: jest.fn(),
-            update: jest.fn(),
-            commit: jest.fn().mockResolvedValue(),
-        };
-
-        writeBatch.mockReturnValue(mockBatch);
-
+        jest.clearAllMocks();
         jest.spyOn(console, 'error').mockImplementation(() => {});
-
         jest.spyOn(console, 'log').mockImplementation(() => {});
     });
 
@@ -40,9 +23,7 @@ describe('feedbackService', () => {
     });
 
     test('submits attended feedback successfully', async () => {
-        getDoc.mockResolvedValueOnce({
-            exists: () => true,
-        });
+        setDoc.mockResolvedValueOnce();
 
         const result = await submitFeedback({
             feedbackRequestId: 'req1',
@@ -55,16 +36,13 @@ describe('feedbackService', () => {
             feedback: 'Great event',
         });
 
-        expect(mockBatch.update).toHaveBeenCalled();
-
-        expect(mockBatch.commit).toHaveBeenCalled();
-
-        expect(result).toEqual({
-            success: true,
-        });
+        expect(setDoc).toHaveBeenCalled();
+        expect(result).toEqual({ success: true });
     });
 
     test('handles no-show attendee feedback', async () => {
+        setDoc.mockResolvedValueOnce();
+
         const result = await submitFeedback({
             feedbackRequestId: 'req1',
             eventId: 'event1',
@@ -74,40 +52,12 @@ describe('feedbackService', () => {
             feedback: '',
         });
 
-        expect(mockBatch.set).toHaveBeenCalled();
-
-        expect(mockBatch.commit).toHaveBeenCalled();
-
-        expect(result).toEqual({
-            success: true,
-        });
+        expect(setDoc).toHaveBeenCalled();
+        expect(result).toEqual({ success: true });
     });
 
-    test('creates reputation if club document does not exist', async () => {
-        getDoc.mockResolvedValueOnce({
-            exists: () => false,
-        });
-
-        await submitFeedback({
-            feedbackRequestId: 'req1',
-            eventId: 'event1',
-            clubId: 'club1',
-            userId: 'user1',
-            attended: true,
-            eventRating: 5,
-            clubRating: 4,
-            feedback: 'Nice',
-        });
-
-        expect(mockBatch.set).toHaveBeenCalled();
-    });
-
-    test('throws error if batch commit fails', async () => {
-        getDoc.mockResolvedValueOnce({
-            exists: () => true,
-        });
-
-        mockBatch.commit.mockRejectedValueOnce(new Error('Commit failed'));
+    test('throws error if setDoc fails', async () => {
+        setDoc.mockRejectedValueOnce(new Error('Commit failed'));
 
         await expect(
             submitFeedback({
