@@ -132,7 +132,7 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow update: if request.auth != null && resource != null && (
         isAdmin() || 
-        (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) && validateRateLimitUpdate(userId))
+        (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'points', 'reputation', 'attendanceCount', 'pushToken']) && validateRateLimitUpdate(userId))
       );
 
       // Subcollections
