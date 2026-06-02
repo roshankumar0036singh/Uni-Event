@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Event Map Live Preview</title>
     <!-- Ionicons for the toggle icons -->
-    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
-    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js" integrity="sha384-xyQ/Vpt1cq1pdPYlRaT/QkcSj2vrYyWI3WOhxGBzqnP1vgvsS2yrhWXe3/wIoCr5" crossorigin="anonymous"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js" integrity="sha384-KAUcUASKfGZ0sxENVFRiH12jtpvd9SsVpgzvYdvv8ZMLqB99G3gX3DAts418wzIC" crossorigin="anonymous"></script>
     <!-- Leaflet for an actual interactive web map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
     <style>
         :root {
             --bg-color: #f8f9fa;
@@ -258,8 +258,8 @@
         // Dummy Event Data
         const events = [
             { id: 1, title: 'Tech Startup Pitch', desc: 'Join top investors and founders for the annual startup pitch contest.', lat: 28.7041, lng: 77.1025 },
-            { id: 2, title: 'Music Festival 2026', desc: 'Live performances by local campus bands. Food and drinks available!', lat: 28.7120, lng: 77.0950 },
-            { id: 3, title: 'AI Hackathon', desc: 'Build the future of AI. 48 hours of coding, pizza, and prizes.', lat: 28.6950, lng: 77.1100 }
+            { id: 2, title: 'Music Festival 2026', desc: 'Live performances by local campus bands. Food and drinks available!', lat: 28.712, lng: 77.095 },
+            { id: 3, title: 'AI Hackathon', desc: 'Build the future of AI. 48 hours of coding, pizza, and prizes.', lat: 28.695, lng: 77.11 }
         ];
 
         // Add markers and custom popups (mimicking React Native Callouts)

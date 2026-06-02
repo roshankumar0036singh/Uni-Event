@@ -1,6 +1,6 @@
-cd cloud-functions
+Set-Location cloud-functions
 npm run build
-cd ..
+Set-Location ..
 $env:GITHUB_TOKEN=$null
 git add .
 git commit -m "fix: resolve sonarqube issues and rebuild"

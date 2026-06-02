@@ -16,17 +16,73 @@ function validateRatings(eventRating?: any, clubRating?: any) {
     }
 }
 
-async function verifyUserAttendance(eventId: string, userId: string, attended: boolean) {
+async function verifyAttendedUser(eventId: string, userId: string) {
+    const checkInSnap = await db.collection('events').doc(eventId).collection('checkIns').doc(userId).get();
+    if (!checkInSnap.exists) {
+        throw new functions.https.HttpsError('permission-denied', `User ${userId} did not check in to event ${eventId}`);
+    }
+}
+
+async function verifyAbsentUser(eventId: string, userId: string) {
+    const participantSnap = await db.collection('events').doc(eventId).collection('participants').doc(userId).get();
+    if (!participantSnap.exists) {
+        throw new functions.https.HttpsError('permission-denied', `User ${userId} is not registered for event ${eventId}`);
+    }
+}
+
+function applyFeedbackUpdates(
+    batch: admin.firestore.WriteBatch,
+    params: {
+        eventId: string;
+        userId: string;
+        attended: boolean;
+        eventRating?: number;
+        clubRating?: number;
+        safeClubId: string;
+        safeRequestId?: string;
+    }
+) {
+    const { eventId, userId, attended, eventRating, clubRating, safeClubId, safeRequestId } = params;
+
+    const statsUpdate: Record<string, admin.firestore.FieldValue | number> = {
+        feedbackCount: admin.firestore.FieldValue.increment(1),
+    };
+
     if (attended) {
-        const checkInSnap = await db.collection('events').doc(eventId).collection('checkIns').doc(userId).get();
-        if (!checkInSnap.exists) {
-            throw new functions.https.HttpsError('permission-denied', `User ${userId} did not check in to event ${eventId}`);
+        statsUpdate.totalAttendees = admin.firestore.FieldValue.increment(1);
+        if (eventRating) {
+            statsUpdate.totalEventRating = admin.firestore.FieldValue.increment(eventRating);
+            statsUpdate.eventRatingCount = admin.firestore.FieldValue.increment(1);
         }
     } else {
-        const participantSnap = await db.collection('events').doc(eventId).collection('participants').doc(userId).get();
-        if (!participantSnap.exists) {
-            throw new functions.https.HttpsError('permission-denied', `User ${userId} is not registered for event ${eventId}`);
-        }
+        statsUpdate.totalNoShows = admin.firestore.FieldValue.increment(1);
+    }
+    
+    const eventRef = db.collection('events').doc(eventId);
+    batch.set(eventRef, { stats: statsUpdate }, { merge: true });
+
+    if (attended && clubRating && safeClubId) {
+        const clubRef = db.collection('users').doc(safeClubId);
+        batch.set(clubRef, {
+            reputation: {
+                totalPoints: admin.firestore.FieldValue.increment(clubRating),
+                totalRatings: admin.firestore.FieldValue.increment(1),
+                lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+            }
+        }, { merge: true });
+    }
+
+    if (attended) {
+        const userRef = db.collection('users').doc(userId);
+        batch.set(userRef, { points: admin.firestore.FieldValue.increment(5) }, { merge: true });
+    }
+
+    if (safeRequestId) {
+        const requestRef = db.collection('feedbackRequests').doc(safeRequestId);
+        batch.set(requestRef, {
+            status: 'completed',
+            completedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
     }
 }
 
@@ -73,50 +129,24 @@ export const onFeedbackSubmit = functions.firestore
             }
         }
 
-        await verifyUserAttendance(eventId, userId, attended);
+        if (attended) {
+            await verifyAttendedUser(eventId, userId);
+        } else {
+            await verifyAbsentUser(eventId, userId);
+        }
+        
         validateRatings(eventRating, clubRating);
 
         const batch = db.batch();
-        const statsUpdate: Record<string, admin.firestore.FieldValue | number> = {
-            feedbackCount: admin.firestore.FieldValue.increment(1),
-        };
-
-        if (attended) {
-            statsUpdate.totalAttendees = admin.firestore.FieldValue.increment(1);
-            if (eventRating) {
-                statsUpdate.totalEventRating = admin.firestore.FieldValue.increment(eventRating);
-                statsUpdate.eventRatingCount = admin.firestore.FieldValue.increment(1);
-            }
-        } else {
-            statsUpdate.totalNoShows = admin.firestore.FieldValue.increment(1);
-        }
-        
-        const eventRef = db.collection('events').doc(eventId);
-        batch.set(eventRef, { stats: statsUpdate }, { merge: true });
-
-        if (attended && clubRating && safeClubId) {
-            const clubRef = db.collection('users').doc(safeClubId);
-            batch.set(clubRef, {
-                reputation: {
-                    totalPoints: admin.firestore.FieldValue.increment(clubRating),
-                    totalRatings: admin.firestore.FieldValue.increment(1),
-                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-                }
-            }, { merge: true });
-        }
-
-        if (attended) {
-            const userRef = db.collection('users').doc(userId);
-            batch.set(userRef, { points: admin.firestore.FieldValue.increment(5) }, { merge: true });
-        }
-
-        if (safeRequestId) {
-            const requestRef = db.collection('feedbackRequests').doc(safeRequestId);
-            batch.set(requestRef, {
-                status: 'completed',
-                completedAt: admin.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-        }
+        applyFeedbackUpdates(batch, {
+            eventId,
+            userId,
+            attended,
+            eventRating,
+            clubRating,
+            safeClubId,
+            safeRequestId
+        });
 
         try {
             await batch.commit();
