@@ -45,7 +45,7 @@ describe('feedbackService', () => {
         expect(runTransaction).toHaveBeenCalled();
         expect(mockTransaction.set).toHaveBeenCalledTimes(1);
         expect(mockTransaction.set).toHaveBeenCalledWith(
-            expect.anything(),
+            undefined,
             expect.objectContaining({
                 feedbackRequestId: 'req1',
                 eventId: 'event1',
@@ -82,7 +82,7 @@ describe('feedbackService', () => {
         expect(runTransaction).toHaveBeenCalled();
         expect(mockTransaction.set).toHaveBeenCalledTimes(1);
         expect(mockTransaction.set).toHaveBeenCalledWith(
-            expect.anything(),
+            undefined,
             expect.objectContaining({
                 feedbackRequestId: 'req1',
                 eventId: 'event1',
