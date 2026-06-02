@@ -47,4 +47,5 @@ __exportStar(require("./reputation"), exports);
 __exportStar(require("./setRole"), exports);
 __exportStar(require("./inactiveUsers"), exports);
 __exportStar(require("./backfillEventAnalytics"), exports);
-//# sourceMappingURL=index.js.map
+__exportStar(require("./feedbackSentimentAnalysis"), exports);
+__exportStar(require("./computeShowUpRatios"), exports);

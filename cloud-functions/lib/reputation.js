@@ -33,10 +33,26 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTopContributors = exports.refreshTopContributorsLeaderboard = exports.calculateReputation = void 0;
+exports.getTopContributors = exports.refreshTopContributorsLeaderboard = exports.calculateReputation = exports.calculatePoints = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
+const validate_1 = require("./validation/validate");
+const schemas_1 = require("./validation/schemas");
+// Initialize only once (important for tests + Firebase runtime)
+if (!admin.apps.length) {
+    admin.initializeApp();
+}
 const db = admin.firestore();
+/**
+ * Calculates reputation points:
+ * - Attendance: 10 points each
+ * - Registration: 2 points each
+ * - Reminder: 1 point each
+ */
+const calculatePoints = (attendanceCount, registrationCount, remindersSet) => {
+    return attendanceCount * 10 + registrationCount * 2 + remindersSet;
+};
+exports.calculatePoints = calculatePoints;
 /**
  * Calculates reputation for all users/students.
  *
@@ -46,21 +62,11 @@ const db = admin.firestore();
  * +1 point per reminder set
  */
 exports.calculateReputation = functions.https.onCall(async (_data, context) => {
-    var _a;
     var _a, _b, _c, _d;
     if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.admin)) {
         throw new functions.https.HttpsError('permission-denied', 'Only admin can calculate reputation.');
     }
     const usersSnapshot = await db.collection('users').get();
-    const updates = [];
-    usersSnapshot.forEach(userDoc => {
-        var _a, _b, _c;
-        const userData = userDoc.data();
-        const attendanceCount = ((_a = userData.reputation) === null || _a === void 0 ? void 0 : _a.attendanceCount) || userData.attendanceCount || 0;
-        const registrationCount = ((_b = userData.reputation) === null || _b === void 0 ? void 0 : _b.registrationCount) || userData.registrationCount || 0;
-        const remindersSet = ((_c = userData.reputation) === null || _c === void 0 ? void 0 : _c.remindersSet) || userData.remindersSet || 0;
-        const points = attendanceCount * 10 + registrationCount * 2 + remindersSet;
-        updates.push(userDoc.ref.update({
     let batch = db.batch();
     let opCount = 0;
     let updatedUsers = 0;
@@ -69,19 +75,13 @@ exports.calculateReputation = functions.https.onCall(async (_data, context) => {
         const attendanceCount = ((_b = userData.reputation) === null || _b === void 0 ? void 0 : _b.attendanceCount) || userData.attendanceCount || 0;
         const registrationCount = ((_c = userData.reputation) === null || _c === void 0 ? void 0 : _c.registrationCount) || userData.registrationCount || 0;
         const remindersSet = ((_d = userData.reputation) === null || _d === void 0 ? void 0 : _d.remindersSet) || userData.remindersSet || 0;
-        const points = attendanceCount * 10 + registrationCount * 2 + remindersSet;
+        const points = (0, exports.calculatePoints)(attendanceCount, registrationCount, remindersSet);
         batch.update(userDoc.ref, {
             'reputation.points': points,
             'reputation.attendanceCount': attendanceCount,
             'reputation.registrationCount': registrationCount,
             'reputation.remindersSet': remindersSet,
             'reputation.updatedAt': admin.firestore.FieldValue.serverTimestamp(),
-        }));
-    });
-    await Promise.all(updates);
-    return {
-        success: true,
-        message: `Updated reputation for ${updates.length} users`,
         });
         opCount += 1;
         updatedUsers += 1;
@@ -142,14 +142,15 @@ exports.refreshTopContributorsLeaderboard = functions.pubsub
  * lastPoints, lastUserId, and startRank.
  */
 exports.getTopContributors = functions.https.onCall(async (data, context) => {
+    var _a, _b;
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
-exports.getTopContributors = functions.https.onCall(async (data) => {
-    const limit = Math.min((data === null || data === void 0 ? void 0 : data.limit) || 10, 25);
-    const lastPoints = data === null || data === void 0 ? void 0 : data.lastPoints;
-    const lastUserId = data === null || data === void 0 ? void 0 : data.lastUserId;
-    const startRank = (data === null || data === void 0 ? void 0 : data.startRank) || 1;
+    const validatedData = (0, validate_1.validateSchema)(schemas_1.getTopContributorsSchema, data !== null && data !== void 0 ? data : {});
+    const limit = (_a = validatedData.limit) !== null && _a !== void 0 ? _a : 10;
+    const lastPoints = validatedData.lastPoints;
+    const lastUserId = validatedData.lastUserId;
+    const startRank = (_b = validatedData.startRank) !== null && _b !== void 0 ? _b : 1;
     let query = db
         .collection('users')
         .orderBy('reputation.points', 'desc')
@@ -188,4 +189,3 @@ exports.getTopContributors = functions.https.onCall(async (data) => {
             : null,
     };
 });
-//# sourceMappingURL=reputation.js.map

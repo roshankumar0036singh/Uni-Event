@@ -106,4 +106,3 @@ exports.checkReminders = functions.pubsub.schedule('every 1 minutes').onRun(asyn
     console.log(`Processed ${snapshot.size} reminders.`);
     return null;
 });
-//# sourceMappingURL=reminders.js.map

@@ -7,4 +7,3 @@ function createFraudResult() {
         reasons: [],
     };
 }
-//# sourceMappingURL=fraudScore.js.map
