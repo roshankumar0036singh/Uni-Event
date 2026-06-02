@@ -286,25 +286,6 @@ export default function ProfileScreen({ navigation }) {
     const [requestMessage, setRequestMessage] = useState('');
     const [loading, setLoading] = useState(false);
     const updatingBadgeRef = useRef(null);
-    const [activeCopiedField, setActiveCopiedField] = useState('');
-    const [toastMessage, setToastMessage] = useState('');
-
-    const handleCopyToClipboard = async (text, fieldName) => {
-        if (!text) return;
-        try {
-            await Clipboard.setStringAsync(text);
-            setActiveCopiedField(fieldName);
-            setToastMessage(`${fieldName} copied to clipboard!`);
-            setTimeout(() => {
-                setActiveCopiedField(prev => (prev === fieldName ? '' : prev));
-            }, 2000);
-            setTimeout(() => {
-                setToastMessage(prev => (prev === `${fieldName} copied to clipboard!` ? '' : prev));
-            }, 2000);
-        } catch (error) {
-            console.error('Failed to copy to clipboard', error);
-        }
-    };
     const levelInfo = useMemo(() => getUserLevel(points), [points]);
     const progressInfo = useMemo(() => getUserLevelProgress(points), [points]);
     const activeProfileBadge = useMemo(
@@ -527,33 +508,8 @@ export default function ProfileScreen({ navigation }) {
                             </View>
                             <View style={styles.profileInfo}>
                                 <TouchableOpacity
-<<<<<<< Updated upstream
                                     onPress={() => handleCopyToClipboard(name || 'User', 'Username')}
                                     onLongPress={() => handleCopyToClipboard(name || 'User', 'Username')}
-                                    activeOpacity={0.7}
-                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
-                                >
-                                    <Text style={styles.profileName}>{name || 'User'}</Text>
-                                    {activeCopiedField === 'Username' ? (
-                                        <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-                                    ) : (
-                                        <Ionicons name="copy-outline" size={14} color={theme.colors.textSecondary} />
-                                    )}
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => handleCopyToClipboard(user?.email, 'Email')}
-                                    onLongPress={() => handleCopyToClipboard(user?.email, 'Email')}
-                                    activeOpacity={0.7}
-                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}
-                                >
-                                    <Text style={styles.profileEmail}>{user?.email}</Text>
-                                    {activeCopiedField === 'Email' ? (
-                                        <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-                                    ) : (
-                                        <Ionicons name="copy-outline" size={12} color={theme.colors.textSecondary} />
-                                    )}
-=======
-                                    onPress={() => handleCopyToClipboard(name || 'User', 'Name')}
                                     activeOpacity={0.7}
                                     style={styles.copyableRow}
                                 >
@@ -562,14 +518,14 @@ export default function ProfileScreen({ navigation }) {
                                     </Text>
                                     <Ionicons
                                         name={
-                                            activeCopiedField === 'Name'
+                                            activeCopiedField === 'Username'
                                                 ? 'checkmark-circle'
                                                 : 'copy-outline'
                                         }
                                         size={14}
                                         color={
-                                            activeCopiedField === 'Name'
-                                                ? theme.colors.primary
+                                            activeCopiedField === 'Username'
+                                                ? '#4CAF50'
                                                 : theme.colors.textSecondary
                                         }
                                         style={styles.copyIcon}
@@ -577,6 +533,7 @@ export default function ProfileScreen({ navigation }) {
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={() => handleCopyToClipboard(user?.email, 'Email')}
+                                    onLongPress={() => handleCopyToClipboard(user?.email, 'Email')}
                                     activeOpacity={0.7}
                                     style={styles.copyableRow}
                                 >
@@ -592,12 +549,11 @@ export default function ProfileScreen({ navigation }) {
                                         size={12}
                                         color={
                                             activeCopiedField === 'Email'
-                                                ? theme.colors.primary
+                                                ? '#4CAF50'
                                                 : theme.colors.textSecondary
                                         }
                                         style={styles.copyIcon}
                                     />
->>>>>>> Stashed changes
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -1425,13 +1381,6 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                 </View>
             </Modal>
-<<<<<<< Updated upstream
-            {toastMessage ? (
-                <View style={styles.toastContainer}>
-                    <Text style={styles.toastText}>{toastMessage}</Text>
-                </View>
-            ) : null}
-=======
             {Boolean(toastMessage) && (
                 <View style={styles.toastContainer} pointerEvents="none">
                     <View style={[styles.toastContent, { backgroundColor: theme.colors.primary }]}>
@@ -1440,7 +1389,6 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                 </View>
             )}
->>>>>>> Stashed changes
         </ScreenWrapper>
     );
 }
@@ -1991,31 +1939,6 @@ const getStyles = theme =>
             color: '#FF5A3C',
             fontWeight: '700',
             fontSize: 17,
-        },
-        toastContainer: {
-            position: 'absolute',
-            bottom: 120,
-            left: 20,
-            right: 20,
-            backgroundColor: theme.colors.text,
-            paddingVertical: 12,
-            paddingHorizontal: 20,
-            borderRadius: 25,
-            flexDirection: 'row',
-            justifyContent: 'center',
-            alignItems: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.25,
-            shadowRadius: 3.84,
-            elevation: 5,
-            zIndex: 9999,
-        },
-        toastText: {
-            color: theme.colors.background,
-            fontSize: 14,
-            fontWeight: '600',
-            textAlign: 'center',
         },
     });
 
