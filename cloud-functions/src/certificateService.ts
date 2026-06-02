@@ -260,37 +260,47 @@ async function processParticipant(
             eventStartDate,
         );
 
-        const { data, error } = await sendCertificateEmail(
-            participant,
-            eventTitle,
-            linkedinUrl,
-            pdfBuffer,
-        );
+const { data, error } = await sendCertificateEmail(
+    participant,
+    eventTitle,
+    linkedinUrl,
+    pdfBuffer,
+);
 
-        if (error) {
-            console.error(`Failed to send to ${participant.email}:`, error);
-            return {
-                email: participant.email,
-                status: 'failed',
-                error: getErrorMessage(error),
-            };
-        }
+if (error) {
+    console.error(
+        `Failed to send to participantId: ${getParticipantId(participant)}`,
+        error
+    );
 
-        console.log(`Sent to ${participant.email}`);
-        return {
-            email: participant.email,
-            status: 'success',
-            id: data?.id,
-            certificateUrl: signedUrl,
-        };
-    } catch (error) {
-        console.error(`Storage/upload error for ${participant.email}:`, error);
-        return {
-            email: participant.email,
-            status: 'error',
-            error: getErrorMessage(error),
-        };
-    }
+    return {
+        email: participant.email || null,
+        status: 'failed',
+        error: getErrorMessage(error),
+    };
+}
+
+console.log(`Sent to participantId: ${getParticipantId(participant)}`);
+
+return {
+    email: participant.email || null,
+    status: 'success',
+    id: data?.id,
+    certificateUrl: signedUrl,
+};
+
+} catch (error) {
+    console.error(
+        `Storage/upload error for participantId: ${getParticipantId(participant)}`,
+        error
+    );
+
+    return {
+        email: participant.email || null,
+        status: 'error',
+        error: getErrorMessage(error),
+    };
+}
 }
 
 export async function sendCertificatesForEvent(eventId: string, ownerId: string) {
