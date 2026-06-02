@@ -25,6 +25,7 @@ import PropTypes from 'prop-types';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { getUserLevel, getUserLevelProgress } from '../lib/userLevels';
+import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import {
     getSafeSelectedProfileBadge,
     getUnlockedProfileBadges,
@@ -264,6 +265,7 @@ export default function ProfileScreen({ navigation }) {
     const { user, role, signOut, savedAccounts, switchAccount, removeSavedAccount } = useAuth();
     const { theme, isDarkMode, toggleTheme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
+    const { activeCopiedField, toastMessage, handleCopyToClipboard } = useCopyToClipboard();
 
     const [name, setName] = useState(user?.displayName || '');
     const [headline, setHeadline] = useState('');
@@ -525,6 +527,7 @@ export default function ProfileScreen({ navigation }) {
                             </View>
                             <View style={styles.profileInfo}>
                                 <TouchableOpacity
+<<<<<<< Updated upstream
                                     onPress={() => handleCopyToClipboard(name || 'User', 'Username')}
                                     onLongPress={() => handleCopyToClipboard(name || 'User', 'Username')}
                                     activeOpacity={0.7}
@@ -549,6 +552,52 @@ export default function ProfileScreen({ navigation }) {
                                     ) : (
                                         <Ionicons name="copy-outline" size={12} color={theme.colors.textSecondary} />
                                     )}
+=======
+                                    onPress={() => handleCopyToClipboard(name || 'User', 'Name')}
+                                    activeOpacity={0.7}
+                                    style={styles.copyableRow}
+                                >
+                                    <Text style={styles.profileName} numberOfLines={1}>
+                                        {name || 'User'}
+                                    </Text>
+                                    <Ionicons
+                                        name={
+                                            activeCopiedField === 'Name'
+                                                ? 'checkmark-circle'
+                                                : 'copy-outline'
+                                        }
+                                        size={14}
+                                        color={
+                                            activeCopiedField === 'Name'
+                                                ? theme.colors.primary
+                                                : theme.colors.textSecondary
+                                        }
+                                        style={styles.copyIcon}
+                                    />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => handleCopyToClipboard(user?.email, 'Email')}
+                                    activeOpacity={0.7}
+                                    style={styles.copyableRow}
+                                >
+                                    <Text style={styles.profileEmail} numberOfLines={1}>
+                                        {user?.email}
+                                    </Text>
+                                    <Ionicons
+                                        name={
+                                            activeCopiedField === 'Email'
+                                                ? 'checkmark-circle'
+                                                : 'copy-outline'
+                                        }
+                                        size={12}
+                                        color={
+                                            activeCopiedField === 'Email'
+                                                ? theme.colors.primary
+                                                : theme.colors.textSecondary
+                                        }
+                                        style={styles.copyIcon}
+                                    />
+>>>>>>> Stashed changes
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -1376,11 +1425,22 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                 </View>
             </Modal>
+<<<<<<< Updated upstream
             {toastMessage ? (
                 <View style={styles.toastContainer}>
                     <Text style={styles.toastText}>{toastMessage}</Text>
                 </View>
             ) : null}
+=======
+            {Boolean(toastMessage) && (
+                <View style={styles.toastContainer} pointerEvents="none">
+                    <View style={[styles.toastContent, { backgroundColor: theme.colors.primary }]}>
+                        <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                        <Text style={styles.toastText}>{toastMessage}</Text>
+                    </View>
+                </View>
+            )}
+>>>>>>> Stashed changes
         </ScreenWrapper>
     );
 }
@@ -1442,12 +1502,46 @@ const getStyles = theme =>
             fontSize: 22,
             fontWeight: '700',
             color: theme.colors.text,
-            marginBottom: 2,
         },
         profileEmail: {
             fontSize: 12,
             color: theme.colors.textSecondary,
-            marginBottom: 10,
+        },
+        copyableRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            alignSelf: 'flex-start',
+            gap: 6,
+            marginBottom: 4,
+        },
+        copyIcon: {
+            opacity: 0.8,
+        },
+        toastContainer: {
+            position: 'absolute',
+            bottom: 100,
+            left: 0,
+            right: 0,
+            alignItems: 'center',
+            zIndex: 1000,
+        },
+        toastContent: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            paddingVertical: 10,
+            paddingHorizontal: 20,
+            borderRadius: 20,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.15,
+            shadowRadius: 4,
+            elevation: 4,
+        },
+        toastText: {
+            color: '#fff',
+            fontSize: 13,
+            fontWeight: '600',
         },
         profileContent: {
             flex: 1,
