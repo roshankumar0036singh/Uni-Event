@@ -1,10 +1,15 @@
 import { submitFeedback, calculateAverageRating } from '../feedbackService';
-import { setDoc } from 'firebase/firestore';
+import { runTransaction } from 'firebase/firestore';
 
 jest.mock('firebase/firestore', () => ({
     doc: jest.fn(),
-    setDoc: jest.fn(),
+    runTransaction: jest.fn(),
     serverTimestamp: jest.fn(() => 'mock-timestamp'),
+}));
+
+jest.mock('../logger', () => ({
+    debug: jest.fn(),
+    error: jest.fn(),
 }));
 
 jest.mock('../firebaseConfig', () => ({
@@ -14,16 +19,16 @@ jest.mock('../firebaseConfig', () => ({
 describe('feedbackService', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        jest.spyOn(console, 'error').mockImplementation(() => {});
-        jest.spyOn(console, 'log').mockImplementation(() => {});
-    });
-
-    afterEach(() => {
-        jest.restoreAllMocks();
     });
 
     test('submits attended feedback successfully', async () => {
-        setDoc.mockResolvedValueOnce();
+        runTransaction.mockImplementationOnce(async (_, callback) => {
+            const mockTransaction = {
+                get: jest.fn().mockResolvedValue({ exists: () => false }),
+                set: jest.fn(),
+            };
+            return await callback(mockTransaction);
+        });
 
         const result = await submitFeedback({
             feedbackRequestId: 'req1',
@@ -36,12 +41,18 @@ describe('feedbackService', () => {
             feedback: 'Great event',
         });
 
-        expect(setDoc).toHaveBeenCalled();
+        expect(runTransaction).toHaveBeenCalled();
         expect(result).toEqual({ success: true });
     });
 
     test('handles no-show attendee feedback', async () => {
-        setDoc.mockResolvedValueOnce();
+        runTransaction.mockImplementationOnce(async (_, callback) => {
+            const mockTransaction = {
+                get: jest.fn().mockResolvedValue({ exists: () => false }),
+                set: jest.fn(),
+            };
+            return await callback(mockTransaction);
+        });
 
         const result = await submitFeedback({
             feedbackRequestId: 'req1',
@@ -52,12 +63,32 @@ describe('feedbackService', () => {
             feedback: '',
         });
 
-        expect(setDoc).toHaveBeenCalled();
+        expect(runTransaction).toHaveBeenCalled();
         expect(result).toEqual({ success: true });
     });
 
-    test('throws error if setDoc fails', async () => {
-        setDoc.mockRejectedValueOnce(new Error('Commit failed'));
+    test('throws error if feedback already exists', async () => {
+        runTransaction.mockImplementationOnce(async (_, callback) => {
+            const mockTransaction = {
+                get: jest.fn().mockResolvedValue({ exists: () => true }),
+                set: jest.fn(),
+            };
+            return await callback(mockTransaction);
+        });
+
+        await expect(
+            submitFeedback({
+                feedbackRequestId: 'req1',
+                eventId: 'event1',
+                clubId: 'club1',
+                userId: 'user1',
+                attended: true,
+            }),
+        ).rejects.toThrow('Feedback already submitted');
+    });
+
+    test('throws error if transaction fails', async () => {
+        runTransaction.mockRejectedValueOnce(new Error('Commit failed'));
 
         await expect(
             submitFeedback({

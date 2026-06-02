@@ -1,5 +1,5 @@
 import logger from './logger';
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, getDoc, runTransaction } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 
 /**
@@ -33,7 +33,13 @@ export const submitFeedback = async ({
             payload.feedbackRequestId = feedbackRequestId;
         }
 
-        await setDoc(feedbackRef, payload);
+        await runTransaction(db, async (transaction) => {
+            const snap = await transaction.get(feedbackRef);
+            if (snap.exists()) {
+                throw new Error('Feedback already submitted');
+            }
+            transaction.set(feedbackRef, payload);
+        });
 
         logger.debug('Feedback submitted successfully');
         return { success: true };

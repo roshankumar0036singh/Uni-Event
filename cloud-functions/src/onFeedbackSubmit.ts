@@ -13,8 +13,8 @@ export const onFeedbackSubmit = functions.firestore
         const data = snap.data();
         if (!data) return;
 
-        const eventId = context.params.eventId;
-        const userId = context.params.userId;
+        const eventId = encodeURIComponent(context.params.eventId);
+        const userId = encodeURIComponent(context.params.userId);
         const { attended, eventRating, clubRating, clubId, feedbackRequestId } = data;
 
         // 1. Validate canonical documents and types
@@ -22,10 +22,12 @@ export const onFeedbackSubmit = functions.firestore
             throw new functions.https.HttpsError('invalid-argument', 'Invalid clubId');
         }
 
+        let safeRequestId: string | undefined = undefined;
         if (feedbackRequestId !== undefined) {
             if (typeof feedbackRequestId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(feedbackRequestId)) {
                 throw new functions.https.HttpsError('invalid-argument', 'Invalid feedbackRequestId');
             }
+            safeRequestId = encodeURIComponent(feedbackRequestId);
         }
 
         const eventRef = db.collection('events').doc(eventId);
@@ -39,10 +41,11 @@ export const onFeedbackSubmit = functions.firestore
         if (canonicalClubId !== clubId) {
             throw new functions.https.HttpsError('invalid-argument', `Club ID mismatch for event ${eventId}`);
         }
+        const safeClubId = encodeURIComponent(canonicalClubId);
 
-        if (feedbackRequestId) {
-            const requestSnap = await db.collection('feedbackRequests').doc(feedbackRequestId).get();
-            if (requestSnap.exists && requestSnap.data()?.userId !== userId) {
+        if (safeRequestId) {
+            const requestSnap = await db.collection('feedbackRequests').doc(safeRequestId).get();
+            if (requestSnap.exists && requestSnap.data()?.userId !== context.params.userId) {
                 throw new functions.https.HttpsError('permission-denied', `User ${userId} does not own feedback request ${feedbackRequestId}`);
             }
         }
@@ -87,8 +90,8 @@ export const onFeedbackSubmit = functions.firestore
         batch.set(eventRef, { stats: statsUpdate }, { merge: true });
 
         // 3. Update club reputation
-        if (attended && clubRating && canonicalClubId) {
-            const clubRef = db.collection('users').doc(canonicalClubId);
+        if (attended && clubRating && safeClubId) {
+            const clubRef = db.collection('users').doc(safeClubId);
             batch.set(clubRef, {
                 reputation: {
                     totalPoints: admin.firestore.FieldValue.increment(clubRating),
@@ -107,8 +110,8 @@ export const onFeedbackSubmit = functions.firestore
         }
 
         // 5. Mark feedback request as completed
-        if (feedbackRequestId) {
-            const requestRef = db.collection('feedbackRequests').doc(feedbackRequestId);
+        if (safeRequestId) {
+            const requestRef = db.collection('feedbackRequests').doc(safeRequestId);
             batch.set(requestRef, {
                 status: 'completed',
                 completedAt: admin.firestore.FieldValue.serverTimestamp()
