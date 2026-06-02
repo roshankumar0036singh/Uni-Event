@@ -28,7 +28,6 @@ import {
     Switch,
     Platform,
     ActivityIndicator,
-    AccessibilityInfo,
 } from 'react-native';
 import PropTypes from 'prop-types';
 
@@ -78,6 +77,16 @@ const CategoryBadge = memo(({ category, theme }) => (
 ));
 CategoryBadge.displayName = 'CategoryBadge';
 
+CategoryBadge.propTypes = {
+    category: PropTypes.string,
+    theme: PropTypes.shape({
+        colors: PropTypes.shape({
+            surface: PropTypes.string,
+            text: PropTypes.string,
+        }),
+    }).isRequired,
+};
+
 /**
  * Renders the Live or Online status badges.
  */
@@ -109,6 +118,18 @@ const StatusBadge = memo(({ isLive, isOnlineBadge, theme, eventStatus }) => {
     return null;
 });
 StatusBadge.displayName = 'StatusBadge';
+
+StatusBadge.propTypes = {
+    isLive: PropTypes.bool,
+    isOnlineBadge: PropTypes.bool,
+    eventStatus: PropTypes.string,
+    theme: PropTypes.shape({
+        colors: PropTypes.shape({
+            error: PropTypes.string,
+            primary: PropTypes.string,
+        }),
+    }).isRequired,
+};
 
 // ============================================================================
 // MAIN COMPONENT
