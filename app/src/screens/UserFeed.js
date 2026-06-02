@@ -10,7 +10,7 @@ import {
     orderBy,
     startAfter,
 } from 'firebase/firestore';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PropTypes from 'prop-types';
 import {
@@ -234,6 +234,8 @@ export default function UserFeed() {
         loadHistory();
     }, []);
 
+    const participatingIDSet = useMemo(() => new Set(participatingIds), [participatingIds]);
+
     const updateHistory = useCallback(query => {
         if (!query) return;
         setSearchHistory(prev => {
@@ -363,7 +365,7 @@ export default function UserFeed() {
     }, [loadInitialEvents]);
 
     // Recommendation Logic: Views + User History + Freshness
-    const getRecommendedEvents = () => {
+    const getRecommendedEvents = useMemo(() => {
         const now = new Date();
         const upcomingEvents = events.filter(e => new Date(e.startAt) >= now);
 
@@ -372,7 +374,7 @@ export default function UserFeed() {
         // 1. Analyze User History (Favorite Categories)
         const categoryCounts = {};
         events
-            .filter(e => participatingIds.includes(e.id))
+            .filter(e => participatingIDSet.has(e.id))
             .forEach(e => {
                 if (e.category) {
                     categoryCounts[e.category] = (categoryCounts[e.category] || 0) + 1;
@@ -412,7 +414,7 @@ export default function UserFeed() {
 
         // 3. Sort by Score Descending
         return scoredEvents.sort((a, b) => b.score - a.score).slice(0, 3);
-    };
+    }, [events, participatingIDSet]);
 
     const getFilteredEvents = () => {
         const now = new Date();
@@ -528,7 +530,7 @@ export default function UserFeed() {
         <View style={{ paddingHorizontal: 20 }}>
             <EventCard
                 event={item}
-                isRegistered={participatingIds.includes(item.id)}
+                isRegistered={participatingIDSet.has(item.id)}
                 onLike={() => {}}
                 onShare={async () => {
                     try {
@@ -560,12 +562,12 @@ export default function UserFeed() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={{ paddingHorizontal: 20 }}
                 >
-                    {getRecommendedEvents().map(event => (
+                    {getRecommendedEvents.map(event => (
                         <View key={event.id} style={{ width: 320, marginRight: 15 }}>
                             <EventCard event={event} isRecommended={true} />
                         </View>
                     ))}
-                    {getRecommendedEvents().length === 0 && (
+                    {getRecommendedEvents.length === 0 && (
                         <Text
                             style={{
                                 color: theme.colors.textSecondary,
