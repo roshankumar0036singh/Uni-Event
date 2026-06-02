@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
-import Expo from 'expo-server-sdk';
+import { Expo } from 'expo-server-sdk';
+
 const expo = new Expo();
 
 const PAGE_SIZE = 500;
