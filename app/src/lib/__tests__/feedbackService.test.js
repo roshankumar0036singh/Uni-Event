@@ -89,7 +89,7 @@ describe('feedbackService', () => {
                 clubId: 'club1',
                 userId: 'user1',
                 attended: false,
-                feedback: '',
+                feedback: null,
             }),
         );
         expect(result).toEqual({ success: true });
