@@ -23,7 +23,7 @@ import { calculateAverageRating } from '../lib/feedbackService';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Clipboard from 'expo-clipboard';
+
 import { getUserLevel, getUserLevelProgress } from '../lib/userLevels';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import {
