@@ -15,6 +15,7 @@ export * from './inactiveUsers';
 export * from './backfillEventAnalytics';
 export * from './feedbackSentimentAnalysis';
 export * from './computeShowUpRatios';
+export * from './onFeedbackSubmit';
 export * from './branchReport';
 export * from './postEventFeedback';
 export * from './sendBulkEmails';

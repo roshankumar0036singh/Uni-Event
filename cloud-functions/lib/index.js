@@ -52,6 +52,7 @@ __exportStar(require("./inactiveUsers"), exports);
 __exportStar(require("./backfillEventAnalytics"), exports);
 __exportStar(require("./feedbackSentimentAnalysis"), exports);
 __exportStar(require("./computeShowUpRatios"), exports);
+__exportStar(require("./onFeedbackSubmit"), exports);
 __exportStar(require("./branchReport"), exports);
 __exportStar(require("./postEventFeedback"), exports);
 __exportStar(require("./sendBulkEmails"), exports);
@@ -59,9 +60,7 @@ __exportStar(require("./auditLog"), exports);
 __exportStar(require("./attendanceStreak"), exports);
 __exportStar(require("./permanentCleanup"), exports);
 __exportStar(require("./clubReputation"), exports);
-exports.cleanupRateLimits = functions.pubsub
-    .schedule("every 1 hour")
-    .onRun(async () => {
+exports.cleanupRateLimits = functions.pubsub.schedule('every 1 hour').onRun(async () => {
     await (0, rateLimiter_1.cleanupOldRateLimits)();
     return null;
 });

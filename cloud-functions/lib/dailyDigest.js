@@ -38,6 +38,7 @@ const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const firestore_1 = require("firebase-admin/firestore");
 const push_1 = require("./utils/push");
+const logger_1 = require("./logger");
 const PAGE_SIZE = 500;
 function processUserPage(userDoc, count, batch, pageMessages) {
     const userData = userDoc.data();
@@ -121,6 +122,7 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
         .where('startAt', '<', tomorrow.toISOString())
         .get();
     const count = snapshot.size;
+    (0, logger_1.logEntry)('dailyDigest', 'sendDailyDigest started', { input: { count } });
     if (count === 0) {
         return { success: true, message: 'No events today.', count: 0, processed: 0 };
     }
@@ -128,5 +130,6 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
     if (failedPushes > 0) {
         return { success: false, count, processed: processedCount, failedPushes };
     }
+    (0, logger_1.logEntry)('dailyDigest', 'sendDailyDigest completed', { output: { success: true, count, processed: processedCount } });
     return { success: true, count, processed: processedCount };
 });
