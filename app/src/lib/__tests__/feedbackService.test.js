@@ -22,8 +22,9 @@ describe('feedbackService', () => {
     });
 
     test('submits attended feedback successfully', async () => {
+        let mockTransaction;
         runTransaction.mockImplementationOnce(async (_, callback) => {
-            const mockTransaction = {
+            mockTransaction = {
                 get: jest.fn().mockResolvedValue({ exists: () => false }),
                 set: jest.fn(),
             };
@@ -42,12 +43,27 @@ describe('feedbackService', () => {
         });
 
         expect(runTransaction).toHaveBeenCalled();
+        expect(mockTransaction.set).toHaveBeenCalledTimes(1);
+        expect(mockTransaction.set).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                feedbackRequestId: 'req1',
+                eventId: 'event1',
+                clubId: 'club1',
+                userId: 'user1',
+                attended: true,
+                eventRating: 5,
+                clubRating: 4,
+                feedback: 'Great event',
+            }),
+        );
         expect(result).toEqual({ success: true });
     });
 
     test('handles no-show attendee feedback', async () => {
+        let mockTransaction;
         runTransaction.mockImplementationOnce(async (_, callback) => {
-            const mockTransaction = {
+            mockTransaction = {
                 get: jest.fn().mockResolvedValue({ exists: () => false }),
                 set: jest.fn(),
             };
@@ -64,6 +80,18 @@ describe('feedbackService', () => {
         });
 
         expect(runTransaction).toHaveBeenCalled();
+        expect(mockTransaction.set).toHaveBeenCalledTimes(1);
+        expect(mockTransaction.set).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                feedbackRequestId: 'req1',
+                eventId: 'event1',
+                clubId: 'club1',
+                userId: 'user1',
+                attended: false,
+                feedback: '',
+            }),
+        );
         expect(result).toEqual({ success: true });
     });
 
