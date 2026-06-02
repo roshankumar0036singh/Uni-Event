@@ -18,12 +18,14 @@ export const onFeedbackSubmit = functions.firestore
         const { attended, eventRating, clubRating, clubId, feedbackRequestId } = data;
 
         // 1. Validate canonical documents and types
-        if (typeof clubId !== 'string' || !clubId.trim() || clubId.includes('/')) {
+        if (typeof clubId !== 'string' || !clubId.trim()) {
             throw new functions.https.HttpsError('invalid-argument', 'Invalid clubId');
         }
 
-        if (feedbackRequestId !== undefined && (typeof feedbackRequestId !== 'string' || !feedbackRequestId.trim() || feedbackRequestId.includes('/'))) {
-            throw new functions.https.HttpsError('invalid-argument', 'Invalid feedbackRequestId');
+        if (feedbackRequestId !== undefined) {
+            if (typeof feedbackRequestId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(feedbackRequestId)) {
+                throw new functions.https.HttpsError('invalid-argument', 'Invalid feedbackRequestId');
+            }
         }
 
         const eventRef = db.collection('events').doc(eventId);
@@ -33,7 +35,8 @@ export const onFeedbackSubmit = functions.firestore
             throw new functions.https.HttpsError('not-found', `Event ${eventId} not found`);
         }
         
-        if (eventSnap.data()?.clubId !== clubId) {
+        const canonicalClubId = eventSnap.data()?.clubId;
+        if (canonicalClubId !== clubId) {
             throw new functions.https.HttpsError('invalid-argument', `Club ID mismatch for event ${eventId}`);
         }
 
@@ -84,8 +87,8 @@ export const onFeedbackSubmit = functions.firestore
         batch.set(eventRef, { stats: statsUpdate }, { merge: true });
 
         // 3. Update club reputation
-        if (attended && clubRating && clubId) {
-            const clubRef = db.collection('users').doc(clubId);
+        if (attended && clubRating && canonicalClubId) {
+            const clubRef = db.collection('users').doc(canonicalClubId);
             batch.set(clubRef, {
                 reputation: {
                     totalPoints: admin.firestore.FieldValue.increment(clubRating),

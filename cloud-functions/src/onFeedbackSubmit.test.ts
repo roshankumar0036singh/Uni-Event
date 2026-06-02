@@ -163,6 +163,14 @@ describe('onFeedbackSubmit', () => {
         await expect(handler(snap, context)).rejects.toThrow('Invalid clubId');
     });
 
+    it('should throw if feedbackRequestId has invalid format', async () => {
+        const handler = (onFeedbackSubmit as unknown) as Function;
+        const snap = { data: () => ({ attended: true, clubId: 'club1', feedbackRequestId: 'bad/id' }) };
+        const context = { params: { eventId: 'e1', userId: 'u1' } };
+        
+        await expect(handler(snap, context)).rejects.toThrow('Invalid feedbackRequestId');
+    });
+
     it('should throw if user did not check in', async () => {
         // Event get
         mockGet.mockResolvedValueOnce({ exists: true, data: () => ({ clubId: 'club1' }) });
