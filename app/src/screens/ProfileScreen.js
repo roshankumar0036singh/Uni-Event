@@ -60,7 +60,11 @@ const MenuItem = ({
     showChevron = true,
     rightElement,
 }) => (
-    <TouchableOpacity onPress={onPress} onLongPress={onLongPress} style={[styles.bentoMenuItem, { width }]}>
+    <TouchableOpacity
+        onPress={onPress}
+        onLongPress={onLongPress}
+        style={[styles.bentoMenuItem, { width }]}
+    >
         <View style={styles.bentoTop}>
             <View
                 style={[
@@ -508,8 +512,12 @@ export default function ProfileScreen({ navigation }) {
                             </View>
                             <View style={styles.profileInfo}>
                                 <TouchableOpacity
-                                    onPress={() => handleCopyToClipboard(name || 'User', 'Username')}
-                                    onLongPress={() => handleCopyToClipboard(name || 'User', 'Username')}
+                                    onPress={() =>
+                                        handleCopyToClipboard(name || 'User', 'Username')
+                                    }
+                                    onLongPress={() =>
+                                        handleCopyToClipboard(name || 'User', 'Username')
+                                    }
                                     activeOpacity={0.7}
                                     style={styles.copyableRow}
                                 >
@@ -1042,7 +1050,6 @@ export default function ProfileScreen({ navigation }) {
                                 />
                             )}
                         </View>
-
 
                         {/* Settings Section */}
                         <View style={styles.menuGroup}>
