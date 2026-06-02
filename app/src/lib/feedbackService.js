@@ -1,5 +1,5 @@
 import logger from './logger';
-import { doc, serverTimestamp, getDoc, runTransaction } from 'firebase/firestore';
+import { doc, serverTimestamp, runTransaction } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 
 /**

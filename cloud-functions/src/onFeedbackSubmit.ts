@@ -7,6 +7,41 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+function validateRatings(eventRating?: any, clubRating?: any) {
+    if (eventRating !== undefined && (typeof eventRating !== 'number' || eventRating < 1 || eventRating > 5)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid event rating');
+    }
+    if (clubRating !== undefined && (typeof clubRating !== 'number' || clubRating < 1 || clubRating > 5)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid club rating');
+    }
+}
+
+async function verifyUserAttendance(eventId: string, userId: string, attended: boolean) {
+    if (attended) {
+        const checkInSnap = await db.collection('events').doc(eventId).collection('checkIns').doc(userId).get();
+        if (!checkInSnap.exists) {
+            throw new functions.https.HttpsError('permission-denied', `User ${userId} did not check in to event ${eventId}`);
+        }
+    } else {
+        const participantSnap = await db.collection('events').doc(eventId).collection('participants').doc(userId).get();
+        if (!participantSnap.exists) {
+            throw new functions.https.HttpsError('permission-denied', `User ${userId} is not registered for event ${eventId}`);
+        }
+    }
+}
+
+async function getAndVerifyEvent(eventId: string, expectedClubId: string) {
+    const eventSnap = await db.collection('events').doc(eventId).get();
+    if (!eventSnap.exists) {
+        throw new functions.https.HttpsError('not-found', `Event ${eventId} not found`);
+    }
+    const canonicalClubId = eventSnap.data()?.clubId;
+    if (canonicalClubId !== expectedClubId) {
+        throw new functions.https.HttpsError('invalid-argument', `Club ID mismatch for event ${eventId}`);
+    }
+    return encodeURIComponent(canonicalClubId);
+}
+
 export const onFeedbackSubmit = functions.firestore
     .document('events/{eventId}/feedback/{userId}')
     .onCreate(async (snap, context) => {
@@ -17,7 +52,6 @@ export const onFeedbackSubmit = functions.firestore
         const userId = encodeURIComponent(context.params.userId);
         const { attended, eventRating, clubRating, clubId, feedbackRequestId } = data;
 
-        // 1. Validate canonical documents and types
         if (typeof clubId !== 'string' || !clubId.trim()) {
             throw new functions.https.HttpsError('invalid-argument', 'Invalid clubId');
         }
@@ -30,18 +64,7 @@ export const onFeedbackSubmit = functions.firestore
             safeRequestId = encodeURIComponent(feedbackRequestId);
         }
 
-        const eventRef = db.collection('events').doc(eventId);
-        const eventSnap = await eventRef.get();
-        
-        if (!eventSnap.exists) {
-            throw new functions.https.HttpsError('not-found', `Event ${eventId} not found`);
-        }
-        
-        const canonicalClubId = eventSnap.data()?.clubId;
-        if (canonicalClubId !== clubId) {
-            throw new functions.https.HttpsError('invalid-argument', `Club ID mismatch for event ${eventId}`);
-        }
-        const safeClubId = encodeURIComponent(canonicalClubId);
+        const safeClubId = await getAndVerifyEvent(eventId, clubId);
 
         if (safeRequestId) {
             const requestSnap = await db.collection('feedbackRequests').doc(safeRequestId).get();
@@ -50,30 +73,10 @@ export const onFeedbackSubmit = functions.firestore
             }
         }
 
-        // Verify attended state matches checkIns
-        if (attended) {
-            const checkInSnap = await db.collection('events').doc(eventId).collection('checkIns').doc(userId).get();
-            if (!checkInSnap.exists) {
-                throw new functions.https.HttpsError('permission-denied', `User ${userId} did not check in to event ${eventId}`);
-            }
-        } else {
-            const participantSnap = await db.collection('events').doc(eventId).collection('participants').doc(userId).get();
-            if (!participantSnap.exists) {
-                throw new functions.https.HttpsError('permission-denied', `User ${userId} is not registered for event ${eventId}`);
-            }
-        }
-
-        // Validate rating ranges
-        if (eventRating !== undefined && (typeof eventRating !== 'number' || eventRating < 1 || eventRating > 5)) {
-            throw new functions.https.HttpsError('invalid-argument', 'Invalid event rating');
-        }
-        if (clubRating !== undefined && (typeof clubRating !== 'number' || clubRating < 1 || clubRating > 5)) {
-            throw new functions.https.HttpsError('invalid-argument', 'Invalid club rating');
-        }
+        await verifyUserAttendance(eventId, userId, attended);
+        validateRatings(eventRating, clubRating);
 
         const batch = db.batch();
-
-        // 2. Update event stats
         const statsUpdate: Record<string, admin.firestore.FieldValue | number> = {
             feedbackCount: admin.firestore.FieldValue.increment(1),
         };
@@ -87,9 +90,10 @@ export const onFeedbackSubmit = functions.firestore
         } else {
             statsUpdate.totalNoShows = admin.firestore.FieldValue.increment(1);
         }
+        
+        const eventRef = db.collection('events').doc(eventId);
         batch.set(eventRef, { stats: statsUpdate }, { merge: true });
 
-        // 3. Update club reputation
         if (attended && clubRating && safeClubId) {
             const clubRef = db.collection('users').doc(safeClubId);
             batch.set(clubRef, {
@@ -101,15 +105,11 @@ export const onFeedbackSubmit = functions.firestore
             }, { merge: true });
         }
 
-        // 4. Award points to user for submitting feedback
         if (attended) {
             const userRef = db.collection('users').doc(userId);
-            batch.set(userRef, {
-                points: admin.firestore.FieldValue.increment(5)
-            }, { merge: true });
+            batch.set(userRef, { points: admin.firestore.FieldValue.increment(5) }, { merge: true });
         }
 
-        // 5. Mark feedback request as completed
         if (safeRequestId) {
             const requestRef = db.collection('feedbackRequests').doc(safeRequestId);
             batch.set(requestRef, {
