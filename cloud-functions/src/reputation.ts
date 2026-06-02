@@ -1,5 +1,7 @@
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { validateSchema } from "./validation/validate";
+import { getTopContributorsSchema } from "./validation/schemas";
 
 // Initialize only once (important for tests + Firebase runtime)
 if (!admin.apps.length) {
@@ -137,10 +139,15 @@ export const getTopContributors = functions.https.onCall(async (data, context) =
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
-    const limit = Math.min(data?.limit || 10, 25);
-    const lastPoints = data?.lastPoints;
-    const lastUserId = data?.lastUserId;
-    const startRank = data?.startRank || 1;
+const validatedData = validateSchema(
+  getTopContributorsSchema,
+  data ?? {}
+);
+
+const limit = validatedData.limit ?? 10;
+const lastPoints = validatedData.lastPoints;
+const lastUserId = validatedData.lastUserId;
+const startRank = validatedData.startRank ?? 1;
 
     let query: FirebaseFirestore.Query = db
         .collection('users')

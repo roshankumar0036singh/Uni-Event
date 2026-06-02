@@ -31,7 +31,8 @@
     "firebase-functions": "~4.9.0",
     "geolib": "^3.3.14",
     "pdf-lib": "^1.17.1",
-    "resend": "^6.6.0"
+    "resend": "^6.6.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
   "@babel/core": "^7.29.7",
