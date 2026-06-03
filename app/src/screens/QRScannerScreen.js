@@ -57,15 +57,11 @@ const parseScannedTicket = (data, eventId) => {
 };
 
 const getScannedUserData = async (scannedUserId, hasTicketId) => {
-    const userRef = doc(db, 'users', scannedUserId);
+    const userRef = doc(db, 'publicUsers', scannedUserId);
     const userSnap = await getDoc(userRef);
 
     if (userSnap.exists()) {
         return { userData: userSnap.data() || {} };
-    }
-
-    if (hasTicketId) {
-        return { errorMessage: 'Invalid User QR Code' };
     }
 
     return { userData: {} };

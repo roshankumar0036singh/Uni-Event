@@ -15,6 +15,7 @@ import { db, functions } from '../lib/firebaseConfig';
 
 import { useAuth } from '../lib/AuthContext';
 import { formatEventDate } from '../lib/formatEventDate';
+import { upsertPublicProfile } from '../lib/publicProfile';
 
 const downloadBase64Pdf = ({ base64, fileName }) => {
     if (Platform.OS !== 'web') {
@@ -125,6 +126,11 @@ export default function DesktopAdmin() {
                 }),
 
                 updateDoc(doc(db, 'users', ownerId), {
+                    verificationStatus: 'verified',
+                }),
+
+                upsertPublicProfile(db, ownerId, {
+                    role: 'club',
                     verificationStatus: 'verified',
                 }),
             ]);

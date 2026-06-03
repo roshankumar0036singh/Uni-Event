@@ -32,6 +32,7 @@ import {
     PROFILE_BADGES,
     canUseProfileBadge,
 } from '../lib/profileBadges';
+import { upsertPublicProfile } from '../lib/publicProfile';
 
 // Helper to get ordinal year labels
 const getYearLabel = y => {
@@ -317,6 +318,9 @@ export default function ProfileScreen({ navigation }) {
                 setPoints(data.points ?? 0);
                 setBadges(data.badges || []);
                 setSelectedProfileBadge(data.selectedProfileBadge || 'fresh-face');
+                upsertPublicProfile(db, user.uid, data).catch(error => {
+                    console.error('Public profile sync error:', error);
+                });
 
                 // Fetch Club Rating (for club/admin users) from reputation field
                 if (role === 'club' || role === 'admin') {
@@ -369,7 +373,7 @@ export default function ProfileScreen({ navigation }) {
                 finalBranch = 'All';
             }
 
-            await updateDoc(doc(db, 'users', user.uid), {
+            const profileUpdates = {
                 displayName: name,
                 headline: headline,
                 bio: bio,
@@ -377,7 +381,10 @@ export default function ProfileScreen({ navigation }) {
                 linkedin: linkedin,
                 year: parseInt(year),
                 branch: finalBranch,
-            });
+            };
+
+            await updateDoc(doc(db, 'users', user.uid), profileUpdates);
+            await upsertPublicProfile(db, user.uid, profileUpdates);
 
             Alert.alert('Success', 'Profile updated!');
             setIsEditing(false);
@@ -464,6 +471,9 @@ export default function ProfileScreen({ navigation }) {
             updatingBadgeRef.current = badge.id;
             setLoading(true);
             await updateDoc(doc(db, 'users', user.uid), {
+                selectedProfileBadge: badge.id,
+            });
+            await upsertPublicProfile(db, user.uid, {
                 selectedProfileBadge: badge.id,
             });
             if (updatingBadgeRef.current !== badge.id) return;

@@ -139,7 +139,6 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
 
             const checkInRef = doc(db, 'events', eventId, 'checkIns', userId);
             const eventRef = doc(db, 'events', eventId);
-            const userRef = doc(db, 'users', userId);
 
             transaction.set(
                 checkInRef,
@@ -162,14 +161,6 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
                 'stats.totalCheckedIn': increment(1),
                 'stats.lastCheckInAt': serverTimestamp(),
             });
-
-            transaction.set(
-                userRef,
-                {
-                    lastActive: serverTimestamp(),
-                },
-                { merge: true },
-            );
         });
 
         return {
@@ -202,7 +193,6 @@ export const checkInParticipant = async (participantData, eventId, organizerId, 
             const participantRef = doc(db, 'events', eventId, 'participants', userId);
             const checkInRef = doc(db, 'events', eventId, 'checkIns', userId);
             const eventRef = doc(db, 'events', eventId);
-            const userRef = doc(db, 'users', userId);
 
             const participantSnap = await transaction.get(participantRef);
             const checkInSnap = await transaction.get(checkInRef);
@@ -248,14 +238,6 @@ export const checkInParticipant = async (participantData, eventId, organizerId, 
                         totalCheckedIn: increment(1),
                         lastCheckInAt: serverTimestamp(),
                     },
-                },
-                { merge: true },
-            );
-
-            transaction.set(
-                userRef,
-                {
-                    lastActive: serverTimestamp(),
                 },
                 { merge: true },
             );

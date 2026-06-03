@@ -10,6 +10,7 @@ import { useIsFocused } from '@react-navigation/native';
 import PropTypes from 'prop-types';
 import { getUserLevel } from '../lib/userLevels';
 import { getSafeSelectedProfileBadge } from '../lib/profileBadges';
+import { upsertPublicProfile } from '../lib/publicProfile';
 
 const LeaderboardListHeader = ({ theme, togglePrivacy, isAnonymous }) => (
     <View style={{ marginBottom: 20 }}>
@@ -65,7 +66,7 @@ export default function LeaderboardScreen({ navigation }) {
 
     useEffect(() => {
         if (!isFocused) return;
-        const q = query(collection(db, 'users'), orderBy('points', 'desc'), limit(10));
+        const q = query(collection(db, 'publicUsers'), orderBy('points', 'desc'), limit(10));
         const unsubscribe = onSnapshot(
             q,
             snapshot => {
@@ -91,6 +92,7 @@ export default function LeaderboardScreen({ navigation }) {
             try {
                 const userRef = doc(db, 'users', user.uid);
                 await updateDoc(userRef, { isAnonymous: value });
+                await upsertPublicProfile(db, user.uid, { isAnonymous: value });
             } catch (_error) {
                 console.error('Privacy toggle error:', _error);
                 Alert.alert('Error', 'Failed to update privacy setting.');
