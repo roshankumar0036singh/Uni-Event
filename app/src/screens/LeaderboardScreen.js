@@ -1,5 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { collection, limit, onSnapshot, orderBy, query, updateDoc, doc } from 'firebase/firestore';
+import {
+    collection,
+    limit,
+    onSnapshot,
+    orderBy,
+    query,
+    updateDoc,
+    doc,
+    writeBatch,
+} from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View, Switch, Alert } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -90,9 +99,12 @@ export default function LeaderboardScreen({ navigation }) {
         async value => {
             if (!user) return;
             try {
+                const batch = writeBatch(db);
                 const userRef = doc(db, 'users', user.uid);
-                await updateDoc(userRef, { isAnonymous: value });
-                await upsertPublicProfile(db, user.uid, { isAnonymous: value });
+                const publicProfileRefDoc = doc(db, 'publicUsers', user.uid);
+                batch.update(userRef, { isAnonymous: value });
+                batch.set(publicProfileRefDoc, { isAnonymous: value }, { merge: true });
+                await batch.commit();
             } catch (_error) {
                 console.error('Privacy toggle error:', _error);
                 Alert.alert('Error', 'Failed to update privacy setting.');

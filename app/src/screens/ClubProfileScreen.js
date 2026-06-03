@@ -331,15 +331,6 @@ export default function ClubProfileScreen({ route, navigation }) {
             <Text style={[styles.bioText, { color: theme.colors.textSecondary }]}>
                 {club?.bio || 'No bio available.'}
             </Text>
-            <Text style={[styles.inputLabel, { color: theme.colors.text, marginTop: 20 }]}>
-                Contact
-            </Text>
-            <View style={styles.contactRow}>
-                <Ionicons name="mail-outline" size={20} color={theme.colors.textSecondary} />
-                <Text style={{ color: theme.colors.textSecondary }}>
-                    {club?.email || 'No email available'}
-                </Text>
-            </View>
         </View>
     );
 

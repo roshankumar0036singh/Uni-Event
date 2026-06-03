@@ -229,7 +229,13 @@ export default function PaymentScreen({ route, navigation }) {
                     transaction.set(userRef, userUpdate, { merge: true });
                     transaction.set(
                         userPublicProfileRef,
-                        { points: increment(10) },
+                        {
+                            points: increment(10),
+                            displayName: userData.displayName || '',
+                            photoURL: userData.photoURL || '',
+                            role: userData.role || 'student',
+                            isVerified: userData.isVerified || false,
+                        },
                         { merge: true },
                     );
 

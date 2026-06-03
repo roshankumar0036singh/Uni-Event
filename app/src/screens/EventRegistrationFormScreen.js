@@ -172,7 +172,17 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 const userRef = doc(db, 'users', user.uid);
                 const userPublicProfileRef = publicProfileRef(db, user.uid);
                 transaction.set(userRef, userUpdate, { merge: true });
-                transaction.set(userPublicProfileRef, { points: increment(10) }, { merge: true });
+                transaction.set(
+                    userPublicProfileRef,
+                    {
+                        points: increment(10),
+                        displayName: userData.displayName || '',
+                        photoURL: userData.photoURL || '',
+                        role: userData.role || 'student',
+                        isVerified: userData.isVerified || false,
+                    },
+                    { merge: true },
+                );
                 transaction.update(eventRef, eventUpdates);
             });
 

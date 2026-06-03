@@ -56,8 +56,8 @@ const parseScannedTicket = (data, eventId) => {
     };
 };
 
-const getScannedUserData = async (scannedUserId, hasTicketId) => {
-    const userRef = doc(db, 'publicUsers', scannedUserId);
+const getScannedUserData = async (scannedUserId, eventId) => {
+    const userRef = doc(db, 'events', eventId, 'participants', scannedUserId);
     const userSnap = await getDoc(userRef);
 
     if (userSnap.exists()) {
@@ -154,7 +154,7 @@ export default function QRScannerScreen({ navigation, route }) {
 
             let userData = {};
             try {
-                const userLookup = await getScannedUserData(scannedUserId, hasTicketId);
+                const userLookup = await getScannedUserData(scannedUserId, eventId);
 
                 if (userLookup.errorMessage) {
                     setScanResult({ status: 'error', message: userLookup.errorMessage });

@@ -131,8 +131,8 @@ export default function MobileAdmin() {
         try {
             await updateDoc(doc(db, 'clubs', reqId), { approvalStatus: 'approved' });
             if (ownerId) {
-                await updateDoc(doc(db, 'users', ownerId), { role: 'club' });
-                await upsertPublicProfile(db, ownerId, { role: 'club' });
+                await updateDoc(doc(db, 'users', ownerId), { role: 'club', isVerified: true });
+                await upsertPublicProfile(db, ownerId, { role: 'club', isVerified: true });
             }
             Alert.alert('Approved', 'Club approved and user promoted.');
             fetchData();
