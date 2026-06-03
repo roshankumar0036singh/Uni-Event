@@ -22,6 +22,55 @@ service cloud.firestore {
       return isValidEventTitle(data) && isValidEventCapacity(data) && isValidEventDate(data);
     }
 
+    function validatePublicProfileData(data) {
+      return data.keys().hasOnly([
+        'displayName',
+        'name',
+        'photoURL',
+        'role',
+        'points',
+        'headline',
+        'bio',
+        'instagram',
+        'linkedin',
+        'selectedProfileBadge',
+        'isAnonymous',
+        'verificationStatus',
+        'followersCount',
+        'clubName',
+        'organization',
+        'bannerUrl'
+      ]);
+    }
+
+    function validatePublicProfileOwnerCreate(data) {
+      return validatePublicProfileData(data)
+        && (!('role' in data) || data.role == 'student')
+        && !('verificationStatus' in data);
+    }
+
+    function validatePublicProfileOwnerUpdate() {
+      return validatePublicProfileData(request.resource.data)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'role',
+          'verificationStatus',
+          'followersCount'
+        ]);
+    }
+
+    function validatePublicFollowerCountUpdate() {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      return validatePublicProfileData(request.resource.data)
+        && affected.hasOnly(['followersCount'])
+        && request.resource.data.followersCount is int
+        && resource.data.followersCount is int
+        && request.resource.data.followersCount >= 0
+        && (
+          request.resource.data.followersCount == resource.data.followersCount + 1 ||
+          request.resource.data.followersCount == resource.data.followersCount - 1
+        );
+    }
+
     function validateAttendanceStatus(data) {
       return !('status' in data) || (data.status in ['rsvp', 'checked_in', 'cancelled']);
     }
@@ -129,7 +178,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow create: if request.auth != null && request.auth.uid == userId && (!("role" in request.resource.data) || request.resource.data.role == "student");
-      allow read: if request.auth != null;
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin())  ;
       allow update: if request.auth != null && resource != null && (
         isAdmin() || 
         (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) && validateRateLimitUpdate(userId))
@@ -147,6 +196,29 @@ service cloud.firestore {
       match /notifications/{notifId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      match /following/{clubId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /followers/{followerId} {
+        allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+        allow create, update, delete: if request.auth != null && request.auth.uid == followerId;
+      }
+    }
+
+    match /publicUsers/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && (
+        (request.auth.uid == userId && validatePublicProfileOwnerCreate(request.resource.data)) ||
+        (isAdmin() && validatePublicProfileData(request.resource.data))
+      );
+      allow update: if request.auth != null && (
+        (request.auth.uid == userId && validatePublicProfileOwnerUpdate()) ||
+        (request.auth.uid != userId && validatePublicFollowerCountUpdate()) ||
+        (isAdmin() && validatePublicProfileData(request.resource.data))
+      );
+      allow delete: if isAdmin();
     }
     
     match /clubs/{clubId} {
