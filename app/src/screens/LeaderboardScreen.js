@@ -1,14 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-    collection,
-    limit,
-    onSnapshot,
-    orderBy,
-    query,
-    updateDoc,
-    doc,
-    writeBatch,
-} from 'firebase/firestore';
+import { collection, limit, onSnapshot, orderBy, query, doc, writeBatch } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View, Switch, Alert } from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -19,7 +10,6 @@ import { useIsFocused } from '@react-navigation/native';
 import PropTypes from 'prop-types';
 import { getUserLevel } from '../lib/userLevels';
 import { getSafeSelectedProfileBadge } from '../lib/profileBadges';
-import { upsertPublicProfile } from '../lib/publicProfile';
 
 const LeaderboardListHeader = ({ theme, togglePrivacy, isAnonymous }) => (
     <View style={{ marginBottom: 20 }}>
