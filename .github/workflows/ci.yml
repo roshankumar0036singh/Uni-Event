@@ -75,8 +75,15 @@ jobs:
               working-directory: ./cloud-functions
               run: npm ci
 
-            - name: Auto-format with Prettier
-              run: npx prettier --write app/ cloud-functions/
+            - name: Auto-format with Prettier (app)
+              if: github.event_name == 'push'
+              working-directory: ./app
+              run: npm run format
+
+            - name: Auto-format with Prettier (cloud-functions)
+              if: github.event_name == 'push'
+              working-directory: ./cloud-functions
+              run: npm run format
 
             - name: Create PR for formatted files
               if: github.event_name == 'push'
@@ -92,11 +99,21 @@ jobs:
                   delete-branch: true
                   labels: formatting, automated
 
-            - name: Run Prettier check
-              run: npx prettier --check app/ cloud-functions/
+            - name: Run Prettier check (app)
+              working-directory: ./app
+              run: npm run format:check
 
-            - name: Run ESLint
-              run: npx eslint app/ cloud-functions/
+            - name: Run Prettier check (cloud-functions)
+              working-directory: ./cloud-functions
+              run: npm run format:check
+
+            - name: Run ESLint (app)
+              working-directory: ./app
+              run: npm run lint
+
+            - name: Run ESLint (cloud-functions)
+              working-directory: ./cloud-functions
+              run: npm run lint
 
             - name: Run Jest tests (app)
               working-directory: ./app

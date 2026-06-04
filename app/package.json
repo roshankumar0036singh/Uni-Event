@@ -12,6 +12,7 @@
         "build:web": "npm run patch-sea && expo export -p web --output-dir web-build",
         "lint": "eslint .",
         "format": "prettier --write .",
+        "format:check": "prettier --check .",
         "generate-sw": "node scripts/generate-sw.js",
         "test": "jest",
         "cypress:open": "cypress open",

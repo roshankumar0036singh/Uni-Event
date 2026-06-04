@@ -9,7 +9,8 @@
         "deploy": "firebase deploy --only functions",
         "logs": "firebase functions:log",
         "lint": "eslint .",
-        "format": "prettier --write ."
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
     },
     "engines": {
         "node": "18"
