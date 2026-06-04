@@ -19,6 +19,28 @@ service cloud.firestore {
       allow create: if request.auth != null && (request.auth.token.admin == true || request.auth.token.club == true);
       allow update, delete: if request.auth != null && (request.auth.token.admin == true || request.auth.uid == resource.data.ownerId);
 
+<<<<<<< Updated upstream
+=======
+      // Attendance fallback subcollection
+      match /attendance/{attendanceId} {
+         allow read: if request.auth != null && (
+           isAdmin() ||
+           ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+           request.auth.uid == attendanceId ||
+           isEventOwner(database, eventId)
+         );
+         allow create, update, delete: if request.auth != null
+           && existsAfter(/databases/$(database)/documents/events/$(eventId))
+           && (
+             isAdmin() ||
+             (isClub() && (isEventOwner(database, eventId) || isEventOwnerAfter(database, eventId))) ||
+             isEventOwner(database, eventId) ||
+             isEventOwnerAfter(database, eventId)
+           );
+      }
+
+      // Event Participants Registry
+>>>>>>> Stashed changes
       match /participants/{participantId} {
         allow read: if request.auth != null && (
           request.auth.uid == participantId ||
@@ -45,9 +67,15 @@ service cloud.firestore {
         );
         allow create, update, delete: if request.auth != null &&
           exists(/databases/$(database)/documents/events/$(eventId)) && (
+<<<<<<< Updated upstream
           request.auth.token.admin == true ||
           request.auth.token.club == true ||
           request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.ownerId
+=======
+          isAdmin() ||
+          (isClub() && isEventOwner(database, eventId)) ||
+          isEventOwner(database, eventId)
+>>>>>>> Stashed changes
         );
       }
 
