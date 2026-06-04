@@ -63,6 +63,11 @@ export default defineConfig([
     },
     {
         files: ["**/*.test.ts", "**/*.spec.ts"],
+        languageOptions: {
+            parserOptions: {
+                project: null,
+            },
+        },
 
         rules: {
             "no-unused-expressions": "off",
