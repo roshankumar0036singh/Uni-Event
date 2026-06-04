@@ -1,4 +1,4 @@
-import * as functions from "firebase-functions"
+import * as functions from 'firebase-functions';
 
 export function enforceAppCheck(context: functions.https.CallableContext): void {
     if (process.env.ENABLE_APP_CHECK === 'false') {
@@ -8,8 +8,7 @@ export function enforceAppCheck(context: functions.https.CallableContext): void 
     if (!context.app) {
         throw new functions.https.HttpsError(
             'failed-precondition',
-            'Request is missing a valid App Check token.'
+            'Request is missing a valid App Check token.',
         );
     }
-
 }

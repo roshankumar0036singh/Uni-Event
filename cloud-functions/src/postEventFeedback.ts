@@ -1,5 +1,5 @@
-import * as admin from "firebase-admin";
-import * as functions from "firebase-functions";
+import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 
 const SERVICE_ID = process.env.EMAILJS_SERVICE_ID;
 const PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY;
@@ -12,7 +12,7 @@ async function sendEmail(name: string, email: string, eventTitle: string, eventI
         template_id: TEMPLATE_ID,
         user_id: PUBLIC_KEY,
         template_params: {
-            to_name: name || "Participant",
+            to_name: name || 'Participant',
             to_email: email,
             subject: `Feedback Request: ${eventTitle}`,
             message: `Thank you for attending ${eventTitle}. Please share your feedback!`,
@@ -22,9 +22,9 @@ async function sendEmail(name: string, email: string, eventTitle: string, eventI
     };
 
     try {
-        const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+        const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
         });
         return res.ok;
@@ -42,24 +42,28 @@ function getEndTime(event: admin.firestore.DocumentData): Date | null {
 // Step 3: Claim event so no other function run processes it twice
 async function claimEvent(ref: admin.firestore.DocumentReference): Promise<boolean> {
     try {
-        await ref.firestore.runTransaction(async (t) => {
+        await ref.firestore.runTransaction(async t => {
             const snap = await t.get(ref);
-            if (snap.data()?.feedbackRequestSent === true) throw new Error("claimed");
+            if (snap.data()?.feedbackRequestSent === true) throw new Error('claimed');
             t.update(ref, { feedbackRequestSent: true });
         });
         return true;
     } catch (e: any) {
-        if (e?.message === "claimed") return false;
+        if (e?.message === 'claimed') return false;
         throw e;
     }
 }
 
 // Step 4: Send emails to all participants of an event
-async function notifyParticipants(db: admin.firestore.Firestore, eventId: string, eventTitle: string) {
+async function notifyParticipants(
+    db: admin.firestore.Firestore,
+    eventId: string,
+    eventTitle: string,
+) {
     const snap = await db.collection(`events/${eventId}/participants`).get();
     for (const p of snap.docs) {
         const { name, email } = p.data();
-        if (email && email !== "-") {
+        if (email && email !== '-') {
             await sendEmail(name, email, eventTitle, eventId);
         }
     }
@@ -67,14 +71,14 @@ async function notifyParticipants(db: admin.firestore.Firestore, eventId: string
 
 // Main Cloud Function — runs every 60 minutes
 export const sendPostEventFeedback = functions.pubsub
-    .schedule("every 60 minutes")
+    .schedule('every 60 minutes')
     .onRun(async () => {
         const db = admin.firestore();
         const now = new Date();
 
         const events = await db
-            .collection("events")
-            .where("feedbackRequestSent", "in", [false, null])
+            .collection('events')
+            .where('feedbackRequestSent', 'in', [false, null])
             .get();
 
         if (events.empty) return;
