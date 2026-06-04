@@ -203,7 +203,7 @@ service cloud.firestore {
            && existsAfter(/databases/$(database)/documents/events/$(eventId))
            && (
              isAdmin() ||
-             isClub() ||
+             (isClub() && (isEventOwner(database, eventId) || isEventOwnerAfter(database, eventId))) ||
              isEventOwner(database, eventId) ||
              isEventOwnerAfter(database, eventId)
            );
@@ -241,7 +241,7 @@ service cloud.firestore {
         allow create, update, delete: if request.auth != null &&
           exists(/databases/$(database)/documents/events/$(eventId)) && (
           isAdmin() ||
-          isClub() ||
+          (isClub() && isEventOwner(database, eventId)) ||
           isEventOwner(database, eventId)
         );
       }
