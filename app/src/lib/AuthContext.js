@@ -13,6 +13,7 @@ import { Platform, Alert } from 'react-native';
 import { auth, db } from './firebaseConfig';
 import PropTypes from 'prop-types';
 import { getUserLevel, getUserLevelProgress } from './userLevels';
+import { upsertPublicProfile } from './publicProfile';
 
 const AuthContext = createContext({});
 
@@ -211,8 +212,7 @@ export const AuthProvider = ({ children }) => {
             const result = await createUserWithEmailAndPassword(auth, email, password);
             const { user } = result;
 
-            // Create user document
-            await setDoc(doc(db, 'users', user.uid), {
+            const userProfile = {
                 email: user.email,
                 role: 'student', // Default role
                 points: 0,
@@ -221,7 +221,11 @@ export const AuthProvider = ({ children }) => {
                 longestStreak: 0,
                 lastAttendanceAt: null,
                 ...additionalData,
-            });
+            };
+
+            // Create private and public profile documents.
+            await setDoc(doc(db, 'users', user.uid), userProfile);
+            await upsertPublicProfile(db, user.uid, userProfile);
 
             await saveAccount(user, 'password', password); // Auto-save with password
             return result;

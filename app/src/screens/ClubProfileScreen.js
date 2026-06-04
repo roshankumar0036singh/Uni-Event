@@ -94,7 +94,7 @@ export default function ClubProfileScreen({ route, navigation }) {
                 }
 
                 if (id) {
-                    unsubscribeClub = onSnapshot(doc(db, 'users', id), doc => {
+                    unsubscribeClub = onSnapshot(doc(db, 'publicUsers', id), doc => {
                         if (doc.exists()) {
                             setClub({ id: doc.id, ...doc.data() });
                             setFollowersCount(doc.data().followersCount || 0);
@@ -186,7 +186,7 @@ export default function ClubProfileScreen({ route, navigation }) {
 
         const myFollowingRef = doc(db, 'users', user.uid, 'following', clubId);
         const clubFollowerRef = doc(db, 'users', clubId, 'followers', user.uid);
-        const clubRef = doc(db, 'users', clubId);
+        const clubRef = doc(db, 'publicUsers', clubId);
         const previousFollowing = isFollowing;
 
         // Optimistic update
@@ -331,15 +331,6 @@ export default function ClubProfileScreen({ route, navigation }) {
             <Text style={[styles.bioText, { color: theme.colors.textSecondary }]}>
                 {club?.bio || 'No bio available.'}
             </Text>
-            <Text style={[styles.inputLabel, { color: theme.colors.text, marginTop: 20 }]}>
-                Contact
-            </Text>
-            <View style={styles.contactRow}>
-                <Ionicons name="mail-outline" size={20} color={theme.colors.textSecondary} />
-                <Text style={{ color: theme.colors.textSecondary }}>
-                    {club?.email || 'No email available'}
-                </Text>
-            </View>
         </View>
     );
 

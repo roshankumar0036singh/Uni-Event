@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Camera } from 'expo-camera';
 import { doc, getDoc } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     Dimensions,
     Platform,
@@ -56,16 +56,12 @@ const parseScannedTicket = (data, eventId) => {
     };
 };
 
-const getScannedUserData = async (scannedUserId, hasTicketId) => {
-    const userRef = doc(db, 'users', scannedUserId);
+const getScannedUserData = async (scannedUserId, eventId) => {
+    const userRef = doc(db, 'events', eventId, 'participants', scannedUserId);
     const userSnap = await getDoc(userRef);
 
     if (userSnap.exists()) {
         return { userData: userSnap.data() || {} };
-    }
-
-    if (hasTicketId) {
-        return { errorMessage: 'Invalid User QR Code' };
     }
 
     return { userData: {} };
@@ -95,6 +91,8 @@ export default function QRScannerScreen({ navigation, route }) {
     const [scanned, setScanned] = useState(false);
     const [scanResult, setScanResult] = useState(null); // { status: 'success' | 'error', message: '' }
     const [copied, setCopied] = useState(false);
+    const copyTimeoutRef = useRef(null);
+
     useEffect(() => {
         if (Platform.OS !== 'web') {
             (async () => {
@@ -104,6 +102,12 @@ export default function QRScannerScreen({ navigation, route }) {
         } else {
             setHasPermission(true); // Web handles permission via browser prompt
         }
+
+        return () => {
+            if (copyTimeoutRef.current) {
+                clearTimeout(copyTimeoutRef.current);
+            }
+        };
     }, []);
 
     const handleOfflineCheckIn = async (eventId, scannedUserId, ticketData, userData) => {
@@ -150,7 +154,7 @@ export default function QRScannerScreen({ navigation, route }) {
 
             let userData = {};
             try {
-                const userLookup = await getScannedUserData(scannedUserId, hasTicketId);
+                const userLookup = await getScannedUserData(scannedUserId, eventId);
 
                 if (userLookup.errorMessage) {
                     setScanResult({ status: 'error', message: userLookup.errorMessage });
@@ -216,9 +220,14 @@ export default function QRScannerScreen({ navigation, route }) {
         }
         try {
             await Clipboard.setStringAsync(eventUrl);
+
+            if (copyTimeoutRef.current) {
+                clearTimeout(copyTimeoutRef.current);
+            }
+
             setCopied(true);
 
-            setTimeout(() => {
+            copyTimeoutRef.current = setTimeout(() => {
                 setCopied(false);
             }, 2000);
         } catch (error) {

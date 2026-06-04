@@ -151,7 +151,10 @@ const EventCard = memo(
             // In-flight cache: reuse existing promise if another card already fired
             // getDoc for this ownerId, preventing duplicate concurrent Firestore reads
             if (!profileRequestCache.has(event.ownerId)) {
-                profileRequestCache.set(event.ownerId, getDoc(doc(db, 'users', event.ownerId)));
+                profileRequestCache.set(
+                    event.ownerId,
+                    getDoc(doc(db, 'publicUsers', event.ownerId)),
+                );
             }
 
             profileRequestCache

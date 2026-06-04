@@ -24,6 +24,7 @@ import { getEarlyBirdInfo } from '../lib/earlyBird';
 import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
 import { formatEventDate } from '../lib/formatEventDate';
 import PropTypes from 'prop-types';
+import { publicProfileRef } from '../lib/publicProfile';
 
 export default function PaymentScreen({ route, navigation }) {
     const { event, price, formResponses } = route.params;
@@ -133,6 +134,7 @@ export default function PaymentScreen({ route, navigation }) {
                 const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
                 const participatingRef = doc(db, 'users', user.uid, 'participating', event.id);
                 const userRef = doc(db, 'users', user.uid);
+                const userPublicProfileRef = publicProfileRef(db, user.uid);
                 let finalEarlyBird = false;
                 let ticketData = null;
 
@@ -225,6 +227,17 @@ export default function PaymentScreen({ route, navigation }) {
                         userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
                     }
                     transaction.set(userRef, userUpdate, { merge: true });
+                    transaction.set(
+                        userPublicProfileRef,
+                        {
+                            points: increment(10),
+                            displayName: userData.displayName || '',
+                            photoURL: userData.photoURL || '',
+                            role: userData.role || 'student',
+                            isVerified: userData.isVerified || false,
+                        },
+                        { merge: true },
+                    );
 
                     const eventUpdates = buildCounterUpdates({
                         branch: participantPayload.branch,

@@ -16,6 +16,7 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import { db } from '../lib/firebaseConfig';
 import { formatEventDate } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
+import { upsertPublicProfile } from '../lib/publicProfile';
 
 export default function MobileAdmin() {
     const { theme } = useTheme();
@@ -129,7 +130,10 @@ export default function MobileAdmin() {
     const handleApproveClub = async (reqId, ownerId) => {
         try {
             await updateDoc(doc(db, 'clubs', reqId), { approvalStatus: 'approved' });
-            if (ownerId) await updateDoc(doc(db, 'users', ownerId), { role: 'club' });
+            if (ownerId) {
+                await updateDoc(doc(db, 'users', ownerId), { role: 'club', isVerified: true });
+                await upsertPublicProfile(db, ownerId, { role: 'club', isVerified: true });
+            }
             Alert.alert('Approved', 'Club approved and user promoted.');
             fetchData();
         } catch (e) {
