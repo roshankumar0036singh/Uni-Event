@@ -16,7 +16,7 @@ const compat = new FlatCompat({
 });
 
 export default defineConfig([
-    globalIgnores(["lib/**/*", "node_modules/**/*", "coverage/**/*", "**/*.js"]),
+    globalIgnores(["lib/**/*", "node_modules/**/*", "coverage/**/*", "**/*.js", "**/*.mjs"]),
     {
         extends: compat.extends("google"),
 
