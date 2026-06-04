@@ -4,7 +4,7 @@
         "test:rules": "firebase emulators:exec --only firestore \"jest tests/firestore.rules.test.ts --runInBand\"",
         "prepare": "husky",
         "lint": "npm run lint --prefix app && npm run lint --prefix cloud-functions",
-        "format": "prettier --check app/ cloud-functions/"
+        "lint:fix": "npm run lint --prefix app -- --fix && npm run lint --prefix cloud-functions -- --fix && prettier --write app/ cloud-functions/"
     },
     "devDependencies": {
         "@firebase/rules-unit-testing": "^5.0.1",
