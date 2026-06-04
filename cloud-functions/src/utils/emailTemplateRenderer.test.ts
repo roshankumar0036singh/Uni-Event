@@ -1,4 +1,3 @@
-import * as path from 'node:path';
 import {getAvailableTemplates, getSampleData, renderTemplate} from './emailTemplateRenderer';
 
 // Resolve the templates directory the same way the module does
