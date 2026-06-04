@@ -1,7 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, limit, onSnapshot, orderBy, query, doc, writeBatch } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View, Switch, Alert } from 'react-native';
+import {
+    ActivityIndicator,
+    FlatList,
+    StyleSheet,
+    Text,
+    View,
+    Switch,
+    Alert,
+    TouchableOpacity,
+} from 'react-native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
@@ -114,6 +123,35 @@ export default function LeaderboardScreen({ navigation }) {
         [theme, togglePrivacy, isAnonymous],
     );
 
+    // Fetch current user's following list
+    const [followingIds, setFollowingIds] = useState(new Set());
+    useEffect(() => {
+        if (!user || !isFocused) return;
+        const q = collection(db, 'users', user.uid, 'following');
+        const unsub = onSnapshot(q, snapshot => {
+            const ids = new Set(snapshot.docs.map(d => d.id));
+            setFollowingIds(ids);
+        });
+        return () => unsub();
+    }, [user, isFocused]);
+
+    const handleFollowToggle = async (targetUserId, currentFollowingStatus) => {
+        if (!user) return;
+        const myFollowingRef = doc(db, 'users', user.uid, 'following', targetUserId);
+        try {
+            if (currentFollowingStatus) {
+                await writeBatch(db).delete(myFollowingRef).commit();
+            } else {
+                await writeBatch(db)
+                    .set(myFollowingRef, { followedAt: new Date().toISOString() })
+                    .commit();
+            }
+        } catch (error) {
+            console.error('Follow toggle error:', error);
+            Alert.alert('Error', 'Failed to update follow status.');
+        }
+    };
+
     const renderItem = ({ item }) => {
         const isMe = item.id === user?.uid;
         let rankColor = theme.colors.text;
@@ -137,6 +175,8 @@ export default function LeaderboardScreen({ navigation }) {
         const profileBadge = item.isAnonymous
             ? null
             : getSafeSelectedProfileBadge(item.selectedProfileBadge, levelInfo.level);
+
+        const isFollowing = followingIds.has(item.id);
 
         return (
             <View
@@ -198,6 +238,30 @@ export default function LeaderboardScreen({ navigation }) {
                     <Text style={[styles.pointsLabel, { color: theme.colors.textSecondary }]}>
                         pts
                     </Text>
+                    {!isMe && !item.isAnonymous && (
+                        <TouchableOpacity
+                            onPress={() => handleFollowToggle(item.id, isFollowing)}
+                            style={[
+                                styles.followButton,
+                                {
+                                    backgroundColor: isFollowing
+                                        ? 'transparent'
+                                        : theme.colors.primary,
+                                    borderColor: theme.colors.primary,
+                                    borderWidth: isFollowing ? 1 : 0,
+                                },
+                            ]}
+                        >
+                            <Text
+                                style={[
+                                    styles.followButtonText,
+                                    { color: isFollowing ? theme.colors.primary : '#fff' },
+                                ]}
+                            >
+                                {isFollowing ? 'Following' : 'Follow'}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             </View>
         );
@@ -279,6 +343,18 @@ const styles = StyleSheet.create({
     },
     toggleTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
     toggleSubtitle: { fontSize: 12 },
+    followButton: {
+        marginTop: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    followButtonText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
 });
 
 LeaderboardScreen.propTypes = {
