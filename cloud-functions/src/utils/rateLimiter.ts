@@ -135,10 +135,14 @@ export async function checkAndUpdateRateLimit(
             if (!dailyResult.allowed) {
                 // Log suspicious activity for manual review
                 const { logEntry } = require('../logger');
-                logEntry('rate-limiter', 'Suspicious activity: Daily event creation limit exceeded', {
-                    userId: userId,
-                    input: { eventCountDay: dailyResult.eventCountDay },
-                });
+                logEntry(
+                    'rate-limiter',
+                    'Suspicious activity: Daily event creation limit exceeded',
+                    {
+                        userId: userId,
+                        input: { eventCountDay: dailyResult.eventCountDay },
+                    },
+                );
 
                 // Send email alert to admin if rate limit triggered
                 const { sendEmail } = require('./emailSender');
