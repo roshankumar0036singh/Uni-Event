@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { Resend } from 'resend';
 
@@ -322,7 +322,7 @@ export async function sendCertificatesForEvent(eventId: string, ownerId: string)
         templateBytes = fs.readFileSync(templatePath);
     } catch (e) {
         throw new Error(
-            "Certificate Template not found. Please ensure 'assets/certificate_template.pdf' exists in cloud-functions.",
+            `Certificate Template not found. Please ensure 'assets/certificate_template.pdf' exists in cloud-functions. Error: ${e instanceof Error ? e.message : e}`,
         );
     }
 
