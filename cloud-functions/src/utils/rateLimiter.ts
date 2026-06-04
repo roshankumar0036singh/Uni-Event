@@ -116,6 +116,32 @@ export async function checkAndUpdateRateLimit(
     if (isEventCreation) {
       const dailyResult = evaluateDailyEventLimit(userData, currentDayInt);
       if (!dailyResult.allowed) {
+        // Log suspicious activity for manual review
+        const { logEntry } = require('../logger');
+        logEntry('rate-limiter', 'Suspicious activity: Daily event creation limit exceeded', {
+            userId: userId,
+            input: { eventCountDay: dailyResult.eventCountDay }
+        });
+
+        // Send email alert to admin if rate limit triggered
+        const { sendEmail } = require('./emailSender');
+        sendEmail({
+            to: process.env.ADMIN_EMAIL || 'admin@uni-event.com',
+            subject: 'Alert: Event Creation Rate Limit Triggered',
+            templateName: 'universal_email_template',
+            templateData: {
+                subject: 'Alert: Event Creation Rate Limit Triggered',
+                to_name: 'Admin',
+                message: `User ${userId} has triggered the daily event creation rate limit (Max 5 per day). Please review this account for suspicious activity.`,
+                cert_display: 'none',
+                event_title: 'Abuse Detection',
+                date: new Date().toLocaleDateString(),
+                download_btn_display: 'none',
+                browse_btn_display: 'none',
+                event_link: '#'
+            }
+        }).catch((err: any) => console.error('Failed to send admin alert email:', err));
+
         return {
           allowed: false,
           statusCode: 429,
