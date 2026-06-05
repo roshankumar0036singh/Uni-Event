@@ -1,6 +1,7 @@
 # Firebase Authentication Setup for Local Development
 
 ## Problem
+
 The backend server needs credentials to access Firebase services (Firestore, Auth, etc.) when running locally.
 
 ## Solutions
@@ -16,9 +17,9 @@ Download a service account key from Firebase Console:
 5. Click **Generate New Private Key**
 6. Save the JSON file as `serviceAccountKey.json` in `cloud-functions/` folder
 7. Update `server.ts` line 19 to uncomment:
-   ```typescript
-   credential: admin.credential.cert(require('./serviceAccountKey.json'))
-   ```
+    ```typescript
+    credential: admin.credential.cert(require('./serviceAccountKey.json'));
+    ```
 8. Rebuild: `npm run build`
 9. Restart: `npm start`
 
@@ -51,6 +52,7 @@ Then restart the server.
 ## Current Setup
 
 The server is configured to:
+
 - Use Firestore emulator on `localhost:8080` for local development
 - Use live Firebase in production
 

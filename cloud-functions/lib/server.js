@@ -40,7 +40,6 @@ const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
 const admin = __importStar(require("firebase-admin"));
-const firestore_1 = require("firebase-admin/firestore");
 const rateLimiter_1 = require("./utils/rateLimiter");
 // Load environment variables
 dotenv_1.default.config();
@@ -53,7 +52,7 @@ if (admin.apps.length === 0) {
         try {
             const serviceAccount = JSON.parse(credentialsJson);
             admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount)
+                credential: admin.credential.cert(serviceAccount),
             });
             console.log('✅ Firebase Admin initialized with service account from env');
         }
@@ -74,8 +73,7 @@ app.use((0, cors_1.default)({ origin: true }));
 app.use(express_1.default.json());
 // Auth Middleware to mimic Firebase Callable Context
 const validateFirebaseIdToken = async (req, res, next) => {
-    var _a;
-    if (!((_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.startsWith('Bearer '))) {
+    if (!req.headers.authorization?.startsWith('Bearer ')) {
         res.status(403).send('Unauthorized');
         return;
     }
@@ -103,7 +101,7 @@ const rateLimitMiddleware = async (req, res, next) => {
         if (!limitResult.allowed) {
             return res.status(limitResult.statusCode).json({
                 error: 'too-many-requests',
-                message: limitResult.message
+                message: limitResult.message,
             });
         }
         next();
@@ -112,7 +110,7 @@ const rateLimitMiddleware = async (req, res, next) => {
         console.error('Rate limiter middleware error:', error);
         return res.status(503).json({
             error: 'rate-limit-unavailable',
-            message: 'Rate limiting is temporarily unavailable. Please retry shortly.'
+            message: 'Rate limiting is temporarily unavailable. Please retry shortly.',
         });
     }
 };
@@ -121,33 +119,44 @@ app.post('/api/setRole', validateFirebaseIdToken, rateLimitMiddleware, async (re
     const user = req.user;
     // 1. Check Auth (already done by middleware, but check existence)
     if (!user) {
-        return res.status(401).json({ error: 'unauthenticated', message: 'The function must be called while authenticated.' });
+        return res.status(401).json({
+            error: 'unauthenticated',
+            message: 'The function must be called while authenticated.',
+        });
     }
     // 2. Check Admin
-    // Note: We use the token claims. 
+    // Note: We use the token claims.
     // IMPORTANT: For the very first admin, manual entry in DB or claims is needed.
     if (!user.admin) {
-        return res.status(403).json({ error: 'permission-denied', message: 'Only admins can set roles.' });
+        return res
+            .status(403)
+            .json({ error: 'permission-denied', message: 'Only admins can set roles.' });
     }
     const { uid, role } = req.body;
     // 3. Validation
     if (!uid || !role) {
-        return res.status(400).json({ error: 'invalid-argument', message: "The function must be called with 'uid' and 'role' arguments." });
+        return res.status(400).json({
+            error: 'invalid-argument',
+            message: "The function must be called with 'uid' and 'role' arguments.",
+        });
     }
-    const validRoles = ["admin", "club", "student"];
+    const validRoles = ['admin', 'club', 'student'];
     if (!validRoles.includes(role)) {
-        return res.status(400).json({ error: 'invalid-argument', message: `Role must be one of: ${validRoles.join(", ")}` });
+        return res.status(400).json({
+            error: 'invalid-argument',
+            message: `Role must be one of: ${validRoles.join(', ')}`,
+        });
     }
     // 4. Logic
     const claims = {};
-    if (role === "admin")
+    if (role === 'admin')
         claims.admin = true;
-    if (role === "club")
+    if (role === 'club')
         claims.club = true;
     try {
         await admin.auth().setCustomUserClaims(uid, claims);
         // Optional: Update Firestore
-        await admin.firestore().collection("users").doc(uid).set({ role }, { merge: true });
+        await admin.firestore().collection('users').doc(uid).set({ role }, { merge: true });
         return res.json({ result: { success: true } }); // Structure matches Callable response
     }
     catch (error) {
@@ -164,88 +173,159 @@ app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, 
         return res.status(401).json({ error: 'unauthenticated' });
     }
     if (!eventId) {
-        return res.status(400).json({ error: 'invalid-argument', message: 'eventId is required' });
+        return res
+            .status(400)
+            .json({ error: 'invalid-argument', message: 'eventId is required' });
     }
     try {
         const result = await (0, certificateService_1.sendCertificatesForEvent)(eventId, user.uid);
         return res.json({ result });
     }
     catch (error) {
-        console.error("Certificate Error:", error);
+        console.error('Certificate Error:', error);
         return res.status(500).json({ error: 'internal', message: error.message });
+    }
+});
+// ── Email Template Preview Endpoints (developer-facing, no auth required) ──
+const emailTemplateRenderer_1 = require("./utils/emailTemplateRenderer");
+/**
+ * GET /email-preview
+ * Lists all available email templates with clickable preview links.
+ */
+app.get('/email-preview', (_req, res) => {
+    if (process.env.NODE_ENV === 'production') {
+        res.status(403).json({ error: 'Previews are disabled in production' });
+        return;
+    }
+    const templates = (0, emailTemplateRenderer_1.getAvailableTemplates)();
+    const links = templates
+        .map(name => `<li style="margin:8px 0">
+          <a href="/email-preview/${name}" style="color:#FF6B35;font-size:18px">${name}</a>
+          <span style="color:#888;font-size:13px;margin-left:8px">
+            (variables: ${Object.keys((0, emailTemplateRenderer_1.getSampleData)(name)).join(', ') || 'none'})
+          </span>
+        </li>`)
+        .join('\n');
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <title>UniEvent — Email Template Previews</title>
+      <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f4f4; margin: 0; padding: 40px; }
+        .card { max-width: 700px; margin: 0 auto; background: #fff; border-radius: 12px;
+                padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h1 { color: #333; margin-top: 0; }
+        .badge { display: inline-block; background: #FF6B35; color: #fff; padding: 2px 10px;
+                 border-radius: 12px; font-size: 12px; margin-left: 8px; }
+        ul { list-style: none; padding: 0; }
+        p.hint { color: #999; font-size: 13px; margin-top: 24px; border-top: 1px solid #eee; padding-top: 16px; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>📧 Email Template Previews <span class="badge">${templates.length} templates</span></h1>
+        <p style="color:#666">Click a template to preview it with sample data.</p>
+        <ul>${links}</ul>
+        <p class="hint">
+          💡 Override variables via query string, e.g.<br/>
+          <code>/email-preview/feedback_email_template?to_name=Alice&event_title=My+Event</code>
+        </p>
+      </div>
+    </body>
+    </html>
+  `);
+});
+/**
+ * GET /email-preview/:templateName
+ * Renders a specific template with sample data. Any template variable can be
+ * overridden via query parameters (e.g. ?to_name=Alice&event_title=My+Event).
+ */
+app.get('/email-preview/:templateName', (req, res) => {
+    if (process.env.NODE_ENV === 'production') {
+        res.status(403).json({ error: 'Previews are disabled in production' });
+        return;
+    }
+    const { templateName } = req.params;
+    // Escape HTML entities to prevent XSS when reflecting user-controlled values
+    const escHtml = (s) => s
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    // Query params override sample data
+    const overrides = {};
+    for (const [key, value] of Object.entries(req.query)) {
+        if (typeof value === 'string') {
+            overrides[key] = value;
+        }
+    }
+    try {
+        const html = (0, emailTemplateRenderer_1.renderTemplate)(templateName, overrides);
+        // Wrap in a preview shell with a toolbar
+        const sampleData = (0, emailTemplateRenderer_1.getSampleData)(templateName);
+        const allVars = { ...sampleData, ...overrides };
+        const varsJson = JSON.stringify(allVars, null, 2);
+        // templateName is validated by renderTemplate's allowlist — escape for display only
+        const safeTemplateName = escHtml(templateName);
+        const responseHtml = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Preview: ${safeTemplateName}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; }
+          .toolbar { background: #16213e; color: #fff; padding: 12px 24px;
+                     display: flex; align-items: center; justify-content: space-between;
+                     border-bottom: 2px solid #FF6B35; position: sticky; top: 0; z-index: 10; }
+          .toolbar h2 { font-size: 16px; font-weight: 600; }
+          .toolbar a { color: #FF6B35; text-decoration: none; font-size: 14px; }
+          .toolbar a:hover { text-decoration: underline; }
+          .preview-frame { max-width: 900px; margin: 24px auto; background: #fff;
+                           border-radius: 8px; overflow: hidden;
+                           box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+          .vars-panel { max-width: 900px; margin: 16px auto 40px;
+                        background: #16213e; border-radius: 8px; padding: 20px;
+                        color: #ccc; font-size: 13px; }
+          .vars-panel h3 { color: #FF6B35; margin-bottom: 8px; font-size: 14px; }
+          pre { white-space: pre-wrap; word-break: break-all; }
+        </style>
+      </head>
+      <body>
+        <div class="toolbar">
+          <h2>📧 ${safeTemplateName}</h2>
+          <a href="/email-preview">← All Templates</a>
+        </div>
+        <div class="preview-frame">
+          ${html}
+        </div>
+        <div class="vars-panel">
+          <h3>Template Variables (current)</h3>
+          <pre>${escHtml(varsJson)}</pre>
+        </div>
+      </body>
+      </html>
+    `;
+        res.send(responseHtml); // NOSONAR
+    }
+    catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        const errorHtml = `
+      <h1>Template Not Found</h1>
+      <p>${escHtml(message)}</p>
+      <a href="/email-preview">← Back to template list</a>
+    `;
+        res.status(404).send(errorHtml); // NOSONAR
     }
 });
 // Basic Health Check
 app.get('/', (req, res) => {
     res.send('UniEvent Backend is Running');
-});
-app.post('/api/sendDailyDigest', validateFirebaseIdToken, rateLimitMiddleware, async (req, res) => {
-    try {
-        // Optional: Check if admin
-        const user = req.user;
-        // Check for admin claim (boolean) or role property (string)
-        if (!user.admin && user.role !== 'admin') {
-            res.status(403).json({ message: 'Unauthorized: Only admins can trigger this.' });
-            return;
-        }
-        const db = admin.firestore();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const eventsRef = db.collection('events');
-        const snapshot = await eventsRef
-            .where('startAt', '>=', today.toISOString())
-            .where('startAt', '<', tomorrow.toISOString())
-            .get();
-        const count = snapshot.size;
-        if (count > 0) {
-            const usersSnapshot = await db.collection('users').get();
-            const messages = [];
-            const batch = db.batch();
-            // Lazy import Expo to ensure it works
-            const { Expo } = require('expo-server-sdk');
-            const expo = new Expo();
-            usersSnapshot.forEach(userDoc => {
-                const userData = userDoc.data();
-                const pushToken = userData.pushToken;
-                // In-App
-                const notifRef = userDoc.ref.collection('notifications').doc();
-                batch.set(notifRef, {
-                    title: 'Daily Digest 📅',
-                    body: `There are ${count} events happening today!`,
-                    createdAt: firestore_1.FieldValue.serverTimestamp(),
-                    read: false
-                });
-                if (pushToken && Expo.isExpoPushToken(pushToken)) {
-                    messages.push({
-                        to: pushToken,
-                        sound: 'default',
-                        title: 'Daily Digest 📅',
-                        body: `There are ${count} events happening today!`,
-                        data: { url: '/home' },
-                    });
-                }
-            });
-            await batch.commit();
-            if (messages.length > 0) {
-                let chunks = expo.chunkPushNotifications(messages);
-                for (let chunk of chunks) {
-                    try {
-                        await expo.sendPushNotificationsAsync(chunk);
-                    }
-                    catch (e) {
-                        console.error(e);
-                    }
-                }
-            }
-        }
-        res.json({ success: true, count, message: `Digest sent for ${count} events to all users.` });
-    }
-    catch (error) {
-        console.error("Digest Error", error);
-        res.status(500).json({ error: error.message });
-    }
 });
 // Start Server
 const PORT = process.env.PORT || 3000;

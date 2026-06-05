@@ -42,6 +42,7 @@ import SavedEventsScreen from './src/screens/SavedEventsScreen';
 import TicketScreen from './src/screens/TicketScreen';
 import UserFeed from './src/screens/UserFeed';
 import WalletScreen from './src/screens/WalletScreen';
+import StreakScreen from './src/screens/StreakScreen';
 import WrappedScreen from './src/screens/WrappedScreen';
 
 const CustomTabBarWrapper = props => <CustomTabBar {...props} />;
@@ -304,6 +305,11 @@ function Navigation() {
                             name="Wallet"
                             component={WalletScreen}
                             options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="Streak"
+                            component={StreakScreen}
+                            options={{ title: 'My Streak' }}
                         />
                         <Stack.Screen
                             name="MyRegisteredEvents"

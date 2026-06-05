@@ -1,13 +1,17 @@
-import * as admin from "firebase-admin";
-import * as functions from "firebase-functions";
-import { FieldValue, FieldPath } from 'firebase-admin/firestore';
-import Expo from 'expo-server-sdk';
-import { sendPushNotifications } from './utils/push';
-import { enforceAppCheck } from "./middleware/appCheck";
+import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
+import { FieldPath } from 'firebase-admin/firestore';
+import { isExpoPushToken, sendPushNotifications } from './utils/push';
+import { logEntry } from './logger';
 
 const PAGE_SIZE = 500;
 
-function processUserPage(userDoc: admin.firestore.QueryDocumentSnapshot, count: number, batch: admin.firestore.WriteBatch, pageMessages: any[]) {
+function processUserPage(
+    userDoc: admin.firestore.QueryDocumentSnapshot,
+    count: number,
+    batch: admin.firestore.WriteBatch,
+    pageMessages: any[],
+) {
     const userData = userDoc.data();
 
     if (userData.digestOptIn === false) {
@@ -18,12 +22,12 @@ function processUserPage(userDoc: admin.firestore.QueryDocumentSnapshot, count: 
     batch.set(notifRef, {
         title: 'Daily Digest 📅',
         body: `There are ${count} events happening today!`,
-        createdAt: FieldValue.serverTimestamp(),
-        read: false
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false,
     });
 
     const pushToken = userData.pushToken;
-    if (pushToken && Expo.isExpoPushToken(pushToken)) {
+    if (pushToken && isExpoPushToken(pushToken)) {
         pageMessages.push({
             to: pushToken,
             sound: 'default',
@@ -34,35 +38,10 @@ function processUserPage(userDoc: admin.firestore.QueryDocumentSnapshot, count: 
     }
 }
 
-export const sendDailyDigest = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-    }
-    enforceAppCheck(context);
-
-    if (!context.auth.token.admin) {
-        throw new functions.https.HttpsError('permission-denied', 'Only admins can trigger daily digest.');
-    }
-
-    const db = admin.firestore();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const snapshot = await db.collection('events')
-        .where('startAt', '>=', today.toISOString())
-        .where('startAt', '<', tomorrow.toISOString())
-        .get();
-
-    const count = snapshot.size;
-
-    if (count === 0) {
-        return { success: true, message: "No events today.", count: 0, processed: 0 };
-    }
-
+async function processUsersInBatches(db: admin.firestore.Firestore, count: number) {
     let lastDoc: admin.firestore.DocumentSnapshot | null = null;
     let processedCount = 0;
+    let failedPushes = 0;
 
     while (true) {
         let query: admin.firestore.Query = db
@@ -94,6 +73,7 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
                     pageSize: usersSnapshot.size,
                     pushMessages: pageMessages.length,
                 });
+                failedPushes += pageMessages.length;
             }
         }
 
@@ -105,5 +85,50 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
         }
     }
 
+    return { processedCount, failedPushes };
+}
+
+export const sendDailyDigest = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError(
+            'unauthenticated',
+            'The function must be called while authenticated.',
+        );
+    }
+    if (!context.auth.token.admin) {
+        throw new functions.https.HttpsError(
+            'permission-denied',
+            'Only admins can trigger daily digest.',
+        );
+    }
+
+    const db = admin.firestore();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const snapshot = await db
+        .collection('events')
+        .where('startAt', '>=', today.toISOString())
+        .where('startAt', '<', tomorrow.toISOString())
+        .get();
+
+    const count = snapshot.size;
+    logEntry('dailyDigest', 'sendDailyDigest started', { input: { count } });
+
+    if (count === 0) {
+        return { success: true, message: 'No events today.', count: 0, processed: 0 };
+    }
+
+    const { processedCount, failedPushes } = await processUsersInBatches(db, count);
+
+    if (failedPushes > 0) {
+        return { success: false, count, processed: processedCount, failedPushes };
+    }
+
+    logEntry('dailyDigest', 'sendDailyDigest completed', {
+        output: { success: true, count, processed: processedCount },
+    });
     return { success: true, count, processed: processedCount };
 });

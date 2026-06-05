@@ -1,7 +1,6 @@
-import * as admin from "firebase-admin";
-import * as functions from "firebase-functions";
+import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 import { FieldValue, FieldPath } from 'firebase-admin/firestore';
-import { enforceAppCheck } from "./middleware/appCheck";
 
 // Initialize only once (important for tests + Firebase runtime)
 if (!admin.apps.length) {
@@ -40,8 +39,6 @@ export const calculateReputation = functions.https.onCall(async (_data, context)
         );
     }
 
-    enforceAppCheck(context);
-
     const usersSnapshot = await db.collection('users').get();
     let batch = db.batch();
     let opCount = 0;
@@ -51,18 +48,14 @@ export const calculateReputation = functions.https.onCall(async (_data, context)
         const userData = userDoc.data();
 
         const attendanceCount =
-            userData.reputation?.attendanceCount || userData.attendanceCount || 0;
+            userData.reputation?.attendanceCount ?? userData.attendanceCount ?? 0;
 
         const registrationCount =
-            userData.reputation?.registrationCount || userData.registrationCount || 0;
+            userData.reputation?.registrationCount ?? userData.registrationCount ?? 0;
 
-        const remindersSet = userData.reputation?.remindersSet || userData.remindersSet || 0;
+        const remindersSet = userData.reputation?.remindersSet ?? userData.remindersSet ?? 0;
 
-        const points = calculatePoints(
-            attendanceCount,
-            registrationCount,
-            remindersSet,
-        );
+        const points = calculatePoints(attendanceCount, registrationCount, remindersSet);
         batch.update(userDoc.ref, {
             'reputation.points': points,
             'reputation.attendanceCount': attendanceCount,
@@ -139,9 +132,11 @@ export const refreshTopContributorsLeaderboard = functions.pubsub
  */
 export const getTopContributors = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+        throw new functions.https.HttpsError(
+            'unauthenticated',
+            'The function must be called while authenticated.',
+        );
     }
-    enforceAppCheck(context);
     const limit = Math.min(data?.limit || 10, 25);
     const lastPoints = data?.lastPoints;
     const lastUserId = data?.lastUserId;
@@ -183,10 +178,10 @@ export const getTopContributors = functions.https.onCall(async (data, context) =
         hasMore: contributors.length === limit,
         nextCursor: lastContributor
             ? {
-                lastPoints: lastContributor.points,
-                lastUserId: lastContributor.userId,
-                startRank: startRank + contributors.length,
-            }
+                  lastPoints: lastContributor.points,
+                  lastUserId: lastContributor.userId,
+                  startRank: startRank + contributors.length,
+              }
             : null,
     };
 });

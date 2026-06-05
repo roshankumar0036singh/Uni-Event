@@ -11,7 +11,7 @@ import {
     where,
     updateDoc,
 } from 'firebase/firestore';
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { getOfflineCheckInCount, syncOfflineCheckIns } from '../lib/checkInService';
 import {
@@ -56,6 +56,7 @@ export default function AttendanceDashboard({ route, navigation }) {
     // Offline Sync State
     const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
     const [syncingOffline, setSyncingOffline] = useState(false);
+    const isMountedRef = useRef(true);
 
     // Announcement State
     const [announcementModalVisible, setAnnouncementModalVisible] = useState(false);
@@ -66,11 +67,20 @@ export default function AttendanceDashboard({ route, navigation }) {
     // Feedback Request Modal State
     const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
 
+    useEffect(
+        () => () => {
+            isMountedRef.current = false;
+        },
+        [],
+    );
+
     const handleRequestFeedback = () => {
         setFeedbackModalVisible(true);
     };
 
     const handleSendFeedbackRequest = async () => {
+        if (sending) return;
+
         setSending(true);
         setFeedbackModalVisible(false);
 
@@ -104,6 +114,8 @@ export default function AttendanceDashboard({ route, navigation }) {
     };
 
     const handleSendAnnouncement = async () => {
+        if (sending) return;
+
         if (!announcementSubject.trim() || !announcementMessage.trim()) {
             Alert.alert('Error', 'Please enter subject and message');
             return;
@@ -163,6 +175,8 @@ export default function AttendanceDashboard({ route, navigation }) {
     );
 
     const handleSyncOffline = async () => {
+        if (syncingOffline) return;
+
         setSyncingOffline(true);
         try {
             const result = await syncOfflineCheckIns(eventId, user?.uid || 'Unknown Organizer');
@@ -180,12 +194,21 @@ export default function AttendanceDashboard({ route, navigation }) {
                 Alert.alert('Sync Failed', `Could not sync offline check-ins: ${msg}`);
             }
         } catch (error) {
-            console.error('Failed to sync offline check-ins', error);
+            console.error('Offline sync failed:', error);
             Alert.alert('Error', 'Failed to sync offline check-ins.');
+        } finally {
+            try {
+                const count = await getOfflineCheckInCount(eventId);
+                if (isMountedRef.current) {
+                    setPendingOfflineCount(count);
+                }
+            } catch (countError) {
+                console.error('Failed to refresh offline check-in count', countError);
+            }
+            if (isMountedRef.current) {
+                setSyncingOffline(false);
+            }
         }
-        const count = await getOfflineCheckInCount(eventId);
-        setPendingOfflineCount(count);
-        setSyncingOffline(false);
     };
 
     // Live Participant Count
@@ -315,6 +338,8 @@ export default function AttendanceDashboard({ route, navigation }) {
     };
 
     const handleExportParticipants = async () => {
+        if (exporting) return;
+
         setExporting(true);
         try {
             const snapshotData = await participantService.fetchParticipantsOnce(db, eventId);
@@ -327,26 +352,10 @@ export default function AttendanceDashboard({ route, navigation }) {
 
             let csv = 'Name,Email,Branch,Year,Joined At\n';
 
-            // Fetch live user profiles to fill in missing Branch/Year
             const rows = await Promise.all(
                 snapshotData.map(async d => {
                     let branch = d.branch;
                     let year = d.year;
-
-                    // If missing, try to fetch from User Profile
-                    if ((!branch || branch === '-' || branch === 'Unknown') && d.userId) {
-                        try {
-                            const { getDoc, doc } = require('firebase/firestore'); // Ensure imports
-                            const userSnap = await getDoc(doc(db, 'users', d.userId));
-                            if (userSnap.exists()) {
-                                const userData = userSnap.data();
-                                branch = userData.branch || branch;
-                                year = userData.year || year;
-                            }
-                        } catch (e) {
-                            console.log('Profile fetch err', e);
-                        }
-                    }
 
                     return `"${d.name || 'Anonymous'}","${d.email || '-'}","${branch || '-'}","${year || '-'}","${d.joinedAt}"\n`;
                 }),
@@ -355,7 +364,10 @@ export default function AttendanceDashboard({ route, navigation }) {
             csv += rows.join('');
 
             await downloadCSV(csv, `Participants_${eventTitle}.csv`);
-            if (Platform.OS === 'web') Alert.alert('Success', 'Download started!');
+            Alert.alert(
+                'Export Ready',
+                Platform.OS === 'web' ? 'Download started!' : 'Participants export is ready.',
+            );
         } catch (error) {
             console.error('Export Error: ', error);
             Alert.alert('Error', 'Failed to export participants.');
@@ -365,6 +377,8 @@ export default function AttendanceDashboard({ route, navigation }) {
     };
 
     const handleExportReviews = async () => {
+        if (exporting) return;
+
         setExporting(true);
         try {
             const feedbackRef = collection(db, getEventFeedbackPath(eventId));
@@ -388,7 +402,10 @@ export default function AttendanceDashboard({ route, navigation }) {
             });
 
             await downloadCSV(csv, `Reviews_${eventTitle}.csv`);
-            if (Platform.OS === 'web') Alert.alert('Success', 'Download started!');
+            Alert.alert(
+                'Export Ready',
+                Platform.OS === 'web' ? 'Download started!' : 'Reviews export is ready.',
+            );
         } catch (error) {
             console.error('Export Error: ', error);
             Alert.alert('Error', 'Failed to export reviews.');
@@ -398,6 +415,8 @@ export default function AttendanceDashboard({ route, navigation }) {
     };
 
     const handleExportFormResponses = async () => {
+        if (exporting) return;
+
         setExporting(true);
         try {
             const q = query(
@@ -437,7 +456,10 @@ export default function AttendanceDashboard({ route, navigation }) {
             });
 
             await downloadCSV(csv, `Form_Responses_${eventTitle}.csv`);
-            if (Platform.OS === 'web') Alert.alert('Success', 'Download started!');
+            Alert.alert(
+                'Export Ready',
+                Platform.OS === 'web' ? 'Download started!' : 'Form responses export is ready.',
+            );
         } catch (e) {
             console.error('Export Error: ', e);
             Alert.alert('Error', 'Failed to export responses.');

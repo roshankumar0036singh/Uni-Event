@@ -1,11 +1,18 @@
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResendClient() {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+        throw new Error('RESEND_API_KEY is required to send certificate emails.');
+    }
+
+    return new Resend(apiKey);
+}
 
 type Participant = {
     id: string;
@@ -17,7 +24,8 @@ type Participant = {
 type CertificateOutcome = {
     email: string | null;
     status: 'success' | 'failed' | 'error' | 'skipped';
-    id?: string;
+    messageId?: string;
+    participantId?: string;
     certificateUrl?: string;
     error?: string;
     reason?: string;
@@ -136,48 +144,35 @@ async function sendCertificateEmail(
     p: Participant,
     eventName: string,
     linkedinUrl: string,
-    pdfBuffer: Buffer,
+    attachmentOrUrl: Buffer | string,
 ) {
     const safeName = escapeHtml(p.name || 'Participant');
     const safeEvent = escapeHtml(eventName);
-    const safeFilename = `${sanitizeFilename(p.name || 'participant')}_Certificate.pdf`;
+    const isBuffer = Buffer.isBuffer(attachmentOrUrl);
 
-    return resend.emails.send({
+    let htmlContent = `<p>Hello ${safeName},</p>`;
+    if (isBuffer) {
+        htmlContent += `\n               <p>Please find your official certificate for <strong>${safeEvent}</strong> attached.</p>`;
+    } else {
+        htmlContent += `\n               <p>Your certificate for <strong>${safeEvent}</strong> is available at the link below.</p>
+               <p><a href="${attachmentOrUrl}" target="_blank" rel="noopener">Download your certificate</a></p>`;
+    }
+    htmlContent += `\n               <p><a href="${linkedinUrl}" target="_blank" rel="noopener">Add this certificate to your LinkedIn profile</a></p>
+               <p>Best regards,<br/>UniEvent Team</p>`;
+
+    const mailOptions: any = {
         from: process.env.EMAIL_SENDER || 'onboarding@resend.dev',
         to: [p.email!],
         subject: `Certificate for ${eventName || ''}`,
-        html: `<p>Hello ${safeName},</p>
-               <p>Please find your official certificate for <strong>${safeEvent}</strong> attached.</p>
-               <p><a href="${linkedinUrl}" target="_blank" rel="noopener">Add this certificate to your LinkedIn profile</a></p>
-               <p>Best regards,<br/>UniEvent Team</p>`,
-        attachments: [
-            {
-                filename: safeFilename,
-                content: pdfBuffer,
-            },
-        ],
-    });
-}
+        html: htmlContent,
+    };
 
-async function sendCertificateEmailUsingUrl(
-    p: Participant,
-    eventName: string,
-    linkedinUrl: string,
-    certificateUrl: string,
-) {
-    const safeName = escapeHtml(p.name || 'Participant');
-    const safeEvent = escapeHtml(eventName);
+    if (isBuffer) {
+        const safeFilename = `${sanitizeFilename(p.name || 'participant')}_Certificate.pdf`;
+        mailOptions.attachments = [{ filename: safeFilename, content: attachmentOrUrl }];
+    }
 
-    return resend.emails.send({
-        from: process.env.EMAIL_SENDER || 'onboarding@resend.dev',
-        to: [p.email!],
-        subject: `Certificate for ${eventName || ''}`,
-        html: `<p>Hello ${safeName},</p>
-               <p>Your certificate for <strong>${safeEvent}</strong> is available at the link below.</p>
-               <p><a href="${certificateUrl}" target="_blank" rel="noopener">Download your certificate</a></p>
-               <p><a href="${linkedinUrl}" target="_blank" rel="noopener">Add this certificate to your LinkedIn profile</a></p>
-               <p>Best regards,<br/>UniEvent Team</p>`,
-    });
+    return getResendClient().emails.send(mailOptions);
 }
 
 function getEventStartDate(event: any) {
@@ -194,7 +189,7 @@ async function handleExistingCertificateParticipant(
     const linkedinUrl = buildLinkedInUrl(eventTitle, organizationName, existingUrl, eventStartDate);
 
     try {
-        const { data, error } = await sendCertificateEmailUsingUrl(
+        const { data, error } = await sendCertificateEmail(
             participant,
             eventTitle,
             linkedinUrl,
@@ -207,15 +202,16 @@ async function handleExistingCertificateParticipant(
                 status: 'failed',
                 error: getErrorMessage(error),
                 certificateUrl: existingUrl,
-                id: participant.id,
+                participantId: participant.id,
             };
         }
 
         return {
             email: participant.email || null,
             status: 'success',
-            id: data?.id,
+            messageId: data?.id,
             certificateUrl: existingUrl,
+            participantId: participant.id,
         };
     } catch (err) {
         return {
@@ -223,7 +219,7 @@ async function handleExistingCertificateParticipant(
             status: 'error',
             error: getErrorMessage(err),
             certificateUrl: existingUrl,
-            id: participant.id,
+            participantId: participant.id,
         };
     }
 }
@@ -281,8 +277,9 @@ async function processParticipant(
         return {
             email: participant.email,
             status: 'success',
-            id: data?.id,
+            messageId: data?.id,
             certificateUrl: signedUrl,
+            participantId: participant.id,
         };
     } catch (error) {
         console.error(`Storage/upload error for ${participant.email}:`, error);
@@ -325,7 +322,7 @@ export async function sendCertificatesForEvent(eventId: string, ownerId: string)
         templateBytes = fs.readFileSync(templatePath);
     } catch (e) {
         throw new Error(
-            "Certificate Template not found. Please ensure 'assets/certificate_template.pdf' exists in cloud-functions.",
+            `Certificate Template not found. Please ensure 'assets/certificate_template.pdf' exists in cloud-functions. Error: ${e instanceof Error ? e.message : e}`,
         );
     }
 
@@ -360,19 +357,27 @@ export async function sendCertificatesForEvent(eventId: string, ownerId: string)
         results.push(outcome);
     }
 
-    if (
-        results.length === participants.length &&
-        results.every(result => result.status === 'success')
-    ) {
-        await admin.firestore().collection('events').doc(eventId).update({
-            certificatesSent: true,
-            certificatesSentAt: FieldValue.serverTimestamp(),
-        });
-    } else {
-        console.log(
-            `Not all participants succeeded. total=${participants.length} results=${results.length}`,
-        );
+    const summary = results.reduce(
+        (acc, result) => {
+            acc[result.status] += 1;
+            return acc;
+        },
+        { success: 0, failed: 0, error: 0, skipped: 0 },
+    );
+    const allSucceeded =
+        results.length === participants.length && summary.success === participants.length;
+
+    const eventUpdate: Record<string, unknown> = {
+        certificatesSent: allSucceeded,
+        certificatesLastAttemptAt: FieldValue.serverTimestamp(),
+        certificateSummary: summary,
+    };
+
+    if (allSucceeded) {
+        eventUpdate.certificatesSentAt = FieldValue.serverTimestamp();
     }
 
-    return { total: participants.length, results };
+    await admin.firestore().collection('events').doc(eventId).update(eventUpdate);
+
+    return { total: participants.length, summary, results };
 }

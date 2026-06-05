@@ -435,8 +435,7 @@ If you run into issues or have questions:
 ---
  
 <div align="center">
-<!-- Fix: Changed markdown bold to HTML strong tag since markdown doesn't render inside HTML div tags -->
-<strong>Empowering campus communities, one event at a time.</strong>
+**Empowering campus communities, one event at a time.**
  
 <a href="#">⬆ Back to Top</a>
  

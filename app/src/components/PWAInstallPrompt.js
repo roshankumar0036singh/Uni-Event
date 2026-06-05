@@ -20,10 +20,10 @@ export default function PWAInstallPrompt() {
             setIsVisible(true);
         };
 
-        window.addEventListener('beforeinstallprompt', handler);
+        globalThis.addEventListener('beforeinstallprompt', handler);
 
         return () => {
-            window.removeEventListener('beforeinstallprompt', handler);
+            globalThis.removeEventListener('beforeinstallprompt', handler);
         };
     }, []);
 

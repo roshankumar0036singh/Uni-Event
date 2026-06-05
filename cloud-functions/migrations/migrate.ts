@@ -20,7 +20,7 @@ async function claimMigration(migrationName: string): Promise<boolean> {
     try {
         await db.runTransaction(async t => {
             const doc = await t.get(ref);
-            const applied: string[] = doc.exists ? doc.data()?.applied ?? [] : [];
+            const applied: string[] = doc.exists ? (doc.data()?.applied ?? []) : [];
             if (applied.includes(migrationName)) throw new Error('already_applied');
             t.set(ref, { applied: [...applied, migrationName] });
         });
@@ -36,7 +36,7 @@ async function unclaimMigration(migrationName: string): Promise<void> {
     const ref = db.doc(TRACKER_DOC);
     await db.runTransaction(async t => {
         const doc = await t.get(ref);
-        const applied: string[] = doc.exists ? doc.data()?.applied ?? [] : [];
+        const applied: string[] = doc.exists ? (doc.data()?.applied ?? []) : [];
         t.set(ref, { applied: applied.filter(m => m !== migrationName) });
     });
 }

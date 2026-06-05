@@ -32,16 +32,13 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendDailyDigest = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const firestore_1 = require("firebase-admin/firestore");
-const expo_server_sdk_1 = __importDefault(require("expo-server-sdk"));
 const push_1 = require("./utils/push");
+const logger_1 = require("./logger");
 const PAGE_SIZE = 500;
 function processUserPage(userDoc, count, batch, pageMessages) {
     const userData = userDoc.data();
@@ -52,11 +49,11 @@ function processUserPage(userDoc, count, batch, pageMessages) {
     batch.set(notifRef, {
         title: 'Daily Digest 📅',
         body: `There are ${count} events happening today!`,
-        createdAt: firestore_1.FieldValue.serverTimestamp(),
-        read: false
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false,
     });
     const pushToken = userData.pushToken;
-    if (pushToken && expo_server_sdk_1.default.isExpoPushToken(pushToken)) {
+    if (pushToken && (0, push_1.isExpoPushToken)(pushToken)) {
         pageMessages.push({
             to: pushToken,
             sound: 'default',
@@ -66,28 +63,10 @@ function processUserPage(userDoc, count, batch, pageMessages) {
         });
     }
 }
-exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-    }
-    if (!context.auth.token.admin) {
-        throw new functions.https.HttpsError('permission-denied', 'Only admins can trigger daily digest.');
-    }
-    const db = admin.firestore();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const snapshot = await db.collection('events')
-        .where('startAt', '>=', today.toISOString())
-        .where('startAt', '<', tomorrow.toISOString())
-        .get();
-    const count = snapshot.size;
-    if (count === 0) {
-        return { success: true, message: "No events today.", count: 0, processed: 0 };
-    }
+async function processUsersInBatches(db, count) {
     let lastDoc = null;
     let processedCount = 0;
+    let failedPushes = 0;
     while (true) {
         let query = db
             .collection('users')
@@ -114,6 +93,7 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
                     pageSize: usersSnapshot.size,
                     pushMessages: pageMessages.length,
                 });
+                failedPushes += pageMessages.length;
             }
         }
         processedCount += usersSnapshot.size;
@@ -122,5 +102,34 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
             break;
         }
     }
+    return { processedCount, failedPushes };
+}
+exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+    if (!context.auth.token.admin) {
+        throw new functions.https.HttpsError('permission-denied', 'Only admins can trigger daily digest.');
+    }
+    const db = admin.firestore();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const snapshot = await db
+        .collection('events')
+        .where('startAt', '>=', today.toISOString())
+        .where('startAt', '<', tomorrow.toISOString())
+        .get();
+    const count = snapshot.size;
+    (0, logger_1.logEntry)('dailyDigest', 'sendDailyDigest started', { input: { count } });
+    if (count === 0) {
+        return { success: true, message: 'No events today.', count: 0, processed: 0 };
+    }
+    const { processedCount, failedPushes } = await processUsersInBatches(db, count);
+    if (failedPushes > 0) {
+        return { success: false, count, processed: processedCount, failedPushes };
+    }
+    (0, logger_1.logEntry)('dailyDigest', 'sendDailyDigest completed', { output: { success: true, count, processed: processedCount } });
     return { success: true, count, processed: processedCount };
 });

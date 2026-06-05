@@ -12,7 +12,17 @@ import {
     getDocs,
 } from 'firebase/firestore';
 import React, { useEffect, useRef, useState, memo } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View, Switch, Platform } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    Switch,
+    Platform,
+} from 'react-native';
 import { db } from '../lib/firebaseConfig';
 import { theme as globalTheme } from '../lib/theme';
 import { useTheme } from '../lib/ThemeContext';
@@ -23,25 +33,27 @@ import { triggerBuddyMatchNotification } from '../lib/notificationService';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import PropTypes from 'prop-types';
 
-// Module-level profile cache registry
-// profileCache: resolved data keyed by ownerId
-// profileRequestCache: in-flight promises to prevent duplicate concurrent reads
+const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
 const profileCache = new Map();
 const profileRequestCache = new Map();
 
-/**
- * formatMetric — adaptive pluralization helper for metric badges (Issue #308)
- * Returns a grammatically correct string for any numeric metric.
- *
- * @param {number|undefined|null} value  - Raw numeric value from the database
- * @param {string} singular              - Singular label, e.g. "View"
- * @param {string} plural                - Plural label,   e.g. "Views"
- * @returns {string}                     - e.g. "1 View", "0 Views", "42 Views"
- */
 const formatMetric = (value, singular, plural) => {
     const count = value ?? 0;
     return `${count} ${count === 1 ? singular : plural}`;
 };
+
+// Custom comparison: only re-render if relevant props change
+function arePropsEqual(prevProps, nextProps) {
+    return (
+        prevProps.event?.id === nextProps.event?.id &&
+        prevProps.event?.updatedAt === nextProps.event?.updatedAt &&
+        prevProps.isRegistered === nextProps.isRegistered &&
+        prevProps.isLiked === nextProps.isLiked &&
+        prevProps.isRecommended === nextProps.isRecommended &&
+        prevProps.showRegisterButton === nextProps.showRegisterButton &&
+        prevProps.style === nextProps.style
+    );
+}
 
 const EventCard = memo(
     ({
@@ -64,6 +76,7 @@ const EventCard = memo(
         const [isNavigatingToDetail, setIsNavigatingToDetail] = useState(false);
         const navigationLockRef = useRef(false);
         const navigationUnlockTimerRef = useRef(null);
+        const [buddyLoading, setBuddyLoading] = useState(false);
 
         useEffect(() => {
             if (!isRegistered || !user || !event?.id) return;
@@ -79,8 +92,10 @@ const EventCard = memo(
         }, [isRegistered, user, event?.id]);
 
         const handleToggleBuddy = async value => {
+            if (buddyLoading) return;
             if (!user || !event?.id) return;
             try {
+                setBuddyLoading(true);
                 const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
                 await updateDoc(participantRef, {
                     lookingForBuddy: value,
@@ -95,8 +110,15 @@ const EventCard = memo(
                         await triggerBuddyMatchNotification(event, otherBuddies.length);
                     }
                 }
+                Alert.alert(
+                    'Buddy Preference Updated',
+                    value ? 'Buddy matching is now enabled.' : 'Buddy matching is now disabled.',
+                );
             } catch (error) {
                 console.error('Error updating buddy preference:', error);
+                Alert.alert('Error', 'Failed to update buddy preference.');
+            } finally {
+                setBuddyLoading(false);
             }
         };
 
@@ -111,22 +133,25 @@ const EventCard = memo(
         useEffect(() => {
             if (!event?.ownerId) return;
 
-            // Reset immediately to prevent stale FlashList cells showing previous host
             setHostName(event?.organization || 'Club Name');
 
-            // Cache hit: apply memoized data and short-circuit, no network call
-            if (profileCache.has(event.ownerId)) {
-                const cached = profileCache.get(event.ownerId);
-                setHostName(cached.displayName || event.organization || 'Club Name');
+            const cachedProfile = profileCache.get(event.ownerId);
+            if (cachedProfile && Date.now() - cachedProfile.cachedAt < PROFILE_CACHE_TTL_MS) {
+                setHostName(cachedProfile.data.displayName || event.organization || 'Club Name');
                 return;
+            }
+
+            if (cachedProfile) {
+                profileCache.delete(event.ownerId);
             }
 
             let cancelled = false;
 
-            // In-flight cache: reuse existing promise if another card already fired
-            // getDoc for this ownerId, preventing duplicate concurrent Firestore reads
             if (!profileRequestCache.has(event.ownerId)) {
-                profileRequestCache.set(event.ownerId, getDoc(doc(db, 'users', event.ownerId)));
+                profileRequestCache.set(
+                    event.ownerId,
+                    getDoc(doc(db, 'publicUsers', event.ownerId)),
+                );
             }
 
             profileRequestCache
@@ -134,7 +159,7 @@ const EventCard = memo(
                 .then(snap => {
                     if (snap.exists()) {
                         const data = snap.data();
-                        profileCache.set(event.ownerId, data);
+                        profileCache.set(event.ownerId, { data, cachedAt: Date.now() });
                         profileRequestCache.delete(event.ownerId);
                         if (!cancelled) {
                             setHostName(data.displayName || event.organization || 'Club Name');
@@ -186,16 +211,6 @@ const EventCard = memo(
 
         const isLive = new Date() >= new Date(event.startAt) && new Date() <= new Date(event.endAt);
         const isOnlineBadge = !isLive && event.eventMode === 'online';
-
-        // Calculate dynamic popularity score (GSSoC Feature Request)
-        const registrations = event.participantCount || 0;
-        const views = event.views || 0;
-        const saves = event.savedCount || 0;
-        const popularityScore = Math.min(
-            Math.round(registrations * 1.5 + saves * 1 + views * 0.2),
-            100,
-        );
-        const isTrending = popularityScore >= 75;
 
         const renderBannerBadges = () => (
             <>
@@ -273,36 +288,6 @@ const EventCard = memo(
                         </Text>
                     </View>
                 )}
-                {isTrending && (
-                    <View
-                        style={{
-                            backgroundColor: '#FF4D4D20',
-                            paddingHorizontal: 8,
-                            paddingVertical: 3,
-                            borderRadius: 20,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                            alignSelf: 'flex-start',
-                            marginTop: 4,
-                            borderWidth: 1,
-                            borderColor: '#FF4D4D',
-                        }}
-                    >
-                        <Text style={{ fontSize: 10, lineHeight: 14 }}>🔥</Text>
-                        <Text
-                            style={{
-                                fontSize: 10,
-                                fontWeight: '700',
-                                color: '#FF4D4D',
-                                letterSpacing: 0.5,
-                                lineHeight: 14,
-                            }}
-                        >
-                            TRENDING
-                        </Text>
-                    </View>
-                )}
             </>
         );
 
@@ -335,6 +320,7 @@ const EventCard = memo(
                             <Switch
                                 value={lookingForBuddy}
                                 onValueChange={handleToggleBuddy}
+                                disabled={buddyLoading}
                                 trackColor={{
                                     false: theme.colors.border,
                                     true: theme.colors.primary + '80',
@@ -366,7 +352,11 @@ const EventCard = memo(
                     onPress={handleRegisterPress}
                     testID="event-card-register-button"
                 >
-                    <Text style={styles.registerText}>REGISTER</Text>
+                    {isNavigatingToDetail ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                        <Text style={styles.registerText}>REGISTER</Text>
+                    )}
                 </TouchableOpacity>
             );
         };
@@ -500,16 +490,6 @@ const EventCard = memo(
     },
     arePropsEqual,
 );
-
-// Custom comparison: only re-render if relevant props change
-function arePropsEqual(prevProps, nextProps) {
-    return (
-        prevProps.event?.id === nextProps.event?.id &&
-        prevProps.event?.updatedAt === nextProps.event?.updatedAt &&
-        prevProps.isRegistered === nextProps.isRegistered &&
-        prevProps.isLiked === nextProps.isLiked
-    );
-}
 
 const styles = StyleSheet.create({
     card: {
@@ -696,5 +676,3 @@ EventCard.propTypes = {
 };
 
 export default EventCard;
-
-

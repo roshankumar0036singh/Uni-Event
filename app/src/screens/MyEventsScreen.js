@@ -5,9 +5,9 @@ import {
     doc,
     onSnapshot,
     query,
+    serverTimestamp,
     updateDoc,
     where,
-    serverTimestamp,
 } from 'firebase/firestore';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
@@ -31,21 +31,23 @@ import PropTypes from 'prop-types';
 
 export default function MyEventsScreen({ navigation }) {
     const { user } = useAuth();
+    const userId = user?.uid;
     const { theme } = useTheme();
     const isFocused = useIsFocused();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [refreshNonce, setRefreshNonce] = useState(0);
+    const [deletingEventId, setDeletingEventId] = useState(null);
     const { pullDistance, handleScroll, handleScrollEndDrag } = usePullToRefresh(refreshing, () => {
         setRefreshing(true);
         setRefreshNonce(n => n + 1);
     });
 
     useEffect(() => {
-        if (!user || !isFocused) return;
+        if (!userId || !isFocused) return;
 
-        const q = query(collection(db, 'events'), where('ownerId', '==', user.uid));
+        const q = query(collection(db, 'events'), where('ownerId', '==', userId));
 
         const unsubscribe = onSnapshot(
             q,
@@ -70,45 +72,47 @@ export default function MyEventsScreen({ navigation }) {
         );
 
         return () => unsubscribe();
-    }, [user, refreshNonce, isFocused]);
+    }, [userId, refreshNonce, isFocused]);
 
-    const handleDelete = async eventId => {
-        const confirmMsg =
-            'Are you sure? The event will be soft-deleted and can be restored by an admin within 30 days. Attendees can no longer register.';
-        if (Platform.OS === 'web') {
-            if (!globalThis.confirm(confirmMsg)) return;
-            try {
-                await updateDoc(doc(db, 'events', eventId), {
-                    deletedAt: serverTimestamp(),
-                    deletedBy: user.uid,
-                    status: 'deleted',
-                });
-            } catch (_e) {
-                console.error('Delete event failed (Web):', _e);
-                alert('Error: Could not delete event');
-            }
-        } else {
-            Alert.alert('Delete Event', confirmMsg, [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await updateDoc(doc(db, 'events', eventId), {
-                                deletedAt: serverTimestamp(),
-                                deletedBy: user.uid,
-                                status: 'deleted',
-                            });
-                        } catch (_e) {
-                            console.error('Delete event failed (Native):', _e);
-                            Alert.alert('Error', 'Could not delete event');
-                        }
+    const handleDelete = useCallback(
+        async eventId => {
+            if (deletingEventId === eventId) return;
+
+            const confirmMsg =
+                'Are you sure? The event will be soft-deleted and can be restored by an admin within 30 days. Attendees can no longer register.';
+            const deleteEvent = async () => {
+                setDeletingEventId(eventId);
+                try {
+                    await updateDoc(doc(db, 'events', eventId), {
+                        deletedAt: serverTimestamp(),
+                        deletedBy: userId,
+                        status: 'deleted',
+                    });
+                    Alert.alert('Deleted', 'Event deleted successfully.');
+                } catch (_e) {
+                    console.error('Delete event failed:', _e);
+                    Alert.alert('Error', 'Could not delete event');
+                } finally {
+                    setDeletingEventId(null);
+                }
+            };
+
+            if (Platform.OS === 'web') {
+                if (!globalThis.confirm(confirmMsg)) return;
+                await deleteEvent();
+            } else {
+                Alert.alert('Delete Event', confirmMsg, [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: deleteEvent,
                     },
-                },
-            ]);
-        }
-    };
+                ]);
+            }
+        },
+        [deletingEventId, userId],
+    );
 
     // 🚀 Task 3: Wrap component renderer with useCallback to avoid functional rebuilds on updates
     const renderItem = useCallback(
@@ -161,16 +165,26 @@ export default function MyEventsScreen({ navigation }) {
                             style={[
                                 styles.actionBtn,
                                 { backgroundColor: theme.colors.error + '15' },
+                                deletingEventId === item.id && { opacity: 0.6 },
                             ]}
                             onPress={() => handleDelete(item.id)}
+                            disabled={deletingEventId === item.id}
                         >
-                            <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
+                            {deletingEventId === item.id ? (
+                                <ActivityIndicator size="small" color={theme.colors.error} />
+                            ) : (
+                                <Ionicons
+                                    name="trash-outline"
+                                    size={18}
+                                    color={theme.colors.error}
+                                />
+                            )}
                         </TouchableOpacity>
                     </View>
                 </View>
             </View>
         ),
-        [theme, navigation],
+        [deletingEventId, handleDelete, theme, navigation],
     );
 
     if (loading)

@@ -16,7 +16,7 @@ import {
     arrayUnion,
     runTransaction,
 } from 'firebase/firestore';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -55,6 +55,7 @@ import { predictAttendance } from '../lib/capacityPredictor';
 import PropTypes from 'prop-types';
 import logger from '../lib/logger';
 import { BASE_URL } from '../lib/config';
+import { publicProfileRef } from '../lib/publicProfile';
 
 // Constants to eliminate SonarQube Magic Numbers
 const RSVP_POINTS_CHANGE = 10;
@@ -71,7 +72,15 @@ export default function EventDetail({ route, navigation }) {
 
     const [loading, setLoading] = useState(true);
     const [sendingCertificates, setSendingCertificates] = useState(false);
+    const sendingCertificatesRef = useRef(false);
+    const [bookmarkLoading, setBookmarkLoading] = useState(false);
+    const [reminderLoading, setReminderLoading] = useState(false);
+    const [buddyLoading, setBuddyLoading] = useState(false);
+    const [shareLoading, setShareLoading] = useState(false);
+    const [certificateDownloadLoading, setCertificateDownloadLoading] = useState(false);
+    const [linkedinLoading, setLinkedinLoading] = useState(false);
     const [rsvpStatus, setRsvpStatus] = useState(null);
+    const [rsvpLoading, setRsvpLoading] = useState(false);
     const [participantCount, setParticipantCount] = useState(0);
     const [participants, setParticipants] = useState([]);
     const [hasGivenFeedback, setHasGivenFeedback] = useState(false);
@@ -114,8 +123,10 @@ export default function EventDetail({ route, navigation }) {
         }
     };
     const handleToggleBuddyDetail = async value => {
+        if (buddyLoading) return;
         if (!user || !eventId) return;
         try {
+            setBuddyLoading(true);
             const participantRef = doc(db, 'events', eventId, 'participants', user.uid);
             await updateDoc(participantRef, {
                 lookingForBuddy: value,
@@ -129,9 +140,15 @@ export default function EventDetail({ route, navigation }) {
                     await triggerBuddyMatchNotification(event, otherBuddies.length);
                 }
             }
+            Alert.alert(
+                'Buddy Preference Updated',
+                value ? 'Buddy matching is now enabled.' : 'Buddy matching is now disabled.',
+            );
         } catch (error) {
             logger.error('Error toggling buddy preference:', error);
             Alert.alert('Error', 'Failed to update buddy preference');
+        } finally {
+            setBuddyLoading(false);
         }
     };
 
@@ -153,7 +170,7 @@ export default function EventDetail({ route, navigation }) {
 
     useEffect(() => {
         if (event?.ownerId) {
-            getDoc(doc(db, 'users', event.ownerId))
+            getDoc(doc(db, 'publicUsers', event.ownerId))
                 .then(snap => {
                     if (snap.exists()) {
                         const userData = snap.data();
@@ -295,21 +312,20 @@ export default function EventDetail({ route, navigation }) {
     const isSuspended = event?.status === 'suspended';
 
     const toggleBookmark = async () => {
+        if (bookmarkLoading) return;
         if (!user) {
             Alert.alert('Error', 'Please login to save events.');
             return;
         }
 
         try {
+            setBookmarkLoading(true);
             logger.debug('Toggling bookmark for event:', eventId, 'Current state:', isBookmarked);
             const bookmarkRef = doc(db, 'users', user.uid, 'savedEvents', eventId);
 
             if (isBookmarked) {
                 logger.debug('Removing bookmark...');
                 await deleteDoc(bookmarkRef);
-                await updateDoc(doc(db, 'events', eventId), {
-                    savedCount: increment(-1),
-                });
                 setIsBookmarked(false);
                 Alert.alert('Removed', 'Event removed from saved events.');
             } else {
@@ -318,9 +334,6 @@ export default function EventDetail({ route, navigation }) {
                     eventId: eventId,
                     savedAt: new Date().toISOString(),
                 });
-                await updateDoc(doc(db, 'events', eventId), {
-                    savedCount: increment(1),
-                });
                 setIsBookmarked(true);
                 Alert.alert('Saved', 'Event saved for later!');
             }
@@ -328,11 +341,15 @@ export default function EventDetail({ route, navigation }) {
         } catch (e) {
             logger.error('Bookmark error:', e);
             Alert.alert('Error', `Failed to save event: ${e.message}`);
+        } finally {
+            setBookmarkLoading(false);
         }
     };
 
     const shareEvent = async () => {
+        if (shareLoading) return;
         try {
+            setShareLoading(true);
             const eventUrl = `${BASE_URL}/event/${eventId}`;
             const shareMessage = `🎉 Check out this event: ${event.title}\n\n📅 ${formatEventDate(event.startAt)} at ${formatEventTime(event.startAt)}\n📍 ${event.location || 'Online'}\n\n${eventUrl}`;
 
@@ -380,13 +397,18 @@ export default function EventDetail({ route, navigation }) {
             }
         } catch (error) {
             logger.error('Error sharing:', error);
+            Alert.alert('Error', 'Failed to share event.');
+        } finally {
+            setShareLoading(false);
         }
     };
 
     const toggleReminder = async () => {
+        if (reminderLoading) return;
         if (!user) return Alert.alert('Error', 'Please login to set reminders.');
 
         try {
+            setReminderLoading(true);
             if (reminderId) {
                 // Remove Reminder
                 const reminderDoc = await getDoc(doc(db, 'reminders', reminderId));
@@ -417,10 +439,14 @@ export default function EventDetail({ route, navigation }) {
         } catch (e) {
             logger.error(e);
             Alert.alert('Error', 'Action failed.');
+        } finally {
+            setReminderLoading(false);
         }
     };
 
     const toggleRsvp = async () => {
+        if (rsvpLoading) return;
+
         if (!user) {
             Alert.alert('Sign In', 'Please sign in to register.');
             return;
@@ -454,12 +480,16 @@ export default function EventDetail({ route, navigation }) {
     };
 
     const performRsvp = async () => {
+        if (rsvpLoading) return;
+
         const ref = doc(db, 'events', eventId, 'participants', user.uid);
         const userRef = doc(db, 'users', user.uid, 'participating', eventId);
         const userProfileRef = doc(db, 'users', user.uid);
+        const userPublicProfileRef = publicProfileRef(db, user.uid);
         const eventRef = doc(db, 'events', eventId);
 
         try {
+            setRsvpLoading(true);
             await runTransaction(db, async transaction => {
                 const participantDoc = await transaction.get(ref);
                 const userDoc = await transaction.get(userProfileRef);
@@ -496,6 +526,11 @@ export default function EventDetail({ route, navigation }) {
                     transaction.delete(ref);
                     transaction.delete(userRef);
                     transaction.update(userProfileRef, { points: increment(-RSVP_POINTS_CHANGE) });
+                    transaction.set(
+                        userPublicProfileRef,
+                        { points: increment(-RSVP_POINTS_CHANGE) },
+                        { merge: true },
+                    );
                     transaction.update(eventRef, eventUpdates);
                 } else {
                     const participantPayload = {
@@ -520,6 +555,11 @@ export default function EventDetail({ route, navigation }) {
                         userUpdate.badges = arrayUnion(`early_bird_${eventId}`);
                     }
                     transaction.update(userProfileRef, userUpdate);
+                    transaction.set(
+                        userPublicProfileRef,
+                        { points: increment(RSVP_POINTS_CHANGE) },
+                        { merge: true },
+                    );
 
                     const nextPreview = buildPreviewUpdate({
                         eventData,
@@ -536,6 +576,8 @@ export default function EventDetail({ route, navigation }) {
                     transaction.update(eventRef, eventUpdates);
                 }
             });
+
+            participantService.clearParticipantCache(eventId);
 
             // Post-transaction effects
             if (rsvpStatus === 'going') {
@@ -557,6 +599,8 @@ export default function EventDetail({ route, navigation }) {
         } catch (e) {
             logger.error('RSVP Error: ', e);
             Alert.alert('Error', 'Failed to update RSVP');
+        } finally {
+            setRsvpLoading(false);
         }
     };
 
@@ -581,7 +625,6 @@ export default function EventDetail({ route, navigation }) {
             return;
         }
 
-        setSendingCertificates(true);
         try {
             // Fetch Participants via participantService
             logger.debug(`Fetching participants for event: ${event.id}`);
@@ -597,7 +640,6 @@ export default function EventDetail({ route, navigation }) {
 
             if (participants.length === 0) {
                 Alert.alert('Error', 'No participants found with valid emails.');
-                setSendingCertificates(false);
                 return;
             }
 
@@ -622,14 +664,13 @@ export default function EventDetail({ route, navigation }) {
         } catch (e) {
             logger.error('Certificate Send Error:', e);
             Alert.alert('Error', e.message || 'Failed to send certificates');
-        } finally {
-            setSendingCertificates(false);
         }
     };
 
     const handleDownloadCertificate = async () => {
+        if (certificateDownloadLoading) return;
         try {
-            setSendingCertificates(true);
+            setCertificateDownloadLoading(true);
 
             // Modern Professional Certificate Design
             const html = `
@@ -873,10 +914,13 @@ export default function EventDetail({ route, navigation }) {
                     printWindow.document.close();
 
                     // Allow styles and fonts to load
-                    setTimeout(() => {
-                        printWindow.focus();
-                        printWindow.print();
-                    }, 500);
+                    await new Promise(resolve => {
+                        setTimeout(() => {
+                            printWindow.focus();
+                            printWindow.print();
+                            resolve();
+                        }, 500);
+                    });
                 } else {
                     Alert.alert('Blocked', 'Please allow pop-ups to download the certificate.');
                 }
@@ -902,11 +946,13 @@ export default function EventDetail({ route, navigation }) {
             logger.error('Certificate Error:', e);
             Alert.alert('Error', 'Failed to generate certificate: ' + e.message);
         } finally {
-            setSendingCertificates(false); // Reset loading state
+            setCertificateDownloadLoading(false);
         }
     };
     const handleLinkedInShare = async () => {
+        if (linkedinLoading) return;
         try {
+            setLinkedinLoading(true);
             const linkedinUrl = `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME`;
 
             const certificateName = encodeURIComponent(event.title);
@@ -925,12 +971,23 @@ export default function EventDetail({ route, navigation }) {
         } catch (error) {
             logger.debug(error);
             Alert.alert('Error', 'Failed to open LinkedIn');
+        } finally {
+            setLinkedinLoading(false);
         }
     };
 
     const handleSendCertificates = async () => {
+        if (sendingCertificatesRef.current || sendingCertificates) return;
+
+        sendingCertificatesRef.current = true;
+        setSendingCertificates(true);
         logger.debug('Send Certificates Button Clicked');
-        sendCertificates();
+        try {
+            await sendCertificates();
+        } finally {
+            sendingCertificatesRef.current = false;
+            setSendingCertificates(false);
+        }
     };
 
     const handleFeedbackSubmit = async data => {
@@ -949,7 +1006,7 @@ export default function EventDetail({ route, navigation }) {
             Alert.alert('Thank You', 'Feedback submitted!');
         } catch (error) {
             logger.error(error);
-            Alert.alert('Error', 'Failed to submit feedback');
+            throw error;
         }
     };
 
@@ -1398,14 +1455,22 @@ export default function EventDetail({ route, navigation }) {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={styles.bookmarkButton}
+                                style={[
+                                    styles.bookmarkButton,
+                                    bookmarkLoading && styles.disabledButton,
+                                ]}
                                 onPress={toggleBookmark}
+                                disabled={bookmarkLoading}
                             >
-                                <Ionicons
-                                    name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-                                    size={24}
-                                    color="#fff"
-                                />
+                                {bookmarkLoading ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Ionicons
+                                        name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                                        size={24}
+                                        color="#fff"
+                                    />
+                                )}
                             </TouchableOpacity>
                         </View>
 
@@ -1579,7 +1644,11 @@ export default function EventDetail({ route, navigation }) {
                     <View
                         style={[styles.quickActionsCard, { backgroundColor: theme.colors.surface }]}
                     >
-                        <TouchableOpacity style={styles.quickAction} onPress={toggleReminder}>
+                        <TouchableOpacity
+                            style={[styles.quickAction, reminderLoading && styles.disabledButton]}
+                            onPress={toggleReminder}
+                            disabled={reminderLoading}
+                        >
                             <View
                                 style={[
                                     styles.quickActionIcon,
@@ -1590,14 +1659,23 @@ export default function EventDetail({ route, navigation }) {
                                     },
                                 ]}
                             >
-                                <Ionicons
-                                    name={reminderId ? 'notifications' : 'notifications-outline'}
-                                    size={20}
-                                    color={reminderId ? '#fff' : theme.colors.primary}
-                                />
+                                {reminderLoading ? (
+                                    <ActivityIndicator
+                                        size="small"
+                                        color={reminderId ? '#fff' : theme.colors.primary}
+                                    />
+                                ) : (
+                                    <Ionicons
+                                        name={
+                                            reminderId ? 'notifications' : 'notifications-outline'
+                                        }
+                                        size={20}
+                                        color={reminderId ? '#fff' : theme.colors.primary}
+                                    />
+                                )}
                             </View>
                             <Text style={[styles.quickActionLabel, { color: theme.colors.text }]}>
-                                Remind
+                                {reminderLoading ? 'Saving...' : 'Remind'}
                             </Text>
                         </TouchableOpacity>
 
@@ -1619,21 +1697,29 @@ export default function EventDetail({ route, navigation }) {
                             </Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.quickAction} onPress={shareEvent}>
+                        <TouchableOpacity
+                            style={[styles.quickAction, shareLoading && styles.disabledButton]}
+                            onPress={shareEvent}
+                            disabled={shareLoading}
+                        >
                             <View
                                 style={[
                                     styles.quickActionIcon,
                                     { backgroundColor: theme.colors.primary + '20' },
                                 ]}
                             >
-                                <Ionicons
-                                    name="share-social-outline"
-                                    size={20}
-                                    color={theme.colors.primary}
-                                />
+                                {shareLoading ? (
+                                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                                ) : (
+                                    <Ionicons
+                                        name="share-social-outline"
+                                        size={20}
+                                        color={theme.colors.primary}
+                                    />
+                                )}
                             </View>
                             <Text style={[styles.quickActionLabel, { color: theme.colors.text }]}>
-                                Share
+                                {shareLoading ? 'Sharing...' : 'Share'}
                             </Text>
                         </TouchableOpacity>
 
@@ -1692,6 +1778,7 @@ export default function EventDetail({ route, navigation }) {
                                             ?.lookingForBuddy || false
                                     }
                                     onValueChange={handleToggleBuddyDetail}
+                                    disabled={buddyLoading}
                                     trackColor={{
                                         false: theme.colors.border,
                                         true: theme.colors.primary + '80',
@@ -1997,270 +2084,6 @@ export default function EventDetail({ route, navigation }) {
                         )}
                     </View>
 
-                    {/* Event Popularity Analytics Card (GSSoC Feature) */}
-                    {(() => {
-                        const registrationsVal = participantCount || 0;
-                        const viewsVal = event.views || 0;
-                        const savesVal = event.savedCount || 0;
-                        const scoreVal = Math.min(
-                            Math.round(registrationsVal * 1.5 + savesVal * 1 + viewsVal * 0.2),
-                            100,
-                        );
-                        const isTrendingVal = scoreVal >= 75;
-                        const remainingSeatsVal = event.capacity
-                            ? Math.max(0, event.capacity - registrationsVal)
-                            : null;
-
-                        return (
-                            <View
-                                style={{
-                                    backgroundColor: theme.colors.surface,
-                                    borderRadius: 16,
-                                    padding: 18,
-                                    marginTop: 20,
-                                    borderWidth: 1,
-                                    borderColor: theme.colors.border,
-                                    ...theme.shadows.small,
-                                }}
-                            >
-                                <View
-                                    style={{
-                                        flexDirection: 'row',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        marginBottom: 12,
-                                    }}
-                                >
-                                    <Text
-                                        style={{
-                                            fontSize: 16,
-                                            fontWeight: '800',
-                                            color: theme.colors.text,
-                                        }}
-                                    >
-                                        📊 Popularity Analytics
-                                    </Text>
-                                    {isTrendingVal && (
-                                        <View
-                                            style={{
-                                                backgroundColor: '#FF4D4D20',
-                                                paddingVertical: 4,
-                                                paddingHorizontal: 10,
-                                                borderRadius: 20,
-                                                borderWidth: 1,
-                                                borderColor: '#FF4D4D',
-                                            }}
-                                        >
-                                            <Text
-                                                style={{
-                                                    color: '#FF4D4D',
-                                                    fontWeight: '800',
-                                                    fontSize: 10,
-                                                }}
-                                            >
-                                                🔥 TRENDING
-                                            </Text>
-                                        </View>
-                                    )}
-                                </View>
-
-                                <View
-                                    style={{
-                                        flexDirection: 'row',
-                                        flexWrap: 'wrap',
-                                        gap: 8,
-                                        marginBottom: 14,
-                                    }}
-                                >
-                                    <View
-                                        style={{
-                                            flex: 1,
-                                            minWidth: 70,
-                                            backgroundColor: theme.colors.background,
-                                            padding: 10,
-                                            borderRadius: 8,
-                                            borderWidth: 1,
-                                            borderColor: theme.colors.border,
-                                            alignItems: 'center',
-                                        }}
-                                    >
-                                        <Text
-                                            style={{
-                                                fontSize: 8,
-                                                color: theme.colors.textSecondary,
-                                                fontWeight: '700',
-                                                textTransform: 'uppercase',
-                                            }}
-                                        >
-                                            Joined
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                fontSize: 16,
-                                                fontWeight: '900',
-                                                color: theme.colors.text,
-                                                marginTop: 4,
-                                            }}
-                                        >
-                                            {registrationsVal}
-                                        </Text>
-                                    </View>
-                                    {remainingSeatsVal !== null && (
-                                        <View
-                                            style={{
-                                                flex: 1,
-                                                minWidth: 70,
-                                                backgroundColor: theme.colors.background,
-                                                padding: 10,
-                                                borderRadius: 8,
-                                                borderWidth: 1,
-                                                borderColor: theme.colors.border,
-                                                alignItems: 'center',
-                                            }}
-                                        >
-                                            <Text
-                                                style={{
-                                                    fontSize: 8,
-                                                    color: theme.colors.textSecondary,
-                                                    fontWeight: '700',
-                                                    textTransform: 'uppercase',
-                                                }}
-                                            >
-                                                Left
-                                            </Text>
-                                            <Text
-                                                style={{
-                                                    fontSize: 16,
-                                                    fontWeight: '900',
-                                                    color:
-                                                        remainingSeatsVal === 0
-                                                            ? theme.colors.error
-                                                            : theme.colors.success,
-                                                    marginTop: 4,
-                                                }}
-                                            >
-                                                {remainingSeatsVal === 0
-                                                    ? 'Full'
-                                                    : remainingSeatsVal}
-                                            </Text>
-                                        </View>
-                                    )}
-                                    <View
-                                        style={{
-                                            flex: 1,
-                                            minWidth: 70,
-                                            backgroundColor: theme.colors.background,
-                                            padding: 10,
-                                            borderRadius: 8,
-                                            borderWidth: 1,
-                                            borderColor: theme.colors.border,
-                                            alignItems: 'center',
-                                        }}
-                                    >
-                                        <Text
-                                            style={{
-                                                fontSize: 8,
-                                                color: theme.colors.textSecondary,
-                                                fontWeight: '700',
-                                                textTransform: 'uppercase',
-                                            }}
-                                        >
-                                            Views
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                fontSize: 16,
-                                                fontWeight: '900',
-                                                color: theme.colors.text,
-                                                marginTop: 4,
-                                            }}
-                                        >
-                                            {viewsVal}
-                                        </Text>
-                                    </View>
-                                    <View
-                                        style={{
-                                            flex: 1,
-                                            minWidth: 70,
-                                            backgroundColor: theme.colors.background,
-                                            padding: 10,
-                                            borderRadius: 8,
-                                            borderWidth: 1,
-                                            borderColor: theme.colors.border,
-                                            alignItems: 'center',
-                                        }}
-                                    >
-                                        <Text
-                                            style={{
-                                                fontSize: 8,
-                                                color: theme.colors.textSecondary,
-                                                fontWeight: '700',
-                                                textTransform: 'uppercase',
-                                            }}
-                                        >
-                                            Saves
-                                        </Text>
-                                        <Text
-                                            style={{
-                                                fontSize: 16,
-                                                fontWeight: '900',
-                                                color: theme.colors.text,
-                                                marginTop: 4,
-                                            }}
-                                        >
-                                            {savesVal}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                <View
-                                    style={{
-                                        flexDirection: 'row',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        marginBottom: 6,
-                                    }}
-                                >
-                                    <Text
-                                        style={{
-                                            fontSize: 12,
-                                            color: theme.colors.textSecondary,
-                                            fontWeight: '600',
-                                        }}
-                                    >
-                                        Popularity Score:
-                                    </Text>
-                                    <Text
-                                        style={{
-                                            fontSize: 14,
-                                            fontWeight: '800',
-                                            color: theme.colors.primary,
-                                        }}
-                                    >
-                                        {scoreVal} / 100
-                                    </Text>
-                                </View>
-                                <View
-                                    style={{
-                                        height: 8,
-                                        backgroundColor: theme.colors.border,
-                                        borderRadius: 4,
-                                        overflow: 'hidden',
-                                    }}
-                                >
-                                    <View
-                                        style={{
-                                            width: `${scoreVal}%`,
-                                            height: '100%',
-                                            backgroundColor:
-                                                scoreVal >= 75 ? '#FF4D4D' : theme.colors.primary,
-                                        }}
-                                    />
-                                </View>
-                            </View>
-                        );
-                    })()}
-
                     {/* Tabs Navigation — Interactive */}
                     <View
                         style={{
@@ -2468,6 +2291,7 @@ export default function EventDetail({ route, navigation }) {
                                                 backgroundColor: theme.colors.success + '10',
                                                 borderColor: theme.colors.success,
                                             },
+                                            sendingCertificates && styles.disabledButton,
                                         ]}
                                         onPress={
                                             event.certificatesSent
@@ -2599,6 +2423,7 @@ export default function EventDetail({ route, navigation }) {
                         style={[
                             styles.primaryBtn,
                             rsvpStatus === 'going' && styles.secondaryBtn,
+                            (rsvpLoading || certificateDownloadLoading) && styles.disabledButton,
                             new Date(event.endAt) < new Date() &&
                                 !(rsvpStatus === 'going' && event.certificatesSent) && {
                                     backgroundColor: theme.colors.textSecondary,
@@ -2607,22 +2432,41 @@ export default function EventDetail({ route, navigation }) {
                         ]}
                         onPress={primaryBtnOnPress}
                         disabled={
-                            new Date(event.endAt) < new Date() &&
-                            !(rsvpStatus === 'going' && event.certificatesSent)
+                            rsvpLoading ||
+                            certificateDownloadLoading ||
+                            (new Date(event.endAt) < new Date() &&
+                                !(rsvpStatus === 'going' && event.certificatesSent))
                         }
                     >
-                        <Text
-                            style={[
-                                styles.primaryBtnText,
-                                rsvpStatus === 'going' && styles.secondaryBtnText,
-                                new Date(event.endAt) < new Date() &&
-                                    !(rsvpStatus === 'going' && event.certificatesSent) && {
-                                        color: '#fff',
-                                    },
-                            ]}
-                        >
-                            {primaryBtnText}
-                        </Text>
+                        {rsvpLoading || certificateDownloadLoading ? (
+                            <View style={styles.rsvpLoadingContent}>
+                                <ActivityIndicator
+                                    size="small"
+                                    color={rsvpStatus === 'going' ? theme.colors.primary : '#fff'}
+                                />
+                                <Text
+                                    style={[
+                                        styles.primaryBtnText,
+                                        rsvpStatus === 'going' && styles.secondaryBtnText,
+                                    ]}
+                                >
+                                    {certificateDownloadLoading ? 'Generating...' : 'Updating...'}
+                                </Text>
+                            </View>
+                        ) : (
+                            <Text
+                                style={[
+                                    styles.primaryBtnText,
+                                    rsvpStatus === 'going' && styles.secondaryBtnText,
+                                    new Date(event.endAt) < new Date() &&
+                                        !(rsvpStatus === 'going' && event.certificatesSent) && {
+                                            color: '#fff',
+                                        },
+                                ]}
+                            >
+                                {primaryBtnText}
+                            </Text>
+                        )}
                     </TouchableOpacity>
                 </View>
             )}
@@ -2993,6 +2837,15 @@ const getStyles = theme =>
             backgroundColor: theme.colors.surface,
             borderWidth: 2,
             borderColor: theme.colors.primary,
+        },
+        disabledButton: {
+            opacity: 0.7,
+        },
+        rsvpLoadingContent: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
         },
         primaryBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
         secondaryBtnText: { color: theme.colors.primary },

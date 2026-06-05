@@ -21,6 +21,7 @@ import {
 import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
 import { auth, db } from '../lib/firebaseConfig';
+import { upsertPublicProfile } from '../lib/publicProfile';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -153,7 +154,7 @@ async function handleCredentialSignIn(
         const userDoc = await getDoc(userDocRef);
 
         if (!userDoc.exists()) {
-            await setDoc(userDocRef, {
+            const userProfile = {
                 email: user.email,
                 displayName: user.displayName,
                 role: 'student',
@@ -161,7 +162,10 @@ async function handleCredentialSignIn(
                 createdAt: new Date().toISOString(),
                 photoURL: user.photoURL,
                 provider: 'google',
-            });
+            };
+
+            await setDoc(userDocRef, userProfile);
+            await upsertPublicProfile(db, user.uid, userProfile);
         }
     } catch (error) {
         Alert.alert('Google Sign-In Error', error.message);
