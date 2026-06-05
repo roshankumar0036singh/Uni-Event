@@ -77,7 +77,7 @@ export default function EventCard({
                 style,
             ]}
             activeOpacity={0.9}
-            onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
+            onPress={() => navigation.navigate('EventDetail', { eventId: event.id, event })}
         >
             {/* 1. MAIN BANNER IMAGE (Top Layer) */}
             <View style={[styles.bannerContainer, isRecommended && { height: 140 }]}>
@@ -294,7 +294,7 @@ export default function EventCard({
                                 { backgroundColor: theme.colors.primary, ...theme.shadows.default },
                             ]}
                             onPress={() =>
-                                navigation.navigate('EventDetail', { eventId: event.id })
+                                navigation.navigate('EventDetail', { eventId: event.id, event })
                             }
                         >
                             <Text style={styles.registerText}>REGISTER</Text>

@@ -48,15 +48,15 @@ const RSVP_POINTS_CHANGE = 10;
 const FALLBACK_EARLY_BIRD_MS = 3600000; // 1 hour early-bird duration fallback
 
 export default function EventDetail({ route, navigation }) {
-    const { eventId, action } = route.params;
+    const { eventId, action, event: initialEvent } = route.params || {};
     const { user } = useAuth();
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
 
-    const [event, setEvent] = useState(null);
+    const [event, setEvent] = useState(initialEvent || null);
     const ebInfo = useMemo(() => getEarlyBirdInfo(event), [event]);
 
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!initialEvent);
     const [sendingCertificates, setSendingCertificates] = useState(false);
     const [rsvpStatus, setRsvpStatus] = useState(null);
     const [participantCount, setParticipantCount] = useState(0);
