@@ -9,6 +9,7 @@ import {
     getDocs,
     orderBy,
     startAfter,
+    collectionGroup,
 } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -207,6 +208,9 @@ export default function UserFeed() {
     const [currentFeedbackRequest, setCurrentFeedbackRequest] = useState(null);
     const scrollY = useRef(new Animated.Value(0)).current;
 
+    const [followingIds, setFollowingIds] = useState([]);
+    const [friendsEvents, setFriendsEvents] = useState([]);
+
     const isFocused = useIsFocused();
 
     //  debounce effect
@@ -275,6 +279,72 @@ export default function UserFeed() {
         });
         return unsub;
     }, [user, isFocused]);
+
+    // Fetch Following IDs
+    useEffect(() => {
+        if (!user || !isFocused) return;
+        const q = collection(db, 'users', user.uid, 'following');
+        const unsub = onSnapshot(q, snapshot => {
+            setFollowingIds(snapshot.docs.map(d => d.id));
+        });
+        return unsub;
+    }, [user, isFocused]);
+
+    // Fetch Friends' Events
+    useEffect(() => {
+        const fetchFriendsEvents = async () => {
+            if (followingIds.length === 0) {
+                setFriendsEvents([]);
+                return;
+            }
+
+            try {
+                const topFriends = followingIds.slice(0, 10);
+                const q = query(
+                    collectionGroup(db, 'participants'),
+                    where('userId', 'in', topFriends),
+                );
+                const snapshot = await getDocs(q);
+
+                const eventIds = new Set();
+                snapshot.docs.forEach(doc => {
+                    const eventId = doc.ref.parent?.parent?.id;
+                    if (eventId) eventIds.add(eventId);
+                });
+
+                if (eventIds.size === 0) {
+                    setFriendsEvents([]);
+
+                    return;
+                }
+
+                const fetchIds = Array.from(eventIds).slice(0, 10);
+                // Cannot query __name__ in with more than 10, so sliced to 10
+                const qEvents = query(collection(db, 'events'), where('__name__', 'in', fetchIds));
+                const evSnap = await getDocs(qEvents);
+
+                const now = new Date();
+                const fetchedEvents = [];
+                evSnap.docs.forEach(doc => {
+                    const data = doc.data();
+                    if (data.status === 'suspended' || data.deletedAt != null) return;
+
+                    const end = data.endAt
+                        ? new Date(data.endAt)
+                        : new Date(new Date(data.startAt).getTime() + 24 * 60 * 60 * 1000);
+                    if (end >= now) {
+                        fetchedEvents.push({ id: doc.id, ...data });
+                    }
+                });
+
+                fetchedEvents.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
+                setFriendsEvents(fetchedEvents);
+            } catch (e) {
+                console.error('Error fetching friends events:', e);
+            }
+        };
+        fetchFriendsEvents();
+    }, [followingIds]);
 
     // Listen for pending feedback requests
     useEffect(() => {
@@ -554,6 +624,24 @@ export default function UserFeed() {
 
     const renderHeader = () => (
         <Animated.View style={{ transform: [{ translateY: headerTranslateY }] }}>
+            {/* Friends Events Rail */}
+            {friendsEvents.length > 0 && (
+                <View style={{ marginBottom: 20 }}>
+                    <Text style={styles.sectionTitle}>YOUR FRIENDS ARE GOING</Text>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ paddingHorizontal: 20 }}
+                    >
+                        {friendsEvents.map(event => (
+                            <View key={event.id} style={{ width: 320, marginRight: 15 }}>
+                                <EventCard event={event} isRecommended={false} />
+                            </View>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
+
             {/* Recommendations Rail */}
             <View style={{ marginBottom: 20 }}>
                 <Text style={styles.sectionTitle}>RECOMMENDED FOR YOU</Text>
