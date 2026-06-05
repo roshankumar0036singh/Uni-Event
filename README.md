@@ -3,10 +3,11 @@
 <div align="center">
 
 # 🎓 UniEvent
+
 ## University Event Management Platform
- 
+
 [![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=22&pause=1000&color=1E3A8A&center=true&vCenter=true&width=500&lines=Discover.+Register.+Attend.;Built+for+Students%2C+by+the+Community.;Open+Source+%7C+Cross-Platform+%7C+Firebase-Powered.)](https://git.io/typing-svg)
- 
+
 <p>
   <a href="https://unievent-ez2w.onrender.com/">
     <img src="https://img.shields.io/badge/🌐 Live WebApp-FF4F8B?style=for-the-badge&logoColor=white" alt="WebApp" />
@@ -31,19 +32,16 @@
   <img src="https://img.shields.io/github/license/roshankumar0036singh/Uni-Event?style=flat-square&color=purple" alt="License" />
   <img src="https://img.shields.io/github/commit-activity/y/roshankumar0036singh/Uni-Event?style=flat-square&color=yellow" alt="Commits" />
 </p>
-<p>
-  <img src="https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" />
-  <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
-  <img src="https://img.shields.io/badge/Expo-000020?style=for-the-badge&logo=expo&logoColor=white" />
-  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" />
-  <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" />
+<p align="center">
+  <img src="https://skillicons.dev/icons?i=react,firebase,nodejs,typescript,github" />
+  <img src="https://img.shields.io/badge/-000020?logo=expo&logoColor=white" height="48" />
 </p>
 </div>
 
 ---
- 
+
 ## 📋 Table of Contents
- 
+
 - [Overview](#-overview)
 - [Features](#-features)
 - [Tech Stack](#️-tech-stack)
@@ -68,16 +66,18 @@ Whether it's a department seminar, cultural fest, hackathon, or club meetup — 
  
 ### Why UniEvent?
  
-| Problem | UniEvent's Solution |
-|--------|---------------------|
-| Events scattered across WhatsApp, notice boards, emails | **One centralized platform** for all campus events |
-| Manual attendance tracking via paper | **QR Code-based contactless check-in** |
-| No visibility into event participation data | **Analytics dashboard** with branch & year-wise insights |
-| Poor student engagement with campus activities | **Gamification** — points, badges, and leaderboards |
-| Difficult for clubs to manage registrations | **Custom forms, payment integration & dashboards** |
- 
+| Problem                                                 | UniEvent's Solution                                      |
+|---------------------------------------------------------|----------------------------------------------------------|
+| Events scattered across WhatsApp, notice boards, emails | **One centralized platform** for all campus events       |
+| Manual attendance tracking via paper                    | **QR Code-based contactless check-in**                   |
+| No visibility into event participation data             | **Analytics dashboard** with branch & year-wise insights |
+| Poor student engagement with campus activities          | **Gamification** — points, badges, and leaderboards      |
+| Difficult for clubs to manage registrations             | **Custom forms, payment integration & dashboards**       |
+
+---
+
 ### Key Highlights
- 
+
 - **Built for Campus Life** — Tailored for students, clubs, and administrators
 - **Data-Driven** — Rich analytics for every event organizer
 - **Firebase-Powered** — Enterprise-grade scalability and real-time sync
@@ -85,11 +85,22 @@ Whether it's a department seminar, cultural fest, hackathon, or club meetup — 
 - **Open Source** — MIT licensed, community contributions welcome
 
 ---
- 
+
+## 📊 Project Metrics
+
+- 📱 Cross Platform Support
+- 🔥 Firebase Backend
+- ⚡ Real-Time Sync
+- 🎯 QR Attendance
+- 🏆 Gamification System
+- 📈 Analytics Dashboard
+
+---
+
 ## ✨ Features
- 
-### For Students
- 
+
+### 🎓 For Students
+
 | Feature | Description |
 |---------|-------------|
 | **Event Discovery** | Browse and search events filtered by department, year, and interests |
@@ -100,7 +111,7 @@ Whether it's a department seminar, cultural fest, hackathon, or club meetup — 
 | **Saved Events** | Bookmark events you're interested in for quick access later |
 | **Event Chat** | Real-time discussion space with fellow attendees |
  
-### For Event Organizers
+### 📅 For Event Organizers
  
 | Feature | Description |
 |---------|-------------|
@@ -112,8 +123,7 @@ Whether it's a department seminar, cultural fest, hackathon, or club meetup — 
 | **Google Meet Integration** | Auto-generate meeting links for virtual or hybrid events |
 | **Reputation Tracking** | Gamified scoring system based on event success metrics |
  
-### For Administrators
- 
+### 🛡️ For Administrators
 | Feature | Description |
 |---------|-------------|
 | **Control Panel** | Platform-wide event moderation and oversight tools |
@@ -156,12 +166,12 @@ Whether it's a department seminar, cultural fest, hackathon, or club meetup — 
 | **Firebase Emulators** | Local development environment |
 | **Dependabot** | Automated dependency security updates |
 | **CodeRabbit AI** | Automated AI-assisted code reviews |
- 
+
 ---
- 
+
 ## 📁 Project Structure
- 
-```
+
+```bash
 Uni-Event/
 ├── app/                          # React Native + Expo frontend
 │   ├── assets/                   # Images, fonts, icons
@@ -196,67 +206,84 @@ Uni-Event/
 ├── CODE_OF_CONDUCT.md            # Community standards
 └── LICENSE                       # MIT License
 ```
- 
+
+- [Expanded_Project_Structure](Docs/Expanded_Project_Structure.md)
+
 ---
- 
+
+## 🎥 Demo Video (Web Preview)
+
+<div align="center">
+  <video controls src="demo_video.mp4" title="Demo_Video"></video>
+</div>
+
+---
+
+## 📸 Screenshots (Web Preview)
+
+<img src="Auth.png" alt="Demo_Photo">
+
+---
+
 ## 🚀 Quick Start
- 
+
 ### Prerequisites
- 
+
 Make sure you have the following installed before proceeding:
- 
+
 - **Node.js** v18+ → [Download](https://nodejs.org/)
 - **npm** or **yarn**
 - **Expo CLI**: `npm install -g expo-cli`
 - **Firebase CLI**: `npm install -g firebase-tools`
 - **Java 11+** (required for Firebase Emulators)
+
 ### 1. Clone the Repository
- 
+
 ```bash
 git clone https://github.com/roshankumar0036singh/Uni-Event.git
 cd Uni-Event
 ```
- 
+
 ### 2. Install Dependencies
- 
+
 ```bash
 # Install frontend dependencies
 cd app
 npm install
- 
+
 # Install cloud functions dependencies
 cd ../cloud-functions
 npm install
 ```
- 
+
 ---
- 
+
 ## Configuration
- 
+
 ### Step 1 — Copy the Environment Template
- 
+
 ```bash
 cp app/.env.example app/.env
 ```
- 
+
 ### Step 2 — Fill in Your Credentials
- 
+
 Open `app/.env` and populate the required keys. The file contains three groups of variables:
- 
+
 | Group | Variables |
 |-------|-----------|
 | Firebase Config | `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID` |
 | Google OAuth | `GOOGLE_CLIENT_ID_ANDROID`, `GOOGLE_CLIENT_ID_IOS`, `GOOGLE_CLIENT_ID_WEB` |
 | Email Service (Optional) | `EMAILJS_SERVICE_ID`, `EMAILJS_TEMPLATE_ID`, `EMAILJS_PUBLIC_KEY` |
- 
+
 > For a step-by-step guide on how to obtain each key from the respective platforms (Firebase Console, Google Cloud Console, EmailJS), refer to [docs/ENV_SETUP.md](./docs/ENV_SETUP.md).
- 
+
 ---
- 
+
 ## 💻 Running Locally
- 
+
 You'll need two terminals running simultaneously.
- 
+
 **Terminal 1 — Start Firebase Emulators (Backend)**
  
 ```bash
@@ -307,9 +334,9 @@ npm test
  
 ---
  
-## Documentation
+## 📚 Documentation
  
-### Setup & Configuration
+### ⚙️ Setup & Configuration
  
 | Document | Description |
 |----------|-------------|
@@ -317,72 +344,73 @@ npm test
 | [Environment Variables](./docs/ENV_SETUP.md) | How to obtain and configure all required API keys |
 | [Firebase Setup](./docs/FIREBASE_SETUP.md) | Firebase project creation and emulator configuration |
 | [Troubleshooting Guide](./docs/TROUBLESHOOTING.md) | Platform diagnostics and resolution workflows |
- 
+
 ### Architecture & Development
  
 | Document | Description |
 |----------|-------------|
-| [Architecture](./docs/Architecture.md) | System design, data flow, and architecture overview |
-| [Data Model Specification](./docs/DATA_MODEL.md) | Firestore ER diagram, collection schemas, and indexes |
-| [Contributing Guide](./CONTRIBUTING.md) | How to contribute code, docs, or bug reports |
-| [Code of Conduct](./CODE_OF_CONDUCT.md) | Community standards and expectations |
- 
+| [🏗️ Architecture](./docs/Architecture.md) | System design, data flow, and architecture overview |
+| [🏢 Expanded Architecture](./docs/Expanded_Architecture.md) | System architecture, backend services, and communication flow overview |
+| [🗄️ Data Model Specification](./docs/DATA_MODEL.md) | Firestore ER diagram, collection schemas, and indexes |
+| [🤝 Contributing Guide](./CONTRIBUTING.md) | How to contribute code, docs, or bug reports |
+| [🧑‍💻 Code of Conduct](./CODE_OF_CONDUCT.md) | Community standards and expectations |
+
 ---
- 
+
 ## 🤝 Contributing
- 
+
 We warmly welcome contributions from the community — whether you're a first-timer or a seasoned open-source developer. Bug fixes, new features, documentation improvements, and issue reports are all valuable.
- 
+
 ### Setting Up Your Fork
- 
+
 ```bash
 # Step 1: Fork the repository on GitHub
- 
+
 # Step 2: Clone your fork locally
 git clone https://github.com/YOUR_USERNAME/Uni-Event.git
 cd Uni-Event
- 
+
 # Step 3: Add the original repo as upstream
 git remote add upstream https://github.com/roshankumar0036singh/Uni-Event.git
- 
+
 # Step 4: Verify remotes
 git remote -v
 ```
- 
+
 ### Keeping Your Fork in Sync
- 
+
 ```bash
 # Fetch latest changes from the original repo
 git fetch upstream
- 
+
 # Switch to your main branch
 git checkout main
- 
+
 # Merge upstream changes into your local main
 git merge upstream/main
- 
+
 # Push the updated main to your fork
 git push origin main
 ```
- 
+
 ### Development Workflow
- 
+
 ```bash
 # Create a new branch for your feature or fix
 git checkout -b feature/your-feature-name
- 
+
 # Make your changes, then stage and commit
 git add .
 git commit -m "feat: add your feature description"
- 
+
 # Push your branch to your fork
 git push origin feature/your-feature-name
- 
+
 # Open a Pull Request on GitHub 🎉
 ```
- 
-### Contribution Guidelines
- 
+
+### 🧑‍💻 Contribution Guidelines
+
 - Follow the existing code style (ESLint + Prettier enforced).
 - Write clear, descriptive commit messages.
 - Reference related issues in your PR description (e.g., `Closes #42`).
@@ -390,11 +418,11 @@ git push origin feature/your-feature-name
 - Read [CONTRIBUTING.md](./CONTRIBUTING.md) before submitting a PR.
 
 ---
- 
+
 ## 💖 Contributors
- 
+
 Thanks to all the amazing people who contribute to **Uni-Event** 🚀
- 
+
 <p align="center">
   <a href="https://github.com/roshankumar0036singh/Uni-Event/graphs/contributors">
     <img src="https://contrib.rocks/image?repo=roshankumar0036singh/Uni-Event" alt="Contributors"/>
@@ -403,46 +431,48 @@ Thanks to all the amazing people who contribute to **Uni-Event** 🚀
 <br>
 
 ---
- 
+
 ## 📄 License
- 
+
 This project is licensed under the **MIT License** — you're free to use, modify, and distribute it with attribution.
- 
+
 See the [LICENSE](./LICENSE) file for full details.
- 
+
 ---
- 
+
 ## 🙏 Acknowledgments
- 
+
 UniEvent is built and maintained by contributors from the open-source community. Special thanks to everyone who has submitted issues, pull requests, or feedback to make this platform better.
- 
+
 Built with ❤️ using:
- 
+
 - [Firebase](https://firebase.google.com/) — Backend infrastructure
 - [Expo](https://expo.dev/) — Cross-platform app development
 - [React Native](https://reactnative.dev/) — Mobile UI framework
 
 ---
- 
+
 ## 🆘 Support
- 
+
 If you run into issues or have questions:
- 
+
 - 🐛 **Bug Reports** → [GitHub Issues](https://github.com/roshankumar0036singh/Uni-Event/issues)
 - 💬 **Discussions** → [GitHub Discussions](https://github.com/roshankumar0036singh/Uni-Event/discussions)
 - 📖 **Documentation** → [Project Wiki](https://github.com/roshankumar0036singh/Uni-Event/wiki)
 
 ---
- 
+
 <div align="center">
 **Empowering campus communities, one event at a time.**
- 
+
 <a href="#">⬆ Back to Top</a>
- 
+
 <br/>
 <img src="https://img.shields.io/github/repo-size/roshankumar0036singh/Uni-Event?style=flat-square&color=blue" />
 <img src="https://img.shields.io/github/languages/count/roshankumar0036singh/Uni-Event?style=flat-square&color=green" />
 <img src="https://img.shields.io/github/issues-pr/roshankumar0036singh/Uni-Event?style=flat-square" />
 <img src="https://img.shields.io/github/issues-closed/roshankumar0036singh/Uni-Event?style=flat-square" />
+<img src="https://img.shields.io/github/forks/roshankumar0036singh/Uni-Event?style=flat-square&color=green" />
 </div>
- 
+
+---
