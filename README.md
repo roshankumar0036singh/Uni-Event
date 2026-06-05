@@ -215,9 +215,7 @@ Uni-Event/
 
 ### 🎥 Demo Video (Web Preview)
 
-<div align="center">
-  <video controls src="demo_video_windows.mp4" title="Demo_Video_Windows"></video>
-</div>
+[Watch Demo Web]( https://github.com/user-attachments/assets/f2a92a2a-0c39-4913-9695-fdae9a50092f)
 
 ### 📸 Screenshots (Web Preview)
 
@@ -233,16 +231,13 @@ Uni-Event/
 
 ### 🎥 Demo Video (App Preview)
 
-<div align="center">
-  <video controls src="demo_video_mobile.mp4" title="Demo_Mobile"></video>
-</div>
+[Watch Demo App](https://github.com/user-attachments/assets/b71e2064-6f9e-4b64-abab-29e628f5387f)
 
 ### 📸 Screenshots (App Preview)
 
 <img src="Auth_Mobile.png" alt="Demo_Photo_Mobile">
 
 ---
-
 
 ## 🚀 Quick Start
 
