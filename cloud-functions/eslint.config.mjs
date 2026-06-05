@@ -59,6 +59,7 @@ export default defineConfig([
             camelcase: 'warn',
             'no-unused-vars': 'off',
             indent: 'off',
+            '@typescript-eslint/indent': 'off',
             'object-curly-spacing': 'off',
             'arrow-parens': 'off',
 
