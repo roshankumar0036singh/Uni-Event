@@ -211,19 +211,38 @@ Uni-Event/
 
 ---
 
-## 🎥 Demo Video (Web Preview)
+## 💻 Windows
+
+### 🎥 Demo Video (Web Preview)
 
 <div align="center">
-  <video controls src="demo_video.mp4" title="Demo_Video"></video>
+  <video controls src="demo_video_windows.mp4" title="Demo_Video_Windows"></video>
 </div>
 
+### 📸 Screenshots (Web Preview)
+
+<img src="Demo_Home_Screen.png" alt="Demo_Home_Screen">
+
+<img src="Demo_Reminders_Screen.png" alt="Demo_Reminder_Screen">
+
+<img src="Demo_Leaderboard_Screen.png" alt="Demo_Leaderboard_Screen">
+
+<img src="Demo_Profile_Screen.png" alt="Demo__Profile_Screen">
+
+## 📱 Mobile
+
+### 🎥 Demo Video (App Preview)
+
+<div align="center">
+  <video controls src="demo_video_mobile.mp4" title="Demo_Mobile"></video>
+</div>
+
+### 📸 Screenshots (App Preview)
+
+<img src="Auth_Mobile.png" alt="Demo_Photo_Mobile">
+
 ---
 
-## 📸 Screenshots (Web Preview)
-
-<img src="Auth.png" alt="Demo_Photo">
-
----
 
 ## 🚀 Quick Start
 
