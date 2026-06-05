@@ -33,9 +33,9 @@
   <img src="https://img.shields.io/github/commit-activity/y/roshankumar0036singh/Uni-Event?style=flat-square&color=yellow" alt="Commits" />
 </p>
 <p align="center">
-  <img src="https://skillicons.dev/icons?i=react,firebase,nodejs,typescript,github" />
-  <img src="https://img.shields.io/badge/-000020?logo=expo&logoColor=white" height="48" />
-</p>
+  <img src="https://skillicons.dev/icons?i=react,firebase,nodejs,typescript,github" alt="Tech Stack: React, Firebase, Node.js, TypeScript, GitHub" />
+  <img src="https://img.shields.io/badge/-000020?logo=expo&logoColor=white" height="48" alt="Expo" />
+ </p>
 </div>
 
 ---
@@ -207,7 +207,7 @@ Uni-Event/
 └── LICENSE                       # MIT License
 ```
 
-- [Expanded_Project_Structure](Docs/Expanded_Project_Structure.md)
+- [Expanded_Project_Structure](docs/Expanded_Project_Structure.md)  
 
 ---
 
@@ -468,11 +468,11 @@ If you run into issues or have questions:
 <a href="#">⬆ Back to Top</a>
 
 <br/>
-<img src="https://img.shields.io/github/repo-size/roshankumar0036singh/Uni-Event?style=flat-square&color=blue" />
-<img src="https://img.shields.io/github/languages/count/roshankumar0036singh/Uni-Event?style=flat-square&color=green" />
-<img src="https://img.shields.io/github/issues-pr/roshankumar0036singh/Uni-Event?style=flat-square" />
-<img src="https://img.shields.io/github/issues-closed/roshankumar0036singh/Uni-Event?style=flat-square" />
-<img src="https://img.shields.io/github/forks/roshankumar0036singh/Uni-Event?style=flat-square&color=green" />
+<img src="https://img.shields.io/github/repo-size/roshankumar0036singh/Uni-Event?style=flat-square&color=blue" alt="Repository Size" />
+<img src="https://img.shields.io/github/languages/count/roshankumar0036singh/Uni-Event?style=flat-square&color=green" alt="Languages Used" />
+<img src="https://img.shields.io/github/issues-pr/roshankumar0036singh/Uni-Event?style=flat-square" alt="Pull Requests" />
+<img src="https://img.shields.io/github/issues-closed/roshankumar0036singh/Uni-Event?style=flat-square" alt="Closed Issues" />
+<img src="https://img.shields.io/github/forks/roshankumar0036singh/Uni-Event?style=flat-square&color=green" alt="Forks" />
 </div>
 
 ---
