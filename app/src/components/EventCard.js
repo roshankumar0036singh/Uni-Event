@@ -498,7 +498,18 @@ const EventCard = memo(
             </TouchableOpacity>
         );
     },
+    arePropsEqual,
 );
+
+// Custom comparison: only re-render if relevant props change
+function arePropsEqual(prevProps, nextProps) {
+    return (
+        prevProps.event?.id === nextProps.event?.id &&
+        prevProps.event?.updatedAt === nextProps.event?.updatedAt &&
+        prevProps.isRegistered === nextProps.isRegistered &&
+        prevProps.isLiked === nextProps.isLiked
+    );
+}
 
 const styles = StyleSheet.create({
     card: {
@@ -685,3 +696,5 @@ EventCard.propTypes = {
 };
 
 export default EventCard;
+
+
