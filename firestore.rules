@@ -397,10 +397,7 @@ service cloud.firestore {
         isAdmin() ||
         ('userId' in resource.data && request.auth.uid == resource.data.userId)
       );
-      allow create: if request.auth != null && (
-        isAdmin() ||
-        (request.resource.data.userId == request.auth.uid)
-      );
+      allow create: if isAdmin();
       allow update, delete: if isAdmin();
     }
 
@@ -411,10 +408,7 @@ service cloud.firestore {
         ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
         ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
       );
-      allow create: if request.auth != null && (
-        isAdmin() ||
-        (request.resource.data.userId == request.auth.uid)
-      );
+      allow create: if isAdmin();
       allow update, delete: if isAdmin() || (
         request.auth != null &&
         ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
