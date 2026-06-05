@@ -46,7 +46,11 @@ const formatMetric = (value, singular, plural) => {
 function arePropsEqual(prevProps, nextProps) {
     return (
         prevProps.event?.id === nextProps.event?.id &&
-        prevProps.event?.updatedAt === nextProps.event?.updatedAt &&
+        prevProps.event?.title === nextProps.event?.title &&
+        prevProps.event?.location === nextProps.event?.location &&
+        prevProps.event?.startAt === nextProps.event?.startAt &&
+        prevProps.event?.isPaid === nextProps.event?.isPaid &&
+        prevProps.event?.status === nextProps.event?.status &&
         prevProps.isRegistered === nextProps.isRegistered &&
         prevProps.isLiked === nextProps.isLiked &&
         prevProps.isRecommended === nextProps.isRecommended &&
