@@ -145,6 +145,7 @@ export const getTopContributors = functions.https.onCall(async (data, context) =
         lastUserId,
         startRank,
     } = validateSchema(getTopContributorsSchema, data);
+    const safeStartRank = startRank ?? 1;
 
     const isCursorPagination = lastPoints || lastUserId;
 
@@ -169,7 +170,7 @@ export const getTopContributors = functions.https.onCall(async (data, context) =
 
         return {
             userId: doc.id,
-            rank: startRank + index,
+            rank: safeStartRank + index,
             name: userData.name || userData.fullName || userData.displayName || 'Unknown Student',
             department: userData.department || '',
             photoURL: userData.photoURL || '',
@@ -190,7 +191,7 @@ export const getTopContributors = functions.https.onCall(async (data, context) =
             ? {
                   lastPoints: lastContributor.points,
                   lastUserId: lastContributor.userId,
-                  startRank: startRank + contributors.length,
+                  startRank: safeStartRank + contributors.length,
               }
             : null,
     };
