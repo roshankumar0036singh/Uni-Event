@@ -1,5 +1,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { validateSchema } from "./validation/validate";
+import { setRoleSchema } from "./validation/schemas";
 
 // Assumes admin.initializeApp() is called in index.ts
 
@@ -24,25 +26,9 @@ export const setRole = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('permission-denied', 'Only admins can set roles.');
     }
 
-    const { uid, role } = data;
+    const { uid, role } = validateSchema(setRoleSchema, data);
 
-    if (!uid || !role) {
-        throw new functions.https.HttpsError(
-            'invalid-argument',
-            "The function must be called with 'uid' and 'role' arguments.",
-        );
-    }
-
-    // Validate role
-    const validRoles = ['admin', 'club', 'student'];
-    if (!validRoles.includes(role)) {
-        throw new functions.https.HttpsError(
-            'invalid-argument',
-            `Role must be one of: ${validRoles.join(', ')}`,
-        );
-    }
-
-    const claims: { [key: string]: boolean } = {};
+    const claims: Record<string, boolean> = {};
     if (role === 'admin') claims.admin = true;
     if (role === 'club') claims.club = true;
     // Student role implies no special claims
