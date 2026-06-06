@@ -1,8 +1,8 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { FieldValue, FieldPath } from 'firebase-admin/firestore';
-import { validateSchema } from "./validation/validate";
-import { getTopContributorsSchema } from "./validation/schemas";
+import { validateSchema } from './validation/validate';
+import { getTopContributorsSchema } from './validation/schemas';
 
 // Initialize only once (important for tests + Firebase runtime)
 if (!admin.apps.length) {
@@ -140,11 +140,11 @@ export const getTopContributors = functions.https.onCall(async (data, context) =
         );
     }
     const {
-    limit = 10,
-    lastPoints,
-    lastUserId,
-    startRank = 1,
-} = validateSchema(getTopContributorsSchema, data);
+        limit = 10,
+        lastPoints,
+        lastUserId,
+        startRank = 1,
+    } = validateSchema(getTopContributorsSchema, data);
 
     let query: FirebaseFirestore.Query = db
         .collection('users')

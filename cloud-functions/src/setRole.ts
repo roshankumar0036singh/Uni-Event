@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
-import { validateSchema } from "./validation/validate";
-import { setRoleSchema } from "./validation/schemas";
+import { validateSchema } from './validation/validate';
+import { setRoleSchema } from './validation/schemas';
 
 // Assumes admin.initializeApp() is called in index.ts
 
