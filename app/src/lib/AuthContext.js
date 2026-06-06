@@ -73,12 +73,52 @@ export const AuthProvider = ({ children }) => {
                 let userRole = 'student';
                 let dbData = {};
 
-                // 1. Check Custom Claims (Preferred)
-                const tokenResult = await currentUser
-                    .getIdTokenResult()
-                    .catch(() => ({ claims: {} }));
-                if (tokenResult.claims.admin) userRole = 'admin';
-                else if (tokenResult.claims.club) userRole = 'club';
+                // 1. Check Custom Claims and handle Emulator Token Refresh Errors
+                try {
+                    const tokenResult = await currentUser.getIdTokenResult(true);
+                    if (tokenResult.claims.admin) userRole = 'admin';
+                    else if (tokenResult.claims.club) userRole = 'club';
+                } catch (e) {
+                    logger.debug('Token refresh failed', e);
+
+                    // Attempt auto-recovery for 400 Bad Request / Emulator errors
+                    if (
+                        e.message &&
+                        (e.message.includes('400') ||
+                            e.code === 'auth/network-request-failed' ||
+                            e.code === 'auth/user-not-found' ||
+                            e.code === 'auth/user-token-expired')
+                    ) {
+                        logger.debug('Attempting auto-recovery for token refresh error...');
+                        try {
+                            const json = await getItemAsync('saved_accounts');
+                            let currentAccounts = [];
+                            if (json) currentAccounts = JSON.parse(json);
+
+                            const account = currentAccounts.find(
+                                a => a.email === currentUser.email,
+                            );
+                            if (account && account.password) {
+                                await signInWithEmailAndPassword(
+                                    auth,
+                                    account.email,
+                                    account.password,
+                                );
+                                return; // onAuthStateChanged will fire again
+                            } else {
+                                throw new Error('No saved password for auto-recovery');
+                            }
+                        } catch (recoveryErr) {
+                            logger.debug('Auto-recovery failed, signing out', recoveryErr);
+                            await firebaseSignOut(auth);
+                            setUser(null);
+                            setUserData(null);
+                            setRole('student');
+                            setLoading(false);
+                            return;
+                        }
+                    }
+                }
 
                 // 2. Fallback: Check Firestore Document
                 try {
