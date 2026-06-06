@@ -10,6 +10,7 @@ import {
     Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { useTheme } from '../lib/ThemeContext';
 import PremiumInput from '../components/PremiumInput';
@@ -206,7 +207,7 @@ export default function FormBuilderScreen({ navigation, route }) {
                 visible={modalVisible}
                 onRequestClose={() => setModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
+                <BlurView intensity={60} tint="dark" style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Add New Field</Text>
@@ -308,7 +309,7 @@ export default function FormBuilderScreen({ navigation, route }) {
                             </TouchableOpacity>
                         </ScrollView>
                     </View>
-                </View>
+                </BlurView>
             </Modal>
         </ScreenWrapper>
     );
@@ -410,7 +411,7 @@ const getStyles = theme =>
             elevation: 8,
         },
 
-        modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+        modalOverlay: { flex: 1, justifyContent: 'flex-end' },
         modalContent: {
             backgroundColor: '#121212',
             borderTopLeftRadius: 32,

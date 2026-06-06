@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { db } from '../lib/firebaseConfig';
@@ -342,7 +343,7 @@ export default function MobileAdmin() {
                 animationType="fade"
                 onRequestClose={() => setSuspendModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
+                <BlurView intensity={60} tint="dark" style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Suspend Event</Text>
                         <Text style={styles.modalSubtitle}>
@@ -373,7 +374,7 @@ export default function MobileAdmin() {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </View>
+                </BlurView>
             </Modal>
         </ScreenWrapper>
     );
@@ -480,7 +481,6 @@ const getStyles = theme =>
         // Modal Styles
         modalOverlay: {
             flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.7)',
             justifyContent: 'center',
             alignItems: 'center',
             padding: 20,
