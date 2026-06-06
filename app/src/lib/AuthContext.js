@@ -86,16 +86,14 @@ export const AuthProvider = ({ children }) => {
                 if (tokenResult.claims.admin) userRole = 'admin';
                 else if (tokenResult.claims.club) userRole = 'club';
             } catch (authErr) {
-                logger.debug('Token refresh failed: ' + (authErr?.message || 'Unknown error'), authErr);
+                logger.debug(
+                    'Token refresh failed: ' + (authErr?.message || 'Unknown error'),
+                    authErr,
+                );
 
                 if (authErr?.code === 'auth/network-request-failed') {
-                    logger.debug('Network error during token refresh. Keeping session active.');
-                    setLoading(false);
-                    return;
-                }
-
-                // Attempt auto-recovery for 400 Bad Request / Emulator errors
-                if (
+                    logger.debug('Network error during token refresh. Continuing to fallback...');
+                } else if (
                     authErr?.message?.includes('400') ||
                     authErr?.code === 'auth/user-not-found' ||
                     authErr?.code === 'auth/user-token-expired'
@@ -115,18 +113,35 @@ export const AuthProvider = ({ children }) => {
                         }
                     } catch (recoveryErr) {
                         if (recoveryErr?.code === 'auth/network-request-failed') {
-                            logger.debug('Network error during auto-recovery. Keeping session active.');
+                            logger.debug(
+                                'Network error during auto-recovery. Continuing to fallback...',
+                            );
+                        } else {
+                            logger.debug(
+                                'Auto-recovery failed, signing out: ' +
+                                    (recoveryErr?.message || 'Unknown error'),
+                                recoveryErr,
+                            );
+                            await firebaseSignOut(auth);
+                            setUser(null);
+                            setUserData(null);
+                            setRole('student');
                             setLoading(false);
                             return;
                         }
-                        logger.debug('Auto-recovery failed, signing out: ' + (recoveryErr?.message || 'Unknown error'), recoveryErr);
-                        await firebaseSignOut(auth);
-                        setUser(null);
-                        setUserData(null);
-                        setRole('student');
-                        setLoading(false);
-                        return;
                     }
+                } else {
+                    logger.debug(
+                        'Unknown token refresh error, signing out: ' +
+                            (authErr?.message || 'Unknown error'),
+                        authErr,
+                    );
+                    await firebaseSignOut(auth);
+                    setUser(null);
+                    setUserData(null);
+                    setRole('student');
+                    setLoading(false);
+                    return;
                 }
             }
 
@@ -155,7 +170,7 @@ export const AuthProvider = ({ children }) => {
                 delete globalThis.setMockUser;
             }
         };
-    }, [loadSavedAccounts]);
+    }, [loadSavedAccounts, getItemAsync]);
 
     // Unified DRY saving logic that safely stores password on Mobile (SecureStore)
     // and omits it on Web (AsyncStorage) to mitigate plaintext password leaks
