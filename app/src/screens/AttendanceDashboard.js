@@ -9,8 +9,8 @@ import {
     doc,
     getDoc,
     where,
-    updateDoc,
 } from 'firebase/firestore';
+import { validateAndUpdateDoc, eventUpdateSchema } from '../lib/validators';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { getOfflineCheckInCount, syncOfflineCheckIns } from '../lib/checkInService';
@@ -99,10 +99,14 @@ export default function AttendanceDashboard({ route, navigation }) {
             const count = await sendBulkFeedbackRequest(participants, eventTitle, eventId);
 
             // Update event to mark feedback as sent
-            await updateDoc(doc(db, COLLECTIONS.EVENTS, eventId), {
-                feedbackRequestSent: true,
-                feedbackRequestSentAt: new Date().toISOString(),
-            });
+            await validateAndUpdateDoc(
+                doc(db, COLLECTIONS.EVENTS, eventId),
+                {
+                    feedbackRequestSent: true,
+                    feedbackRequestSentAt: new Date().toISOString(),
+                },
+                eventUpdateSchema,
+            );
 
             Alert.alert('Success', `Feedback request sent to ${count} participants.`);
         } catch (e) {

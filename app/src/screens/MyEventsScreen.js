@@ -1,14 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-import {
-    collection,
-    doc,
-    onSnapshot,
-    query,
-    serverTimestamp,
-    updateDoc,
-    where,
-} from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, serverTimestamp, where } from 'firebase/firestore';
+import { validateAndUpdateDoc, eventUpdateSchema } from '../lib/validators';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     ActivityIndicator,
@@ -83,11 +76,15 @@ export default function MyEventsScreen({ navigation }) {
             const deleteEvent = async () => {
                 setDeletingEventId(eventId);
                 try {
-                    await updateDoc(doc(db, 'events', eventId), {
-                        deletedAt: serverTimestamp(),
-                        deletedBy: userId,
-                        status: 'deleted',
-                    });
+                    await validateAndUpdateDoc(
+                        doc(db, 'events', eventId),
+                        {
+                            deletedAt: serverTimestamp(),
+                            deletedBy: userId,
+                            status: 'deleted',
+                        },
+                        eventUpdateSchema,
+                    );
                     Alert.alert('Deleted', 'Event deleted successfully.');
                 } catch (_e) {
                     console.error('Delete event failed:', _e);

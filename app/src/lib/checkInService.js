@@ -5,11 +5,18 @@ import {
     serverTimestamp,
     increment,
     runTransaction,
-    setDoc,
-    updateDoc,
     Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
+import {
+    validate,
+    validateAndSetDoc,
+    validateAndUpdateDoc,
+    checkInSchema,
+    eventUpdateSchema,
+    participantSchema,
+    ticketSchema,
+} from './validators';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PARTICIPANT_NOT_FOUND_ERROR = 'Participant not found';
@@ -121,6 +128,25 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
         const ticketId = ticketData.id;
         const userId = ticketData.userId;
 
+        const checkInData = buildCheckInRecord({
+            attendeeData: ticketData,
+            userId,
+            organizerId,
+            organizerName,
+            ticketId,
+        });
+        const ticketUpdateData = {
+            checkInStatus: 'checked-in',
+            checkedInAt: serverTimestamp(),
+            checkedInBy: organizerId,
+        };
+        const eventStatsUpdate = {
+            'stats.totalCheckedIn': increment(1),
+            'stats.lastCheckInAt': serverTimestamp(),
+        };
+        await validate(checkInData, checkInSchema);
+        await validate(ticketUpdateData, ticketSchema);
+
         await runTransaction(db, async transaction => {
             const ticketRef = doc(db, 'tickets', ticketId);
             const ticketSnap = await transaction.get(ticketRef);
@@ -140,27 +166,9 @@ export const checkInAttendee = async (ticketData, eventId, organizerId, organize
             const checkInRef = doc(db, 'events', eventId, 'checkIns', userId);
             const eventRef = doc(db, 'events', eventId);
 
-            transaction.set(
-                checkInRef,
-                buildCheckInRecord({
-                    attendeeData: ticketData,
-                    userId,
-                    organizerId,
-                    organizerName,
-                    ticketId,
-                }),
-            );
-
-            transaction.update(ticketRef, {
-                checkInStatus: 'checked-in',
-                checkedInAt: serverTimestamp(),
-                checkedInBy: organizerId,
-            });
-
-            transaction.update(eventRef, {
-                'stats.totalCheckedIn': increment(1),
-                'stats.lastCheckInAt': serverTimestamp(),
-            });
+            transaction.set(checkInRef, checkInData);
+            transaction.update(ticketRef, ticketUpdateData);
+            transaction.update(eventRef, eventStatsUpdate);
         });
 
         return {
@@ -210,27 +218,24 @@ export const checkInParticipant = async (participantData, eventId, organizerId, 
             const attendeeData = buildParticipantAttendeeData(participant, participantData);
             checkedInName = attendeeData.userName || attendeeData.name || 'Guest';
 
-            transaction.set(
-                checkInRef,
-                buildCheckInRecord({
-                    attendeeData,
-                    userId,
-                    organizerId,
-                    organizerName,
-                    checkedInAt,
-                }),
-            );
+            const checkInRecord = buildCheckInRecord({
+                attendeeData,
+                userId,
+                organizerId,
+                organizerName,
+                checkedInAt,
+            });
+            await validate(checkInRecord, checkInSchema);
 
-            transaction.set(
-                participantRef,
-                {
-                    checkInStatus: 'checked-in',
-                    checkedInAt,
-                    checkedInBy: organizerId,
-                },
-                { merge: true },
-            );
+            const participantUpdate = {
+                checkInStatus: 'checked-in',
+                checkedInAt,
+                checkedInBy: organizerId,
+            };
+            await validate(participantUpdate, participantSchema);
 
+            transaction.set(checkInRef, checkInRecord);
+            transaction.set(participantRef, participantUpdate, { merge: true });
             transaction.set(
                 eventRef,
                 {
@@ -390,41 +395,61 @@ const syncOfflineCheckInItem = async (item, eventId, organizerId) => {
             ? Timestamp.fromDate(new Date(item.queuedAt))
             : serverTimestamp();
 
-        await setDoc(checkInRef, {
-            userId: item.userId,
-            userName: item.userName || 'Guest',
-            userEmail: item.userEmail || '',
-            userBranch: item.userBranch || 'N/A',
-            userYear: item.userYear || 'N/A',
-            checkedInAt: offlineCheckedInAt,
-            checkedInBy: organizerId,
-            checkedInByName: item.organizerName || organizerId,
-            ticketId: item.ticketId || null,
-            status: 'checked-in',
-            syncedOffline: true,
-        });
+        await validateAndSetDoc(
+            checkInRef,
+            {
+                userId: item.userId,
+                userName: item.userName || 'Guest',
+                userEmail: item.userEmail || '',
+                userBranch: item.userBranch || 'N/A',
+                userYear: item.userYear || 'N/A',
+                checkedInAt: offlineCheckedInAt,
+                checkedInBy: organizerId,
+                checkedInByName: item.organizerName || organizerId,
+                ticketId: item.ticketId || null,
+                status: 'checked-in',
+                syncedOffline: true,
+            },
+            checkInSchema,
+        );
 
         if (item.ticketId) {
-            await updateDoc(doc(db, 'tickets', item.ticketId), {
-                checkInStatus: 'checked-in',
-                checkedInAt: offlineCheckedInAt,
-                checkedInBy: organizerId,
-            }).catch(() => {});
+            await validateAndUpdateDoc(
+                doc(db, 'tickets', item.ticketId),
+                {
+                    checkInStatus: 'checked-in',
+                    checkedInAt: offlineCheckedInAt,
+                    checkedInBy: organizerId,
+                },
+                ticketSchema,
+            ).catch(() => {});
         } else {
-            await updateDoc(doc(db, 'events', eventId, 'participants', item.userId), {
-                checkInStatus: 'checked-in',
-                checkedInAt: offlineCheckedInAt,
-                checkedInBy: organizerId,
-            }).catch(() => {});
+            await validateAndUpdateDoc(
+                doc(db, 'events', eventId, 'participants', item.userId),
+                {
+                    checkInStatus: 'checked-in',
+                    checkedInAt: offlineCheckedInAt,
+                    checkedInBy: organizerId,
+                },
+                participantSchema,
+            ).catch(() => {});
         }
 
-        await updateDoc(doc(db, 'events', eventId), {
-            'stats.totalCheckedIn': increment(1),
-            'stats.lastCheckInAt': serverTimestamp(),
-        }).catch(() => {});
+        await validateAndUpdateDoc(
+            doc(db, 'events', eventId),
+            {
+                'stats.totalCheckedIn': increment(1),
+                'stats.lastCheckInAt': serverTimestamp(),
+            },
+            eventUpdateSchema,
+        ).catch(() => {});
 
         const registrationRef = doc(db, 'events', eventId, 'registrations', item.userId);
-        await updateDoc(registrationRef, { status: 'attended' }).catch(() => {});
+        await validateAndUpdateDoc(
+            registrationRef,
+            { status: 'attended' },
+            participantSchema,
+        ).catch(() => {});
     }
 };
 

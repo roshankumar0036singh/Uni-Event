@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-    addDoc,
     collection,
     doc,
     getDoc,
@@ -9,6 +8,7 @@ import {
     query,
     serverTimestamp,
 } from 'firebase/firestore';
+import { validateAndAddDoc, messageSchema } from '../lib/validators';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -142,14 +142,18 @@ export default function EventChatScreen({ route, navigation }) {
         if (!inputText.trim() || !user?.uid || !hasAccess) return;
         setSending(true);
         try {
-            await addDoc(collection(db, 'events', eventId, 'messages'), {
-                text: inputText.trim(),
-                userId: user.uid,
-                displayName: user.displayName || 'Anonymous',
-                createdAt: serverTimestamp(),
-                isOrganizer: isOrganizer || role === 'admin',
-                role: role, // 'student', 'admin', 'club'
-            });
+            await validateAndAddDoc(
+                collection(db, 'events', eventId, 'messages'),
+                {
+                    text: inputText.trim(),
+                    userId: user.uid,
+                    displayName: user.displayName || 'Anonymous',
+                    createdAt: serverTimestamp(),
+                    isOrganizer: isOrganizer || role === 'admin',
+                    role: role,
+                },
+                messageSchema,
+            );
             setInputText('');
         } catch (error) {
             console.error('Send failed', error);
