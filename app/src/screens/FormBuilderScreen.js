@@ -411,7 +411,7 @@ const getStyles = theme =>
             elevation: 8,
         },
 
-        modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+        modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
         modalContent: {
             backgroundColor: '#121212',
             borderTopLeftRadius: 32,

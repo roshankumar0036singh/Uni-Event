@@ -1216,6 +1216,7 @@ export default function ProfileScreen({ navigation }) {
                     tint="dark"
                     style={{
                         flex: 1,
+                        backgroundColor: 'rgba(0,0,0,0.5)',
                         justifyContent: 'center',
                         padding: 20,
                     }}
@@ -1851,6 +1852,7 @@ const getStyles = theme =>
         },
         modalBackdrop: {
             flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.55)',
             justifyContent: 'flex-end',
         },
         badgeModal: {
