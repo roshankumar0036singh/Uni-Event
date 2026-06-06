@@ -14,6 +14,7 @@ import { auth, db } from './firebaseConfig';
 import PropTypes from 'prop-types';
 import { getUserLevel, getUserLevelProgress } from './userLevels';
 import { upsertPublicProfile } from './publicProfile';
+import { validateAndSetDoc, userSchema } from './validators';
 
 const AuthContext = createContext({});
 
@@ -224,7 +225,7 @@ export const AuthProvider = ({ children }) => {
             };
 
             // Create private and public profile documents.
-            await setDoc(doc(db, 'users', user.uid), userProfile);
+            await validateAndSetDoc(doc(db, 'users', user.uid), userProfile, userSchema);
             await upsertPublicProfile(db, user.uid, userProfile);
 
             await saveAccount(user, 'password', password); // Auto-save with password

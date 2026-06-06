@@ -4,7 +4,8 @@ import * as Google from 'expo-auth-session/providers/google';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { validateAndSetDoc, userSchema } from '../lib/validators';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -164,7 +165,7 @@ async function handleCredentialSignIn(
                 provider: 'google',
             };
 
-            await setDoc(userDocRef, userProfile);
+            await validateAndSetDoc(userDocRef, userProfile, userSchema);
             await upsertPublicProfile(db, user.uid, userProfile);
         }
     } catch (error) {
