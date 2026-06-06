@@ -143,8 +143,14 @@ export const getTopContributors = functions.https.onCall(async (data, context) =
         limit = 10,
         lastPoints,
         lastUserId,
-        startRank = 1,
+        startRank,
     } = validateSchema(getTopContributorsSchema, data);
+
+    const isCursorPagination = lastPoints || lastUserId;
+
+    if (isCursorPagination && startRank === undefined) {
+        throw new Error("startRank is required when using cursor pagination");
+    }
 
     let query: FirebaseFirestore.Query = db
         .collection('users')
