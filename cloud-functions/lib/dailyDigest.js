@@ -130,6 +130,8 @@ exports.sendDailyDigest = functions.https.onCall(async (data, context) => {
     if (failedPushes > 0) {
         return { success: false, count, processed: processedCount, failedPushes };
     }
-    (0, logger_1.logEntry)('dailyDigest', 'sendDailyDigest completed', { output: { success: true, count, processed: processedCount } });
+    (0, logger_1.logEntry)('dailyDigest', 'sendDailyDigest completed', {
+        output: { success: true, count, processed: processedCount },
+    });
     return { success: true, count, processed: processedCount };
 });

@@ -60,6 +60,7 @@ __exportStar(require("./auditLog"), exports);
 __exportStar(require("./attendanceStreak"), exports);
 __exportStar(require("./permanentCleanup"), exports);
 __exportStar(require("./clubReputation"), exports);
+__exportStar(require("./onEventDelete"), exports);
 exports.cleanupRateLimits = functions.pubsub.schedule('every 1 hour').onRun(async () => {
     await (0, rateLimiter_1.cleanupOldRateLimits)();
     return null;

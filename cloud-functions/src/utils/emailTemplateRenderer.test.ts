@@ -134,7 +134,7 @@ describe('emailTemplateRenderer', () => {
 
         it('should preserve HTML structure', () => {
             const html = renderTemplate('feedback_email_template');
-            expect(html).toContain('<!DOCTYPE html>');
+            expect(html).toContain('<!doctype html>');
             expect(html).toContain('</html>');
         });
     });

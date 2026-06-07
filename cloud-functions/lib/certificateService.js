@@ -36,8 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendCertificatesForEvent = sendCertificatesForEvent;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-admin/firestore");
-const fs = __importStar(require("fs"));
-const path = __importStar(require("path"));
+const fs = __importStar(require("node:fs"));
+const path = __importStar(require("node:path"));
 const pdf_lib_1 = require("pdf-lib");
 const resend_1 = require("resend");
 function getResendClient() {
@@ -262,7 +262,7 @@ async function sendCertificatesForEvent(eventId, ownerId) {
         templateBytes = fs.readFileSync(templatePath);
     }
     catch (e) {
-        throw new Error("Certificate Template not found. Please ensure 'assets/certificate_template.pdf' exists in cloud-functions.");
+        throw new Error(`Certificate Template not found. Please ensure 'assets/certificate_template.pdf' exists in cloud-functions. Error: ${e instanceof Error ? e.message : e}`);
     }
     const eventTitle = event?.title || 'Event';
     const organizationName = event?.organization || event?.ownerName || 'UniEvent';
