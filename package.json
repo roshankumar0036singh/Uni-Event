@@ -19,7 +19,7 @@
         "ts-jest": "^29.4.11"
     },
     "dependencies": {
-        "expo-clipboard": "^56.0.3"
+        "expo-clipboard": "^56.0.4"
     },
     "lint-staged": {
         "app/**/*.{js,jsx,ts,tsx}": [
