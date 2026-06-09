@@ -14,6 +14,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import PremiumButton from '../components/PremiumButton';
 import PremiumInput from '../components/PremiumInput';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -1210,10 +1211,11 @@ export default function ProfileScreen({ navigation }) {
             </ScrollView>
 
             <Modal visible={showRequestModal} transparent animationType="slide">
-                <View
+                <BlurView
+                    intensity={60}
+                    tint="dark"
                     style={{
                         flex: 1,
-                        backgroundColor: 'rgba(0,0,0,0.5)',
                         justifyContent: 'center',
                         padding: 20,
                     }}
@@ -1302,11 +1304,11 @@ export default function ProfileScreen({ navigation }) {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </View>
+                </BlurView>
             </Modal>
 
             <Modal visible={showBadgeModal} transparent animationType="slide">
-                <View style={styles.modalBackdrop}>
+                <BlurView intensity={60} tint="dark" style={styles.modalBackdrop}>
                     <View style={[styles.badgeModal, { backgroundColor: theme.colors.background }]}>
                         <View style={styles.badgeModalHeader}>
                             <View>
@@ -1396,7 +1398,7 @@ export default function ProfileScreen({ navigation }) {
                             })}
                         </ScrollView>
                     </View>
-                </View>
+                </BlurView>
             </Modal>
             {Boolean(toastMessage) && (
                 <View style={styles.toastContainer} pointerEvents="none">
@@ -1849,7 +1851,6 @@ const getStyles = theme =>
         },
         modalBackdrop: {
             flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.55)',
             justifyContent: 'flex-end',
         },
         badgeModal: {

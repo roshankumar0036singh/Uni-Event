@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
 
@@ -28,7 +29,7 @@ export default function AppealModal({ visible, onClose, onSubmit, isSubmitting }
 
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-            <View style={styles.overlay}>
+            <BlurView intensity={60} tint="dark" style={styles.overlay}>
                 <View style={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}>
                     <View style={styles.header}>
                         <Ionicons
@@ -107,7 +108,7 @@ export default function AppealModal({ visible, onClose, onSubmit, isSubmitting }
                         </TouchableOpacity>
                     </View>
                 </View>
-            </View>
+            </BlurView>
         </Modal>
     );
 }
@@ -115,7 +116,6 @@ export default function AppealModal({ visible, onClose, onSubmit, isSubmitting }
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.7)',
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
