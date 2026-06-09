@@ -85,7 +85,7 @@ import { render } from '@testing-library/react-native';
 import EventRegistrationFormScreen from '../EventRegistrationFormScreen';
 
 describe('EventRegistrationFormScreen', () => {
-    it('renders registration screen', () => {
+    const renderScreen = () => {
         const route = {
             params: {
                 event: {
@@ -102,11 +102,27 @@ describe('EventRegistrationFormScreen', () => {
             popToTop: jest.fn(),
         };
 
-        const { getByText } = render(
-            <EventRegistrationFormScreen navigation={navigation} route={route} />,
-        );
+        return render(<EventRegistrationFormScreen navigation={navigation} route={route} />);
+    };
+
+    it('renders registration screen', () => {
+        const { getByText } = renderScreen();
 
         expect(getByText('Registration')).toBeTruthy();
         expect(getByText('Test Event')).toBeTruthy();
+    });
+
+    it('configures the form to remain accessible when the keyboard opens', () => {
+        const { getByTestId } = renderScreen();
+
+        const keyboardView = getByTestId('registration-keyboard-avoiding-view');
+        const scrollView = getByTestId('registration-form-scroll-view');
+
+        expect(keyboardView).toBeTruthy();
+        expect(scrollView.props.keyboardShouldPersistTaps).toBe('handled');
+        expect(scrollView.props.keyboardDismissMode).toBeDefined();
+        expect(scrollView.props.contentContainerStyle).toEqual(
+            expect.objectContaining({ flexGrow: 1, paddingBottom: 40 }),
+        );
     });
 });

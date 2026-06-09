@@ -8,6 +8,8 @@ import {
     Alert,
     ActivityIndicator,
     Dimensions,
+    KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -327,39 +329,53 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
                 <Text style={styles.headerTitle}>Registration</Text>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                <Text style={styles.subtitle}>Please fill out the form below to register.</Text>
-
-                <View style={styles.form}>{event.customFormSchema.map(renderField)}</View>
-
-                <TouchableOpacity
-                    style={[styles.submitBtn, loading && { opacity: 0.7 }]}
-                    onPress={handleSubmit}
-                    disabled={loading}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel="Submit Registration"
+            <KeyboardAvoidingView
+                testID="registration-keyboard-avoiding-view"
+                style={styles.keyboardAvoidingView}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
+            >
+                <ScrollView
+                    testID="registration-form-scroll-view"
+                    contentContainerStyle={styles.content}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                    showsVerticalScrollIndicator={false}
                 >
-                    {loading ? (
-                        <View style={styles.submitLoadingContent}>
-                            <ActivityIndicator color="#fff" />
-                            <Text style={styles.submitBtnText}>Submitting...</Text>
-                        </View>
-                    ) : (
-                        <Text style={styles.submitBtnText}>Submit Registration</Text>
-                    )}
-                </TouchableOpacity>
-            </ScrollView>
+                    <Text style={styles.eventTitle}>{event.title}</Text>
+                    <Text style={styles.subtitle}>Please fill out the form below to register.</Text>
+
+                    <View style={styles.form}>{event.customFormSchema.map(renderField)}</View>
+
+                    <TouchableOpacity
+                        style={[styles.submitBtn, loading && { opacity: 0.7 }]}
+                        onPress={handleSubmit}
+                        disabled={loading}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel="Submit Registration"
+                    >
+                        {loading ? (
+                            <View style={styles.submitLoadingContent}>
+                                <ActivityIndicator color="#fff" />
+                                <Text style={styles.submitBtnText}>Submitting...</Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.submitBtnText}>Submit Registration</Text>
+                        )}
+                    </TouchableOpacity>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </ScreenWrapper>
     );
 }
 
 const getStyles = theme =>
     StyleSheet.create({
+        keyboardAvoidingView: { flex: 1 },
         header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: 10 },
         headerTitle: { fontSize: 24, fontWeight: 'bold', color: theme.colors.text, marginLeft: 10 },
-        content: { padding: 20 },
+        content: { flexGrow: 1, padding: 20, paddingBottom: 40 },
         eventTitle: {
             fontSize: 22,
             fontWeight: 'bold',
