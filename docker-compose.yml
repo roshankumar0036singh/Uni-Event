@@ -1,6 +1,6 @@
 services:
     firebase-emulator:
-        image: andreysenov/firebase-tools:latest-node-18
+        image: andreysenov/firebase-tools:13.8.2-node-18
         container_name: firebase-emulator
         working_dir: /workspace
         volumes:
@@ -12,7 +12,7 @@ services:
             - '8090:8080'
             - '9199:9199'
             - '5001:5001'
-        command: firebase emulators:start --project=demo-uni-event --only auth,firestore,database,storage
+        command: firebase emulators:start --project=demo-uni-event --only auth,firestore,database,storage,functions
 
     expo-web:
         image: node:18
@@ -30,7 +30,7 @@ services:
             - EXPO_NO_TELEMETRY=1
             - NPM_CONFIG_LOGLEVEL=error
             - CI=1
-        command: sh -c "npm install --silent 2>/dev/null && npx expo export --platform web > /dev/null 2>&1 && echo 'Build done' && npx serve dist -p 8081 --no-clipboard"
+        command: sh -c "npm install && npx expo export --platform web  && echo 'Build done' && npx serve dist -p 8081 --no-clipboard"
         depends_on:
             - firebase-emulator
 
