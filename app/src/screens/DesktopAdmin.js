@@ -1,4 +1,5 @@
-import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs } from 'firebase/firestore';
+import { validateAndUpdateDoc, clubUpdateSchema, userUpdateSchema } from '../lib/validators';
 import { httpsCallable } from 'firebase/functions';
 import { useEffect, useState } from 'react';
 import {
@@ -120,14 +121,22 @@ export default function DesktopAdmin() {
             }
 
             await Promise.all([
-                updateDoc(doc(db, 'clubs', clubId), {
-                    approved: true,
-                    verificationStatus: 'verified',
-                }),
+                validateAndUpdateDoc(
+                    doc(db, 'clubs', clubId),
+                    {
+                        approved: true,
+                        verificationStatus: 'verified',
+                    },
+                    clubUpdateSchema,
+                ),
 
-                updateDoc(doc(db, 'users', ownerId), {
-                    verificationStatus: 'verified',
-                }),
+                validateAndUpdateDoc(
+                    doc(db, 'users', ownerId),
+                    {
+                        verificationStatus: 'verified',
+                    },
+                    userUpdateSchema,
+                ),
 
                 upsertPublicProfile(db, ownerId, {
                     role: 'club',

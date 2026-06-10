@@ -1,4 +1,5 @@
-import { collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { validateAndUpdateDoc, userUpdateSchema } from '../lib/validators';
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -43,7 +44,7 @@ export default function NotificationBell() {
         if (!item.read) {
             try {
                 const ref = doc(db, 'users', user.uid, 'notifications', item.id);
-                await updateDoc(ref, { read: true });
+                await validateAndUpdateDoc(ref, { read: true }, userUpdateSchema);
             } catch (e) {
                 console.error('Error marking read:', e);
             }
