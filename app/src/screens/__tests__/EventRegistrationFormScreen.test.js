@@ -56,6 +56,11 @@ jest.mock('firebase/firestore', () => ({
 
 jest.mock('../../lib/firebaseConfig', () => ({
     db: {},
+    functions: {},
+}));
+
+jest.mock('firebase/functions', () => ({
+    httpsCallable: jest.fn(() => jest.fn(() => Promise.resolve({ data: { success: true } }))),
 }));
 
 jest.mock('../../lib/AuthContext', () => ({
