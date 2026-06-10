@@ -63,10 +63,14 @@ const buildCounterUpdates = (branch: string, year: string, delta: number, eventD
     const hasYearCount = eventData?.yearCounts?.[yearKey] != null;
 
     return {
-        participantCount: isDecrement && !hasParticipantCount ? 0 : admin.firestore.FieldValue.increment(delta),
-        'stats.totalRegistrations': isDecrement && !hasTotalRegistrations ? 0 : admin.firestore.FieldValue.increment(delta),
-        [`branchCounts.${branchKey}`]: isDecrement && !hasBranchCount ? 0 : admin.firestore.FieldValue.increment(delta),
-        [`yearCounts.${yearKey}`]: isDecrement && !hasYearCount ? 0 : admin.firestore.FieldValue.increment(delta),
+        participantCount:
+            isDecrement && !hasParticipantCount ? 0 : admin.firestore.FieldValue.increment(delta),
+        'stats.totalRegistrations':
+            isDecrement && !hasTotalRegistrations ? 0 : admin.firestore.FieldValue.increment(delta),
+        [`branchCounts.${branchKey}`]:
+            isDecrement && !hasBranchCount ? 0 : admin.firestore.FieldValue.increment(delta),
+        [`yearCounts.${yearKey}`]:
+            isDecrement && !hasYearCount ? 0 : admin.firestore.FieldValue.increment(delta),
     };
 };
 
@@ -86,7 +90,9 @@ const buildPreviewUpdate = (eventData: any, participant: any, delta: number) => 
         name: participant.name || 'Anonymous',
     };
 
-    const filtered = normalizedExisting.filter((item: any) => item?.userId !== safeParticipant.userId);
+    const filtered = normalizedExisting.filter(
+        (item: any) => item?.userId !== safeParticipant.userId,
+    );
 
     if (delta > 0) {
         return [safeParticipant, ...filtered].slice(0, 50);
@@ -113,8 +119,8 @@ export const registerForEvent = functions.https.onCall(async (data, context) => 
 
     try {
         let finalEarlyBird = false;
-        
-        await db.runTransaction(async (transaction) => {
+
+        await db.runTransaction(async transaction => {
             const eventRef = db.collection('events').doc(eventId);
             const eventSnap = await transaction.get(eventRef);
 
@@ -123,19 +129,25 @@ export const registerForEvent = functions.https.onCall(async (data, context) => 
             }
 
             const eventData = eventSnap.data()!;
-            
+
             // Check overall capacity
             if (eventData.capacity != null) {
                 const currentParticipants = eventData.participantCount || 0;
                 if (currentParticipants >= eventData.capacity) {
-                    throw new functions.https.HttpsError('failed-precondition', 'This event has reached its maximum capacity.');
+                    throw new functions.https.HttpsError(
+                        'failed-precondition',
+                        'This event has reached its maximum capacity.',
+                    );
                 }
             }
 
             const participantRef = eventRef.collection('participants').doc(uid);
             const participantSnap = await transaction.get(participantRef);
             if (participantSnap.exists) {
-                throw new functions.https.HttpsError('already-exists', 'You are already registered for this event.');
+                throw new functions.https.HttpsError(
+                    'already-exists',
+                    'You are already registered for this event.',
+                );
             }
 
             const userRef = db.collection('users').doc(uid);
@@ -205,18 +217,22 @@ export const registerForEvent = functions.https.onCall(async (data, context) => 
                 participantPayload.branch,
                 participantPayload.year,
                 1,
-                eventData
+                eventData,
             );
             eventUpdates.participantsPreview = buildPreviewUpdate(eventData, participantPayload, 1);
             if (earlyBird) {
-                eventUpdates['stats.earlyBirdRegistrations'] = admin.firestore.FieldValue.increment(1);
+                eventUpdates['stats.earlyBirdRegistrations'] =
+                    admin.firestore.FieldValue.increment(1);
             }
             transaction.update(eventRef, eventUpdates);
         });
 
         return { success: true, earlyBird: finalEarlyBird };
     } catch (error: any) {
-        throw new functions.https.HttpsError(error.code || 'internal', error.message || 'Transaction failed');
+        throw new functions.https.HttpsError(
+            error.code || 'internal',
+            error.message || 'Transaction failed',
+        );
     }
 });
 
@@ -227,7 +243,10 @@ export const finalizeTicketPayment = functions.https.onCall(async (data, context
 
     const { eventId, transactionId, selectedMethod, formResponses, expectedPrice } = data;
     if (!eventId || !transactionId) {
-        throw new functions.https.HttpsError('invalid-argument', 'eventId and transactionId are required.');
+        throw new functions.https.HttpsError(
+            'invalid-argument',
+            'eventId and transactionId are required.',
+        );
     }
 
     const uid = context.auth.uid;
@@ -241,7 +260,7 @@ export const finalizeTicketPayment = functions.https.onCall(async (data, context
         let ticketData: any = null;
         let ticketId = '';
 
-        await db.runTransaction(async (transaction) => {
+        await db.runTransaction(async transaction => {
             const eventRef = db.collection('events').doc(eventId);
             const eventSnap = await transaction.get(eventRef);
 
@@ -250,19 +269,25 @@ export const finalizeTicketPayment = functions.https.onCall(async (data, context
             }
 
             const eventData = eventSnap.data()!;
-            
+
             // Check overall capacity
             if (eventData.capacity != null) {
                 const currentParticipants = eventData.participantCount || 0;
                 if (currentParticipants >= eventData.capacity) {
-                    throw new functions.https.HttpsError('failed-precondition', 'This event has reached its maximum capacity.');
+                    throw new functions.https.HttpsError(
+                        'failed-precondition',
+                        'This event has reached its maximum capacity.',
+                    );
                 }
             }
 
             const participantRef = eventRef.collection('participants').doc(uid);
             const participantSnap = await transaction.get(participantRef);
             if (participantSnap.exists) {
-                throw new functions.https.HttpsError('already-exists', 'You are already registered for this event.');
+                throw new functions.https.HttpsError(
+                    'already-exists',
+                    'You are already registered for this event.',
+                );
             }
 
             const userRef = db.collection('users').doc(uid);
@@ -280,9 +305,10 @@ export const finalizeTicketPayment = functions.https.onCall(async (data, context
 
             finalEarlyBird = earlyBird;
 
-            const finalPrice = earlyBird && eventData.earlyBirdPrice != null
-                ? eventData.earlyBirdPrice
-                : (eventData.price ?? expectedPrice ?? 0);
+            const finalPrice =
+                earlyBird && eventData.earlyBirdPrice != null
+                    ? eventData.earlyBirdPrice
+                    : (eventData.price ?? expectedPrice ?? 0);
 
             const ticketRef = db.collection('tickets').doc();
             ticketId = ticketRef.id;
@@ -316,7 +342,7 @@ export const finalizeTicketPayment = functions.https.onCall(async (data, context
             };
 
             transaction.set(ticketRef, ticketData);
-            
+
             const participatingRef = userRef.collection('participating').doc(eventId);
             transaction.set(participatingRef, {
                 eventId: eventId,
@@ -366,17 +392,21 @@ export const finalizeTicketPayment = functions.https.onCall(async (data, context
                 participantPayload.branch,
                 participantPayload.year,
                 1,
-                eventData
+                eventData,
             );
             eventUpdates.participantsPreview = buildPreviewUpdate(eventData, participantPayload, 1);
             if (earlyBird) {
-                eventUpdates['stats.earlyBirdRegistrations'] = admin.firestore.FieldValue.increment(1);
+                eventUpdates['stats.earlyBirdRegistrations'] =
+                    admin.firestore.FieldValue.increment(1);
             }
             transaction.update(eventRef, eventUpdates);
         });
 
         return { success: true, earlyBird: finalEarlyBird, ticketId, ticketData };
     } catch (error: any) {
-        throw new functions.https.HttpsError(error.code || 'internal', error.message || 'Transaction failed');
+        throw new functions.https.HttpsError(
+            error.code || 'internal',
+            error.message || 'Transaction failed',
+        );
     }
 });
