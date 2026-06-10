@@ -33,7 +33,7 @@ export const submitFeedback = async ({
             payload.feedbackRequestId = feedbackRequestId;
         }
 
-        await runTransaction(db, async (transaction) => {
+        await runTransaction(db, async transaction => {
             const snap = await transaction.get(feedbackRef);
             if (snap.exists()) {
                 throw new Error('Feedback already submitted');

@@ -14,6 +14,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import PremiumButton from '../components/PremiumButton';
 import PremiumInput from '../components/PremiumInput';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -32,6 +33,7 @@ import {
     PROFILE_BADGES,
     canUseProfileBadge,
 } from '../lib/profileBadges';
+import { upsertPublicProfile } from '../lib/publicProfile';
 
 // Helper to get ordinal year labels
 const getYearLabel = y => {
@@ -317,6 +319,9 @@ export default function ProfileScreen({ navigation }) {
                 setPoints(data.points ?? 0);
                 setBadges(data.badges || []);
                 setSelectedProfileBadge(data.selectedProfileBadge || 'fresh-face');
+                upsertPublicProfile(db, user.uid, data).catch(error => {
+                    console.error('Public profile sync error:', error);
+                });
 
                 // Fetch Club Rating (for club/admin users) from reputation field
                 if (role === 'club' || role === 'admin') {
@@ -369,7 +374,7 @@ export default function ProfileScreen({ navigation }) {
                 finalBranch = 'All';
             }
 
-            await updateDoc(doc(db, 'users', user.uid), {
+            const profileUpdates = {
                 displayName: name,
                 headline: headline,
                 bio: bio,
@@ -377,7 +382,10 @@ export default function ProfileScreen({ navigation }) {
                 linkedin: linkedin,
                 year: parseInt(year),
                 branch: finalBranch,
-            });
+            };
+
+            await updateDoc(doc(db, 'users', user.uid), profileUpdates);
+            await upsertPublicProfile(db, user.uid, profileUpdates);
 
             Alert.alert('Success', 'Profile updated!');
             setIsEditing(false);
@@ -464,6 +472,9 @@ export default function ProfileScreen({ navigation }) {
             updatingBadgeRef.current = badge.id;
             setLoading(true);
             await updateDoc(doc(db, 'users', user.uid), {
+                selectedProfileBadge: badge.id,
+            });
+            await upsertPublicProfile(db, user.uid, {
                 selectedProfileBadge: badge.id,
             });
             if (updatingBadgeRef.current !== badge.id) return;
@@ -1200,10 +1211,11 @@ export default function ProfileScreen({ navigation }) {
             </ScrollView>
 
             <Modal visible={showRequestModal} transparent animationType="slide">
-                <View
+                <BlurView
+                    intensity={60}
+                    tint="dark"
                     style={{
                         flex: 1,
-                        backgroundColor: 'rgba(0,0,0,0.5)',
                         justifyContent: 'center',
                         padding: 20,
                     }}
@@ -1292,11 +1304,11 @@ export default function ProfileScreen({ navigation }) {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </View>
+                </BlurView>
             </Modal>
 
             <Modal visible={showBadgeModal} transparent animationType="slide">
-                <View style={styles.modalBackdrop}>
+                <BlurView intensity={60} tint="dark" style={styles.modalBackdrop}>
                     <View style={[styles.badgeModal, { backgroundColor: theme.colors.background }]}>
                         <View style={styles.badgeModalHeader}>
                             <View>
@@ -1386,7 +1398,7 @@ export default function ProfileScreen({ navigation }) {
                             })}
                         </ScrollView>
                     </View>
-                </View>
+                </BlurView>
             </Modal>
             {Boolean(toastMessage) && (
                 <View style={styles.toastContainer} pointerEvents="none">
@@ -1839,7 +1851,6 @@ const getStyles = theme =>
         },
         modalBackdrop: {
             flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.55)',
             justifyContent: 'flex-end',
         },
         badgeModal: {

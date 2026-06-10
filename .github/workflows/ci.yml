@@ -47,16 +47,13 @@ jobs:
                   delete-branch: true
                   labels: dependencies, automated
 
-    # ── App: Lint + Test ─────────────────────────────────────────────
+    # ── App & Cloud Functions: Lint + Test ──────────────────────────
     lint-and-test:
-        name: Lint & Test (app)
+        name: Lint & Test
         runs-on: ubuntu-latest
         permissions:
             contents: write
             pull-requests: write
-        defaults:
-            run:
-                working-directory: ./app
         steps:
             - name: Checkout repository
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -68,13 +65,25 @@ jobs:
               with:
                   node-version: '20'
                   cache: npm
-                  cache-dependency-path: app/package-lock.json
+                  cache-dependency-path: '**/package-lock.json'
 
-            - name: Install dependencies
+            - name: Install dependencies (app)
+              working-directory: ./app
               run: npm ci
 
-            - name: Auto-format with Prettier
-              run: npx prettier --write .
+            - name: Install dependencies (cloud-functions)
+              working-directory: ./cloud-functions
+              run: npm ci
+
+            - name: Auto-format with Prettier (app)
+              if: github.event_name == 'push'
+              working-directory: ./app
+              run: npm run format
+
+            - name: Auto-format with Prettier (cloud-functions)
+              if: github.event_name == 'push'
+              working-directory: ./cloud-functions
+              run: npm run format
 
             - name: Create PR for formatted files
               if: github.event_name == 'push'
@@ -90,8 +99,22 @@ jobs:
                   delete-branch: true
                   labels: formatting, automated
 
-            - name: Run ESLint
+            - name: Run Prettier check (app)
+              working-directory: ./app
+              run: npm run format:check
+
+            - name: Run Prettier check (cloud-functions)
+              working-directory: ./cloud-functions
+              run: npm run format:check
+
+            - name: Run ESLint (app)
+              working-directory: ./app
               run: npm run lint
 
-            - name: Run Jest tests
+            - name: Run ESLint (cloud-functions)
+              working-directory: ./cloud-functions
+              run: npm run lint
+
+            - name: Run Jest tests (app)
+              working-directory: ./app
               run: npm test -- --ci --passWithNoTests

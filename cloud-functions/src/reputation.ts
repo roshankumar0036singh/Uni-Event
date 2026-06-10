@@ -1,10 +1,12 @@
-import * as admin from "firebase-admin";
-import * as functions from "firebase-functions";
+import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 import { FieldValue, FieldPath } from 'firebase-admin/firestore';
+import { validateSchema } from './validation/validate';
+import { getTopContributorsSchema } from './validation/schemas';
 
 // Initialize only once (important for tests + Firebase runtime)
 if (!admin.apps.length) {
-  admin.initializeApp();
+    admin.initializeApp();
 }
 
 const db = admin.firestore();
@@ -16,11 +18,11 @@ const db = admin.firestore();
  * - Reminder: 1 point each
  */
 export const calculatePoints = (
-  attendanceCount: number,
-  registrationCount: number,
-  remindersSet: number,
+    attendanceCount: number,
+    registrationCount: number,
+    remindersSet: number,
 ) => {
-  return attendanceCount * 10 + registrationCount * 2 + remindersSet;
+    return attendanceCount * 10 + registrationCount * 2 + remindersSet;
 };
 
 /**
@@ -55,11 +57,7 @@ export const calculateReputation = functions.https.onCall(async (_data, context)
 
         const remindersSet = userData.reputation?.remindersSet ?? userData.remindersSet ?? 0;
 
-        const points = calculatePoints(
-            attendanceCount,
-            registrationCount,
-            remindersSet,
-            );
+        const points = calculatePoints(attendanceCount, registrationCount, remindersSet);
         batch.update(userDoc.ref, {
             'reputation.points': points,
             'reputation.attendanceCount': attendanceCount,
@@ -136,12 +134,24 @@ export const refreshTopContributorsLeaderboard = functions.pubsub
  */
 export const getTopContributors = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+        throw new functions.https.HttpsError(
+            'unauthenticated',
+            'The function must be called while authenticated.',
+        );
     }
-    const limit = Math.min(data?.limit || 10, 25);
-    const lastPoints = data?.lastPoints;
-    const lastUserId = data?.lastUserId;
-    const startRank = data?.startRank || 1;
+    const {
+        limit = 10,
+        lastPoints,
+        lastUserId,
+        startRank,
+    } = validateSchema(getTopContributorsSchema, data);
+    const safeStartRank = startRank ?? 1;
+
+    const isCursorPagination = lastPoints || lastUserId;
+
+    if (isCursorPagination && startRank === undefined) {
+        throw new Error('startRank is required when using cursor pagination');
+    }
 
     let query: FirebaseFirestore.Query = db
         .collection('users')
@@ -160,7 +170,7 @@ export const getTopContributors = functions.https.onCall(async (data, context) =
 
         return {
             userId: doc.id,
-            rank: startRank + index,
+            rank: safeStartRank + index,
             name: userData.name || userData.fullName || userData.displayName || 'Unknown Student',
             department: userData.department || '',
             photoURL: userData.photoURL || '',
@@ -181,7 +191,7 @@ export const getTopContributors = functions.https.onCall(async (data, context) =
             ? {
                   lastPoints: lastContributor.points,
                   lastUserId: lastContributor.userId,
-                  startRank: startRank + contributors.length,
+                  startRank: safeStartRank + contributors.length,
               }
             : null,
     };

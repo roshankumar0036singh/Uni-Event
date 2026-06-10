@@ -1,8 +1,6 @@
-import * as path from 'node:path';
 import { getAvailableTemplates, getSampleData, renderTemplate } from './emailTemplateRenderer';
 
 // Resolve the templates directory the same way the module does
-const TEMPLATES_DIR = path.resolve(__dirname, '../../templates');
 
 const expectNoPlaceholders = (html: string, keys: string[]) => {
     for (const key of keys) {
@@ -136,7 +134,7 @@ describe('emailTemplateRenderer', () => {
 
         it('should preserve HTML structure', () => {
             const html = renderTemplate('feedback_email_template');
-            expect(html).toContain('<!DOCTYPE html>');
+            expect(html).toContain('<!doctype html>');
             expect(html).toContain('</html>');
         });
     });

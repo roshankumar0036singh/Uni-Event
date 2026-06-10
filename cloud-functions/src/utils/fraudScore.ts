@@ -1,11 +1,11 @@
 export interface FraudResult {
-  fraudScore: number;
-  reasons: string[];
+    fraudScore: number;
+    reasons: string[];
 }
 
 export function createFraudResult(): FraudResult {
-  return {
-    fraudScore: 0,
-    reasons: [],
-  };
+    return {
+        fraudScore: 0,
+        reasons: [],
+    };
 }

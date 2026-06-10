@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Rating } from 'react-native-ratings';
 import { useTheme } from '../lib/ThemeContext';
 import PropTypes from 'prop-types';
@@ -91,7 +92,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                 onClose();
             }}
         >
-            <View style={styles.overlay}>
+            <BlurView intensity={60} tint="dark" style={styles.overlay}>
                 <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
                     <ScrollView showsVerticalScrollIndicator={false}>
                         {/* Header */}
@@ -327,7 +328,7 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
                         </View>
                     </ScrollView>
                 </View>
-            </View>
+            </BlurView>
         </Modal>
     );
 }
@@ -335,7 +336,6 @@ export default function FeedbackModal({ visible, onClose, feedbackRequest, onSub
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.7)',
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,

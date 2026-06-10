@@ -40,12 +40,12 @@ const firestore_2 = require("firebase-functions/v2/firestore");
 const distance_1 = require("./utils/distance");
 const fraudScore_1 = require("./utils/fraudScore");
 const db = admin.firestore();
-exports.analyzeAttendance = (0, firestore_2.onDocumentCreated)("events/{eventId}/checkIns/{userId}", async (event) => {
+exports.analyzeAttendance = (0, firestore_2.onDocumentCreated)('events/{eventId}/checkIns/{userId}', async (event) => {
     const snap = event.data;
     if (!snap)
         return;
     const attendance = snap.data();
-    const { userId, latitude, longitude, deviceId, checkedInAt, qrId, } = attendance;
+    const { userId, latitude, longitude, deviceId, checkedInAt, qrId } = attendance;
     const eventId = event.params.eventId;
     const result = (0, fraudScore_1.createFraudResult)();
     await checkRapidDuplicate(eventId, event.params.userId, qrId, checkedInAt, result);
@@ -54,10 +54,7 @@ exports.analyzeAttendance = (0, firestore_2.onDocumentCreated)("events/{eventId}
     await checkMultipleEvents(userId, checkedInAt, eventId, result);
     if (result.fraudScore >= 60) {
         const reportId = `${eventId}_${event.params.userId}`;
-        await db
-            .collection("fraudReports")
-            .doc(reportId)
-            .set({
+        await db.collection('fraudReports').doc(reportId).set({
             attendanceId: event.params.userId,
             userId,
             eventId,
@@ -70,12 +67,12 @@ exports.analyzeAttendance = (0, firestore_2.onDocumentCreated)("events/{eventId}
 });
 async function checkRapidDuplicate(eventId, currentUserId, qrId, checkedInAt, result) {
     const snapshot = await db
-        .collection("events")
+        .collection('events')
         .doc(eventId)
-        .collection("checkIns")
-        .where("qrId", "==", qrId)
+        .collection('checkIns')
+        .where('qrId', '==', qrId)
         .get();
-    snapshot.forEach((doc) => {
+    snapshot.forEach(doc => {
         // Skip current check-in
         if (doc.id === currentUserId) {
             return;
@@ -92,15 +89,12 @@ async function checkRapidDuplicate(eventId, currentUserId, qrId, checkedInAt, re
         const diff = Math.abs(currentTime - existingTime);
         if (diff < 30000) {
             result.fraudScore += 40;
-            result.reasons.push("Rapid repeated QR check-in");
+            result.reasons.push('Rapid repeated QR check-in');
         }
     });
 }
 async function checkImpossibleDistance(eventId, latitude, longitude, result) {
-    const eventDoc = await db
-        .collection("events")
-        .doc(eventId)
-        .get();
+    const eventDoc = await db.collection('events').doc(eventId).get();
     const eventData = eventDoc.data();
     if (!eventData)
         return;
@@ -113,29 +107,23 @@ async function checkImpossibleDistance(eventId, latitude, longitude, result) {
     const distance = (0, distance_1.calculateDistance)(latitude, longitude, eventData.latitude, eventData.longitude);
     if (distance > 500) {
         result.fraudScore += 30;
-        result.reasons.push("Attendance too far from venue");
+        result.reasons.push('Attendance too far from venue');
     }
 }
 async function checkDeviceAbuse(deviceId, result) {
-    const snapshot = await db
-        .collectionGroup("checkIns")
-        .where("deviceId", "==", deviceId)
-        .get();
+    const snapshot = await db.collectionGroup('checkIns').where('deviceId', '==', deviceId).get();
     const users = new Set();
-    snapshot.forEach((doc) => {
+    snapshot.forEach(doc => {
         users.add(doc.data().userId);
     });
     if (users.size >= 3) {
         result.fraudScore += 50;
-        result.reasons.push("Multiple accounts using same device");
+        result.reasons.push('Multiple accounts using same device');
     }
 }
 async function checkMultipleEvents(userId, checkedInAt, currentEventId, result) {
-    const snapshot = await db
-        .collectionGroup("checkIns")
-        .where("userId", "==", userId)
-        .get();
-    snapshot.forEach((doc) => {
+    const snapshot = await db.collectionGroup('checkIns').where('userId', '==', userId).get();
+    snapshot.forEach(doc => {
         const data = doc.data();
         const currentTime = checkedInAt?.toDate
             ? checkedInAt.toDate().getTime()
@@ -144,10 +132,9 @@ async function checkMultipleEvents(userId, checkedInAt, currentEventId, result) 
             ? data.checkedInAt.toDate().getTime()
             : new Date(data.checkedInAt).getTime();
         const diff = Math.abs(currentTime - existingTime);
-        if (diff < 60000 &&
-            data.eventId !== currentEventId) {
+        if (diff < 60000 && data.eventId !== currentEventId) {
             result.fraudScore += 50;
-            result.reasons.push("Multiple event check-ins simultaneously");
+            result.reasons.push('Multiple event check-ins simultaneously');
         }
     });
 }

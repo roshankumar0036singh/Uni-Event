@@ -42,6 +42,8 @@ For users who manually clicked "Set Reminder":
     *   Runs every minute.
     *   Queries `reminders` where time has passed.
     *   Sends a Push Notification (same method as above) AND creates an in-app notification in `users/{uid}/notifications`.
+3.  **Backend Cleanup (`onEventDelete`):**
+    *   If an event is deleted or canceled, this trigger automatically deletes all associated documents in the `reminders` collection so phantom notifications are never sent.
 
 ## Summary Logic
 

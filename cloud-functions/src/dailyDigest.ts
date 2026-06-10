@@ -127,6 +127,8 @@ export const sendDailyDigest = functions.https.onCall(async (data, context) => {
         return { success: false, count, processed: processedCount, failedPushes };
     }
 
-    logEntry('dailyDigest', 'sendDailyDigest completed', { output: { success: true, count, processed: processedCount } });
+    logEntry('dailyDigest', 'sendDailyDigest completed', {
+        output: { success: true, count, processed: processedCount },
+    });
     return { success: true, count, processed: processedCount };
 });

@@ -56,16 +56,12 @@ const parseScannedTicket = (data, eventId) => {
     };
 };
 
-const getScannedUserData = async (scannedUserId, hasTicketId) => {
-    const userRef = doc(db, 'users', scannedUserId);
+const getScannedUserData = async (scannedUserId, eventId) => {
+    const userRef = doc(db, 'events', eventId, 'participants', scannedUserId);
     const userSnap = await getDoc(userRef);
 
     if (userSnap.exists()) {
         return { userData: userSnap.data() || {} };
-    }
-
-    if (hasTicketId) {
-        return { errorMessage: 'Invalid User QR Code' };
     }
 
     return { userData: {} };
@@ -158,7 +154,7 @@ export default function QRScannerScreen({ navigation, route }) {
 
             let userData = {};
             try {
-                const userLookup = await getScannedUserData(scannedUserId, hasTicketId);
+                const userLookup = await getScannedUserData(scannedUserId, eventId);
 
                 if (userLookup.errorMessage) {
                     setScanResult({ status: 'error', message: userLookup.errorMessage });

@@ -23,6 +23,7 @@ export * from './auditLog';
 export * from './attendanceStreak';
 export * from './permanentCleanup';
 export * from './clubReputation';
+export * from './onEventDelete';
 
 export const cleanupRateLimits = functions.pubsub.schedule('every 1 hour').onRun(async () => {
     await cleanupOldRateLimits();
