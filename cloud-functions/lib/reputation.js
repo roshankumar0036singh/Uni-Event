@@ -37,6 +37,8 @@ exports.getTopContributors = exports.refreshTopContributorsLeaderboard = exports
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const firestore_1 = require("firebase-admin/firestore");
+const validate_1 = require("./validation/validate");
+const schemas_1 = require("./validation/schemas");
 // Initialize only once (important for tests + Firebase runtime)
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -142,10 +144,12 @@ exports.getTopContributors = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
-    const limit = Math.min(data?.limit || 10, 25);
-    const lastPoints = data?.lastPoints;
-    const lastUserId = data?.lastUserId;
-    const startRank = data?.startRank || 1;
+    const { limit = 10, lastPoints, lastUserId, startRank, } = (0, validate_1.validateSchema)(schemas_1.getTopContributorsSchema, data);
+    const safeStartRank = startRank ?? 1;
+    const isCursorPagination = lastPoints || lastUserId;
+    if (isCursorPagination && startRank === undefined) {
+        throw new Error('startRank is required when using cursor pagination');
+    }
     let query = db
         .collection('users')
         .orderBy('reputation.points', 'desc')
@@ -159,7 +163,7 @@ exports.getTopContributors = functions.https.onCall(async (data, context) => {
         const userData = doc.data();
         return {
             userId: doc.id,
-            rank: startRank + index,
+            rank: safeStartRank + index,
             name: userData.name || userData.fullName || userData.displayName || 'Unknown Student',
             department: userData.department || '',
             photoURL: userData.photoURL || '',
@@ -178,7 +182,7 @@ exports.getTopContributors = functions.https.onCall(async (data, context) => {
             ? {
                 lastPoints: lastContributor.points,
                 lastUserId: lastContributor.userId,
-                startRank: startRank + contributors.length,
+                startRank: safeStartRank + contributors.length,
             }
             : null,
     };

@@ -16,21 +16,17 @@ import ScreenWrapper from '../components/ScreenWrapper';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useTheme } from '../lib/ThemeContext';
 import PremiumInput from '../components/PremiumInput';
-import { collection, doc, increment, getDoc, arrayUnion, runTransaction } from 'firebase/firestore';
-import { db } from '../lib/firebaseConfig';
-import { useAuth } from '../lib/AuthContext';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../lib/firebaseConfig';
 import { scheduleEventReminder } from '../lib/notificationService';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { getEarlyBirdInfo } from '../lib/earlyBird';
-import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
 import { formatEventDate } from '../lib/formatEventDate';
 import PropTypes from 'prop-types';
-import { publicProfileRef } from '../lib/publicProfile';
 
 export default function EventRegistrationFormScreen({ navigation, route }) {
     const { event } = route.params;
-    const { user } = useAuth();
     const { theme } = useTheme();
     const styles = getStyles(theme);
 
@@ -81,115 +77,16 @@ export default function EventRegistrationFormScreen({ navigation, route }) {
         // 2. Unpaid Event Flow -> Complete RSVP
         setLoading(true);
         try {
-            // A. Fetch User Data for Consistent RSVP Record
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
-            const userData = userDoc.exists() ? userDoc.data() : {};
-
-            let finalEarlyBird = false;
-            let freshEvent = null;
-
-            await runTransaction(db, async transaction => {
-                // Read the fresh event document securely
-                const eventRef = doc(db, 'events', event.id);
-                const eventSnap = await transaction.get(eventRef);
-
-                if (!eventSnap.exists()) {
-                    throw new Error('Event not found');
-                }
-
-                const eventData = eventSnap.data();
-                freshEvent = { id: eventSnap.id, ...eventData };
-
-                const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
-                const participantSnap = await transaction.get(participantRef);
-                if (participantSnap.exists()) {
-                    throw new Error('You are already registered for this event.');
-                }
-                // Determine early bird eligibility based on the real-time data
-                let { isEligible: earlyBird } = getEarlyBirdInfo(freshEvent);
-
-                // Enforce capacity limit if the event defines one
-                if (earlyBird && freshEvent.earlyBirdCapacity != null) {
-                    const currentEarlyBirds = freshEvent.stats?.earlyBirdRegistrations || 0;
-                    if (currentEarlyBirds >= freshEvent.earlyBirdCapacity) {
-                        earlyBird = false;
-                    }
-                }
-
-                finalEarlyBird = earlyBird;
-
-                // B. Save Custom Form Responses
-                const newRegistrationRef = doc(collection(db, 'registrations'));
-                transaction.set(newRegistrationRef, {
-                    eventId: event.id,
-                    eventId_userId: `${event.id}_${user.uid}`,
-                    userId: user.uid,
-                    userEmail: user.email,
-                    userName: user.displayName,
-                    responses: responses,
-                    schemaAtSubmission: event.customFormSchema,
-                    timestamp: new Date().toISOString(),
-                    status: 'confirmed',
-                });
-
-                // C. Add to Event Participants
-                const participantPayload = {
-                    userId: user.uid,
-                    name: user.displayName || 'Anonymous',
-                    email: user.email,
-                    branch: userData.branch || 'Unknown',
-                    year: userData.year || 'Unknown',
-                    joinedAt: new Date().toISOString(),
-                };
-                transaction.set(participantRef, participantPayload);
-
-                // D. Add to User's Participating List
-                const participatingRef = doc(db, 'users', user.uid, 'participating', event.id);
-                transaction.set(participatingRef, {
-                    eventId: event.id,
-                    joinedAt: new Date().toISOString(),
-                });
-
-                // E. Award Points & Early Bird Badge + Analytics Counters
-                const userUpdate = { points: increment(10) };
-                const eventUpdates = buildCounterUpdates({
-                    branch: participantPayload.branch,
-                    year: participantPayload.year,
-                    delta: 1,
-                    eventData,
-                });
-                const nextPreview = buildPreviewUpdate({
-                    eventData,
-                    participant: participantPayload,
-                    delta: 1,
-                });
-                eventUpdates.participantsPreview = nextPreview;
-                if (earlyBird) {
-                    userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
-
-                    // Increment early bird stats to enforce limits on concurrent requests
-                    eventUpdates['stats.earlyBirdRegistrations'] = increment(1);
-                }
-
-                const userRef = doc(db, 'users', user.uid);
-                const userPublicProfileRef = publicProfileRef(db, user.uid);
-                transaction.set(userRef, userUpdate, { merge: true });
-                transaction.set(
-                    userPublicProfileRef,
-                    {
-                        points: increment(10),
-                        displayName: userData.displayName || '',
-                        photoURL: userData.photoURL || '',
-                        role: userData.role || 'student',
-                        isVerified: userData.isVerified || false,
-                    },
-                    { merge: true },
-                );
-                transaction.update(eventRef, eventUpdates);
+            const registerForEvent = httpsCallable(functions, 'registerForEvent');
+            const result = await registerForEvent({
+                eventId: event.id,
+                responses: responses,
             });
 
+            const { earlyBird: finalEarlyBird } = result.data;
+
             // F. Schedule Reminder
-            await scheduleEventReminder(freshEvent || event);
+            await scheduleEventReminder(event);
 
             setShowConfetti(true);
             Alert.alert(

@@ -1,5 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { collection, doc, getDoc, increment, arrayUnion, runTransaction } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { getDoc, doc } from 'firebase/firestore';
+import { db, functions } from '../lib/firebaseConfig';
+import { getEarlyBirdInfo } from '../lib/earlyBird';
 import { useState } from 'react';
 import {
     ActivityIndicator,
@@ -16,19 +19,12 @@ import {
 } from 'react-native';
 import PaymentSuccessAnimation from '../components/PaymentSuccessAnimation';
 import ConfettiCannon from 'react-native-confetti-cannon';
-import { useAuth } from '../lib/AuthContext';
-import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
-
-import { getEarlyBirdInfo } from '../lib/earlyBird';
-import { buildCounterUpdates, buildPreviewUpdate } from '../lib/eventAnalyticsCounters';
 import { formatEventDate } from '../lib/formatEventDate';
 import PropTypes from 'prop-types';
-import { publicProfileRef } from '../lib/publicProfile';
 
 export default function PaymentScreen({ route, navigation }) {
     const { event, price, formResponses } = route.params;
-    const { user } = useAuth();
     const { theme } = useTheme();
 
     const [loading, setLoading] = useState(false);
@@ -126,136 +122,18 @@ export default function PaymentScreen({ route, navigation }) {
         // Simulate Validation Delay
         setTimeout(async () => {
             try {
-                // 1. Create Order ID (Mock or UTR)
                 const orderId = transactionId || 'ORD-' + Date.now();
 
-                const ticketRef = doc(collection(db, 'tickets'));
-                const eventRef = doc(db, 'events', event.id);
-                const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
-                const participatingRef = doc(db, 'users', user.uid, 'participating', event.id);
-                const userRef = doc(db, 'users', user.uid);
-                const userPublicProfileRef = publicProfileRef(db, user.uid);
-                let finalEarlyBird = false;
-                let ticketData = null;
-
-                await runTransaction(db, async transaction => {
-                    const eventSnap = await transaction.get(eventRef);
-                    if (!eventSnap.exists()) {
-                        throw new Error('Event not found');
-                    }
-
-                    const participantSnap = await transaction.get(participantRef);
-                    if (participantSnap.exists()) {
-                        throw new Error('You are already registered for this event.');
-                    }
-
-                    const userSnap = await transaction.get(userRef);
-                    const userData = userSnap.exists() ? userSnap.data() : {};
-                    const eventData = eventSnap.data();
-                    const freshEvent = { id: eventSnap.id, ...eventData };
-
-                    let { isEligible: earlyBird } = getEarlyBirdInfo(freshEvent);
-                    if (earlyBird && freshEvent.earlyBirdCapacity != null) {
-                        const currentEarlyBirds = freshEvent.stats?.earlyBirdRegistrations || 0;
-                        if (currentEarlyBirds >= freshEvent.earlyBirdCapacity) {
-                            earlyBird = false;
-                        }
-                    }
-                    finalEarlyBird = earlyBird;
-
-                    const finalPrice =
-                        earlyBird && freshEvent.earlyBirdPrice != null
-                            ? freshEvent.earlyBirdPrice
-                            : (freshEvent.price ?? price ?? 0);
-
-                    ticketData = {
-                        eventId: freshEvent.id,
-                        eventTitle: freshEvent.title,
-                        eventDate: freshEvent.startAt,
-                        eventLocation: freshEvent.location,
-                        userId: user.uid,
-                        userName: user.displayName || 'Guest',
-                        userEmail: user.email,
-                        userYear: userData.year || 'N/A',
-                        userBranch: userData.branch || 'N/A',
-                        price: finalPrice,
-                        status: 'paid',
-                        orderId: orderId,
-                        paymentMethod: selectedMethod,
-                        purchasedAt: new Date().toISOString(),
-                    };
-
-                    const participantPayload = {
-                        userId: user.uid,
-                        name: user.displayName || 'Guest',
-                        email: user.email,
-                        branch: userData.branch || 'Unknown',
-                        year: userData.year || 'Unknown',
-                        joinedAt: new Date().toISOString(),
-                        ticketId: ticketRef.id,
-                        status: 'paid',
-                    };
-
-                    transaction.set(ticketRef, ticketData);
-                    transaction.set(participatingRef, {
-                        eventId: event.id,
-                        joinedAt: new Date().toISOString(),
-                        role: 'attendee',
-                        ticketId: ticketRef.id,
-                        status: 'paid',
-                    });
-                    transaction.set(participantRef, participantPayload);
-
-                    if (formResponses) {
-                        const registrationRef = doc(collection(db, 'registrations'));
-                        transaction.set(registrationRef, {
-                            eventId: event.id,
-                            eventId_userId: `${event.id}_${user.uid}`,
-                            userId: user.uid,
-                            userEmail: user.email,
-                            userName: user.displayName,
-                            responses: formResponses,
-                            schemaAtSubmission: event.customFormSchema || [],
-                            ticketId: ticketRef.id,
-                            timestamp: new Date().toISOString(),
-                            status: 'paid',
-                        });
-                    }
-
-                    const userUpdate = { points: increment(10) };
-                    if (earlyBird) {
-                        userUpdate.badges = arrayUnion(`early_bird_${event.id}`);
-                    }
-                    transaction.set(userRef, userUpdate, { merge: true });
-                    transaction.set(
-                        userPublicProfileRef,
-                        {
-                            points: increment(10),
-                            displayName: userData.displayName || '',
-                            photoURL: userData.photoURL || '',
-                            role: userData.role || 'student',
-                            isVerified: userData.isVerified || false,
-                        },
-                        { merge: true },
-                    );
-
-                    const eventUpdates = buildCounterUpdates({
-                        branch: participantPayload.branch,
-                        year: participantPayload.year,
-                        delta: 1,
-                        eventData,
-                    });
-                    const nextPreview = buildPreviewUpdate({
-                        eventData,
-                        participant: participantPayload,
-                        delta: 1,
-                    });
-                    eventUpdates.participantsPreview = nextPreview;
-                    if (earlyBird) {
-                        eventUpdates['stats.earlyBirdRegistrations'] = increment(1);
-                    }
-                    transaction.update(eventRef, eventUpdates);
+                const finalizeTicketPayment = httpsCallable(functions, 'finalizeTicketPayment');
+                const result = await finalizeTicketPayment({
+                    eventId: event.id,
+                    transactionId: orderId,
+                    selectedMethod: selectedMethod,
+                    formResponses: formResponses,
+                    expectedPrice: price,
                 });
+
+                const { earlyBird: finalEarlyBird, ticketId, ticketData } = result.data;
 
                 setLoading(false);
 
@@ -266,7 +144,7 @@ export default function PaymentScreen({ route, navigation }) {
                 // Navigate to ticket after animation completes
                 setTimeout(() => {
                     navigation.replace('TicketScreen', {
-                        ticketId: ticketRef.id,
+                        ticketId: ticketId,
                         ticketData,
                         earlyBirdEarned: finalEarlyBird,
                     });

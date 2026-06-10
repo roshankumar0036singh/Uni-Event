@@ -36,6 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.setRole = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
+const validate_1 = require("./validation/validate");
+const schemas_1 = require("./validation/schemas");
 // Assumes admin.initializeApp() is called in index.ts
 /**
  * Sets the role for a user.
@@ -53,15 +55,7 @@ exports.setRole = functions.https.onCall(async (data, context) => {
     if (!context.auth.token.admin) {
         throw new functions.https.HttpsError('permission-denied', 'Only admins can set roles.');
     }
-    const { uid, role } = data;
-    if (!uid || !role) {
-        throw new functions.https.HttpsError('invalid-argument', "The function must be called with 'uid' and 'role' arguments.");
-    }
-    // Validate role
-    const validRoles = ['admin', 'club', 'student'];
-    if (!validRoles.includes(role)) {
-        throw new functions.https.HttpsError('invalid-argument', `Role must be one of: ${validRoles.join(', ')}`);
-    }
+    const { uid, role } = (0, validate_1.validateSchema)(schemas_1.setRoleSchema, data);
     const claims = {};
     if (role === 'admin')
         claims.admin = true;
