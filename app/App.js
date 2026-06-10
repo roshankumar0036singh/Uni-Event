@@ -5,7 +5,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, Suspense, lazy } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native';
 import PropTypes from 'prop-types';
 
 import 'react-native-gesture-handler';
@@ -184,6 +184,13 @@ function TabNavigator() {
 
 const linking = {
     prefixes: [BASE_URL, 'unievent://', 'http://localhost:19006'],
+    async getInitialURL() {
+        const url = await Linking.getInitialURL();
+        if (url != null) {
+            return url;
+        }
+        return null;
+    },
     config: {
         screens: {
             Main: {
