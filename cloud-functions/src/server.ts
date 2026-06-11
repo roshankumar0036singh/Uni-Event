@@ -21,9 +21,10 @@ if (admin.apps.length === 0) {
             });
             console.log('✅ Firebase Admin initialized with service account from env');
         } catch (error) {
-            console.error('❌ Failed to parse service account JSON:', error);
-            admin.initializeApp();
+            console.error('❌ Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON. Refusing to fall back to default credentials.', error);
+            throw new Error('Invalid GOOGLE_APPLICATION_CREDENTIALS_JSON: malformed JSON');
         }
+
     } else {
         // Fallback to default credentials
         admin.initializeApp();
