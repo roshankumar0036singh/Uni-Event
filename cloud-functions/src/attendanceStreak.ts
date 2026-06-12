@@ -3,6 +3,8 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { awardDedicatedStudentCertificate } from './dedicatedStudentCertificate';
 import { Timestamp } from '@google-cloud/firestore';
 
+const ATTENDANCE_POINTS_REWARD = 10;
+
 function getISOWeekKey(date: Date): string {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -62,6 +64,7 @@ export const attendanceStreak = onDocumentCreated(
                 currentStreak: newStreak,
                 longestStreak: newLongestStreak,
                 lastAttendanceAt: now,
+                points: admin.firestore.FieldValue.increment(ATTENDANCE_POINTS_REWARD),
             });
 
             console.log('previous currentStreak:', currentStreak);
