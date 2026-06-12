@@ -331,12 +331,12 @@ app.get('/email-preview/:templateName', (req: express.Request, res: express.Resp
         res.send(responseHtml); // NOSONAR
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error';
-        const errorHtml = `
-      <h1>Template Not Found</h1>
-      <p>${escHtml(message)}</p>
-      <a href="/email-preview">← Back to template list</a>
-    `;
-        res.status(404).send(errorHtml); // NOSONAR
+
+        return res.status(404).json({
+            success: false,
+            error: 'Template not found',
+            message,
+        });
     }
 });
 

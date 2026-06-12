@@ -1,5 +1,5 @@
-'use strict';
-Object.defineProperty(exports, '__esModule', { value: true });
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
 exports.getParticipantContacts = getParticipantContacts;
 /**
  * Helper function to retrieve all participants registered for a specific event.

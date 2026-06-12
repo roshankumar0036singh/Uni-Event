@@ -1,68 +1,44 @@
-'use strict';
-var __createBinding =
-    (this && this.__createBinding) ||
-    (Object.create
-        ? function (o, m, k, k2) {
-              if (k2 === undefined) k2 = k;
-              var desc = Object.getOwnPropertyDescriptor(m, k);
-              if (!desc || ('get' in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-                  desc = {
-                      enumerable: true,
-                      get: function () {
-                          return m[k];
-                      },
-                  };
-              }
-              Object.defineProperty(o, k2, desc);
-          }
-        : function (o, m, k, k2) {
-              if (k2 === undefined) k2 = k;
-              o[k2] = m[k];
-          });
-var __setModuleDefault =
-    (this && this.__setModuleDefault) ||
-    (Object.create
-        ? function (o, v) {
-              Object.defineProperty(o, 'default', { enumerable: true, value: v });
-          }
-        : function (o, v) {
-              o['default'] = v;
-          });
-var __importStar =
-    (this && this.__importStar) ||
-    (function () {
-        var ownKeys = function (o) {
-            ownKeys =
-                Object.getOwnPropertyNames ||
-                function (o) {
-                    var ar = [];
-                    for (var k in o)
-                        if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-                    return ar;
-                };
-            return ownKeys(o);
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
         };
-        return function (mod) {
-            if (mod && mod.__esModule) return mod;
-            var result = {};
-            if (mod != null)
-                for (var k = ownKeys(mod), i = 0; i < k.length; i++)
-                    if (k[i] !== 'default') __createBinding(result, mod, k[i]);
-            __setModuleDefault(result, mod);
-            return result;
-        };
-    })();
-Object.defineProperty(exports, '__esModule', { value: true });
-exports.getTopContributors =
-    exports.refreshTopContributorsLeaderboard =
-    exports.calculateReputation =
-    exports.calculatePoints =
-        void 0;
-const admin = __importStar(require('firebase-admin'));
-const functions = __importStar(require('firebase-functions'));
-const firestore_1 = require('firebase-admin/firestore');
-const validate_1 = require('./validation/validate');
-const schemas_1 = require('./validation/schemas');
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getTopContributors = exports.refreshTopContributorsLeaderboard = exports.calculateReputation = exports.calculatePoints = void 0;
+const admin = __importStar(require("firebase-admin"));
+const functions = __importStar(require("firebase-functions"));
+const firestore_1 = require("firebase-admin/firestore");
+const validate_1 = require("./validation/validate");
+const schemas_1 = require("./validation/schemas");
 // Initialize only once (important for tests + Firebase runtime)
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -88,10 +64,7 @@ exports.calculatePoints = calculatePoints;
  */
 exports.calculateReputation = functions.https.onCall(async (_data, context) => {
     if (!context.auth?.token.admin) {
-        throw new functions.https.HttpsError(
-            'permission-denied',
-            'Only admin can calculate reputation.',
-        );
+        throw new functions.https.HttpsError('permission-denied', 'Only admin can calculate reputation.');
     }
     const usersSnapshot = await db.collection('users').get();
     let batch = db.batch();
@@ -99,16 +72,10 @@ exports.calculateReputation = functions.https.onCall(async (_data, context) => {
     let updatedUsers = 0;
     for (const userDoc of usersSnapshot.docs) {
         const userData = userDoc.data();
-        const attendanceCount =
-            userData.reputation?.attendanceCount ?? userData.attendanceCount ?? 0;
-        const registrationCount =
-            userData.reputation?.registrationCount ?? userData.registrationCount ?? 0;
+        const attendanceCount = userData.reputation?.attendanceCount ?? userData.attendanceCount ?? 0;
+        const registrationCount = userData.reputation?.registrationCount ?? userData.registrationCount ?? 0;
         const remindersSet = userData.reputation?.remindersSet ?? userData.remindersSet ?? 0;
-        const points = (0, exports.calculatePoints)(
-            attendanceCount,
-            registrationCount,
-            remindersSet,
-        );
+        const points = (0, exports.calculatePoints)(attendanceCount, registrationCount, remindersSet);
         batch.update(userDoc.ref, {
             'reputation.points': points,
             'reputation.attendanceCount': attendanceCount,
@@ -140,34 +107,33 @@ exports.calculateReputation = functions.https.onCall(async (_data, context) => {
 exports.refreshTopContributorsLeaderboard = functions.pubsub
     .schedule('every 24 hours')
     .onRun(async () => {
-        const usersSnapshot = await db
-            .collection('users')
-            .orderBy('reputation.points', 'desc')
-            .orderBy(firestore_1.FieldPath.documentId())
-            .limit(10)
-            .get();
-        const contributors = usersSnapshot.docs.map((doc, index) => {
-            const userData = doc.data();
-            return {
-                userId: doc.id,
-                rank: index + 1,
-                name:
-                    userData.name || userData.fullName || userData.displayName || 'Unknown Student',
-                department: userData.department || '',
-                photoURL: userData.photoURL || '',
-                points: userData.reputation?.points || 0,
-                attendanceCount: userData.reputation?.attendanceCount || 0,
-                registrationCount: userData.reputation?.registrationCount || 0,
-                remindersSet: userData.reputation?.remindersSet || 0,
-            };
-        });
-        await db.collection('leaderboards').doc('topContributors').set({
-            type: 'topContributors',
-            contributors,
-            updatedAt: firestore_1.FieldValue.serverTimestamp(),
-        });
-        return null;
+    const usersSnapshot = await db
+        .collection('users')
+        .orderBy('reputation.points', 'desc')
+        .orderBy(firestore_1.FieldPath.documentId())
+        .limit(10)
+        .get();
+    const contributors = usersSnapshot.docs.map((doc, index) => {
+        const userData = doc.data();
+        return {
+            userId: doc.id,
+            rank: index + 1,
+            name: userData.name || userData.fullName || userData.displayName || 'Unknown Student',
+            department: userData.department || '',
+            photoURL: userData.photoURL || '',
+            points: userData.reputation?.points || 0,
+            attendanceCount: userData.reputation?.attendanceCount || 0,
+            registrationCount: userData.reputation?.registrationCount || 0,
+            remindersSet: userData.reputation?.remindersSet || 0,
+        };
     });
+    await db.collection('leaderboards').doc('topContributors').set({
+        type: 'topContributors',
+        contributors,
+        updatedAt: firestore_1.FieldValue.serverTimestamp(),
+    });
+    return null;
+});
 /**
  * Fetches paginated top contributors.
  *
@@ -176,17 +142,9 @@ exports.refreshTopContributorsLeaderboard = functions.pubsub
  */
 exports.getTopContributors = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
-        throw new functions.https.HttpsError(
-            'unauthenticated',
-            'The function must be called while authenticated.',
-        );
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
-    const {
-        limit = 10,
-        lastPoints,
-        lastUserId,
-        startRank,
-    } = (0, validate_1.validateSchema)(schemas_1.getTopContributorsSchema, data);
+    const { limit = 10, lastPoints, lastUserId, startRank, } = (0, validate_1.validateSchema)(schemas_1.getTopContributorsSchema, data);
     const safeStartRank = startRank ?? 1;
     const isCursorPagination = lastPoints || lastUserId;
     if (isCursorPagination && startRank === undefined) {
@@ -222,10 +180,10 @@ exports.getTopContributors = functions.https.onCall(async (data, context) => {
         hasMore: contributors.length === limit,
         nextCursor: lastContributor
             ? {
-                  lastPoints: lastContributor.points,
-                  lastUserId: lastContributor.userId,
-                  startRank: safeStartRank + contributors.length,
-              }
+                lastPoints: lastContributor.points,
+                lastUserId: lastContributor.userId,
+                startRank: safeStartRank + contributors.length,
+            }
             : null,
     };
 });

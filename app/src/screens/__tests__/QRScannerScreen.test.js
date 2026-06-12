@@ -1,12 +1,13 @@
 import React from 'react';
-import { Platform } from 'react-native';
-import { act, render, waitFor } from '@testing-library/react-native';
+import { AppState, Linking, Platform } from 'react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Camera } from 'expo-camera';
 import { getDoc } from 'firebase/firestore';
 import { checkInAttendee, checkInParticipant, queueOfflineCheckIn } from '../../lib/checkInService';
 import QRScannerScreen from '../QRScannerScreen';
 
 let mockOnBarCodeScanned;
+let mockAppStateChange;
 
 jest.mock('../../lib/checkInService', () => ({
     queueOfflineCheckIn: jest.fn(),
@@ -39,21 +40,31 @@ jest.mock('expo-camera', () => {
     const PropTypes = require('prop-types');
     const { View } = require('react-native');
 
-    const MockCamera = props => {
-        mockOnBarCodeScanned = props.onBarCodeScanned;
+    const MockCameraView = props => {
+        mockOnBarCodeScanned = props.onBarcodeScanned;
         return React.createElement(View, { testID: 'camera' });
     };
-    MockCamera.propTypes = {
-        onBarCodeScanned: PropTypes.func,
+    MockCameraView.propTypes = {
+        onBarcodeScanned: PropTypes.func,
     };
 
-    MockCamera.requestCameraPermissionsAsync = jest.fn(() =>
-        Promise.resolve({
-            status: 'denied',
-        }),
-    );
+    const MockCamera = {
+        requestCameraPermissionsAsync: jest.fn(() =>
+            Promise.resolve({
+                status: 'denied',
+            }),
+        ),
+        getCameraPermissionsAsync: jest.fn(() =>
+            Promise.resolve({
+                status: 'denied',
+            }),
+        ),
+    };
 
-    return { Camera: MockCamera };
+    return {
+        Camera: MockCamera,
+        CameraView: MockCameraView,
+    };
 });
 
 jest.mock('firebase/firestore', () => ({
@@ -106,8 +117,20 @@ beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(console, 'log').mockImplementation(() => {});
     mockOnBarCodeScanned = undefined;
+    mockAppStateChange = undefined;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => {
+        mockAppStateChange = callback;
+        return { remove: jest.fn() };
+    });
     Camera.requestCameraPermissionsAsync.mockResolvedValue({
         status: 'denied',
+        granted: false,
+        canAskAgain: true,
+    });
+    Camera.getCameraPermissionsAsync.mockResolvedValue({
+        status: 'denied',
+        granted: false,
+        canAskAgain: true,
     });
 });
 
@@ -116,7 +139,19 @@ afterEach(() => {
 });
 
 describe('QRScannerScreen', () => {
-    it('shows no camera access message when permission denied', async () => {
+    it('allows retrying when camera permission can be requested again', async () => {
+        Camera.requestCameraPermissionsAsync
+            .mockResolvedValueOnce({
+                status: 'denied',
+                granted: false,
+                canAskAgain: true,
+            })
+            .mockResolvedValueOnce({
+                status: 'granted',
+                granted: true,
+                canAskAgain: true,
+            });
+
         const route = {
             params: {
                 eventId: '1',
@@ -128,10 +163,126 @@ describe('QRScannerScreen', () => {
             goBack: jest.fn(),
         };
 
-        const { getByText } = render(<QRScannerScreen navigation={navigation} route={route} />);
+        const { getByText, getByTestId } = render(
+            <QRScannerScreen navigation={navigation} route={route} />,
+        );
 
         await waitFor(() => {
-            expect(getByText(/no access to camera/i)).toBeTruthy();
+            expect(getByText('Try Again')).toBeTruthy();
+        });
+
+        fireEvent.press(getByText('Try Again'));
+
+        await waitFor(() => {
+            expect(Camera.requestCameraPermissionsAsync).toHaveBeenCalledTimes(2);
+            expect(getByTestId('camera')).toBeTruthy();
+        });
+    });
+
+    it('opens device settings when camera permission cannot be requested again', async () => {
+        Camera.requestCameraPermissionsAsync.mockResolvedValueOnce({
+            status: 'denied',
+            granted: false,
+            canAskAgain: false,
+        });
+        jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+
+        const navigation = {
+            goBack: jest.fn(),
+        };
+        const route = {
+            params: {
+                eventId: '1',
+                eventTitle: 'Test Event',
+            },
+        };
+
+        const { getByText, queryByText } = render(
+            <QRScannerScreen navigation={navigation} route={route} />,
+        );
+
+        await waitFor(() => {
+            expect(getByText('Open Settings')).toBeTruthy();
+            expect(queryByText('Try Again')).toBeNull();
+        });
+
+        fireEvent.press(getByText('Open Settings'));
+        expect(Linking.openSettings).toHaveBeenCalledTimes(1);
+    });
+
+    it('refreshes camera permission after returning from device settings', async () => {
+        Camera.requestCameraPermissionsAsync.mockResolvedValueOnce({
+            status: 'denied',
+            granted: false,
+            canAskAgain: false,
+        });
+        Camera.getCameraPermissionsAsync.mockResolvedValueOnce({
+            status: 'granted',
+            granted: true,
+            canAskAgain: true,
+        });
+
+        const navigation = {
+            goBack: jest.fn(),
+        };
+        const route = {
+            params: {
+                eventId: '1',
+                eventTitle: 'Test Event',
+            },
+        };
+
+        const { getByText, getByTestId } = render(
+            <QRScannerScreen navigation={navigation} route={route} />,
+        );
+
+        await waitFor(() => {
+            expect(getByText('Open Settings')).toBeTruthy();
+        });
+
+        act(() => {
+            mockAppStateChange('background');
+            mockAppStateChange('active');
+        });
+
+        await waitFor(() => {
+            expect(Camera.getCameraPermissionsAsync).toHaveBeenCalledTimes(1);
+            expect(getByTestId('camera')).toBeTruthy();
+        });
+    });
+
+    it('recovers from a failed camera permission request', async () => {
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+        Camera.requestCameraPermissionsAsync
+            .mockRejectedValueOnce(new Error('Permission request failed'))
+            .mockResolvedValueOnce({
+                status: 'granted',
+                granted: true,
+                canAskAgain: true,
+            });
+
+        const navigation = {
+            goBack: jest.fn(),
+        };
+        const route = {
+            params: {
+                eventId: '1',
+                eventTitle: 'Test Event',
+            },
+        };
+
+        const { getByText, getByTestId } = render(
+            <QRScannerScreen navigation={navigation} route={route} />,
+        );
+
+        await waitFor(() => {
+            expect(getByText('Try Again')).toBeTruthy();
+        });
+
+        fireEvent.press(getByText('Try Again'));
+
+        await waitFor(() => {
+            expect(getByTestId('camera')).toBeTruthy();
         });
     });
 
@@ -139,6 +290,8 @@ describe('QRScannerScreen', () => {
         jest.spyOn(console, 'warn').mockImplementation(() => {});
         Camera.requestCameraPermissionsAsync.mockResolvedValueOnce({
             status: 'granted',
+            granted: true,
+            canAskAgain: true,
         });
         getDoc.mockResolvedValueOnce({
             exists: () => false,

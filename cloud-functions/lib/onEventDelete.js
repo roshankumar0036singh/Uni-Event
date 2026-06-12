@@ -32,37 +32,28 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupRateLimits = void 0;
+exports.onEventDelete = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const rateLimiter_1 = require("./middleware/rateLimiter");
-admin.initializeApp();
-// Export functions here
-__exportStar(require("./dailyDigest"), exports);
-__exportStar(require("./eventNotifications"), exports);
-__exportStar(require("./onEventCreate"), exports);
-__exportStar(require("./reminders"), exports);
-__exportStar(require("./reputation"), exports);
-__exportStar(require("./setRole"), exports);
-__exportStar(require("./inactiveUsers"), exports);
-__exportStar(require("./backfillEventAnalytics"), exports);
-__exportStar(require("./feedbackSentimentAnalysis"), exports);
-__exportStar(require("./computeShowUpRatios"), exports);
-__exportStar(require("./onFeedbackSubmit"), exports);
-__exportStar(require("./branchReport"), exports);
-__exportStar(require("./postEventFeedback"), exports);
-__exportStar(require("./sendBulkEmails"), exports);
-__exportStar(require("./auditLog"), exports);
-__exportStar(require("./attendanceStreak"), exports);
-__exportStar(require("./permanentCleanup"), exports);
-__exportStar(require("./clubReputation"), exports);
-__exportStar(require("./onEventDelete"), exports);
-__exportStar(require("./events"), exports);
-exports.cleanupRateLimits = functions.pubsub.schedule('every 1 hour').onRun(async () => {
-    await (0, rateLimiter_1.cleanupOldRateLimits)();
+exports.onEventDelete = functions.firestore
+    .document('events/{eventId}')
+    .onDelete(async (snapshot, context) => {
+    const eventId = context.params.eventId;
+    console.log(`Event deleted: ${eventId}. Cleaning up scheduled reminders.`);
+    const db = admin.firestore();
+    const remindersRef = db.collection('reminders');
+    const q = remindersRef.where('eventId', '==', eventId);
+    const querySnapshot = await q.get();
+    if (querySnapshot.empty) {
+        console.log(`No reminders found for event ${eventId}.`);
+        return null;
+    }
+    const batch = db.batch();
+    querySnapshot.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+    await batch.commit();
+    console.log(`Deleted ${querySnapshot.size} reminders for event ${eventId}.`);
     return null;
 });
