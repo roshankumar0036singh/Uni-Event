@@ -1,6 +1,7 @@
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { updateProfile } from 'firebase/auth';
-import { addDoc, collection, doc, getCountFromServer, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getCountFromServer, getDoc } from 'firebase/firestore';
+import { validateAndUpdateDoc, validateAndAddDoc, userUpdateSchema, clubSchema } from '../lib/validators';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -384,7 +385,7 @@ export default function ProfileScreen({ navigation }) {
                 branch: finalBranch,
             };
 
-            await updateDoc(doc(db, 'users', user.uid), profileUpdates);
+            await validateAndUpdateDoc(doc(db, 'users', user.uid), profileUpdates, userUpdateSchema);
             await upsertPublicProfile(db, user.uid, profileUpdates);
 
             Alert.alert('Success', 'Profile updated!');
@@ -436,16 +437,15 @@ export default function ProfileScreen({ navigation }) {
             );
         try {
             setLoading(true);
-            await addDoc(collection(db, 'clubs'), {
+            await validateAndAddDoc(collection(db, 'clubs'), {
                 title: name || 'New Club',
-                // description: bio, // Keep bio if needed, but message is primary
                 message: requestMessage,
                 subject: requestSubject,
                 ownerId: user.uid,
                 ownerEmail: user.email,
                 approvalStatus: 'pending',
                 createdAt: new Date(),
-            });
+            }, clubSchema);
             setShowRequestModal(false);
             Alert.alert('Success', 'Application submitted! Pending Admin approval.');
         } catch (e) {
@@ -471,9 +471,9 @@ export default function ProfileScreen({ navigation }) {
         try {
             updatingBadgeRef.current = badge.id;
             setLoading(true);
-            await updateDoc(doc(db, 'users', user.uid), {
+            await validateAndUpdateDoc(doc(db, 'users', user.uid), {
                 selectedProfileBadge: badge.id,
-            });
+            }, userUpdateSchema);
             await upsertPublicProfile(db, user.uid, {
                 selectedProfileBadge: badge.id,
             });
