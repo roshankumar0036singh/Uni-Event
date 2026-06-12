@@ -1,0 +1,110 @@
+name: Auto Unassign Inactive Issues
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs once a day at midnight UTC
+  workflow_dispatch: # Allow manual trigger for testing
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  auto-unassign:
+    name: Unassign Inactive Assignees
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check and Unassign Inactive Assignees
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const INACTIVITY_DAYS = 3;
+            const INACTIVITY_MS = INACTIVITY_DAYS * 24 * 60 * 60 * 1000;
+            const now = Date.now();
+
+            // Fetch all open issues that have at least one assignee.
+            // GitHub returns max 100 per page, so we paginate.
+            let page = 1;
+            let issues = [];
+            while (true) {
+              const { data } = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                state: 'open',
+                assignee: '*',
+                per_page: 100,
+                page,
+              });
+              if (data.length === 0) break;
+              // Exclude pull requests — issues API returns both.
+              issues = issues.concat(data.filter(i => !i.pull_request));
+              if (data.length < 100) break;
+              page++;
+            }
+
+            console.log(`Found ${issues.length} open assigned issue(s) to check.`);
+
+            for (const issue of issues) {
+              const issueNumber = issue.number;
+              const assignees = issue.assignees.map(a => a.login);
+              if (assignees.length === 0) continue;
+
+              // Determine the most recent activity timestamp on this issue.
+              // We consider: issue updated_at, and the most recent comment.
+              let lastActivity = new Date(issue.updated_at).getTime();
+
+              const { data: comments } = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                per_page: 100,
+              });
+
+              if (comments.length > 0) {
+                const latestComment = comments
+                  .map(c => new Date(c.created_at).getTime())
+                  .sort((a, b) => b - a)[0];
+                if (latestComment > lastActivity) lastActivity = latestComment;
+              }
+
+              const inactiveDays = Math.floor((now - lastActivity) / (1000 * 60 * 60 * 24));
+              console.log(`Issue #${issueNumber}: last activity ${inactiveDays} day(s) ago.`);
+
+              if (now - lastActivity < INACTIVITY_MS) continue;
+
+              // Inactivity threshold exceeded — unassign all assignees.
+              await github.rest.issues.removeAssignees({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                assignees,
+              });
+
+              // Post a comment notifying assignees and opening it up for anyone.
+              const assigneeMentions = assignees.map(a => `@${a}`).join(', ');
+              const bodyLines = [
+                `This issue has been automatically unassigned from ${assigneeMentions} due to ${INACTIVITY_DAYS} days of inactivity (no comments or commits).`,
+                ``,
+                `## Issue is Now Open`,
+                ``,
+                `Anyone is welcome to pick this up. Comment \`/claim\` to be assigned.`,
+                ``,
+                `\`\`\``,
+                `/claim`,
+                `\`\`\``,
+                ``,
+                `If you were previously assigned and are still working on this, please re-claim it and leave a brief status update so others know it is active.`,
+              ];
+
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                body: bodyLines.join('\n'),
+              });
+
+              console.log(`Unassigned ${assigneeMentions} from issue #${issueNumber}.`);
+            }
