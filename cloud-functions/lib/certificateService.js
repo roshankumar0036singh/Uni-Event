@@ -1,45 +1,65 @@
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
+'use strict';
+var __createBinding =
+    (this && this.__createBinding) ||
+    (Object.create
+        ? function (o, m, k, k2) {
+              if (k2 === undefined) k2 = k;
+              var desc = Object.getOwnPropertyDescriptor(m, k);
+              if (!desc || ('get' in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+                  desc = {
+                      enumerable: true,
+                      get: function () {
+                          return m[k];
+                      },
+                  };
+              }
+              Object.defineProperty(o, k2, desc);
+          }
+        : function (o, m, k, k2) {
+              if (k2 === undefined) k2 = k;
+              o[k2] = m[k];
+          });
+var __setModuleDefault =
+    (this && this.__setModuleDefault) ||
+    (Object.create
+        ? function (o, v) {
+              Object.defineProperty(o, 'default', { enumerable: true, value: v });
+          }
+        : function (o, v) {
+              o['default'] = v;
+          });
+var __importStar =
+    (this && this.__importStar) ||
+    (function () {
+        var ownKeys = function (o) {
+            ownKeys =
+                Object.getOwnPropertyNames ||
+                function (o) {
+                    var ar = [];
+                    for (var k in o)
+                        if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+                    return ar;
+                };
+            return ownKeys(o);
         };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
+        return function (mod) {
+            if (mod && mod.__esModule) return mod;
+            var result = {};
+            if (mod != null)
+                for (var k = ownKeys(mod), i = 0; i < k.length; i++)
+                    if (k[i] !== 'default') __createBinding(result, mod, k[i]);
+            __setModuleDefault(result, mod);
+            return result;
+        };
+    })();
+Object.defineProperty(exports, '__esModule', { value: true });
 exports.sendCertificatesForEvent = sendCertificatesForEvent;
-const admin = __importStar(require("firebase-admin"));
-const firestore_1 = require("firebase-admin/firestore");
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const pdf_lib_1 = require("pdf-lib");
-const resend_1 = require("resend");
+const admin = __importStar(require('firebase-admin'));
+const firestore_1 = require('firebase-admin/firestore');
+const fs = __importStar(require('node:fs'));
+const path = __importStar(require('node:path'));
+const pdf_lib_1 = require('pdf-lib');
+const resend_1 = require('resend');
 function getResendClient() {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
@@ -136,8 +156,7 @@ async function sendCertificateEmail(p, eventName, linkedinUrl, attachmentOrUrl) 
     let htmlContent = `<p>Hello ${safeName},</p>`;
     if (isBuffer) {
         htmlContent += `\n               <p>Please find your official certificate for <strong>${safeEvent}</strong> attached.</p>`;
-    }
-    else {
+    } else {
         htmlContent += `\n               <p>Your certificate for <strong>${safeEvent}</strong> is available at the link below.</p>
                <p><a href="${attachmentOrUrl}" target="_blank" rel="noopener">Download your certificate</a></p>`;
     }
@@ -158,11 +177,21 @@ async function sendCertificateEmail(p, eventName, linkedinUrl, attachmentOrUrl) 
 function getEventStartDate(event) {
     return event?.startAt || event?.startDate || event?.start || event?.startTime;
 }
-async function handleExistingCertificateParticipant(participant, eventTitle, organizationName, eventStartDate) {
+async function handleExistingCertificateParticipant(
+    participant,
+    eventTitle,
+    organizationName,
+    eventStartDate,
+) {
     const existingUrl = participant.certificateUrl;
     const linkedinUrl = buildLinkedInUrl(eventTitle, organizationName, existingUrl, eventStartDate);
     try {
-        const { data, error } = await sendCertificateEmail(participant, eventTitle, linkedinUrl, existingUrl);
+        const { data, error } = await sendCertificateEmail(
+            participant,
+            eventTitle,
+            linkedinUrl,
+            existingUrl,
+        );
         if (error) {
             return {
                 email: participant.email || null,
@@ -179,8 +208,7 @@ async function handleExistingCertificateParticipant(participant, eventTitle, org
             certificateUrl: existingUrl,
             participantId: participant.id,
         };
-    }
-    catch (err) {
+    } catch (err) {
         return {
             email: participant.email || null,
             status: 'error',
@@ -190,7 +218,14 @@ async function handleExistingCertificateParticipant(participant, eventTitle, org
         };
     }
 }
-async function processParticipant(participant, eventId, eventTitle, organizationName, templateBytes, eventStartDate) {
+async function processParticipant(
+    participant,
+    eventId,
+    eventTitle,
+    organizationName,
+    templateBytes,
+    eventStartDate,
+) {
     if (!participant.email || !participant.name) {
         return {
             email: participant.email || null,
@@ -206,8 +241,18 @@ async function processParticipant(participant, eventId, eventTitle, organization
         const signedUrl = await uploadPdfAndGetUrl(bucket, storagePath, pdfBuffer);
         // Persist before sending email. If persist fails, do not send the email.
         await persistCertificateUrl(eventId, participantId, signedUrl);
-        const linkedinUrl = buildLinkedInUrl(eventTitle, organizationName, signedUrl, eventStartDate);
-        const { data, error } = await sendCertificateEmail(participant, eventTitle, linkedinUrl, pdfBuffer);
+        const linkedinUrl = buildLinkedInUrl(
+            eventTitle,
+            organizationName,
+            signedUrl,
+            eventStartDate,
+        );
+        const { data, error } = await sendCertificateEmail(
+            participant,
+            eventTitle,
+            linkedinUrl,
+            pdfBuffer,
+        );
         if (error) {
             console.error(`Failed to send to ${participant.email}:`, error);
             return {
@@ -224,8 +269,7 @@ async function processParticipant(participant, eventId, eventTitle, organization
             certificateUrl: signedUrl,
             participantId: participant.id,
         };
-    }
-    catch (error) {
+    } catch (error) {
         console.error(`Storage/upload error for ${participant.email}:`, error);
         return {
             email: participant.email,
@@ -237,8 +281,7 @@ async function processParticipant(participant, eventId, eventTitle, organization
 async function sendCertificatesForEvent(eventId, ownerId) {
     // 1. Fetch Event Details
     const eventDoc = await admin.firestore().collection('events').doc(eventId).get();
-    if (!eventDoc.exists)
-        throw new Error('Event not found');
+    if (!eventDoc.exists) throw new Error('Event not found');
     const event = eventDoc.data();
     if (event?.ownerId !== ownerId) {
         throw new Error('Unauthorized: Only the event owner can send certificates.');
@@ -248,8 +291,7 @@ async function sendCertificatesForEvent(eventId, ownerId) {
         .firestore()
         .collection(`events/${eventId}/participants`)
         .get();
-    if (participantsSnap.empty)
-        throw new Error('No participants registered for this event.');
+    if (participantsSnap.empty) throw new Error('No participants registered for this event.');
     const participants = participantsSnap.docs.map(doc => ({
         ...doc.data(),
         id: doc.id,
@@ -260,9 +302,10 @@ async function sendCertificatesForEvent(eventId, ownerId) {
     let templateBytes;
     try {
         templateBytes = fs.readFileSync(templatePath);
-    }
-    catch (e) {
-        throw new Error(`Certificate Template not found. Please ensure 'assets/certificate_template.pdf' exists in cloud-functions. Error: ${e instanceof Error ? e.message : e}`);
+    } catch (e) {
+        throw new Error(
+            `Certificate Template not found. Please ensure 'assets/certificate_template.pdf' exists in cloud-functions. Error: ${e instanceof Error ? e.message : e}`,
+        );
     }
     const eventTitle = event?.title || 'Event';
     const organizationName = event?.organization || event?.ownerName || 'UniEvent';
@@ -271,19 +314,36 @@ async function sendCertificatesForEvent(eventId, ownerId) {
     for (const p of participants) {
         // Idempotency: if participant already has a certificateUrl, attempt to ensure delivery
         if (p.certificateUrl) {
-            results.push(await handleExistingCertificateParticipant(p, eventTitle, organizationName, eventStartDate));
+            results.push(
+                await handleExistingCertificateParticipant(
+                    p,
+                    eventTitle,
+                    organizationName,
+                    eventStartDate,
+                ),
+            );
             continue;
         }
-        const outcome = await processParticipant(p, eventId, eventTitle, organizationName, templateBytes, 
-        // pass event start if available (prefer startAt)
-        eventStartDate);
+        const outcome = await processParticipant(
+            p,
+            eventId,
+            eventTitle,
+            organizationName,
+            templateBytes,
+            // pass event start if available (prefer startAt)
+            eventStartDate,
+        );
         results.push(outcome);
     }
-    const summary = results.reduce((acc, result) => {
-        acc[result.status] += 1;
-        return acc;
-    }, { success: 0, failed: 0, error: 0, skipped: 0 });
-    const allSucceeded = results.length === participants.length && summary.success === participants.length;
+    const summary = results.reduce(
+        (acc, result) => {
+            acc[result.status] += 1;
+            return acc;
+        },
+        { success: 0, failed: 0, error: 0, skipped: 0 },
+    );
+    const allSucceeded =
+        results.length === participants.length && summary.success === participants.length;
     const eventUpdate = {
         certificatesSent: allSucceeded,
         certificatesLastAttemptAt: firestore_1.FieldValue.serverTimestamp(),

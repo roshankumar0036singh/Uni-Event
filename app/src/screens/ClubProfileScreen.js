@@ -86,7 +86,7 @@ export default function ClubProfileScreen({ route, navigation }) {
             colors: {
                 ...globalTheme.colors,
                 primary: club.themeColor,
-            }
+            },
         };
     }, [club?.themeColor, globalTheme]);
 
@@ -321,7 +321,7 @@ export default function ClubProfileScreen({ route, navigation }) {
         </View>
     );
 
-    const handleColorChange = async (color) => {
+    const handleColorChange = async color => {
         if (!isOwner || !clubId) return;
         try {
             await setDoc(doc(db, 'publicUsers', clubId), { themeColor: color }, { merge: true });
@@ -334,17 +334,27 @@ export default function ClubProfileScreen({ route, navigation }) {
         if (!isOwner) return null;
         return (
             <View style={styles.colorPickerContainer}>
-                <Text style={[styles.colorPickerTitle, { color: theme.colors.textSecondary }]}>Custom Theme Color</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorPickerScroll}>
+                <Text style={[styles.colorPickerTitle, { color: theme.colors.textSecondary }]}>
+                    Custom Theme Color
+                </Text>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.colorPickerScroll}
+                >
                     {clubThemeColors.map(color => {
-                        const isSelected = (club?.themeColor || globalTheme.colors.primary) === color;
+                        const isSelected =
+                            (club?.themeColor || globalTheme.colors.primary) === color;
                         return (
                             <TouchableOpacity
                                 key={color}
                                 style={[
                                     styles.colorSwatch,
                                     { backgroundColor: color },
-                                    isSelected && { borderWidth: 3, borderColor: theme.colors.text }
+                                    isSelected && {
+                                        borderWidth: 3,
+                                        borderColor: theme.colors.text,
+                                    },
                                 ]}
                                 onPress={() => handleColorChange(color)}
                             />

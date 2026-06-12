@@ -1,70 +1,95 @@
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
+'use strict';
+var __createBinding =
+    (this && this.__createBinding) ||
+    (Object.create
+        ? function (o, m, k, k2) {
+              if (k2 === undefined) k2 = k;
+              var desc = Object.getOwnPropertyDescriptor(m, k);
+              if (!desc || ('get' in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+                  desc = {
+                      enumerable: true,
+                      get: function () {
+                          return m[k];
+                      },
+                  };
+              }
+              Object.defineProperty(o, k2, desc);
+          }
+        : function (o, m, k, k2) {
+              if (k2 === undefined) k2 = k;
+              o[k2] = m[k];
+          });
+var __setModuleDefault =
+    (this && this.__setModuleDefault) ||
+    (Object.create
+        ? function (o, v) {
+              Object.defineProperty(o, 'default', { enumerable: true, value: v });
+          }
+        : function (o, v) {
+              o['default'] = v;
+          });
+var __importStar =
+    (this && this.__importStar) ||
+    (function () {
+        var ownKeys = function (o) {
+            ownKeys =
+                Object.getOwnPropertyNames ||
+                function (o) {
+                    var ar = [];
+                    for (var k in o)
+                        if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+                    return ar;
+                };
+            return ownKeys(o);
         };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
+        return function (mod) {
+            if (mod && mod.__esModule) return mod;
+            var result = {};
+            if (mod != null)
+                for (var k = ownKeys(mod), i = 0; i < k.length; i++)
+                    if (k[i] !== 'default') __createBinding(result, mod, k[i]);
+            __setModuleDefault(result, mod);
+            return result;
+        };
+    })();
+Object.defineProperty(exports, '__esModule', { value: true });
 exports.analyzeAttendance = void 0;
-const admin = __importStar(require("firebase-admin"));
-const firestore_1 = require("firebase-admin/firestore");
-const firestore_2 = require("firebase-functions/v2/firestore");
-const distance_1 = require("./utils/distance");
-const fraudScore_1 = require("./utils/fraudScore");
+const admin = __importStar(require('firebase-admin'));
+const firestore_1 = require('firebase-admin/firestore');
+const firestore_2 = require('firebase-functions/v2/firestore');
+const distance_1 = require('./utils/distance');
+const fraudScore_1 = require('./utils/fraudScore');
 const db = admin.firestore();
-exports.analyzeAttendance = (0, firestore_2.onDocumentCreated)('events/{eventId}/checkIns/{userId}', async (event) => {
-    const snap = event.data;
-    if (!snap)
-        return;
-    const attendance = snap.data();
-    const { userId, latitude, longitude, deviceId, checkedInAt, qrId } = attendance;
-    const eventId = event.params.eventId;
-    const result = (0, fraudScore_1.createFraudResult)();
-    await checkRapidDuplicate(eventId, event.params.userId, qrId, checkedInAt, result);
-    await checkImpossibleDistance(eventId, latitude, longitude, result);
-    await checkDeviceAbuse(deviceId, result);
-    await checkMultipleEvents(userId, checkedInAt, eventId, result);
-    if (result.fraudScore >= 60) {
-        const reportId = `${eventId}_${event.params.userId}`;
-        await db.collection('fraudReports').doc(reportId).set({
-            attendanceId: event.params.userId,
-            userId,
-            eventId,
-            fraudScore: result.fraudScore,
-            reasons: result.reasons,
-            resolved: false,
-            createdAt: firestore_1.FieldValue.serverTimestamp(),
-        }, { merge: true });
-    }
-});
+exports.analyzeAttendance = (0, firestore_2.onDocumentCreated)(
+    'events/{eventId}/checkIns/{userId}',
+    async event => {
+        const snap = event.data;
+        if (!snap) return;
+        const attendance = snap.data();
+        const { userId, latitude, longitude, deviceId, checkedInAt, qrId } = attendance;
+        const eventId = event.params.eventId;
+        const result = (0, fraudScore_1.createFraudResult)();
+        await checkRapidDuplicate(eventId, event.params.userId, qrId, checkedInAt, result);
+        await checkImpossibleDistance(eventId, latitude, longitude, result);
+        await checkDeviceAbuse(deviceId, result);
+        await checkMultipleEvents(userId, checkedInAt, eventId, result);
+        if (result.fraudScore >= 60) {
+            const reportId = `${eventId}_${event.params.userId}`;
+            await db.collection('fraudReports').doc(reportId).set(
+                {
+                    attendanceId: event.params.userId,
+                    userId,
+                    eventId,
+                    fraudScore: result.fraudScore,
+                    reasons: result.reasons,
+                    resolved: false,
+                    createdAt: firestore_1.FieldValue.serverTimestamp(),
+                },
+                { merge: true },
+            );
+        }
+    },
+);
 async function checkRapidDuplicate(eventId, currentUserId, qrId, checkedInAt, result) {
     const snapshot = await db
         .collection('events')
@@ -78,8 +103,7 @@ async function checkRapidDuplicate(eventId, currentUserId, qrId, checkedInAt, re
             return;
         }
         const data = doc.data();
-        if (!data.checkedInAt)
-            return;
+        if (!data.checkedInAt) return;
         const currentTime = checkedInAt?.toDate
             ? checkedInAt.toDate().getTime()
             : new Date(checkedInAt).getTime();
@@ -96,15 +120,21 @@ async function checkRapidDuplicate(eventId, currentUserId, qrId, checkedInAt, re
 async function checkImpossibleDistance(eventId, latitude, longitude, result) {
     const eventDoc = await db.collection('events').doc(eventId).get();
     const eventData = eventDoc.data();
-    if (!eventData)
-        return;
-    if (eventData.latitude == null ||
+    if (!eventData) return;
+    if (
+        eventData.latitude == null ||
         eventData.longitude == null ||
         latitude == null ||
-        longitude == null) {
+        longitude == null
+    ) {
         return;
     }
-    const distance = (0, distance_1.calculateDistance)(latitude, longitude, eventData.latitude, eventData.longitude);
+    const distance = (0, distance_1.calculateDistance)(
+        latitude,
+        longitude,
+        eventData.latitude,
+        eventData.longitude,
+    );
     if (distance > 500) {
         result.fraudScore += 30;
         result.reasons.push('Attendance too far from venue');

@@ -1,46 +1,68 @@
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
+'use strict';
+var __createBinding =
+    (this && this.__createBinding) ||
+    (Object.create
+        ? function (o, m, k, k2) {
+              if (k2 === undefined) k2 = k;
+              var desc = Object.getOwnPropertyDescriptor(m, k);
+              if (!desc || ('get' in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+                  desc = {
+                      enumerable: true,
+                      get: function () {
+                          return m[k];
+                      },
+                  };
+              }
+              Object.defineProperty(o, k2, desc);
+          }
+        : function (o, m, k, k2) {
+              if (k2 === undefined) k2 = k;
+              o[k2] = m[k];
+          });
+var __setModuleDefault =
+    (this && this.__setModuleDefault) ||
+    (Object.create
+        ? function (o, v) {
+              Object.defineProperty(o, 'default', { enumerable: true, value: v });
+          }
+        : function (o, v) {
+              o['default'] = v;
+          });
+var __importStar =
+    (this && this.__importStar) ||
+    (function () {
+        var ownKeys = function (o) {
+            ownKeys =
+                Object.getOwnPropertyNames ||
+                function (o) {
+                    var ar = [];
+                    for (var k in o)
+                        if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+                    return ar;
+                };
+            return ownKeys(o);
         };
-        return ownKeys(o);
+        return function (mod) {
+            if (mod && mod.__esModule) return mod;
+            var result = {};
+            if (mod != null)
+                for (var k = ownKeys(mod), i = 0; i < k.length; i++)
+                    if (k[i] !== 'default') __createBinding(result, mod, k[i]);
+            __setModuleDefault(result, mod);
+            return result;
+        };
+    })();
+var __importDefault =
+    (this && this.__importDefault) ||
+    function (mod) {
+        return mod && mod.__esModule ? mod : { default: mod };
     };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const cors_1 = __importDefault(require("cors"));
-const dotenv_1 = __importDefault(require("dotenv"));
-const express_1 = __importDefault(require("express"));
-const admin = __importStar(require("firebase-admin"));
-const rateLimiter_1 = require("./utils/rateLimiter");
+Object.defineProperty(exports, '__esModule', { value: true });
+const cors_1 = __importDefault(require('cors'));
+const dotenv_1 = __importDefault(require('dotenv'));
+const express_1 = __importDefault(require('express'));
+const admin = __importStar(require('firebase-admin'));
+const rateLimiter_1 = require('./utils/rateLimiter');
 // Load environment variables
 dotenv_1.default.config();
 // Initialize Firebase Admin (ensure service account is available or uses default credentials)
@@ -55,13 +77,11 @@ if (admin.apps.length === 0) {
                 credential: admin.credential.cert(serviceAccount),
             });
             console.log('✅ Firebase Admin initialized with service account from env');
-        }
-        catch (error) {
+        } catch (error) {
             console.error('❌ Failed to parse service account JSON:', error);
             admin.initializeApp();
         }
-    }
-    else {
+    } else {
         // Fallback to default credentials
         admin.initializeApp();
         console.log('⚠️  Firebase Admin initialized with default credentials');
@@ -82,8 +102,7 @@ const validateFirebaseIdToken = async (req, res, next) => {
         const decodedIdToken = await admin.auth().verifyIdToken(idToken);
         req.user = decodedIdToken;
         next();
-    }
-    catch (error) {
+    } catch (error) {
         console.error('Error while verifying Firebase ID token:', error);
         res.status(403).send('Unauthorized');
     }
@@ -97,7 +116,10 @@ const rateLimitMiddleware = async (req, res, next) => {
     try {
         // Determine if the operation is event creation or regular write
         const isEventCreation = req.path === '/api/createEvent';
-        const limitResult = await (0, rateLimiter_1.checkAndUpdateRateLimit)(user.uid, isEventCreation);
+        const limitResult = await (0, rateLimiter_1.checkAndUpdateRateLimit)(
+            user.uid,
+            isEventCreation,
+        );
         if (!limitResult.allowed) {
             return res.status(limitResult.statusCode).json({
                 error: 'too-many-requests',
@@ -105,8 +127,7 @@ const rateLimitMiddleware = async (req, res, next) => {
             });
         }
         next();
-    }
-    catch (error) {
+    } catch (error) {
         console.error('Rate limiter middleware error:', error);
         return res.status(503).json({
             error: 'rate-limit-unavailable',
@@ -149,45 +170,49 @@ app.post('/api/setRole', validateFirebaseIdToken, rateLimitMiddleware, async (re
     }
     // 4. Logic
     const claims = {};
-    if (role === 'admin')
-        claims.admin = true;
-    if (role === 'club')
-        claims.club = true;
+    if (role === 'admin') claims.admin = true;
+    if (role === 'club') claims.club = true;
     try {
         await admin.auth().setCustomUserClaims(uid, claims);
         // Optional: Update Firestore
         await admin.firestore().collection('users').doc(uid).set({ role }, { merge: true });
         return res.json({ result: { success: true } }); // Structure matches Callable response
-    }
-    catch (error) {
+    } catch (error) {
         console.error(error);
         return res.status(500).json({ error: 'internal', message: 'Error setting role' });
     }
 });
 // Send Certificates Endpoint
-const certificateService_1 = require("./certificateService");
-app.post('/api/sendCertificates', validateFirebaseIdToken, rateLimitMiddleware, async (req, res) => {
-    const user = req.user;
-    const { eventId } = req.body;
-    if (!user) {
-        return res.status(401).json({ error: 'unauthenticated' });
-    }
-    if (!eventId) {
-        return res
-            .status(400)
-            .json({ error: 'invalid-argument', message: 'eventId is required' });
-    }
-    try {
-        const result = await (0, certificateService_1.sendCertificatesForEvent)(eventId, user.uid);
-        return res.json({ result });
-    }
-    catch (error) {
-        console.error('Certificate Error:', error);
-        return res.status(500).json({ error: 'internal', message: error.message });
-    }
-});
+const certificateService_1 = require('./certificateService');
+app.post(
+    '/api/sendCertificates',
+    validateFirebaseIdToken,
+    rateLimitMiddleware,
+    async (req, res) => {
+        const user = req.user;
+        const { eventId } = req.body;
+        if (!user) {
+            return res.status(401).json({ error: 'unauthenticated' });
+        }
+        if (!eventId) {
+            return res
+                .status(400)
+                .json({ error: 'invalid-argument', message: 'eventId is required' });
+        }
+        try {
+            const result = await (0, certificateService_1.sendCertificatesForEvent)(
+                eventId,
+                user.uid,
+            );
+            return res.json({ result });
+        } catch (error) {
+            console.error('Certificate Error:', error);
+            return res.status(500).json({ error: 'internal', message: error.message });
+        }
+    },
+);
 // ── Email Template Preview Endpoints (developer-facing, no auth required) ──
-const emailTemplateRenderer_1 = require("./utils/emailTemplateRenderer");
+const emailTemplateRenderer_1 = require('./utils/emailTemplateRenderer');
 /**
  * GET /email-preview
  * Lists all available email templates with clickable preview links.
@@ -199,12 +224,14 @@ app.get('/email-preview', (_req, res) => {
     }
     const templates = (0, emailTemplateRenderer_1.getAvailableTemplates)();
     const links = templates
-        .map(name => `<li style="margin:8px 0">
+        .map(
+            name => `<li style="margin:8px 0">
           <a href="/email-preview/${name}" style="color:#FF6B35;font-size:18px">${name}</a>
           <span style="color:#888;font-size:13px;margin-left:8px">
             (variables: ${Object.keys((0, emailTemplateRenderer_1.getSampleData)(name)).join(', ') || 'none'})
           </span>
-        </li>`)
+        </li>`,
+        )
         .join('\n');
     res.send(`
     <!DOCTYPE html>
@@ -250,12 +277,13 @@ app.get('/email-preview/:templateName', (req, res) => {
     }
     const { templateName } = req.params;
     // Escape HTML entities to prevent XSS when reflecting user-controlled values
-    const escHtml = (s) => s
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
+    const escHtml = s =>
+        s
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
     // Query params override sample data
     const overrides = {};
     for (const [key, value] of Object.entries(req.query)) {
@@ -312,8 +340,7 @@ app.get('/email-preview/:templateName', (req, res) => {
       </html>
     `;
         res.send(responseHtml); // NOSONAR
-    }
-    catch (err) {
+    } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         const errorHtml = `
       <h1>Template Not Found</h1>
