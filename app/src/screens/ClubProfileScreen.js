@@ -29,6 +29,7 @@ import { useAuth } from '../lib/AuthContext';
 import { calculateAverageRating, calculateDisplayCount } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import { clubThemeColors } from '../lib/theme';
 import PropTypes from 'prop-types';
 
 const PLACEHOLDER_BANNER_URL = 'https://via.placeholder.com/800x400';
@@ -67,7 +68,7 @@ const getTabTextStyle = (tabName, activeTab, theme) => ({
 export default function ClubProfileScreen({ route, navigation }) {
     const { clubId, clubName } = route.params || {};
     const { user } = useAuth();
-    const { theme } = useTheme();
+    const { theme: globalTheme } = useTheme();
     const [club, setClub] = useState(null);
     const [loading, setLoading] = useState(true);
     const [events, setEvents] = useState([]);
@@ -75,6 +76,19 @@ export default function ClubProfileScreen({ route, navigation }) {
     const [followersCount, setFollowersCount] = useState(0);
     const [followLoading, setFollowLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('events'); // 'events' | 'about'
+
+    const isOwner = user?.uid === clubId;
+
+    const theme = useMemo(() => {
+        if (!club?.themeColor) return globalTheme;
+        return {
+            ...globalTheme,
+            colors: {
+                ...globalTheme.colors,
+                primary: club.themeColor,
+            }
+        };
+    }, [club?.themeColor, globalTheme]);
 
     // Fetch Club Data
     useEffect(() => {
@@ -307,6 +321,40 @@ export default function ClubProfileScreen({ route, navigation }) {
         </View>
     );
 
+    const handleColorChange = async (color) => {
+        if (!isOwner || !clubId) return;
+        try {
+            await setDoc(doc(db, 'publicUsers', clubId), { themeColor: color }, { merge: true });
+        } catch (e) {
+            console.error('Failed to save color', e);
+        }
+    };
+
+    const renderColorPicker = () => {
+        if (!isOwner) return null;
+        return (
+            <View style={styles.colorPickerContainer}>
+                <Text style={[styles.colorPickerTitle, { color: theme.colors.textSecondary }]}>Custom Theme Color</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorPickerScroll}>
+                    {clubThemeColors.map(color => {
+                        const isSelected = (club?.themeColor || globalTheme.colors.primary) === color;
+                        return (
+                            <TouchableOpacity
+                                key={color}
+                                style={[
+                                    styles.colorSwatch,
+                                    { backgroundColor: color },
+                                    isSelected && { borderWidth: 3, borderColor: theme.colors.text }
+                                ]}
+                                onPress={() => handleColorChange(color)}
+                            />
+                        );
+                    })}
+                </ScrollView>
+            </View>
+        );
+    };
+
     const renderEventTab = () => {
         if (events.length === 0) {
             return (
@@ -392,6 +440,7 @@ export default function ClubProfileScreen({ route, navigation }) {
                     </View>
                 </View>
 
+                {renderColorPicker()}
                 {renderSocialLinks()}
 
                 <View style={[styles.tabContainer, { borderBottomColor: theme.colors.border }]}>
@@ -497,6 +546,26 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 10,
+    },
+    colorPickerContainer: {
+        marginTop: 20,
+        alignItems: 'center',
+    },
+    colorPickerTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginBottom: 10,
+    },
+    colorPickerScroll: {
+        paddingHorizontal: 20,
+        gap: 15,
+        alignItems: 'center',
+    },
+    colorSwatch: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        elevation: 2,
     },
 });
 
