@@ -750,7 +750,7 @@ export default function UserFeed() {
                                 )}
                             </TouchableOpacity>
                         ) : events.length > 0 ? (
-                            <Text style={styles.endText}>You've reached the end</Text>
+                            <Text style={styles.endText}>You&apos;ve reached the end</Text>
                         ) : null
                     }
                 />

@@ -148,7 +148,7 @@ exports.getTopContributors = functions.https.onCall(async (data, context) => {
     const safeStartRank = startRank ?? 1;
     const isCursorPagination = lastPoints || lastUserId;
     if (isCursorPagination && startRank === undefined) {
-        throw new Error('startRank is required when using cursor pagination');
+        throw new functions.https.HttpsError('invalid-argument', 'startRank is required when using cursor pagination');
     }
     let query = db
         .collection('users')
