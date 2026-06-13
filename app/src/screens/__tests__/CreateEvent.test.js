@@ -142,6 +142,11 @@ const mockRunTransaction = jest.fn(async (dbArg, callback) => {
     return callback(tx);
 });
 
+const mockSetDoc = jest.fn(async () => {});
+const mockGetDocs = jest.fn(async () => ({ docs: [] }));
+const mockWhere = jest.fn((...args) => ({ __isWhereClause: true, args }));
+const mockQuery = jest.fn((...args) => ({ __isQuery: true, args }));
+
 const mockCollection = jest.fn((dbArg, ...segments) => ({
     __isCollectionRef: true,
     path: segments.join('/'),
@@ -163,6 +168,10 @@ const mockDoc = jest.fn((firstArg, ...segments) => {
 jest.mock('firebase/firestore', () => ({
     collection: (...args) => mockCollection(...args),
     doc: (...args) => mockDoc(...args),
+    getDocs: (...args) => mockGetDocs(...args),
+    setDoc: (...args) => mockSetDoc(...args),
+    where: (...args) => mockWhere(...args),
+    query: (...args) => mockQuery(...args),
     updateDoc: jest.fn(),
     runTransaction: (...args) => mockRunTransaction(...args),
     increment: (...args) => mockIncrement(...args),
@@ -254,4 +263,236 @@ describe('CreateEvent transaction flow', () => {
 
         alertSpy.mockRestore();
     }, 15000);
+});
+
+describe('CreateEvent – saveAsTemplate', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it('saves a template to Firestore with correct fields', async () => {
+        const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
+        const route = { params: {} };
+        const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+        const { getByPlaceholderText, getByText } = render(
+            <CreateEvent navigation={navigation} route={route} />,
+        );
+
+        fireEvent.changeText(getByPlaceholderText('e.g. Annual Tech Symposium'), 'Hackathon Night');
+        fireEvent.changeText(
+            getByPlaceholderText('What is this event about?'),
+            'An overnight coding competition.',
+        );
+        fireEvent.press(getByText('Tech'));
+
+        fireEvent.press(getByText('Save as Template'));
+
+        await waitFor(() => {
+            expect(mockSetDoc).toHaveBeenCalledTimes(1);
+        });
+
+        const [, templateData] = mockSetDoc.mock.calls[0];
+        expect(templateData).toMatchObject({
+            title: 'Hackathon Night',
+            description: 'An overnight coding competition.',
+            category: 'Tech',
+            type: 'eventTemplate',
+            ownerId: 'organizer-1',
+            ownerEmail: 'organizer@example.com',
+            organizerName: 'Organizer One',
+        });
+        expect(templateData.createdAt).toEqual({ __op: 'serverTimestamp' });
+        expect(templateData.updatedAt).toEqual({ __op: 'serverTimestamp' });
+
+        await waitFor(() => {
+            expect(alertSpy).toHaveBeenCalledWith('Saved', 'Template saved successfully!');
+        });
+
+        alertSpy.mockRestore();
+    });
+
+    it('shows validation alert when required fields are missing', async () => {
+        const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
+        const route = { params: {} };
+        const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+        const { getByText } = render(<CreateEvent navigation={navigation} route={route} />);
+
+        // Press without filling anything
+        fireEvent.press(getByText('Save as Template'));
+
+        await waitFor(() => {
+            expect(alertSpy).toHaveBeenCalledWith(
+                'Missing Info',
+                'Please fill Title, Description and Category.',
+            );
+        });
+        expect(mockSetDoc).not.toHaveBeenCalled();
+
+        alertSpy.mockRestore();
+    });
+});
+
+describe('CreateEvent – fetchTemplates and applyTemplate', () => {
+    const MOCK_TEMPLATES = [
+        {
+            id: 'tpl-1',
+            title: 'Annual Hackathon',
+            description: 'Overnight coding competition.',
+            category: 'Tech',
+            eventMode: 'offline',
+            location: 'Auditorium',
+            tags: ['hackathon', 'coding'],
+            target: { departments: ['CSE'], years: [1, 2] },
+            isPaid: false,
+            price: 0,
+            capacity: 150,
+            hasCustomForm: false,
+            customFormSchema: [],
+            createdAt: { toMillis: () => 1000 },
+        },
+        {
+            id: 'tpl-2',
+            title: 'Cultural Fest',
+            description: 'Annual cultural event.',
+            category: 'Cultural',
+            eventMode: 'offline',
+            location: 'Main Ground',
+            tags: [],
+            target: { departments: ['All'], years: [1, 2, 3, 4] },
+            isPaid: true,
+            price: 50,
+            capacity: 500,
+            hasCustomForm: false,
+            customFormSchema: [],
+            createdAt: { toMillis: () => 2000 },
+        },
+    ];
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockGetDocs.mockResolvedValue({
+            docs: MOCK_TEMPLATES.map(t => ({
+                id: t.id,
+                data: () => t,
+            })),
+        });
+    });
+
+    it('opens the template modal and lists saved templates', async () => {
+        const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
+        const route = { params: {} };
+
+        const { getByText } = render(<CreateEvent navigation={navigation} route={route} />);
+
+        fireEvent.press(getByText('Use Template'));
+
+        await waitFor(() => {
+            expect(mockGetDocs).toHaveBeenCalledTimes(1);
+            expect(getByText('Annual Hackathon')).toBeTruthy();
+            expect(getByText('Cultural Fest')).toBeTruthy();
+        });
+    });
+
+    it("queries Firestore by the current user's ownerId", async () => {
+        const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
+        const route = { params: {} };
+
+        const { getByText } = render(<CreateEvent navigation={navigation} route={route} />);
+        fireEvent.press(getByText('Use Template'));
+
+        await waitFor(() => {
+            expect(mockWhere).toHaveBeenCalledWith('ownerId', '==', 'organizer-1');
+            expect(mockGetDocs).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    it('pre-fills form fields when a template is selected from the modal', async () => {
+        const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
+        const route = { params: {} };
+
+        const { getByText, getByDisplayValue } = render(
+            <CreateEvent navigation={navigation} route={route} />,
+        );
+
+        fireEvent.press(getByText('Use Template'));
+
+        await waitFor(() => {
+            expect(getByText('Annual Hackathon')).toBeTruthy();
+        });
+
+        // Tap the first template
+        fireEvent.press(getByText('Annual Hackathon'));
+
+        await waitFor(() => {
+            expect(getByDisplayValue('Annual Hackathon')).toBeTruthy();
+            expect(getByDisplayValue('Overnight coding competition.')).toBeTruthy();
+        });
+    });
+
+    it('shows empty-state message when no templates exist', async () => {
+        mockGetDocs.mockResolvedValue({ docs: [] });
+
+        const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
+        const route = { params: {} };
+
+        const { getByText } = render(<CreateEvent navigation={navigation} route={route} />);
+
+        fireEvent.press(getByText('Use Template'));
+
+        await waitFor(() => {
+            expect(getByText('No templates saved yet.')).toBeTruthy();
+        });
+    });
+
+    it('shows error alert when getDocs throws', async () => {
+        mockGetDocs.mockRejectedValue(new Error('Network error'));
+        const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+        const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
+        const route = { params: {} };
+
+        const { getByText } = render(<CreateEvent navigation={navigation} route={route} />);
+
+        fireEvent.press(getByText('Use Template'));
+
+        await waitFor(() => {
+            expect(alertSpy).toHaveBeenCalledWith('Error', 'Failed to load templates.');
+        });
+
+        alertSpy.mockRestore();
+    });
+});
+
+describe('CreateEvent – applyTemplate via route.params', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it('pre-fills all form fields from a template passed in route.params', async () => {
+        const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
+        const templateParam = {
+            title: 'Workshop on AI',
+            description: 'Intro to machine learning.',
+            category: 'Workshop',
+            eventMode: 'offline',
+            location: 'Lab 4',
+            tags: ['AI', 'ML'],
+            target: { departments: ['CSE', 'ETC'], years: [3, 4] },
+            isPaid: false,
+            price: 0,
+            capacity: 60,
+            hasCustomForm: false,
+            customFormSchema: [],
+        };
+        const route = { params: { template: templateParam } };
+
+        const { getByDisplayValue } = render(<CreateEvent navigation={navigation} route={route} />);
+
+        await waitFor(() => {
+            expect(getByDisplayValue('Workshop on AI')).toBeTruthy();
+            expect(getByDisplayValue('Intro to machine learning.')).toBeTruthy();
+        });
+    });
 });
