@@ -112,7 +112,7 @@ jest.mock('../../lib/capacityPredictor', () => ({
     predictAttendance: jest.fn(() => null),
 }));
 
-const mockEnforceRateLimit = jest.fn(async () => { });
+const mockEnforceRateLimit = jest.fn(async () => {});
 jest.mock('../../lib/rateLimiter', () => ({
     enforceRateLimit: (...args) => mockEnforceRateLimit(...args),
 }));
@@ -142,7 +142,7 @@ const mockRunTransaction = jest.fn(async (dbArg, callback) => {
     return callback(tx);
 });
 
-const mockSetDoc = jest.fn(async () => { });
+const mockSetDoc = jest.fn(async () => {});
 const mockGetDocs = jest.fn(async () => ({ docs: [] }));
 const mockWhere = jest.fn((...args) => ({ __isWhereClause: true, args }));
 const mockQuery = jest.fn((...args) => ({ __isQuery: true, args }));
@@ -195,7 +195,7 @@ describe('CreateEvent transaction flow', () => {
         };
         const route = { params: {} };
 
-        const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => { });
+        const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
         const { getByPlaceholderText, getByText, getAllByText } = render(
             <CreateEvent navigation={navigation} route={route} />,
@@ -273,7 +273,7 @@ describe('CreateEvent – saveAsTemplate', () => {
     it('saves a template to Firestore with correct fields', async () => {
         const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
         const route = { params: {} };
-        const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => { });
+        const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
         const { getByPlaceholderText, getByText } = render(
             <CreateEvent navigation={navigation} route={route} />,
@@ -315,7 +315,7 @@ describe('CreateEvent – saveAsTemplate', () => {
     it('shows validation alert when required fields are missing', async () => {
         const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
         const route = { params: {} };
-        const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => { });
+        const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
         const { getByText } = render(<CreateEvent navigation={navigation} route={route} />);
 
@@ -395,7 +395,7 @@ describe('CreateEvent – fetchTemplates and applyTemplate', () => {
         });
     });
 
-    it('queries Firestore by the current user\'s ownerId', async () => {
+    it("queries Firestore by the current user's ownerId", async () => {
         const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
         const route = { params: {} };
 
@@ -448,7 +448,7 @@ describe('CreateEvent – fetchTemplates and applyTemplate', () => {
 
     it('shows error alert when getDocs throws', async () => {
         mockGetDocs.mockRejectedValue(new Error('Network error'));
-        const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => { });
+        const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
         const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
         const route = { params: {} };
@@ -488,9 +488,7 @@ describe('CreateEvent – applyTemplate via route.params', () => {
         };
         const route = { params: { template: templateParam } };
 
-        const { getByDisplayValue } = render(
-            <CreateEvent navigation={navigation} route={route} />,
-        );
+        const { getByDisplayValue } = render(<CreateEvent navigation={navigation} route={route} />);
 
         await waitFor(() => {
             expect(getByDisplayValue('Workshop on AI')).toBeTruthy();
