@@ -80,7 +80,7 @@ export default function ClubProfileScreen({ route, navigation }) {
     const isOwner = user?.uid === clubId;
 
     const theme = useMemo(() => {
-        if (!club?.themeColor) return globalTheme;
+        if (!club?.themeColor || !clubThemeColors.includes(club.themeColor)) return globalTheme;
         return {
             ...globalTheme,
             colors: {
@@ -323,6 +323,7 @@ export default function ClubProfileScreen({ route, navigation }) {
 
     const handleColorChange = async color => {
         if (!isOwner || !clubId) return;
+        if (!clubThemeColors.includes(color)) return;
         try {
             await setDoc(doc(db, 'publicUsers', clubId), { themeColor: color }, { merge: true });
         } catch (e) {
@@ -348,6 +349,11 @@ export default function ClubProfileScreen({ route, navigation }) {
                         return (
                             <TouchableOpacity
                                 key={color}
+                                accessible={true}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Color: ${color}`}
+                                accessibilityState={{ selected: isSelected }}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                 style={[
                                     styles.colorSwatch,
                                     { backgroundColor: color },

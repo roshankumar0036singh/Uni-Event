@@ -239,17 +239,22 @@ const processRegistrationTransaction = async (
     transaction.set(userRef, userUpdate, { merge: true });
 
     const userPublicProfileRef = db.collection('publicProfiles').doc(uid);
-    transaction.set(
-        userPublicProfileRef,
-        {
-            points: admin.firestore.FieldValue.increment(10),
-            displayName: userData.displayName || '',
-            photoURL: userData.photoURL || '',
-            role: userData.role || 'student',
-            isVerified: userData.isVerified || false,
-        },
-        { merge: true },
-    );
+    const publicProfileUpdate: any = {
+        points: admin.firestore.FieldValue.increment(10),
+    };
+    if (userData.role) {
+        publicProfileUpdate.role = userData.role;
+    }
+    if (typeof userData.displayName === 'string' && userData.displayName !== '') {
+        publicProfileUpdate.displayName = userData.displayName;
+    }
+    if (typeof userData.photoURL === 'string' && userData.photoURL !== '') {
+        publicProfileUpdate.photoURL = userData.photoURL;
+    }
+    if (typeof userData.isVerified === 'boolean') {
+        publicProfileUpdate.isVerified = userData.isVerified;
+    }
+    transaction.set(userPublicProfileRef, publicProfileUpdate, { merge: true });
 
     const eventUpdates: any = buildCounterUpdates(
         participantPayload.branch,
@@ -320,7 +325,7 @@ export const finalizeTicketPayment = functions.https.onCall(async (data, context
 
     const uid = context.auth.uid;
     const email = context.auth.token.email;
-    const name = context.auth.token.name || 'Guest';
+    const name = context.auth.token.name || 'Anonymous';
     const db = admin.firestore();
 
     try {

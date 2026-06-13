@@ -220,13 +220,22 @@ const processRegistrationTransaction = async (transaction, db, uid, email, name,
     }
     transaction.set(userRef, userUpdate, { merge: true });
     const userPublicProfileRef = db.collection('publicProfiles').doc(uid);
-    transaction.set(userPublicProfileRef, {
+    const publicProfileUpdate = {
         points: admin.firestore.FieldValue.increment(10),
-        displayName: userData.displayName || '',
-        photoURL: userData.photoURL || '',
-        role: userData.role || 'student',
-        isVerified: userData.isVerified || false,
-    }, { merge: true });
+    };
+    if (userData.role) {
+        publicProfileUpdate.role = userData.role;
+    }
+    if (typeof userData.displayName === 'string' && userData.displayName !== '') {
+        publicProfileUpdate.displayName = userData.displayName;
+    }
+    if (typeof userData.photoURL === 'string' && userData.photoURL !== '') {
+        publicProfileUpdate.photoURL = userData.photoURL;
+    }
+    if (typeof userData.isVerified === 'boolean') {
+        publicProfileUpdate.isVerified = userData.isVerified;
+    }
+    transaction.set(userPublicProfileRef, publicProfileUpdate, { merge: true });
     const eventUpdates = buildCounterUpdates(participantPayload.branch, participantPayload.year, 1, eventData);
     eventUpdates.participantsPreview = buildPreviewUpdate(eventData, participantPayload, 1);
     if (earlyBird) {
@@ -269,7 +278,7 @@ exports.finalizeTicketPayment = functions.https.onCall(async (data, context) => 
     }
     const uid = context.auth.uid;
     const email = context.auth.token.email;
-    const name = context.auth.token.name || 'Guest';
+    const name = context.auth.token.name || 'Anonymous';
     const db = admin.firestore();
     try {
         let finalEarlyBird = false;

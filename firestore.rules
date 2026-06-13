@@ -39,7 +39,8 @@ service cloud.firestore {
         'followersCount',
         'clubName',
         'organization',
-        'bannerUrl'
+        'bannerUrl',
+        'themeColor'
       ]);
     }
 
