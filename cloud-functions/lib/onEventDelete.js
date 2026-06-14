@@ -43,17 +43,23 @@ exports.onEventDelete = functions.firestore
     console.log(`Event deleted: ${eventId}. Cleaning up scheduled reminders.`);
     const db = admin.firestore();
     const remindersRef = db.collection('reminders');
-    const q = remindersRef.where('eventId', '==', eventId);
-    const querySnapshot = await q.get();
-    if (querySnapshot.empty) {
-        console.log(`No reminders found for event ${eventId}.`);
+    try {
+        const q = remindersRef.where('eventId', '==', eventId);
+        const querySnapshot = await q.get();
+        if (querySnapshot.empty) {
+            console.log(`No reminders found for event ${eventId}.`);
+            return null;
+        }
+        const batch = db.batch();
+        querySnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        console.log(`Deleted ${querySnapshot.size} reminders for event ${eventId}.`);
         return null;
     }
-    const batch = db.batch();
-    querySnapshot.forEach(doc => {
-        batch.delete(doc.ref);
-    });
-    await batch.commit();
-    console.log(`Deleted ${querySnapshot.size} reminders for event ${eventId}.`);
-    return null;
+    catch (error) {
+        console.error(`Failed to clean up reminders for event ${eventId}:`, error);
+        throw error;
+    }
 });

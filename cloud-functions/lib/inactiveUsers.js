@@ -61,6 +61,9 @@ exports.detectInactiveUsers = functions.pubsub
         }
         const lastActiveDate = getLastActiveDate(userData.lastActive);
         const isInactive = lastActiveDate < thirtyDaysAgo;
+        if (userData.isInactive === isInactive) {
+            continue;
+        }
         const updateData = {
             isInactive,
         };
@@ -88,6 +91,7 @@ exports.detectInactiveUsers = functions.pubsub
     }
     catch (error) {
         console.error('Error committing inactivity batch:', error);
+        throw error;
     }
     return null;
 });

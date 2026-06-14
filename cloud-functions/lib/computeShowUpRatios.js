@@ -39,9 +39,12 @@ const functions = __importStar(require("firebase-functions"));
 const firestore_1 = require("firebase-admin/firestore");
 const db = admin.firestore();
 exports.computeShowUpRatios = functions.pubsub.schedule('every 30 minutes').onRun(async () => {
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
     const pastEvents = await db
         .collection('events')
         .where('endAt', '<', new Date().toISOString())
+        .where('endAt', '>', twelveMonthsAgo.toISOString())
         .where('participantCount', '>', 0)
         .select('category', 'participantCount', 'stats.totalCheckedIn')
         .get();
@@ -94,7 +97,13 @@ exports.computeShowUpRatios = functions.pubsub.schedule('every 30 minutes').onRu
         },
         updatedAt: firestore_1.FieldValue.serverTimestamp(),
     });
-    await batch.commit();
+    try {
+        await batch.commit();
+    }
+    catch (error) {
+        console.error('Failed to commit show-up ratios batch:', error);
+        throw error;
+    }
     console.log(`Computed show-up ratios for ${categoryBuckets.size} categories ` +
         `across ${pastEvents.size} past events. ` +
         `Overall ratio: ${(overallRatio * 100).toFixed(1)}%`);
