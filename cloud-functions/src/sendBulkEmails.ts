@@ -122,65 +122,73 @@ export const sendBulkEmails = functions.https.onCall(
             console.error('Failed to create initial audit log:', auditError);
         }
 
-        const emailPromises = participants.map(async p => {
-            if (!p.email) {
-                failureCount++;
-                return;
-            }
+        const BATCH_SIZE = 25;
+        for (let i = 0; i < participants.length; i += BATCH_SIZE) {
+            const batch = participants.slice(i, i + BATCH_SIZE);
+            await Promise.allSettled(
+                batch.map(async p => {
+                    if (!p.email) {
+                        failureCount++;
+                        return;
+                    }
 
-            const payload = {
-                service_id: EMAILJS_SERVICE_ID,
-                template_id: templateId,
-                user_id: EMAILJS_PUBLIC_KEY,
-                template_params: {
-                    to_name: p.name || 'Participant',
-                    to_email: p.email,
-                    subject: subject,
-                    message: message,
-                    ...templateData,
-                    ...p.templateData,
-                },
-            };
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 10000);
 
-            try {
-                const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload),
-                });
+                    const payload = {
+                        service_id: EMAILJS_SERVICE_ID,
+                        template_id: templateId,
+                        user_id: EMAILJS_PUBLIC_KEY,
+                        template_params: {
+                            to_name: p.name || 'Participant',
+                            to_email: p.email,
+                            subject: subject,
+                            message: message,
+                            ...templateData,
+                            ...p.templateData,
+                        },
+                    };
 
-                if (response.ok) {
-                    successCount++;
-                } else {
-                    const errorText = await response.text();
-                    console.error('EmailJS Error:', errorText);
-                    failureCount++;
-                }
-            } catch (error) {
-                console.error('Email Network Error:', error);
-                failureCount++;
-            }
-        });
+                    try {
+                        const response = await fetch(
+                            'https://api.emailjs.com/api/v1.0/email/send',
+                            {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify(payload),
+                                signal: controller.signal,
+                            },
+                        );
+
+                        if (response.ok) {
+                            successCount++;
+                        } else {
+                            const errorText = await response.text();
+                            console.error('EmailJS Error:', errorText);
+                            failureCount++;
+                        }
+                    } catch (error) {
+                        console.error('Email Network Error:', error);
+                        failureCount++;
+                    } finally {
+                        clearTimeout(timeout);
+                    }
+                }),
+            );
+        }
 
         let finalStatus = 'completed';
-        try {
-            await Promise.all(emailPromises);
-        } catch (error) {
-            finalStatus = 'failed';
-            console.error('Bulk email processing encountered an error:', error);
-        } finally {
-            // Update audit log with terminal status
-            if (auditDocRef) {
-                await auditDocRef
-                    .update({
-                        successCount,
-                        failureCount,
-                        status: finalStatus,
-                    })
-                    .catch(e => console.error('Failed to update audit log:', e));
-            }
+        // Update audit log with terminal status
+        if (auditDocRef) {
+            await auditDocRef
+                .update({
+                    successCount,
+                    failureCount,
+                    status: finalStatus,
+                })
+                .catch(e => console.error('Failed to update audit log:', e));
         }
 
         return {
