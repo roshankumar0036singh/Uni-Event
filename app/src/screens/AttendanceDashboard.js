@@ -35,6 +35,7 @@ import { formatEventDate } from '../lib/formatEventDate';
 import participantService from '../lib/participantService';
 import { useTheme } from '../lib/ThemeContext';
 import { sendBulkAnnouncement, sendBulkFeedbackRequest } from '../lib/EmailService';
+import EventPushNotificationModal from '../components/EventPushNotificationModal';
 import PropTypes from 'prop-types';
 import { COLLECTIONS, getEventCheckInsPath, getEventFeedbackPath } from '../lib/firestorePaths';
 import { useAuth } from '../lib/AuthContext';
@@ -64,6 +65,8 @@ export default function AttendanceDashboard({ route, navigation }) {
     const [announcementMessage, setAnnouncementMessage] = useState('');
     const [sending, setSending] = useState(false);
 
+    // Push Notification State
+    const [pushModalVisible, setPushModalVisible] = useState(false);
     // Feedback Request Modal State
     const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
 
@@ -680,6 +683,24 @@ export default function AttendanceDashboard({ route, navigation }) {
                                 styles.premiumBtn,
                                 { borderColor: theme.colors.primary },
                             ]}
+                            onPress={() => setPushModalVisible(true)}
+                        >
+                            <Ionicons
+                                name="notifications-outline"
+                                size={24}
+                                color={theme.colors.primary}
+                            />
+                            <Text style={[styles.exportBtnText, { color: theme.colors.primary }]}>
+                                Push Update
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.exportBtn,
+                                styles.premiumBtn,
+                                { borderColor: theme.colors.primary },
+                            ]}
                             onPress={() => setAnnouncementModalVisible(true)}
                         >
                             <Ionicons name="megaphone" size={24} color={theme.colors.primary} />
@@ -848,6 +869,14 @@ export default function AttendanceDashboard({ route, navigation }) {
                     </View>
                 </View>
             </Modal>
+
+            <EventPushNotificationModal
+                visible={pushModalVisible}
+                eventId={eventId}
+                eventTitle={eventTitle}
+                theme={theme}
+                onClose={() => setPushModalVisible(false)}
+            />
 
             {/* Feedback Request Modal */}
             <Modal
@@ -1209,8 +1238,8 @@ const styles = StyleSheet.create({
     analyticsBarFill: { height: '100%', borderRadius: 4 },
     exportContainer: { margin: 16, marginTop: 0 },
     exportTitle: { fontSize: 17, fontWeight: '700', marginBottom: 12 },
-    exportButtons: { flexDirection: 'row', gap: 12 },
-    exportBtn: { flex: 1, borderRadius: 14, overflow: 'hidden' },
+    exportButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    exportBtn: { flexGrow: 1, flexBasis: 140, borderRadius: 14, overflow: 'hidden' },
     premiumBtn: {
         flexDirection: 'row',
         alignItems: 'center',
