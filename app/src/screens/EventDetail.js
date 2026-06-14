@@ -34,6 +34,7 @@ import {
 import ConfettiCannon from 'react-native-confetti-cannon';
 import FeedbackModal from '../components/FeedbackModal';
 import AppealModal from '../components/AppealModal';
+import HypeMeter from '../components/HypeMeter';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../lib/AuthContext';
@@ -2054,6 +2055,10 @@ export default function EventDetail({ route, navigation }) {
                                         >
                                             {event.participantCount || 0} / {event.capacity}
                                         </Text>
+                                        <HypeMeter
+                                            current={event.participantCount || 0}
+                                            capacity={event.capacity}
+                                        />
                                         {capacityPrediction?.severity === 'high' && (
                                             <Text
                                                 style={{
