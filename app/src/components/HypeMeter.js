@@ -3,7 +3,8 @@ import PropTypes from 'prop-types';
 import { View, Text } from 'react-native';
 
 export default function HypeMeter({ current, capacity }) {
-    const percentage = capacity > 0 ? Math.min((current / capacity) * 100, 100) : 0;
+    const safeCurrent = Math.max(0, current || 0);
+    const percentage = capacity > 0 ? Math.min((safeCurrent / capacity) * 100, 100) : 0;
 
     return (
         <View style={{ marginTop: 8 }}>

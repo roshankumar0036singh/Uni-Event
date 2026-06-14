@@ -2056,7 +2056,7 @@ export default function EventDetail({ route, navigation }) {
                                             {event.participantCount || 0} / {event.capacity}
                                         </Text>
                                         <HypeMeter
-                                            current={event.participantCount || 0}
+                                            current={participantCount || 0}
                                             capacity={event.capacity}
                                         />
                                         {capacityPrediction?.severity === 'high' && (
