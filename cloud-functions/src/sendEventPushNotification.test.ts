@@ -145,6 +145,38 @@ describe('sendEventPushNotification', () => {
         expect(result).toMatchObject({ success: true, participantCount: 0 });
     });
 
+    it('records notification history when there are no participants', async () => {
+        const result = await callFunction(
+            {
+                eventId: 'event-1',
+                title: 'Event update',
+                message: 'The venue has changed.',
+            },
+            { uid: 'organizer-1', token: {} },
+        );
+
+        expect(mockSendPushNotifications).toHaveBeenCalledWith([]);
+        expect(mockHistoryAdd).toHaveBeenCalledWith({
+            title: 'Event update',
+            message: 'The venue has changed.',
+            sentBy: 'organizer-1',
+            participantCount: 0,
+            targetedCount: 0,
+            sentCount: 0,
+            failedCount: 0,
+            skippedCount: 0,
+            createdAt: 'server-timestamp',
+        });
+        expect(result).toEqual({
+            success: true,
+            participantCount: 0,
+            targetedCount: 0,
+            sentCount: 0,
+            failedCount: 0,
+            skippedCount: 0,
+        });
+    });
+
     it('rejects deleted events', async () => {
         mockEventGet.mockResolvedValueOnce({
             exists: true,

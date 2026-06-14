@@ -113,17 +113,6 @@ export const sendEventPushNotification = functions.https.onCall(async (data, con
     const participantsSnapshot = await eventRef.collection('participants').get();
     const participantUserIds = getParticipantUserIds(participantsSnapshot);
 
-    if (participantUserIds.length === 0) {
-        return {
-            success: true,
-            participantCount: 0,
-            targetedCount: 0,
-            sentCount: 0,
-            failedCount: 0,
-            skippedCount: 0,
-        };
-    }
-
     const userDocuments = await getUserDocuments(db, participantUserIds);
     const pushTokens = new Set<string>();
 
