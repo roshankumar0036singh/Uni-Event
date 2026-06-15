@@ -22,6 +22,14 @@ service cloud.firestore {
       return isValidEventTitle(data) && isValidEventCapacity(data) && isValidEventDate(data);
     }
 
+    function isValidThemeColor(data) {
+      return !('themeColor' in data) || (data.themeColor is string && data.themeColor.matches('^#[0-9A-Fa-f]{6}$'));
+    }
+
+    function isValidBannerUrl(data) {
+      return !('bannerUrl' in data) || (data.bannerUrl is string && data.bannerUrl.matches('^https://.*') && data.bannerUrl.size() <= 2048);
+    }
+
     function validatePublicProfileData(data) {
       return data.keys().hasOnly([
         'displayName',
@@ -39,8 +47,9 @@ service cloud.firestore {
         'followersCount',
         'clubName',
         'organization',
-        'bannerUrl'
-      ]);
+        'bannerUrl',
+        'themeColor'
+      ]) && isValidThemeColor(data) && isValidBannerUrl(data);
     }
 
     function validatePublicProfileOwnerCreate(data) {
