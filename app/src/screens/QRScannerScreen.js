@@ -92,7 +92,7 @@ export default function QRScannerScreen({ navigation, route }) {
 
     const [hasPermission, setHasPermission] = useState(null);
     const [scanned, setScanned] = useState(false);
-    const [scanResult, setScanResult] = useState(null); // { status: 'success' | 'error', message: '' }
+    const [scanResult, setScanResult] = useState(null);
     const [copied, setCopied] = useState(false);
     const [canAskPermissionAgain, setCanAskPermissionAgain] = useState(true);
     const [permissionError, setPermissionError] = useState(false);
@@ -105,7 +105,7 @@ export default function QRScannerScreen({ navigation, route }) {
         if (permissionRequestRef.current) return;
 
         if (Platform.OS === 'web') {
-            setHasPermission(true); // Web handles permission via browser prompt
+            setHasPermission(true);
             return;
         }
 
@@ -205,6 +205,29 @@ export default function QRScannerScreen({ navigation, route }) {
             }
 
             const { ticketData, scannedUserId } = parsedScan;
+
+            // ── FIX FOR ISSUE #623 ──────────────────────────────────────────
+            // Verify the uid in the QR payload matches the authenticated user.
+            // This prevents User B from scanning User A's QR code and faking
+            // attendance on their behalf.
+            if (!user?.uid) {
+                setScanResult({
+                    status: 'error',
+                    message: 'You must be signed in to check in.',
+                });
+                return;
+            }
+
+            if (scannedUserId !== user.uid) {
+                setScanResult({
+                    status: 'error',
+                    message:
+                        'This QR code does not belong to your account. Please scan your own QR code.',
+                });
+                return;
+            }
+            // ── END FIX ─────────────────────────────────────────────────────
+
             const hasTicketId = Boolean(ticketData?.ticketId);
             const operatorName = getOperatorName(user);
 
@@ -435,7 +458,6 @@ export default function QRScannerScreen({ navigation, route }) {
                 </TouchableOpacity>
             </View>
 
-            {/* Result Modal / Feedback */}
             {scanned && (
                 <View style={[styles.resultOverlay, { backgroundColor: theme.colors.surface }]}>
                     <View style={styles.resultContent}>
