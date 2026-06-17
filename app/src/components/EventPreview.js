@@ -321,7 +321,13 @@ export default function EventPreview({ visible, onClose, eventData, organizerNam
                                     <Text style={{ color: theme.colors.text, fontWeight: '600' }}>
                                         {eventData.targetYears && eventData.targetYears.length > 0
                                             ? eventData.targetYears
-                                                  .map(y => `${y}st/nd/rd/th Year`)
+                                                  .map(y => {
+                                                      if (y === 1) return '1st Year';
+                                                      if (y === 2) return '2nd Year';
+                                                      if (y === 3) return '3rd Year';
+                                                      if (y === 4) return '4th Year';
+                                                      return `${y}th Year`;
+                                                  })
                                                   .join(', ')
                                             : 'All'}
                                     </Text>
