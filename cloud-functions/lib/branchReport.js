@@ -283,9 +283,11 @@ exports.generateBranchParticipationReport = functions.https.onCall(async (data, 
         checkInsSnap.forEach(checkInDoc => {
             const checkIn = checkInDoc.data() || {};
             const branch = normalizeBranch(checkIn.userBranch || checkIn.branch);
-            const stats = ensureStats(statsByBranch, branch);
-            stats.attendance += 1;
-            stats.events.add(eventDoc.id);
+            const stats = statsByBranch.get(branch);
+            if (stats) {
+                stats.attendance += 1;
+                stats.events.add(eventDoc.id);
+            }
         });
     }
     const totalRegistrations = Array.from(statsByBranch.values()).reduce((sum, stats) => sum + stats.registrations, 0);
