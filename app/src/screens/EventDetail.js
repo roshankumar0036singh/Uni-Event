@@ -2496,7 +2496,7 @@ export default function EventDetail({ route, navigation }) {
     );
 }
 
-const getStyles = theme =>
+export const getStyles = theme =>
     StyleSheet.create({
         // Header
         headerImage: { height: 350, width: '100%' },

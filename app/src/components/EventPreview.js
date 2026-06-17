@@ -7,7 +7,6 @@ import {
     Modal,
     Platform,
     ScrollView,
-    StyleSheet,
     Text,
     TouchableOpacity,
     View,
@@ -15,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
+import { getStyles as getEventDetailStyles } from '../screens/EventDetail';
 
 const DEFAULT_BANNERS = [
     'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1000&q=80',
@@ -387,8 +387,10 @@ EventPreview.propTypes = {
     }).isRequired,
 };
 
-const getStyles = theme =>
-    StyleSheet.create({
+const getStyles = theme => {
+    const detailStyles = getEventDetailStyles(theme);
+    return {
+        ...detailStyles,
         safeContainer: {
             flex: 1,
             backgroundColor: theme.colors.background,
@@ -417,176 +419,5 @@ const getStyles = theme =>
             fontSize: 11,
             marginTop: 2,
         },
-        headerImage: { height: 350, width: '100%' },
-        headerGradient: { flex: 1, paddingTop: 20, paddingHorizontal: 20 },
-        headerSafe: { flexDirection: 'row', justifyContent: 'space-between' },
-        backButton: {
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            alignItems: 'center',
-            justifyContent: 'center',
-        },
-        contentSheet: {
-            flex: 1,
-            marginTop: -40,
-            borderTopLeftRadius: 32,
-            borderTopRightRadius: 32,
-            backgroundColor: theme.colors.background,
-            paddingHorizontal: 24,
-            paddingTop: 32,
-        },
-        badgeRow: {
-            flexDirection: 'row',
-            gap: 8,
-            marginBottom: 16,
-        },
-        categoryBadge: {
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 20,
-        },
-        categoryText: {
-            fontSize: 12,
-            fontWeight: '600',
-        },
-        priceBadge: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 4,
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 20,
-        },
-        priceText: {
-            color: '#fff',
-            fontSize: 12,
-            fontWeight: '700',
-        },
-        eventTitle: {
-            fontSize: 28,
-            fontWeight: '800',
-            marginBottom: 16,
-            lineHeight: 34,
-        },
-        hostButton: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12,
-            paddingVertical: 12,
-            marginBottom: 20,
-        },
-        hostAvatar: {
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            alignItems: 'center',
-            justifyContent: 'center',
-        },
-        hostAvatarText: {
-            fontSize: 18,
-            fontWeight: '700',
-        },
-        hostLabel: {
-            fontSize: 12,
-        },
-        hostName: {
-            fontSize: 16,
-            fontWeight: '600',
-        },
-        detailsCard: {
-            borderRadius: 20,
-            padding: 20,
-            marginBottom: 25,
-        },
-        detailRow: {
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            gap: 16,
-        },
-        detailIconContainer: {
-            width: 48,
-            height: 48,
-            borderRadius: 24,
-            alignItems: 'center',
-            justifyContent: 'center',
-        },
-        detailContent: {
-            flex: 1,
-        },
-        detailLabel: {
-            fontSize: 12,
-            fontWeight: '500',
-            marginBottom: 4,
-        },
-        detailValue: {
-            fontSize: 16,
-            fontWeight: '600',
-            marginBottom: 2,
-        },
-        detailSubValue: {
-            fontSize: 14,
-        },
-        detailDivider: {
-            height: 1,
-            marginVertical: 16,
-        },
-        aboutSection: {
-            marginBottom: 25,
-        },
-        sectionTitle: {
-            fontSize: 18,
-            fontWeight: '700',
-            marginBottom: 12,
-        },
-        description: {
-            fontSize: 15,
-            lineHeight: 24,
-        },
-        tagsContainer: {
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: 8,
-        },
-        tagChip: {
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 15,
-            borderWidth: 1,
-        },
-        tagText: {
-            fontSize: 13,
-            fontWeight: '500',
-        },
-        audienceContainer: {
-            padding: 16,
-            borderRadius: 12,
-            backgroundColor: 'rgba(0,0,0,0.02)',
-        },
-        audienceLabel: {
-            fontSize: 14,
-        },
-        fabContainer: {
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            padding: 20,
-            paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-            borderTopWidth: 1,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-        },
-        fabSubInfo: { justifyContent: 'center' },
-        fabLabel: { fontSize: 12, opacity: 0.6 },
-        fabValue: { fontSize: 16, fontWeight: 'bold' },
-        primaryBtn: {
-            backgroundColor: theme.colors.primary,
-            paddingVertical: 14,
-            paddingHorizontal: 32,
-            borderRadius: 12,
-        },
-        primaryBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    });
+    };
+};
