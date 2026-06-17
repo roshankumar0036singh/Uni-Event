@@ -112,6 +112,36 @@ jest.mock('../../lib/capacityPredictor', () => ({
     predictAttendance: jest.fn(() => null),
 }));
 
+jest.mock('../../components/EventPreview', () => {
+    const React = require('react');
+    const PropTypes = require('prop-types');
+    const { Text, TouchableOpacity, View } = require('react-native');
+
+    function MockEventPreview({ visible, onClose, eventData, organizerName }) {
+        if (!visible) return null;
+        return React.createElement(
+            View,
+            { testID: 'mock-event-preview' },
+            React.createElement(Text, null, `Title: ${eventData.title}`),
+            React.createElement(Text, null, `Organizer: ${organizerName}`),
+            React.createElement(
+                TouchableOpacity,
+                { onPress: onClose, testID: 'close-preview-btn' },
+                React.createElement(Text, null, 'Close'),
+            ),
+        );
+    }
+
+    MockEventPreview.propTypes = {
+        visible: PropTypes.bool,
+        onClose: PropTypes.func,
+        eventData: PropTypes.object,
+        organizerName: PropTypes.string,
+    };
+
+    return MockEventPreview;
+});
+
 const mockEnforceRateLimit = jest.fn(async () => {});
 jest.mock('../../lib/rateLimiter', () => ({
     enforceRateLimit: (...args) => mockEnforceRateLimit(...args),
@@ -494,5 +524,48 @@ describe('CreateEvent – applyTemplate via route.params', () => {
             expect(getByDisplayValue('Workshop on AI')).toBeTruthy();
             expect(getByDisplayValue('Intro to machine learning.')).toBeTruthy();
         });
+    });
+});
+
+describe('CreateEvent – Preview Mode', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it('renders preview triggers and opens the preview modal', async () => {
+        const navigation = { goBack: jest.fn(), setOptions: jest.fn(), navigate: jest.fn() };
+        const route = { params: {} };
+
+        const { getByPlaceholderText, getByText, getByLabelText, getByTestId, queryByTestId } =
+            render(<CreateEvent navigation={navigation} route={route} />);
+
+        // Fill some data
+        fireEvent.changeText(
+            getByPlaceholderText('e.g. Annual Tech Symposium'),
+            'Preview Event Title',
+        );
+
+        // Assert modal is not open initially
+        expect(queryByTestId('mock-event-preview')).toBeNull();
+
+        // Tap the header preview eye icon
+        const headerPreviewBtn = getByLabelText('Preview Event');
+        fireEvent.press(headerPreviewBtn);
+
+        // Assert modal is now open with correct title
+        expect(queryByTestId('mock-event-preview')).toBeTruthy();
+        expect(getByText('Title: Preview Event Title')).toBeTruthy();
+        expect(getByText('Organizer: Organizer One')).toBeTruthy();
+
+        // Close it
+        fireEvent.press(getByTestId('close-preview-btn'));
+        expect(queryByTestId('mock-event-preview')).toBeNull();
+
+        // Tap the bottom preview button
+        const bottomPreviewBtn = getByText('Preview');
+        fireEvent.press(bottomPreviewBtn);
+
+        // Assert modal is open again
+        expect(queryByTestId('mock-event-preview')).toBeTruthy();
     });
 });
