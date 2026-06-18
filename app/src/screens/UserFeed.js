@@ -670,7 +670,6 @@ export default function UserFeed() {
                     </ScrollView>
                 </View>
             )}
-
         </Animated.View>
     );
 
