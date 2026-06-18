@@ -20,7 +20,12 @@ export default function ParticipatingEventsScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!user || !isFocused) return;
+        if (!user) {
+            setLoading(false);
+            setEvents([]);
+            return;
+        }
+        if (!isFocused) return;
 
         // 1. Listen to 'participating' subcollection while screen is focused
         const q = collection(db, 'users', user.uid, 'participating');
