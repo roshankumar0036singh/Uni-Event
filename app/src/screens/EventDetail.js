@@ -22,7 +22,6 @@ import {
     ActivityIndicator,
     Alert,
     Dimensions,
-    ImageBackground,
     Linking,
     Platform,
     ScrollView,
