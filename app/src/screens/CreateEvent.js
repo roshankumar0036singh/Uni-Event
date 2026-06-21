@@ -39,6 +39,7 @@ import { extractTags } from '../lib/tagExtractor';
 import { predictAttendance } from '../lib/capacityPredictor';
 import { enforceRateLimit } from '../lib/rateLimiter';
 import PropTypes from 'prop-types';
+import EventPreview from '../components/EventPreview';
 
 let MapView = null;
 let Marker = null;
@@ -68,6 +69,7 @@ export default function CreateEvent({ navigation, route }) {
     const [templateLoading, setTemplateLoading] = useState(false);
     const [templateModalVisible, setTemplateModalVisible] = useState(false);
     const [templates, setTemplates] = useState([]);
+    const [showPreview, setShowPreview] = useState(false);
 
     // Form State
     const [title, setTitle] = useState('');
@@ -622,11 +624,25 @@ export default function CreateEvent({ navigation, route }) {
 
     return (
         <ScreenWrapper>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            <View
+                style={[styles.header, { justifyContent: 'space-between', alignItems: 'center' }]}
+            >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                        <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>
+                        {isEditMode ? 'Edit Event' : 'Create Event'}
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    style={styles.headerPreviewBtn}
+                    onPress={() => setShowPreview(true)}
+                    disabled={loading}
+                    accessibilityLabel="Preview Event"
+                >
+                    <Ionicons name="eye-outline" size={24} color={theme.colors.primary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>{isEditMode ? 'Edit Event' : 'Create Event'}</Text>
             </View>
 
             <ScrollView
@@ -1177,20 +1193,31 @@ export default function CreateEvent({ navigation, route }) {
                     )}
                 </View>
 
-                <TouchableOpacity
-                    style={[styles.createBtn, { opacity: loading ? 0.7 : 1 }]}
-                    onPress={handleCreate}
-                    disabled={loading}
-                >
-                    {loading ? (
-                        <View style={styles.submitLoadingContent}>
-                            <ActivityIndicator color="#fff" />
+                <View style={styles.buttonRow}>
+                    <TouchableOpacity
+                        style={[styles.previewBtn, loading && styles.disabledControl]}
+                        onPress={() => setShowPreview(true)}
+                        disabled={loading}
+                    >
+                        <Ionicons name="eye-outline" size={20} color={theme.colors.primary} />
+                        <Text style={styles.previewBtnText}>Preview</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.createBtn, { flex: 2, opacity: loading ? 0.7 : 1 }]}
+                        onPress={handleCreate}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <View style={styles.submitLoadingContent}>
+                                <ActivityIndicator color="#fff" />
+                                <Text style={styles.createBtnText}>{submitLabel}</Text>
+                            </View>
+                        ) : (
                             <Text style={styles.createBtnText}>{submitLabel}</Text>
-                        </View>
-                    ) : (
-                        <Text style={styles.createBtnText}>{submitLabel}</Text>
-                    )}
-                </TouchableOpacity>
+                        )}
+                    </TouchableOpacity>
+                </View>
 
                 <View style={{ height: 100 }} />
             </ScrollView>
@@ -1255,6 +1282,28 @@ export default function CreateEvent({ navigation, route }) {
                     </View>
                 </View>
             </Modal>
+
+            <EventPreview
+                visible={showPreview}
+                onClose={() => setShowPreview(false)}
+                organizerName={user?.displayName || 'Club Admin'}
+                eventData={{
+                    title,
+                    description,
+                    tags: selectedTags,
+                    category,
+                    location,
+                    startDate,
+                    endDate,
+                    eventMode,
+                    meetLink,
+                    isPaid,
+                    price,
+                    imageUri,
+                    targetBranches,
+                    targetYears,
+                }}
+            />
         </ScreenWrapper>
     );
 }
@@ -1526,6 +1575,37 @@ const getStyles = theme =>
             borderStyle: 'dashed',
         },
         formBuilderText: { color: theme.colors.primary, fontWeight: 'bold' },
+        headerPreviewBtn: {
+            padding: 8,
+            borderRadius: 20,
+            backgroundColor: theme.colors.surface,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        buttonRow: {
+            flexDirection: 'row',
+            gap: 12,
+            marginTop: 10,
+        },
+        previewBtn: {
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            backgroundColor: theme.colors.surface,
+            borderWidth: 1.5,
+            borderColor: theme.colors.primary,
+            borderRadius: 16,
+            paddingVertical: 14,
+        },
+        previewBtnText: {
+            color: theme.colors.primary,
+            fontSize: 16,
+            fontWeight: 'bold',
+        },
     });
 
 CreateEvent.propTypes = {
