@@ -84,6 +84,9 @@ export default function EventDetail({ route, navigation }) {
     const [rsvpLoading, setRsvpLoading] = useState(false);
     const [participantCount, setParticipantCount] = useState(0);
     const [participants, setParticipants] = useState([]);
+    const [waitlistStatus, setWaitlistStatus] = useState(null);
+    const [waitlistPosition, setWaitlistPosition] = useState(null);
+    const [waitlistCount, setWaitlistCount] = useState(0);
     const [hasGivenFeedback, setHasGivenFeedback] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [showAppealModal, setShowAppealModal] = useState(false);
@@ -171,7 +174,7 @@ export default function EventDetail({ route, navigation }) {
 
     useEffect(() => {
         if (event?.ownerId) {
-            getDoc(doc(db, 'publicUsers', event.ownerId))
+            getDoc(doc(db, 'users', event.ownerId))
                 .then(snap => {
                     if (snap.exists()) {
                         const userData = snap.data();
@@ -258,6 +261,25 @@ export default function EventDetail({ route, navigation }) {
             }
         });
 
+        const unsubWaitlist = onSnapshot(collection(db, `events/${eventId}/waitlist`), snapshot => {
+            setWaitlistCount(snapshot.size);
+            if (user) {
+                const myDoc = snapshot.docs.find(d => d.id === user.uid);
+                if (myDoc) {
+                    setWaitlistStatus('waitlisted');
+                    // Calculate position based on joinedAt
+                    const sortedDocs = snapshot.docs.sort(
+                        (a, b) => new Date(a.data().joinedAt) - new Date(b.data().joinedAt),
+                    );
+                    const pos = sortedDocs.findIndex(d => d.id === user.uid) + 1;
+                    setWaitlistPosition(pos);
+                } else {
+                    setWaitlistStatus(null);
+                    setWaitlistPosition(null);
+                }
+            }
+        });
+
         if (user) {
             getDoc(doc(db, `events/${eventId}/feedback`, user.uid)).then(snap => {
                 if (snap.exists()) setHasGivenFeedback(true);
@@ -288,6 +310,7 @@ export default function EventDetail({ route, navigation }) {
         return () => {
             unsubEvent();
             unsubParticipants();
+            unsubWaitlist();
         };
     }, [eventId, user, navigation]);
 
@@ -453,14 +476,20 @@ export default function EventDetail({ route, navigation }) {
             return;
         }
 
-        // 1. Custom Form Logic (if not already going and custom form exists)
-        if (event.hasCustomForm && event.customFormSchema?.length > 0 && rsvpStatus !== 'going') {
+        // 1. Custom Form Logic
+        if (
+            event.hasCustomForm &&
+            event.customFormSchema?.length > 0 &&
+            rsvpStatus !== 'going' &&
+            waitlistStatus !== 'waitlisted'
+        ) {
             navigation.navigate('EventRegistrationForm', { event });
             return;
         }
 
         // 2. Paid Event Logic
-        if (event.isPaid && rsvpStatus !== 'going') {
+        const isFull = event.maxParticipants && participantCount >= event.maxParticipants;
+        if (event.isPaid && rsvpStatus !== 'going' && waitlistStatus !== 'waitlisted' && !isFull) {
             if (event.registrationLink) {
                 Alert.alert('External Registration', 'This event requires external registration.', [
                     { text: 'Cancel', style: 'cancel' },
@@ -484,6 +513,7 @@ export default function EventDetail({ route, navigation }) {
         if (rsvpLoading) return;
 
         const ref = doc(db, 'events', eventId, 'participants', user.uid);
+        const waitlistRef = doc(db, 'events', eventId, 'waitlist', user.uid);
         const userRef = doc(db, 'users', user.uid, 'participating', eventId);
         const userProfileRef = doc(db, 'users', user.uid);
         const userPublicProfileRef = publicProfileRef(db, user.uid);
@@ -586,16 +616,53 @@ export default function EventDetail({ route, navigation }) {
                     'Withdrawn',
                     `You are no longer registered. (-${RSVP_POINTS_CHANGE} Points)`,
                 );
+            } else if (waitlistStatus === 'waitlisted') {
+                await deleteDoc(waitlistRef);
+                Alert.alert('Removed', 'You have been removed from the waitlist.');
             } else {
-                const earlyBird = ebInfo?.isEligible;
-                await scheduleEventReminder(event);
-                setShowConfetti(true);
-                Alert.alert(
-                    'Registered! 🎉',
-                    earlyBird
-                        ? `You earned +${RSVP_POINTS_CHANGE} Points and the 🐦 Early Bird badge for being one of the first to RSVP!`
-                        : `You earned +${RSVP_POINTS_CHANGE} Points for registering.`,
-                );
+                const userDoc = await getDoc(userProfileRef);
+                const userData = userDoc.exists() ? userDoc.data() : {};
+                const isFull = event.maxParticipants && participantCount >= event.maxParticipants;
+
+                if (isFull) {
+                    await setDoc(waitlistRef, {
+                        userId: user.uid,
+                        email: user.email,
+                        name: user.displayName || 'Anonymous',
+                        branch: userData.branch || 'Unknown',
+                        year: userData.year || 'Unknown',
+                        joinedAt: new Date().toISOString(),
+                    });
+                    Alert.alert(
+                        'Waitlisted! ⏳',
+                        `The event is full. You have been added to the waitlist. We will notify you if a spot opens up.`,
+                    );
+                } else {
+                    await setDoc(ref, {
+                        userId: user.uid,
+                        email: user.email,
+                        name: user.displayName || 'Anonymous',
+                        branch: userData.branch || 'Unknown',
+                        year: userData.year || 'Unknown',
+                        joinedAt: new Date().toISOString(),
+                    });
+                    await setDoc(userRef, { eventId: eventId, joinedAt: new Date().toISOString() });
+
+                    const earlyBird = ebInfo?.isEligible;
+                    const userUpdate = { points: increment(RSVP_POINTS_CHANGE) };
+                    if (earlyBird) {
+                        userUpdate.badges = arrayUnion(`early_bird_${eventId}`);
+                    }
+                    await updateDoc(userProfileRef, userUpdate);
+
+                    await scheduleEventReminder(event);
+                    Alert.alert(
+                        'Registered! 🎉',
+                        earlyBird
+                            ? `You earned +${RSVP_POINTS_CHANGE} Points and the 🐦 Early Bird badge for being one of the first to RSVP!`
+                            : `You earned +${RSVP_POINTS_CHANGE} Points for registering.`,
+                    );
+                }
             }
         } catch (e) {
             logger.error('RSVP Error: ', e);
@@ -621,11 +688,7 @@ export default function EventDetail({ route, navigation }) {
     };
 
     const sendCertificates = async () => {
-        if (!isOwner && user?.role !== 'admin') {
-            Alert.alert('Unauthorized', 'Only the event owner can send certificates.');
-            return;
-        }
-
+        setSendingCertificates(true);
         try {
             // Fetch Participants via participantService
             logger.debug(`Fetching participants for event: ${event.id}`);
@@ -2404,22 +2467,13 @@ export default function EventDetail({ route, navigation }) {
                 <View style={[styles.fabContainer, { backgroundColor: theme.colors.surface }]}>
                     <View style={styles.fabSubInfo}>
                         <Text style={styles.fabLabel}>Attending</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-                            <Text style={styles.fabValue}>{participantCount} People</Text>
-                            {event?.capacity && (
-                                <Text
-                                    style={[
-                                        styles.fabValue,
-                                        { fontSize: 12, color: theme.colors.textSecondary },
-                                    ]}
-                                >
-                                    / {event.capacity}
-                                </Text>
-                            )}
-                        </View>
-                        {capacityPrediction?.severity === 'high' && (
-                            <Text style={{ color: '#dc2626', fontSize: 11, fontWeight: '600' }}>
-                                ⚠ Predicted overflow
+                        <Text style={styles.fabValue}>
+                            {participantCount} People{' '}
+                            {event.maxParticipants ? `/ ${event.maxParticipants}` : ''}
+                        </Text>
+                        {waitlistCount > 0 && (
+                            <Text style={{ fontSize: 10, color: theme.colors.textSecondary }}>
+                                {waitlistCount} Waitlisted
                             </Text>
                         )}
                     </View>
@@ -2427,8 +2481,8 @@ export default function EventDetail({ route, navigation }) {
                     <TouchableOpacity
                         style={[
                             styles.primaryBtn,
-                            rsvpStatus === 'going' && styles.secondaryBtn,
-                            (rsvpLoading || certificateDownloadLoading) && styles.disabledButton,
+                            (rsvpStatus === 'going' || waitlistStatus === 'waitlisted') &&
+                                styles.secondaryBtn,
                             new Date(event.endAt) < new Date() &&
                                 !(rsvpStatus === 'going' && event.certificatesSent) && {
                                     backgroundColor: theme.colors.textSecondary,
@@ -2443,35 +2497,34 @@ export default function EventDetail({ route, navigation }) {
                                 !(rsvpStatus === 'going' && event.certificatesSent))
                         }
                     >
-                        {rsvpLoading || certificateDownloadLoading ? (
-                            <View style={styles.rsvpLoadingContent}>
-                                <ActivityIndicator
-                                    size="small"
-                                    color={rsvpStatus === 'going' ? theme.colors.primary : '#fff'}
-                                />
-                                <Text
-                                    style={[
-                                        styles.primaryBtnText,
-                                        rsvpStatus === 'going' && styles.secondaryBtnText,
-                                    ]}
-                                >
-                                    {certificateDownloadLoading ? 'Generating...' : 'Updating...'}
-                                </Text>
-                            </View>
-                        ) : (
-                            <Text
-                                style={[
-                                    styles.primaryBtnText,
-                                    rsvpStatus === 'going' && styles.secondaryBtnText,
-                                    new Date(event.endAt) < new Date() &&
-                                        !(rsvpStatus === 'going' && event.certificatesSent) && {
-                                            color: '#fff',
-                                        },
-                                ]}
-                            >
-                                {primaryBtnText}
-                            </Text>
-                        )}
+                        <Text
+                            style={[
+                                styles.primaryBtnText,
+                                (rsvpStatus === 'going' || waitlistStatus === 'waitlisted') &&
+                                    styles.secondaryBtnText,
+                                new Date(event.endAt) < new Date() &&
+                                    !(rsvpStatus === 'going' && event.certificatesSent) && {
+                                        color: '#fff',
+                                    },
+                            ]}
+                        >
+                            {new Date(event.endAt) < new Date()
+                                ? rsvpStatus === 'going'
+                                    ? event.certificatesSent
+                                        ? 'Download Certificate'
+                                        : 'Event Ended'
+                                    : 'Closed'
+                                : rsvpStatus === 'going'
+                                  ? 'Registered ✓'
+                                  : waitlistStatus === 'waitlisted'
+                                    ? `Waitlist #${waitlistPosition}`
+                                    : event.maxParticipants &&
+                                        participantCount >= event.maxParticipants
+                                      ? 'Join Waitlist'
+                                      : event.isPaid
+                                        ? `Book Ticket (₹${event.price})`
+                                        : 'RSVP Now'}
+                        </Text>
                     </TouchableOpacity>
                 </View>
             )}

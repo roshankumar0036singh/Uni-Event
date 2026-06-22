@@ -128,11 +128,6 @@ export default function DesktopAdmin() {
                 updateDoc(doc(db, 'users', ownerId), {
                     verificationStatus: 'verified',
                 }),
-
-                upsertPublicProfile(db, ownerId, {
-                    role: 'club',
-                    verificationStatus: 'verified',
-                }),
             ]);
 
             // 2. Call Backend to Set Role

@@ -103,6 +103,7 @@ export default function CreateEvent({ navigation, route }) {
     const [price, setPrice] = useState('');
     const [upiId, setUpiId] = useState('');
     const [registrationLink, setRegistrationLink] = useState('');
+    const [maxParticipants, setMaxParticipants] = useState('');
     const [imageUri, setImageUri] = useState(null);
     const [capacity, setCapacity] = useState('');
     const [capacityWarning, setCapacityWarning] = useState(null);
@@ -361,6 +362,7 @@ export default function CreateEvent({ navigation, route }) {
             setPrice(event.price?.toString() || '');
             setUpiId(event.upiId || '');
             setRegistrationLink(event.registrationLink || '');
+            setMaxParticipants(event.maxParticipants?.toString() || '');
             setImageUri(event.bannerUrl);
             setCapacity(event.capacity?.toString() || '');
             setUseCustomForm(event.hasCustomForm);
@@ -442,6 +444,7 @@ export default function CreateEvent({ navigation, route }) {
                 price: isPaid ? Math.max(0, Number.parseFloat(price) || 0) : 0,
                 upiId: isPaid ? upiId : null,
                 registrationLink,
+                maxParticipants: maxParticipants ? parseInt(maxParticipants) : null,
                 target: {
                     departments: targetBranches,
                     years: targetYears.length ? targetYears : [1, 2, 3, 4],
@@ -1072,6 +1075,23 @@ export default function CreateEvent({ navigation, route }) {
                             icon={
                                 <Ionicons
                                     name="globe-outline"
+                                    size={20}
+                                    color={theme.colors.primary}
+                                />
+                            }
+                        />
+                    </View>
+
+                    <View style={{ marginTop: 15 }}>
+                        <PremiumInput
+                            label="Maximum Participants (Optional)"
+                            placeholder="Unlimited"
+                            value={maxParticipants}
+                            onChangeText={setMaxParticipants}
+                            keyboardType="numeric"
+                            icon={
+                                <Ionicons
+                                    name="people-outline"
                                     size={20}
                                     color={theme.colors.primary}
                                 />
