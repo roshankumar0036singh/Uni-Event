@@ -358,3 +358,5 @@ export const finalizeTicketPayment = functions.https.onCall(async (data, context
         );
     }
 });
+
+export * from './attendance';

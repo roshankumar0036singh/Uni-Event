@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import React, { useEffect, useState, useCallback } from 'react';
-import { useIsFocused } from '@react-navigation/native';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import ScreenWrapper from '../components/ScreenWrapper';
@@ -15,19 +14,13 @@ import PropTypes from 'prop-types';
 export default function ParticipatingEventsScreen({ navigation }) {
     const { user } = useAuth();
     const { theme } = useTheme();
-    const isFocused = useIsFocused();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!user) {
-            setLoading(false);
-            setEvents([]);
-            return;
-        }
-        if (!isFocused) return;
+        if (!user) return;
 
-        // 1. Listen to 'participating' subcollection while screen is focused
+        // 1. Listen to 'participating' subcollection
         const q = collection(db, 'users', user.uid, 'participating');
 
         const unsubscribe = onSnapshot(q, async snapshot => {
@@ -59,7 +52,7 @@ export default function ParticipatingEventsScreen({ navigation }) {
         });
 
         return () => unsubscribe();
-    }, [user, isFocused]);
+    }, [user]);
 
     // 🚀 Task 3: Wrap list item component renderer with useCallback to completely optimize list recycling renders
     const renderItem = useCallback(

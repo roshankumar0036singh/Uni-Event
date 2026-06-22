@@ -3,15 +3,11 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import {
     collection,
-    getDocs,
     updateDoc,
     doc,
-    query,
     runTransaction,
     increment,
     serverTimestamp,
-    setDoc,
-    where,
 } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -19,7 +15,6 @@ import {
     ActivityIndicator,
     Alert,
     Image,
-    Modal,
     Platform,
     ScrollView,
     StyleSheet,
@@ -39,7 +34,6 @@ import { extractTags } from '../lib/tagExtractor';
 import { predictAttendance } from '../lib/capacityPredictor';
 import { enforceRateLimit } from '../lib/rateLimiter';
 import PropTypes from 'prop-types';
-import EventPreview from '../components/EventPreview';
 
 let MapView = null;
 let Marker = null;
@@ -66,10 +60,6 @@ export default function CreateEvent({ navigation, route }) {
     const styles = useMemo(() => getStyles(theme), [theme]);
 
     const [loading, setLoading] = useState(false);
-    const [templateLoading, setTemplateLoading] = useState(false);
-    const [templateModalVisible, setTemplateModalVisible] = useState(false);
-    const [templates, setTemplates] = useState([]);
-    const [showPreview, setShowPreview] = useState(false);
 
     // Form State
     const [title, setTitle] = useState('');
@@ -196,7 +186,7 @@ export default function CreateEvent({ navigation, route }) {
         else setTargetYears([...targetYears, y]);
     };
 
-    const { event, template } = route.params || {};
+    const { event } = route.params || {};
     const isEditMode = !!event;
     let submitLabel = isEditMode ? 'Update Event' : 'Create Event';
     if (loading) {
@@ -233,116 +223,6 @@ export default function CreateEvent({ navigation, route }) {
         );
     };
 
-    const applyTemplate = selectedTemplate => {
-        if (!selectedTemplate) return;
-
-        setTitle(selectedTemplate.title || '');
-        setDescription(selectedTemplate.description || '');
-        setSelectedTags(selectedTemplate.tags || []);
-        setCategory(selectedTemplate.category || '');
-        setLocation(selectedTemplate.location || '');
-        setCoordinates(selectedTemplate.coordinates || null);
-        setTargetBranches(selectedTemplate.target?.departments || ['All']);
-        setTargetYears(selectedTemplate.target?.years || []);
-        setEventMode(selectedTemplate.eventMode || 'offline');
-        setMeetLink(selectedTemplate.meetLink || '');
-        setIsPaid(!!selectedTemplate.isPaid);
-        setPrice(selectedTemplate.price?.toString() || '');
-        setUpiId(selectedTemplate.upiId || '');
-        setRegistrationLink(selectedTemplate.registrationLink || '');
-        setImageUri(selectedTemplate.bannerUrl || null);
-        setCapacity(selectedTemplate.capacity?.toString() || '');
-        setUseCustomForm(!!selectedTemplate.hasCustomForm);
-        setCustomFormSchema(selectedTemplate.customFormSchema || []);
-        setTemplateModalVisible(false);
-    };
-
-    const fetchTemplates = async () => {
-        if (!user?.uid) {
-            Alert.alert('Login Required', 'Please login to use event templates.');
-            return;
-        }
-
-        setTemplateLoading(true);
-        try {
-            const templatesQuery = query(
-                collection(db, 'eventTemplates'),
-                where('ownerId', '==', user.uid),
-            );
-            const snapshot = await getDocs(templatesQuery);
-            const nextTemplates = snapshot.docs
-                .map(templateDoc => ({ id: templateDoc.id, ...templateDoc.data() }))
-                .sort((a, b) => {
-                    const left = a.createdAt?.toMillis?.() || 0;
-                    const right = b.createdAt?.toMillis?.() || 0;
-                    return right - left;
-                });
-
-            setTemplates(nextTemplates);
-            setTemplateModalVisible(true);
-        } catch (error) {
-            console.error('Template fetch failed:', error);
-            Alert.alert('Error', 'Failed to load templates.');
-        } finally {
-            setTemplateLoading(false);
-        }
-    };
-
-    const saveAsTemplate = async () => {
-        if (loading || templateLoading) return;
-
-        if (!user?.uid) {
-            Alert.alert('Login Required', 'Please login to save templates.');
-            return;
-        }
-        if (!title.trim() || !description.trim() || !category) {
-            Alert.alert('Missing Info', 'Please fill Title, Description and Category.');
-            return;
-        }
-
-        setTemplateLoading(true);
-        try {
-            const templateData = {
-                title: title.trim(),
-                description: description.trim(),
-                tags: selectedTags,
-                category,
-                location: eventMode === 'online' ? 'Google Meet' : location,
-                coordinates: eventMode === 'offline' && coordinates ? coordinates : null,
-                eventMode,
-                meetLink: eventMode === 'online' ? meetLink : null,
-                isPaid,
-                price: isPaid ? Math.max(0, Number.parseFloat(price) || 0) : 0,
-                upiId: isPaid ? upiId : null,
-                registrationLink,
-                target: {
-                    departments: targetBranches,
-                    years: targetYears.length ? targetYears : [1, 2, 3, 4],
-                },
-                bannerUrl: imageUri?.startsWith('http') ? imageUri : null,
-                capacity: capacity ? Number.parseInt(capacity, 10) : null,
-                hasCustomForm: useCustomForm,
-                customFormSchema: useCustomForm ? customFormSchema : [],
-                type: 'eventTemplate',
-                ownerId: user.uid,
-                ownerEmail: user.email,
-                organizerName: user.displayName || 'Club Admin',
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-            };
-
-            const templateRef = doc(collection(db, 'eventTemplates'));
-            await setDoc(templateRef, templateData);
-
-            Alert.alert('Saved', 'Template saved successfully!');
-        } catch (error) {
-            console.error('Template save failed:', error);
-            Alert.alert('Error', 'Failed to save template.');
-        } finally {
-            setTemplateLoading(false);
-        }
-    };
-
     useEffect(() => {
         if (isEditMode) {
             setTitle(event.title);
@@ -366,10 +246,8 @@ export default function CreateEvent({ navigation, route }) {
             setUseCustomForm(event.hasCustomForm);
             setCustomFormSchema(event.customFormSchema || []);
             navigation.setOptions({ title: 'Edit Event' });
-        } else if (template) {
-            applyTemplate(template);
         }
-    }, [isEditMode, event, template, navigation]);
+    }, [isEditMode, event, navigation]);
 
     const handleCreate = async () => {
         if (loading) return;
@@ -624,57 +502,17 @@ export default function CreateEvent({ navigation, route }) {
 
     return (
         <ScreenWrapper>
-            <View
-                style={[styles.header, { justifyContent: 'space-between', alignItems: 'center' }]}
-            >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>
-                        {isEditMode ? 'Edit Event' : 'Create Event'}
-                    </Text>
-                </View>
-                <TouchableOpacity
-                    style={styles.headerPreviewBtn}
-                    onPress={() => setShowPreview(true)}
-                    disabled={loading}
-                    accessibilityLabel="Preview Event"
-                >
-                    <Ionicons name="eye-outline" size={24} color={theme.colors.primary} />
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                    <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
                 </TouchableOpacity>
+                <Text style={styles.headerTitle}>{isEditMode ? 'Edit Event' : 'Create Event'}</Text>
             </View>
 
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                <View style={styles.templateActions}>
-                    {!isEditMode && (
-                        <TouchableOpacity
-                            style={[styles.templateBtn, templateLoading && styles.disabledControl]}
-                            onPress={fetchTemplates}
-                            disabled={loading || templateLoading}
-                        >
-                            <Ionicons name="copy-outline" size={18} color={theme.colors.primary} />
-                            <Text style={styles.templateBtnText}>
-                                {templateLoading ? 'Loading Templates...' : 'Use Template'}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-                    <TouchableOpacity
-                        style={[styles.templateBtn, templateLoading && styles.disabledControl]}
-                        onPress={saveAsTemplate}
-                        disabled={loading || templateLoading}
-                    >
-                        <Ionicons name="bookmark-outline" size={18} color={theme.colors.primary} />
-                        <Text style={styles.templateBtnText}>
-                            {templateLoading ? 'Saving...' : 'Save as Template'}
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-
                 {/* Banner Picker - Immersive Style */}
                 <TouchableOpacity
                     style={[styles.bannerPicker, loading && styles.disabledControl]}
@@ -1193,117 +1031,23 @@ export default function CreateEvent({ navigation, route }) {
                     )}
                 </View>
 
-                <View style={styles.buttonRow}>
-                    <TouchableOpacity
-                        style={[styles.previewBtn, loading && styles.disabledControl]}
-                        onPress={() => setShowPreview(true)}
-                        disabled={loading}
-                    >
-                        <Ionicons name="eye-outline" size={20} color={theme.colors.primary} />
-                        <Text style={styles.previewBtnText}>Preview</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.createBtn, { flex: 2, opacity: loading ? 0.7 : 1 }]}
-                        onPress={handleCreate}
-                        disabled={loading}
-                    >
-                        {loading ? (
-                            <View style={styles.submitLoadingContent}>
-                                <ActivityIndicator color="#fff" />
-                                <Text style={styles.createBtnText}>{submitLabel}</Text>
-                            </View>
-                        ) : (
+                <TouchableOpacity
+                    style={[styles.createBtn, { opacity: loading ? 0.7 : 1 }]}
+                    onPress={handleCreate}
+                    disabled={loading}
+                >
+                    {loading ? (
+                        <View style={styles.submitLoadingContent}>
+                            <ActivityIndicator color="#fff" />
                             <Text style={styles.createBtnText}>{submitLabel}</Text>
-                        )}
-                    </TouchableOpacity>
-                </View>
+                        </View>
+                    ) : (
+                        <Text style={styles.createBtnText}>{submitLabel}</Text>
+                    )}
+                </TouchableOpacity>
 
                 <View style={{ height: 100 }} />
             </ScrollView>
-
-            <Modal
-                visible={templateModalVisible}
-                transparent
-                animationType="slide"
-                onRequestClose={() => setTemplateModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.templateModal}>
-                        <View style={styles.templateModalHeader}>
-                            <View>
-                                <Text style={styles.templateModalTitle}>Event Templates</Text>
-                                <Text style={styles.templateModalSubtitle}>
-                                    Pick one to prefill this event.
-                                </Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setTemplateModalVisible(false)}>
-                                <Ionicons name="close" size={24} color={theme.colors.text} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <ScrollView showsVerticalScrollIndicator={false}>
-                            {templates.length === 0 ? (
-                                <View style={styles.emptyTemplates}>
-                                    <Ionicons
-                                        name="documents-outline"
-                                        size={32}
-                                        color={theme.colors.textSecondary}
-                                    />
-                                    <Text style={styles.emptyTemplatesText}>
-                                        No templates saved yet.
-                                    </Text>
-                                </View>
-                            ) : (
-                                templates.map(savedTemplate => (
-                                    <TouchableOpacity
-                                        key={savedTemplate.id}
-                                        style={styles.templateItem}
-                                        onPress={() => applyTemplate(savedTemplate)}
-                                    >
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={styles.templateItemTitle}>
-                                                {savedTemplate.title}
-                                            </Text>
-                                            <Text style={styles.templateItemMeta}>
-                                                {savedTemplate.category || 'General'} -{' '}
-                                                {savedTemplate.eventMode || 'offline'}
-                                            </Text>
-                                        </View>
-                                        <Ionicons
-                                            name="chevron-forward"
-                                            size={18}
-                                            color={theme.colors.textSecondary}
-                                        />
-                                    </TouchableOpacity>
-                                ))
-                            )}
-                        </ScrollView>
-                    </View>
-                </View>
-            </Modal>
-
-            <EventPreview
-                visible={showPreview}
-                onClose={() => setShowPreview(false)}
-                organizerName={user?.displayName || 'Club Admin'}
-                eventData={{
-                    title,
-                    description,
-                    tags: selectedTags,
-                    category,
-                    location,
-                    startDate,
-                    endDate,
-                    eventMode,
-                    meetLink,
-                    isPaid,
-                    price,
-                    imageUri,
-                    targetBranches,
-                    targetYears,
-                }}
-            />
         </ScreenWrapper>
     );
 }
@@ -1314,32 +1058,6 @@ const getStyles = theme =>
         backBtn: { marginRight: 15 },
         headerTitle: { fontSize: 24, fontWeight: 'bold', color: theme.colors.text },
         scrollContent: { padding: 20, paddingTop: 0 },
-
-        templateActions: {
-            flexDirection: 'row',
-            gap: 10,
-            marginBottom: 18,
-        },
-        templateBtn: {
-            flex: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            backgroundColor: theme.colors.surface,
-            borderWidth: 1,
-            borderColor: theme.colors.border,
-            borderRadius: 12,
-            paddingVertical: 12,
-            paddingHorizontal: 10,
-            minHeight: 48,
-        },
-        templateBtnText: {
-            color: theme.colors.primary,
-            fontWeight: '700',
-            fontSize: 13,
-            textAlign: 'center',
-        },
 
         bannerPicker: {
             height: 200,
@@ -1483,68 +1201,6 @@ const getStyles = theme =>
             opacity: 0.65,
         },
 
-        modalOverlay: {
-            flex: 1,
-            justifyContent: 'flex-end',
-            backgroundColor: 'rgba(0,0,0,0.45)',
-        },
-        templateModal: {
-            maxHeight: '72%',
-            backgroundColor: theme.colors.background,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            padding: 20,
-        },
-        templateModalHeader: {
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: 16,
-            marginBottom: 16,
-        },
-        templateModalTitle: {
-            color: theme.colors.text,
-            fontSize: 20,
-            fontWeight: '800',
-        },
-        templateModalSubtitle: {
-            color: theme.colors.textSecondary,
-            fontSize: 13,
-            marginTop: 4,
-        },
-        emptyTemplates: {
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingVertical: 36,
-            gap: 10,
-        },
-        emptyTemplatesText: {
-            color: theme.colors.textSecondary,
-            fontWeight: '600',
-        },
-        templateItem: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12,
-            backgroundColor: theme.colors.surface,
-            borderWidth: 1,
-            borderColor: theme.colors.border,
-            borderRadius: 12,
-            padding: 14,
-            marginBottom: 10,
-        },
-        templateItemTitle: {
-            color: theme.colors.text,
-            fontWeight: '800',
-            fontSize: 15,
-        },
-        templateItemMeta: {
-            color: theme.colors.textSecondary,
-            fontSize: 12,
-            marginTop: 4,
-            textTransform: 'capitalize',
-        },
-
         // Capacity Warning
         capacityWarning: {
             flexDirection: 'row',
@@ -1575,37 +1231,6 @@ const getStyles = theme =>
             borderStyle: 'dashed',
         },
         formBuilderText: { color: theme.colors.primary, fontWeight: 'bold' },
-        headerPreviewBtn: {
-            padding: 8,
-            borderRadius: 20,
-            backgroundColor: theme.colors.surface,
-            borderWidth: 1,
-            borderColor: theme.colors.border,
-            alignItems: 'center',
-            justifyContent: 'center',
-        },
-        buttonRow: {
-            flexDirection: 'row',
-            gap: 12,
-            marginTop: 10,
-        },
-        previewBtn: {
-            flex: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            backgroundColor: theme.colors.surface,
-            borderWidth: 1.5,
-            borderColor: theme.colors.primary,
-            borderRadius: 16,
-            paddingVertical: 14,
-        },
-        previewBtnText: {
-            color: theme.colors.primary,
-            fontSize: 16,
-            fontWeight: 'bold',
-        },
     });
 
 CreateEvent.propTypes = {
