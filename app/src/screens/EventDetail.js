@@ -100,6 +100,7 @@ export default function EventDetail({ route, navigation }) {
         }
     };
     const [hostName, setHostName] = useState('Organizer');
+    const [isVerifiedOrganizer, setIsVerifiedOrganizer] = useState(false);
     const [reminderId, setReminderId] = useState(null); // Firestore Doc ID if set
     const [isBookmarked, setIsBookmarked] = useState(false);
 
@@ -115,16 +116,38 @@ export default function EventDetail({ route, navigation }) {
     }, [action, event, loading, rsvpStatus, hasGivenFeedback]);
 
     useEffect(() => {
-        if (event?.ownerId) {
-            getDoc(doc(db, 'users', event.ownerId)).then(snap => {
-                if (snap.exists()) {
-                    setHostName(snap.data().displayName || event.organizerName || 'Organizer');
-                }
-            });
-        } else if (event?.organizerName) {
-            setHostName(event.organizerName);
+  if (event?.ownerId) {
+    getDoc(doc(db, 'users', event.ownerId))
+      .then((snap) => {
+        if (snap.exists()) {
+          const userData = snap.data();
+
+          setHostName(
+            userData.displayName ||
+            event.organizerName ||
+            'Organizer'
+          );
+
+          setIsVerifiedOrganizer(
+            userData.verificationStatus === 'verified'
+          );
+        } else {
+          setHostName(event.organizerName || 'Organizer');
+          setIsVerifiedOrganizer(false);
         }
-    }, [event]);
+      })
+      .catch(() => {
+        setHostName(event.organizerName || 'Organizer');
+        setIsVerifiedOrganizer(false);
+      });
+  } else if (event?.organizerName) {
+    setHostName(event.organizerName);
+    setIsVerifiedOrganizer(false);
+  } else {
+    setHostName('Organizer');
+    setIsVerifiedOrganizer(false);
+  }
+}, [event?.ownerId, event?.organizerName]);
 
     // Increment View Count (Unique per User)
     useEffect(() => {
@@ -480,30 +503,6 @@ export default function EventDetail({ route, navigation }) {
 
     const openLink = url => {
         if (url) Linking.openURL(url).catch(() => Alert.alert('Error', 'Invalid Link'));
-    };
-
-    const handleExportReviews = async () => {
-        try {
-            const feedbackRef = collection(db, `events/${eventId}/feedback`);
-            const snapshot = await getDocs(feedbackRef);
-
-            if (snapshot.empty) {
-                Alert.alert('No Reviews', 'This event has no feedback yet.');
-                return;
-            }
-
-            let csv = 'User Name,Event Rating,Organizer Rating,Feedback,Date\n';
-            snapshot.forEach(doc => {
-                const d = doc.data();
-                const line = `\"${d.userName || 'Anonymous'}\",\"${d.eventRating || '-'}\",\"${d.clubRating || '-'}\",\"${(d.feedback || '').replace(/\"/g, '""')}\",${d.createdAt}\n`;
-                csv += line;
-            });
-
-            await Share.share({ message: csv, title: `Reviews - ${event.title}` });
-        } catch (error) {
-            console.error('Export Error: ', error);
-            Alert.alert('Error', 'Failed to export reviews.');
-        }
     };
 
     const sendCertificates = async () => {
@@ -1445,9 +1444,20 @@ export default function EventDetail({ route, navigation }) {
                                 >
                                     Hosted by
                                 </Text>
-                                <Text style={[styles.hostName, { color: theme.colors.text }]}>
-                                    {hostName}
-                                </Text>
+                               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+    <Text style={[styles.hostName, { color: theme.colors.text }]}>
+        {hostName}
+    </Text>
+
+    {isVerifiedOrganizer && (
+        <Ionicons
+            name="checkmark-circle"
+            size={18}
+            color="#3B82F6"
+            style={{ marginLeft: 6 }}
+        />
+    )}
+</View>
                             </View>
                             <Ionicons
                                 name="chevron-forward"
