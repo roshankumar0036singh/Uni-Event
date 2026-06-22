@@ -114,21 +114,21 @@ export default function DesktopAdmin() {
     const approveClub = async (clubId, ownerId) => {
         try {
             // 1. Update Firestore
- if (!ownerId) {
-  console.error('Owner ID is missing');
-  return;
-}
+            if (!ownerId) {
+                console.error('Owner ID is missing');
+                return;
+            }
 
-await Promise.all([
-  updateDoc(doc(db, 'clubs', clubId), {
-    approved: true,
-    verificationStatus: 'verified',
-  }),
+            await Promise.all([
+                updateDoc(doc(db, 'clubs', clubId), {
+                    approved: true,
+                    verificationStatus: 'verified',
+                }),
 
-  updateDoc(doc(db, 'users', ownerId), {
-    verificationStatus: 'verified',
-  }),
-]);
+                updateDoc(doc(db, 'users', ownerId), {
+                    verificationStatus: 'verified',
+                }),
+            ]);
 
             // 2. Call Backend to Set Role
             if (user && ownerId) {
@@ -209,7 +209,9 @@ await Promise.all([
                                     <Text style={styles.cell}>{club.name}</Text>
                                     <Text style={styles.cell}>{club.ownerUserId}</Text>
                                     <Text style={styles.cell}>
-                                       {club.verificationStatus === 'verified' ? 'Verified' : 'Pending'}
+                                        {club.verificationStatus === 'verified'
+                                            ? 'Verified'
+                                            : 'Pending'}
                                     </Text>
                                     <View style={styles.cell}>
                                         {!club.approved && (

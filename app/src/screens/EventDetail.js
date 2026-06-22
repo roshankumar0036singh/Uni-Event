@@ -172,38 +172,32 @@ export default function EventDetail({ route, navigation }) {
     }, [action, event, loading, rsvpStatus, hasGivenFeedback]);
 
     useEffect(() => {
-  if (event?.ownerId) {
-    getDoc(doc(db, 'users', event.ownerId))
-      .then((snap) => {
-        if (snap.exists()) {
-          const userData = snap.data();
+        if (event?.ownerId) {
+            getDoc(doc(db, 'users', event.ownerId))
+                .then(snap => {
+                    if (snap.exists()) {
+                        const userData = snap.data();
 
-          setHostName(
-            userData.displayName ||
-            event.organizerName ||
-            'Organizer'
-          );
+                        setHostName(userData.displayName || event.organizerName || 'Organizer');
 
-          setIsVerifiedOrganizer(
-            userData.verificationStatus === 'verified'
-          );
+                        setIsVerifiedOrganizer(userData.verificationStatus === 'verified');
+                    } else {
+                        setHostName(event.organizerName || 'Organizer');
+                        setIsVerifiedOrganizer(false);
+                    }
+                })
+                .catch(() => {
+                    setHostName(event.organizerName || 'Organizer');
+                    setIsVerifiedOrganizer(false);
+                });
+        } else if (event?.organizerName) {
+            setHostName(event.organizerName);
+            setIsVerifiedOrganizer(false);
         } else {
-          setHostName(event.organizerName || 'Organizer');
-          setIsVerifiedOrganizer(false);
+            setHostName('Organizer');
+            setIsVerifiedOrganizer(false);
         }
-      })
-      .catch(() => {
-        setHostName(event.organizerName || 'Organizer');
-        setIsVerifiedOrganizer(false);
-      });
-  } else if (event?.organizerName) {
-    setHostName(event.organizerName);
-    setIsVerifiedOrganizer(false);
-  } else {
-    setHostName('Organizer');
-    setIsVerifiedOrganizer(false);
-  }
-}, [event?.ownerId, event?.organizerName]);
+    }, [event?.ownerId, event?.organizerName]);
 
     // Increment View Count (Unique per User)
     useEffect(() => {
@@ -266,25 +260,24 @@ export default function EventDetail({ route, navigation }) {
             }
         });
 
-        const unsubWaitlist = onSnapshot(
-            collection(db, `events/${eventId}/waitlist`),
-            snapshot => {
-                setWaitlistCount(snapshot.size);
-                if (user) {
-                    const myDoc = snapshot.docs.find(d => d.id === user.uid);
-                    if (myDoc) {
-                        setWaitlistStatus('waitlisted');
-                        // Calculate position based on joinedAt
-                        const sortedDocs = snapshot.docs.sort((a, b) => new Date(a.data().joinedAt) - new Date(b.data().joinedAt));
-                        const pos = sortedDocs.findIndex(d => d.id === user.uid) + 1;
-                        setWaitlistPosition(pos);
-                    } else {
-                        setWaitlistStatus(null);
-                        setWaitlistPosition(null);
-                    }
+        const unsubWaitlist = onSnapshot(collection(db, `events/${eventId}/waitlist`), snapshot => {
+            setWaitlistCount(snapshot.size);
+            if (user) {
+                const myDoc = snapshot.docs.find(d => d.id === user.uid);
+                if (myDoc) {
+                    setWaitlistStatus('waitlisted');
+                    // Calculate position based on joinedAt
+                    const sortedDocs = snapshot.docs.sort(
+                        (a, b) => new Date(a.data().joinedAt) - new Date(b.data().joinedAt),
+                    );
+                    const pos = sortedDocs.findIndex(d => d.id === user.uid) + 1;
+                    setWaitlistPosition(pos);
+                } else {
+                    setWaitlistStatus(null);
+                    setWaitlistPosition(null);
                 }
             }
-        );
+        });
 
         if (user) {
             getDoc(doc(db, `events/${eventId}/feedback`, user.uid)).then(snap => {
@@ -483,7 +476,12 @@ export default function EventDetail({ route, navigation }) {
         }
 
         // 1. Custom Form Logic
-        if (event.hasCustomForm && event.customFormSchema?.length > 0 && rsvpStatus !== 'going' && waitlistStatus !== 'waitlisted') {
+        if (
+            event.hasCustomForm &&
+            event.customFormSchema?.length > 0 &&
+            rsvpStatus !== 'going' &&
+            waitlistStatus !== 'waitlisted'
+        ) {
             navigation.navigate('EventRegistrationForm', { event });
             return;
         }
@@ -1682,20 +1680,20 @@ export default function EventDetail({ route, navigation }) {
                                 >
                                     Hosted by
                                 </Text>
-                               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-    <Text style={[styles.hostName, { color: theme.colors.text }]}>
-        {hostName}
-    </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Text style={[styles.hostName, { color: theme.colors.text }]}>
+                                        {hostName}
+                                    </Text>
 
-    {isVerifiedOrganizer && (
-        <Ionicons
-            name="checkmark-circle"
-            size={18}
-            color="#3B82F6"
-            style={{ marginLeft: 6 }}
-        />
-    )}
-</View>
+                                    {isVerifiedOrganizer && (
+                                        <Ionicons
+                                            name="checkmark-circle"
+                                            size={18}
+                                            color="#3B82F6"
+                                            style={{ marginLeft: 6 }}
+                                        />
+                                    )}
+                                </View>
                             </View>
                             <Ionicons
                                 name="chevron-forward"
@@ -2468,14 +2466,22 @@ export default function EventDetail({ route, navigation }) {
                 <View style={[styles.fabContainer, { backgroundColor: theme.colors.surface }]}>
                     <View style={styles.fabSubInfo}>
                         <Text style={styles.fabLabel}>Attending</Text>
-                        <Text style={styles.fabValue}>{participantCount} People {event.maxParticipants ? `/ ${event.maxParticipants}` : ''}</Text>
-                        {waitlistCount > 0 && <Text style={{fontSize: 10, color: theme.colors.textSecondary}}>{waitlistCount} Waitlisted</Text>}
+                        <Text style={styles.fabValue}>
+                            {participantCount} People{' '}
+                            {event.maxParticipants ? `/ ${event.maxParticipants}` : ''}
+                        </Text>
+                        {waitlistCount > 0 && (
+                            <Text style={{ fontSize: 10, color: theme.colors.textSecondary }}>
+                                {waitlistCount} Waitlisted
+                            </Text>
+                        )}
                     </View>
 
                     <TouchableOpacity
                         style={[
                             styles.primaryBtn,
-                            (rsvpStatus === 'going' || waitlistStatus === 'waitlisted') && styles.secondaryBtn,
+                            (rsvpStatus === 'going' || waitlistStatus === 'waitlisted') &&
+                                styles.secondaryBtn,
                             new Date(event.endAt) < new Date() &&
                                 !(rsvpStatus === 'going' && event.certificatesSent) && {
                                     backgroundColor: theme.colors.textSecondary,
@@ -2493,7 +2499,8 @@ export default function EventDetail({ route, navigation }) {
                         <Text
                             style={[
                                 styles.primaryBtnText,
-                                (rsvpStatus === 'going' || waitlistStatus === 'waitlisted') && styles.secondaryBtnText,
+                                (rsvpStatus === 'going' || waitlistStatus === 'waitlisted') &&
+                                    styles.secondaryBtnText,
                                 new Date(event.endAt) < new Date() &&
                                     !(rsvpStatus === 'going' && event.certificatesSent) && {
                                         color: '#fff',
@@ -2510,7 +2517,8 @@ export default function EventDetail({ route, navigation }) {
                                   ? 'Registered ✓'
                                   : waitlistStatus === 'waitlisted'
                                     ? `Waitlist #${waitlistPosition}`
-                                    : event.maxParticipants && participantCount >= event.maxParticipants
+                                    : event.maxParticipants &&
+                                        participantCount >= event.maxParticipants
                                       ? 'Join Waitlist'
                                       : event.isPaid
                                         ? `Book Ticket (₹${event.price})`
