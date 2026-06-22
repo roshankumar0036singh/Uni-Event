@@ -3,7 +3,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
-import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithCredential, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import {
@@ -301,6 +301,46 @@ export default function AuthScreen() {
         setNameError(validateName(name));
     };
 
+    const showMessage = (title, message) => {
+        if (Platform.OS === 'web') {
+            globalThis.alert(`${title}\n\n${message}`);
+        } else {
+            Alert.alert(title, message);
+        }
+    };
+
+    const handleForgotPassword = async () => {
+        const eErr = validateEmail(email);
+
+        setTouched(prev => ({ ...prev, email: true }));
+        setEmailError(eErr);
+
+        if (eErr) {
+            showMessage('Invalid email', eErr);
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            await sendPasswordResetEmail(auth, email.trim());
+
+            showMessage(
+                'Check your email',
+                'We sent you a password reset link. Please check your inbox or spam folder.',
+            );
+        } catch (error) {
+            console.log('Forgot password error:', error);
+
+            const msg = getFirebaseErrorMessage(error);
+            setEmailError(msg);
+
+            showMessage('Cannot send reset email', msg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleAuth = async () => {
         setTouched({ email: true, password: true, name: true });
 
@@ -500,6 +540,22 @@ export default function AuthScreen() {
                         {passwordError ? (
                             <Text style={styles.errorText}>{passwordError}</Text>
                         ) : null}
+                        {isLogin && (
+                            <TouchableOpacity
+                                onPress={handleForgotPassword}
+                                disabled={loading}
+                                style={styles.forgotPasswordContainer}
+                            >
+                                <Text
+                                    style={[
+                                        styles.forgotPasswordText,
+                                        { color: theme.colors.primary },
+                                    ]}
+                                >
+                                    Forgot password?
+                                </Text>
+                            </TouchableOpacity>
+                        )}
 
                         <TouchableOpacity
                             style={[styles.authButton, { backgroundColor: theme.colors.primary }]}
@@ -674,5 +730,13 @@ const styles = StyleSheet.create({
         fontSize: 12,
         marginTop: -8,
         marginLeft: 4,
+    },
+    forgotPasswordContainer: {
+        alignSelf: 'flex-end',
+        marginTop: -8,
+    },
+    forgotPasswordText: {
+        fontSize: 14,
+        fontWeight: '600',
     },
 });
