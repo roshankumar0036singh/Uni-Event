@@ -25,6 +25,8 @@ export default function WalletScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
 
     useShakeGesture(() => {
+        if (loading) return;
+
         if (!tickets.length) {
             Alert.alert('No Tickets', 'You do not have any tickets yet.');
             return;
