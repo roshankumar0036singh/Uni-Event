@@ -83,6 +83,7 @@ export default function EventDetail({ route, navigation }) {
     const [rsvpStatus, setRsvpStatus] = useState(null);
     const [rsvpLoading, setRsvpLoading] = useState(false);
     const [participantCount, setParticipantCount] = useState(0);
+    const [participants, setParticipants] = useState([]);
     const [waitlistStatus, setWaitlistStatus] = useState(null);
     const [waitlistPosition, setWaitlistPosition] = useState(null);
     const [waitlistCount, setWaitlistCount] = useState(0);
