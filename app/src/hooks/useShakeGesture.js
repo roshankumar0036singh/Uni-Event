@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Accelerometer } from 'expo-sensors';
 
 export default function useShakeGesture(onShake) {
     useEffect(() => {
-        let lastShake = 0;
+        const lastShakeRef = useRef(0);
 
         Accelerometer.setUpdateInterval(100);
 
@@ -11,8 +11,8 @@ export default function useShakeGesture(onShake) {
             const acceleration = Math.sqrt(x * x + y * y + z * z);
             const now = Date.now();
 
-            if (acceleration > 2.2 && now - lastShake > 1000) {
-                lastShake = now;
+            if (acceleration > 2.2 && now - lastShakeRef.current > 1000) {
+                lastShakeRef.current = now;
                 onShake?.();
             }
         });
