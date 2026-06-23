@@ -523,7 +523,9 @@ export default function AuthScreen() {
                             <Text style={styles.errorText}>{passwordError}</Text>
                         ) : null}
                         {successMessage ? (
-                            <Text style={styles.successText}>{successMessage}</Text>
+                            <Text style={[styles.successText, { color: theme.colors.success }]}>
+                                {successMessage}
+                            </Text>
                         ) : null}
                         {isLogin && (
                             <TouchableOpacity
