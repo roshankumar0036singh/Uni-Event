@@ -188,6 +188,7 @@ export default function AuthScreen() {
     const [touched, setTouched] = useState({ email: false, password: false, name: false });
 
     const { signIn, signUp, saveGoogleAccountCredentials } = useAuth();
+    const [successMessage, setSuccessMessage] = useState('');
 
     const [request, response, promptAsync] = Google.useAuthRequest({
         androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
@@ -224,6 +225,7 @@ export default function AuthScreen() {
         setEmailError('');
         setPasswordError('');
         setNameError('');
+        setSuccessMessage('');
         setTouched({ email: false, password: false, name: false });
     }, [isLogin]);
 
@@ -267,6 +269,7 @@ export default function AuthScreen() {
 
     const handleEmailChange = text => {
         setEmail(text);
+        setSuccessMessage('');
         if (touched.email) {
             setEmailError(validateEmail(text));
         }
@@ -301,41 +304,20 @@ export default function AuthScreen() {
         setNameError(validateName(name));
     };
 
-    const showMessage = (title, message) => {
-        if (Platform.OS === 'web') {
-            globalThis.alert(`${title}\n\n${message}`);
-        } else {
-            Alert.alert(title, message);
-        }
-    };
-
     const handleForgotPassword = async () => {
         const eErr = validateEmail(email);
-
         setTouched(prev => ({ ...prev, email: true }));
         setEmailError(eErr);
-
-        if (eErr) {
-            showMessage('Invalid email', eErr);
-            return;
-        }
-
+        setSuccessMessage('');
+        if (eErr) return;
         setLoading(true);
-
         try {
             await sendPasswordResetEmail(auth, email.trim());
-
-            showMessage(
-                'Check your email',
-                'We sent you a password reset link. Please check your inbox or spam folder.',
+            setSuccessMessage(
+                'If an account exists for this email, you will receive a password reset link shortly.',
             );
         } catch (error) {
-            console.log('Forgot password error:', error);
-
-            const msg = getFirebaseErrorMessage(error);
-            setEmailError(msg);
-
-            showMessage('Cannot send reset email', msg);
+            setEmailError(getFirebaseErrorMessage(error));
         } finally {
             setLoading(false);
         }
@@ -540,6 +522,9 @@ export default function AuthScreen() {
                         {passwordError ? (
                             <Text style={styles.errorText}>{passwordError}</Text>
                         ) : null}
+                        {successMessage ? (
+                            <Text style={styles.successText}>{successMessage}</Text>
+                        ) : null}
                         {isLogin && (
                             <TouchableOpacity
                                 onPress={handleForgotPassword}
@@ -738,5 +723,11 @@ const styles = StyleSheet.create({
     forgotPasswordText: {
         fontSize: 14,
         fontWeight: '600',
+    },
+    successText: {
+        color: 'green',
+        fontSize: 12,
+        marginTop: -8,
+        marginLeft: 4,
     },
 });
