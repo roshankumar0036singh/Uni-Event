@@ -31,6 +31,7 @@ const MAX_COLUMN_WIDTH = 280;
 const COLUMN_WIDTH_RATIO = 0.75;
 
 type TaskStatus = 'todo' | 'in_progress' | 'done';
+type Priority = 'low' | 'medium' | 'high';
 
 interface VolunteerTask {
     id: string;
@@ -38,7 +39,7 @@ interface VolunteerTask {
     description: string;
     status: TaskStatus;
     assignee?: string;
-    priority: 'low' | 'medium' | 'high';
+    priority: Priority;
     createdAt: string;
     eventId?: string;
     eventName?: string;
@@ -325,14 +326,14 @@ const getStyles = (theme: ReturnType<typeof useTheme>['theme']) =>
         },
     });
 
-interface TaskCardProps {
-    task: VolunteerTask;
-    onMoveTask: (taskId: string, newStatus: TaskStatus) => void;
-    onDeleteTask: (taskId: string) => void;
-    columnColor: string;
+interface ReadonlyTaskCardProps {
+    readonly task: VolunteerTask;
+    readonly onMoveTask: (taskId: string, newStatus: TaskStatus) => void;
+    readonly onDeleteTask: (taskId: string) => void;
+    readonly columnColor: string;
 }
 
-function TaskCard({ task, onMoveTask, onDeleteTask, columnColor }: TaskCardProps) {
+function TaskCard({ task, onMoveTask, onDeleteTask, columnColor }: ReadonlyTaskCardProps) {
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
     const pan = useRef(new Animated.ValueXY()).current;
@@ -459,14 +460,14 @@ function TaskCard({ task, onMoveTask, onDeleteTask, columnColor }: TaskCardProps
     );
 }
 
-interface KanbanColumnProps {
-    column: Column;
-    tasks: VolunteerTask[];
-    onMoveTask: (taskId: string, newStatus: TaskStatus) => void;
-    onDeleteTask: (taskId: string) => void;
+interface ReadonlyKanbanColumnProps {
+    readonly column: Column;
+    readonly tasks: VolunteerTask[];
+    readonly onMoveTask: (taskId: string, newStatus: TaskStatus) => void;
+    readonly onDeleteTask: (taskId: string) => void;
 }
 
-function KanbanColumn({ column, tasks, onMoveTask, onDeleteTask }: KanbanColumnProps) {
+function KanbanColumn({ column, tasks, onMoveTask, onDeleteTask }: ReadonlyKanbanColumnProps) {
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
     const { width } = useWindowDimensions();
@@ -531,18 +532,18 @@ function KanbanColumn({ column, tasks, onMoveTask, onDeleteTask }: KanbanColumnP
     );
 }
 
-interface AddTaskModalProps {
-    visible: boolean;
-    onClose: () => void;
-    onAdd: (title: string, description: string, priority: 'low' | 'medium' | 'high') => void;
+interface ReadonlyAddTaskModalProps {
+    readonly visible: boolean;
+    readonly onClose: () => void;
+    readonly onAdd: (title: string, description: string, priority: Priority) => void;
 }
 
-function AddTaskModal({ visible, onClose, onAdd }: AddTaskModalProps) {
+function AddTaskModal({ visible, onClose, onAdd }: ReadonlyAddTaskModalProps) {
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
+    const [priority, setPriority] = useState<Priority>('medium');
 
     const handleAdd = () => {
         if (!title.trim()) {
@@ -769,23 +770,20 @@ export default function VolunteerDashboard() {
         ]);
     }, []);
 
-    const addTask = useCallback(
-        async (title: string, description: string, priority: 'low' | 'medium' | 'high') => {
-            try {
-                const newTask = {
-                    title,
-                    description,
-                    status: 'todo' as TaskStatus,
-                    priority,
-                    createdAt: new Date().toISOString(),
-                };
-                await addDoc(collection(db, 'volunteerTasks'), newTask);
-            } catch {
-                Alert.alert('Error', 'Failed to add task.');
-            }
-        },
-        [],
-    );
+    const addTask = useCallback(async (title: string, description: string, priority: Priority) => {
+        try {
+            const newTask = {
+                title,
+                description,
+                status: 'todo' as TaskStatus,
+                priority,
+                createdAt: new Date().toISOString(),
+            };
+            await addDoc(collection(db, 'volunteerTasks'), newTask);
+        } catch {
+            Alert.alert('Error', 'Failed to add task.');
+        }
+    }, []);
 
     const tasksByStatus = useMemo(() => {
         const grouped: Record<TaskStatus, VolunteerTask[]> = {
