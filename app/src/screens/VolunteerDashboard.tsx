@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { collection, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
@@ -16,6 +16,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+
+const PRIORITY_COLORS = {
+    low: '#10B981',
+    medium: '#F59E0B',
+    high: '#EF4444',
+} as const;
+
+const TABLET_BREAKPOINT = 768;
 
 type TaskStatus = 'todo' | 'in_progress' | 'done';
 
@@ -46,6 +54,9 @@ const COLUMNS: Column[] = [
 
 const getStyles = (theme: ReturnType<typeof useTheme>['theme']) =>
     StyleSheet.create({
+        gestureHandlerRoot: {
+            flex: 1,
+        },
         header: {
             flexDirection: 'row',
             justifyContent: 'space-between',
@@ -363,12 +374,6 @@ function TaskCard({ task, onMoveTask, onDeleteTask, columnColor }: TaskCardProps
         }),
     ).current;
 
-    const priorityColors = {
-        low: '#10B981',
-        medium: '#F59E0B',
-        high: '#EF4444',
-    };
-
     return (
         <Animated.View
             style={[
@@ -386,10 +391,10 @@ function TaskCard({ task, onMoveTask, onDeleteTask, columnColor }: TaskCardProps
                 <View
                     style={[
                         styles.priorityBadge,
-                        { backgroundColor: priorityColors[task.priority] + '20' },
+                        { backgroundColor: PRIORITY_COLORS[task.priority] + '20' },
                     ]}
                 >
-                    <Text style={[styles.priorityText, { color: priorityColors[task.priority] }]}>
+                    <Text style={[styles.priorityText, { color: PRIORITY_COLORS[task.priority] }]}>
                         {task.priority.toUpperCase()}
                     </Text>
                 </View>
@@ -459,9 +464,11 @@ interface KanbanColumnProps {
 function KanbanColumn({ column, tasks, onMoveTask, onDeleteTask }: KanbanColumnProps) {
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
+    const { width } = useWindowDimensions();
+    const columnWidth = useMemo(() => Math.min(280, width * 0.75), [width]);
 
     return (
-        <View style={[styles.column, { width: Math.min(280, useWindowDimensions().width * 0.75) }]}>
+        <View style={[styles.column, { width: columnWidth }]}>
             <View style={[styles.columnHeader, { borderLeftColor: column.color }]}>
                 <View
                     style={[styles.columnIconContainer, { backgroundColor: column.color + '15' }]}
@@ -645,7 +652,6 @@ function AddTaskModal({ visible, onClose, onAdd }: AddTaskModalProps) {
                     </Text>
                     <View style={styles.priorityRow}>
                         {(['low', 'medium', 'high'] as const).map(p => {
-                            const colors = { low: '#10B981', medium: '#F59E0B', high: '#EF4444' };
                             const isSelected = priority === p;
                             return (
                                 <TouchableOpacity
@@ -654,10 +660,10 @@ function AddTaskModal({ visible, onClose, onAdd }: AddTaskModalProps) {
                                         styles.priorityOption,
                                         {
                                             backgroundColor: isSelected
-                                                ? colors[p] + '20'
+                                                ? PRIORITY_COLORS[p] + '20'
                                                 : theme.colors.background,
                                             borderColor: isSelected
-                                                ? colors[p]
+                                                ? PRIORITY_COLORS[p]
                                                 : theme.colors.border,
                                         },
                                     ]}
@@ -668,7 +674,7 @@ function AddTaskModal({ visible, onClose, onAdd }: AddTaskModalProps) {
                                             styles.priorityOptionText,
                                             {
                                                 color: isSelected
-                                                    ? colors[p]
+                                                    ? PRIORITY_COLORS[p]
                                                     : theme.colors.textSecondary,
                                             },
                                         ]}
@@ -721,8 +727,7 @@ export default function VolunteerDashboard() {
                 setTasks(taskList);
                 setLoading(false);
             },
-            error => {
-                console.error('Error fetching tasks:', error);
+            () => {
                 setLoading(false);
             },
         );
@@ -733,8 +738,7 @@ export default function VolunteerDashboard() {
     const moveTask = useCallback(async (taskId: string, newStatus: TaskStatus) => {
         try {
             await updateDoc(doc(db, 'volunteerTasks', taskId), { status: newStatus });
-        } catch (error) {
-            console.error('Error moving task:', error);
+        } catch {
             Alert.alert('Error', 'Failed to move task.');
         }
     }, []);
@@ -748,8 +752,7 @@ export default function VolunteerDashboard() {
                 onPress: async () => {
                     try {
                         await deleteDoc(doc(db, 'volunteerTasks', taskId));
-                    } catch (error) {
-                        console.error('Error deleting task:', error);
+                    } catch {
                         Alert.alert('Error', 'Failed to delete task.');
                     }
                 },
@@ -767,10 +770,8 @@ export default function VolunteerDashboard() {
                     priority,
                     createdAt: new Date().toISOString(),
                 };
-                const { addDoc } = await import('firebase/firestore');
                 await addDoc(collection(db, 'volunteerTasks'), newTask);
-            } catch (error) {
-                console.error('Error adding task:', error);
+            } catch {
                 Alert.alert('Error', 'Failed to add task.');
             }
         },
@@ -792,7 +793,7 @@ export default function VolunteerDashboard() {
     }, [tasks]);
 
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}>
+        <GestureHandlerRootView style={styles.gestureHandlerRoot}>
             <ScreenWrapper showLogo={false}>
                 <View style={styles.header}>
                     <View>
@@ -823,7 +824,7 @@ export default function VolunteerDashboard() {
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={[
                             styles.boardContainer,
-                            { paddingHorizontal: width >= 768 ? 20 : 8 },
+                            { paddingHorizontal: width >= TABLET_BREAKPOINT ? 20 : 8 },
                         ]}
                     >
                         {COLUMNS.map(column => (
