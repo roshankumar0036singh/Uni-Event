@@ -24,6 +24,11 @@ const PRIORITY_COLORS = {
 } as const;
 
 const TABLET_BREAKPOINT = 768;
+const DRAG_THRESHOLD = 80;
+const SCALE_ACTIVE = 1.05;
+const OPACITY_ACTIVE = 0.9;
+const MAX_COLUMN_WIDTH = 280;
+const COLUMN_WIDTH_RATIO = 0.75;
 
 type TaskStatus = 'todo' | 'in_progress' | 'done';
 
@@ -329,6 +334,7 @@ interface TaskCardProps {
 
 function TaskCard({ task, onMoveTask, onDeleteTask, columnColor }: TaskCardProps) {
     const { theme } = useTheme();
+    const styles = useMemo(() => getStyles(theme), [theme]);
     const pan = useRef(new Animated.ValueXY()).current;
     const scale = useRef(new Animated.Value(1)).current;
     const opacity = useRef(new Animated.Value(1)).current;
@@ -338,11 +344,11 @@ function TaskCard({ task, onMoveTask, onDeleteTask, columnColor }: TaskCardProps
             onMoveShouldSetPanResponder: () => true,
             onPanResponderGrant: () => {
                 Animated.spring(scale, {
-                    toValue: 1.05,
+                    toValue: SCALE_ACTIVE,
                     useNativeDriver: false,
                 }).start();
                 Animated.spring(opacity, {
-                    toValue: 0.9,
+                    toValue: OPACITY_ACTIVE,
                     useNativeDriver: false,
                 }).start();
             },
@@ -354,15 +360,14 @@ function TaskCard({ task, onMoveTask, onDeleteTask, columnColor }: TaskCardProps
                 Animated.spring(scale, { toValue: 1, useNativeDriver: false }).start();
                 Animated.spring(opacity, { toValue: 1, useNativeDriver: false }).start();
 
-                const threshold = 80;
-                if (gesture.dy < -threshold && task.status !== 'done') {
+                if (gesture.dy < -DRAG_THRESHOLD && task.status !== 'done') {
                     const nextStatus: Record<TaskStatus, TaskStatus> = {
                         todo: 'in_progress',
                         in_progress: 'done',
                         done: 'done',
                     };
                     onMoveTask(task.id, nextStatus[task.status]);
-                } else if (gesture.dy > threshold && task.status !== 'todo') {
+                } else if (gesture.dy > DRAG_THRESHOLD && task.status !== 'todo') {
                     const prevStatus: Record<TaskStatus, TaskStatus> = {
                         todo: 'todo',
                         in_progress: 'todo',
@@ -465,7 +470,10 @@ function KanbanColumn({ column, tasks, onMoveTask, onDeleteTask }: KanbanColumnP
     const { theme } = useTheme();
     const styles = useMemo(() => getStyles(theme), [theme]);
     const { width } = useWindowDimensions();
-    const columnWidth = useMemo(() => Math.min(280, width * 0.75), [width]);
+    const columnWidth = useMemo(
+        () => Math.min(MAX_COLUMN_WIDTH, width * COLUMN_WIDTH_RATIO),
+        [width],
+    );
 
     return (
         <View style={[styles.column, { width: columnWidth }]}>
@@ -531,6 +539,7 @@ interface AddTaskModalProps {
 
 function AddTaskModal({ visible, onClose, onAdd }: AddTaskModalProps) {
     const { theme } = useTheme();
+    const styles = useMemo(() => getStyles(theme), [theme]);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
