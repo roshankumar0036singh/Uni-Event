@@ -15,7 +15,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { collection, serverTimestamp } from 'firebase/firestore';
+import { validateAndAddDoc, feedbackSchema } from '../lib/validators';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { db, storage } from '../lib/firebaseConfig';
 import { useAuth } from '../lib/AuthContext';
@@ -172,17 +173,21 @@ export default function ReportBugScreen({ navigation }) {
             const { url: screenshotUrl, path: screenshotPath } = await uploadScreenshot(user.uid);
             uploadedPath = screenshotPath;
 
-            await addDoc(collection(db, 'feedback'), {
-                userId: user.uid,
-                userEmail: user.email || null,
-                userRole: role || 'student',
-                category,
-                description: description.trim(),
-                screenshotUrl,
-                telemetry: collectTelemetry(),
-                status: 'open',
-                createdAt: serverTimestamp(),
-            });
+            await validateAndAddDoc(
+                collection(db, 'feedback'),
+                {
+                    userId: user.uid,
+                    userEmail: user.email || null,
+                    userRole: role || 'student',
+                    category,
+                    description: description.trim(),
+                    screenshotUrl,
+                    telemetry: collectTelemetry(),
+                    status: 'open',
+                    createdAt: serverTimestamp(),
+                },
+                feedbackSchema,
+            );
 
             uploadedPath = null;
 

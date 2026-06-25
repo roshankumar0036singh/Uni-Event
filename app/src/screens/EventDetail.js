@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-    addDoc,
     collection,
     deleteDoc,
     doc,
@@ -10,12 +9,19 @@ import {
     increment,
     onSnapshot,
     query,
-    setDoc,
-    updateDoc,
     where,
     arrayUnion,
     runTransaction,
 } from 'firebase/firestore';
+import {
+    validateAndAddDoc,
+    validateAndSetDoc,
+    validateAndUpdateDoc,
+    eventUpdateSchema,
+    bookmarkSchema,
+    viewSchema,
+    reminderSchema,
+} from '../lib/validators';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -109,11 +115,15 @@ export default function EventDetail({ route, navigation }) {
     const handleSubmitAppeal = async ({ subject, message }) => {
         setSendingAppeal(true);
         try {
-            await updateDoc(doc(db, 'events', event.id), {
-                appealStatus: 'pending',
-                appealSubject: subject,
-                appealMessage: message,
-            });
+            await validateAndUpdateDoc(
+                doc(db, 'events', event.id),
+                {
+                    appealStatus: 'pending',
+                    appealSubject: subject,
+                    appealMessage: message,
+                },
+                eventUpdateSchema,
+            );
             setShowAppealModal(false);
             Alert.alert('Submitted', 'Appeal sent to admin for review.');
         } catch (_e) {
@@ -129,9 +139,13 @@ export default function EventDetail({ route, navigation }) {
         try {
             setBuddyLoading(true);
             const participantRef = doc(db, 'events', eventId, 'participants', user.uid);
-            await updateDoc(participantRef, {
-                lookingForBuddy: value,
-            });
+            await validateAndUpdateDoc(
+                participantRef,
+                {
+                    lookingForBuddy: value,
+                },
+                eventUpdateSchema,
+            );
 
             if (value) {
                 const otherBuddies = participants.filter(
@@ -209,15 +223,23 @@ export default function EventDetail({ route, navigation }) {
 
                 if (!viewSnap.exists()) {
                     // First time viewing: Record it and increment counter
-                    await setDoc(viewRef, {
-                        viewedAt: new Date().toISOString(),
-                        userId: user.uid,
-                        userName: user.displayName || 'Anonymous',
-                    });
+                    await validateAndSetDoc(
+                        viewRef,
+                        {
+                            viewedAt: new Date().toISOString(),
+                            userId: user.uid,
+                            userName: user.displayName || 'Anonymous',
+                        },
+                        viewSchema,
+                    );
 
-                    await updateDoc(doc(db, 'events', eventId), {
-                        views: increment(1),
-                    });
+                    await validateAndUpdateDoc(
+                        doc(db, 'events', eventId),
+                        {
+                            views: increment(1),
+                        },
+                        eventUpdateSchema,
+                    );
                 }
             } catch (error) {
                 logger.debug('Error recording view:', error);
@@ -331,10 +353,14 @@ export default function EventDetail({ route, navigation }) {
                 Alert.alert('Removed', 'Event removed from saved events.');
             } else {
                 logger.debug('Adding bookmark...');
-                await setDoc(bookmarkRef, {
-                    eventId: eventId,
-                    savedAt: new Date().toISOString(),
-                });
+                await validateAndSetDoc(
+                    bookmarkRef,
+                    {
+                        eventId: eventId,
+                        savedAt: new Date().toISOString(),
+                    },
+                    bookmarkSchema,
+                );
                 setIsBookmarked(true);
                 Alert.alert('Saved', 'Event saved for later!');
             }
@@ -423,14 +449,18 @@ export default function EventDetail({ route, navigation }) {
                 // Set Reminder
                 const notifId = await scheduleEventReminder(event);
                 if (notifId) {
-                    const docRef = await addDoc(collection(db, 'reminders'), {
-                        userId: user.uid,
-                        eventId: event.id,
-                        eventTitle: event.title,
-                        remindAt: new Date(new Date(event.startAt).getTime() - 10 * 60000), // 10 mins before
-                        notificationId: notifId,
-                        createdAt: new Date().toISOString(),
-                    });
+                    const docRef = await validateAndAddDoc(
+                        collection(db, 'reminders'),
+                        {
+                            userId: user.uid,
+                            eventId: event.id,
+                            eventTitle: event.title,
+                            remindAt: new Date(new Date(event.startAt).getTime() - 10 * 60000), // 10 mins before
+                            notificationId: notifId,
+                            createdAt: new Date().toISOString(),
+                        },
+                        reminderSchema,
+                    );
                     setReminderId(docRef.id);
                     Alert.alert('Reminder Added'); // Simple match to request
                 } else {
@@ -656,10 +686,14 @@ export default function EventDetail({ route, navigation }) {
             logger.debug(`Sent count: ${count}`);
 
             // Update event status
-            await updateDoc(doc(db, 'events', event.id), {
-                certificatesSent: true,
-                certificatesSentAt: new Date().toISOString(),
-            });
+            await validateAndUpdateDoc(
+                doc(db, 'events', event.id),
+                {
+                    certificatesSent: true,
+                    certificatesSentAt: new Date().toISOString(),
+                },
+                eventUpdateSchema,
+            );
 
             Alert.alert('Success', `Certificates sent to ${count} participants.`);
         } catch (e) {

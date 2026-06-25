@@ -1,15 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-    collection,
-    deleteDoc,
-    doc,
-    getDoc,
-    onSnapshot,
-    query,
-    setDoc,
-    where,
-} from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { validateAndSetDoc, clubUpdateSchema } from '../lib/validators';
 import { useEffect, useMemo, useState } from 'react';
 import {
     Alert,
@@ -213,30 +205,32 @@ export default function ClubProfileScreen({ route, navigation }) {
                 // Unfollow
                 await deleteDoc(myFollowingRef);
                 await deleteDoc(clubFollowerRef);
-                // Decrement follower count in club document
-                await setDoc(
+                await validateAndSetDoc(
                     clubRef,
                     {
                         followersCount: Math.max(0, followersCount - 1),
                     },
+                    clubUpdateSchema,
                     { merge: true },
                 );
             } else {
                 // Follow
-                await setDoc(myFollowingRef, {
+                const followData = {
                     clubName: club.displayName,
                     followedAt: new Date().toISOString(),
-                });
-                await setDoc(clubFollowerRef, {
+                };
+                await validateAndSetDoc(myFollowingRef, followData, clubUpdateSchema);
+                const followerData = {
                     userName: user.displayName,
                     followedAt: new Date().toISOString(),
-                });
-                // Increment follower count in club document
-                await setDoc(
+                };
+                await validateAndSetDoc(clubFollowerRef, followerData, clubUpdateSchema);
+                await validateAndSetDoc(
                     clubRef,
                     {
                         followersCount: followersCount + 1,
                     },
+                    clubUpdateSchema,
                     { merge: true },
                 );
             }

@@ -1,16 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-    doc,
-    getDoc,
-    updateDoc,
-    onSnapshot,
-    collection,
-    query,
-    where,
-    getDocs,
-} from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+import { validateAndUpdateDoc, participantSchema } from '../lib/validators';
 import React, { useEffect, useRef, useState, memo } from 'react';
 import {
     ActivityIndicator,
@@ -101,9 +93,13 @@ const EventCard = memo(
             try {
                 setBuddyLoading(true);
                 const participantRef = doc(db, 'events', event.id, 'participants', user.uid);
-                await updateDoc(participantRef, {
-                    lookingForBuddy: value,
-                });
+                await validateAndUpdateDoc(
+                    participantRef,
+                    {
+                        lookingForBuddy: value,
+                    },
+                    participantSchema,
+                );
 
                 if (value) {
                     const participantsRef = collection(db, 'events', event.id, 'participants');

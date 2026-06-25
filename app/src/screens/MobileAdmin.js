@@ -1,5 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { collection, deleteField, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteField, doc, getDocs, query, where } from 'firebase/firestore';
+import {
+    validateAndUpdateDoc,
+    eventUpdateSchema,
+    clubUpdateSchema,
+    userUpdateSchema,
+} from '../lib/validators';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
     Alert,
@@ -86,11 +92,15 @@ export default function MobileAdmin() {
             return;
         }
         try {
-            await updateDoc(doc(db, 'events', targetEventId), {
-                status: 'suspended',
-                appealStatus: 'none',
-                suspensionReason: suspendReason,
-            });
+            await validateAndUpdateDoc(
+                doc(db, 'events', targetEventId),
+                {
+                    status: 'suspended',
+                    appealStatus: 'none',
+                    suspensionReason: suspendReason,
+                },
+                eventUpdateSchema,
+            );
             Alert.alert('Suspended', 'Event suspended successfully.');
             setSuspendModalVisible(false);
             fetchData();
@@ -102,11 +112,15 @@ export default function MobileAdmin() {
 
     const handleAcceptAppeal = async eventId => {
         try {
-            await updateDoc(doc(db, 'events', eventId), {
-                status: 'active',
-                appealStatus: 'resolved',
-                suspensionReason: deleteField(),
-            });
+            await validateAndUpdateDoc(
+                doc(db, 'events', eventId),
+                {
+                    status: 'active',
+                    appealStatus: 'resolved',
+                    suspensionReason: deleteField(),
+                },
+                eventUpdateSchema,
+            );
             Alert.alert('Restored', 'Event is active again.');
             fetchData();
         } catch (_e) {
@@ -117,9 +131,13 @@ export default function MobileAdmin() {
 
     const handleRejectAppeal = async eventId => {
         try {
-            await updateDoc(doc(db, 'events', eventId), {
-                appealStatus: 'rejected',
-            });
+            await validateAndUpdateDoc(
+                doc(db, 'events', eventId),
+                {
+                    appealStatus: 'rejected',
+                },
+                eventUpdateSchema,
+            );
             Alert.alert('Rejected', 'Appeal rejected.');
             fetchData();
         } catch (_e) {
@@ -130,9 +148,17 @@ export default function MobileAdmin() {
 
     const handleApproveClub = async (reqId, ownerId) => {
         try {
-            await updateDoc(doc(db, 'clubs', reqId), { approvalStatus: 'approved' });
+            await validateAndUpdateDoc(
+                doc(db, 'clubs', reqId),
+                { approvalStatus: 'approved' },
+                clubUpdateSchema,
+            );
             if (ownerId) {
-                await updateDoc(doc(db, 'users', ownerId), { role: 'club', isVerified: true });
+                await validateAndUpdateDoc(
+                    doc(db, 'users', ownerId),
+                    { role: 'club', isVerified: true },
+                    userUpdateSchema,
+                );
                 await upsertPublicProfile(db, ownerId, { role: 'club', isVerified: true });
             }
             Alert.alert('Approved', 'Club approved and user promoted.');
@@ -144,7 +170,11 @@ export default function MobileAdmin() {
 
     const handleRejectClub = async reqId => {
         try {
-            await updateDoc(doc(db, 'clubs', reqId), { approvalStatus: 'rejected' });
+            await validateAndUpdateDoc(
+                doc(db, 'clubs', reqId),
+                { approvalStatus: 'rejected' },
+                clubUpdateSchema,
+            );
             Alert.alert('Rejected', 'Club request rejected.');
             fetchData();
         } catch (e) {
