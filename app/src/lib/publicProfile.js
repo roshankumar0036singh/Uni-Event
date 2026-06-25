@@ -1,4 +1,5 @@
-import { doc, setDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
+import { validateAndSetDoc, userUpdateSchema } from './validators';
 
 export const PUBLIC_PROFILE_FIELDS = [
     'displayName',
@@ -30,4 +31,4 @@ export const pickPublicProfileData = data =>
 export const publicProfileRef = (db, userId) => doc(db, 'publicUsers', userId);
 
 export const upsertPublicProfile = (db, userId, data) =>
-    setDoc(publicProfileRef(db, userId), pickPublicProfileData(data), { merge: true });
+    validateAndSetDoc(publicProfileRef(db, userId), pickPublicProfileData(data), userUpdateSchema, { merge: true });

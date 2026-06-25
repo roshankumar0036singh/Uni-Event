@@ -38,6 +38,7 @@ import { useTheme } from '../lib/ThemeContext';
 import { extractTags } from '../lib/tagExtractor';
 import { predictAttendance } from '../lib/capacityPredictor';
 import { enforceRateLimit } from '../lib/rateLimiter';
+import { validate, eventSchema, eventUpdateSchema } from '../lib/validators';
 import PropTypes from 'prop-types';
 import EventPreview from '../components/EventPreview';
 
@@ -453,9 +454,11 @@ export default function CreateEvent({ navigation, route }) {
             };
 
             if (isEditMode) {
-                await updateDoc(doc(db, 'events', event.id), eventData);
+                const validatedData = await validate(eventData, eventUpdateSchema);
+                await updateDoc(doc(db, 'events', event.id), validatedData);
                 Alert.alert('Success', 'Event Updated!');
             } else {
+                const validatedData = await validate(eventData, eventSchema);
                 const eventRef = doc(collection(db, 'events'));
                 const attendancePlaceholderRef = doc(
                     db,
@@ -470,7 +473,7 @@ export default function CreateEvent({ navigation, route }) {
                     const organizerSnap = await transaction.get(organizerRef);
 
                     transaction.set(eventRef, {
-                        ...eventData,
+                        ...validatedData,
                         participantCount: 0,
                         branchCounts: {},
                         yearCounts: {},
