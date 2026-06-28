@@ -1,11 +1,35 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { getAuth } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { getUserTitle, getPointsToNextTitle } from '../utils/points';
 
-// Example: replace this with real user points from your app state/Firebase
-const userPoints = 450;
-
 export default function ProfileScreen() {
+  const [userPoints, setUserPoints] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchPoints = async () => {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const db = getFirestore();
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        setUserPoints(userDoc.data().points ?? 0);
+      }
+    };
+    fetchPoints();
+  }, []);
+
+  if (userPoints === null) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#FF6B35" />
+      </View>
+    );
+  }
+
   const { title, color } = getUserTitle(userPoints);
   const pointsLeft = getPointsToNextTitle(userPoints);
 
