@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, documentId, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
-import { useIsFocused } from '@react-navigation/native';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import EventCard from '../components/EventCard';
 import LiquidPullToRefresh from '../components/LiquidPullToRefresh';
@@ -13,7 +12,6 @@ import { useTheme } from '../lib/ThemeContext';
 export default function MyRegisteredEventsScreen() {
     const { user } = useAuth();
     const { theme } = useTheme();
-    const isFocused = useIsFocused();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -24,9 +22,8 @@ export default function MyRegisteredEventsScreen() {
     });
 
     useEffect(() => {
-        if (!user || !isFocused) {
-            // If not focused, avoid fetching and leave current UI state intact
-            if (!user) setLoading(false);
+        if (!user) {
+            setLoading(false);
             return;
         }
 
@@ -44,6 +41,11 @@ export default function MyRegisteredEventsScreen() {
             }
 
             // 2. Fetch Event Details for these IDs
+            // Firestore "in" query limited to 10 items. If > 10, need multiple queries or client-side filter
+            // For simplicity, we'll do client side or basic chunks.
+            // Better approach: Store minimal event data in 'participating' to avoid 2nd query?
+            // Current approach: Query 'events' where documentId IN [ids]
+
             try {
                 // Chunking for >10 items
                 const chunks = [];
@@ -75,7 +77,7 @@ export default function MyRegisteredEventsScreen() {
         });
 
         return () => unsubscribe();
-    }, [user, refreshNonce, isFocused]);
+    }, [user, refreshNonce]);
 
     const onRefresh = () => {
         setRefreshing(true);

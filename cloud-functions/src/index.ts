@@ -25,7 +25,6 @@ export * from './permanentCleanup';
 export * from './clubReputation';
 export * from './onEventDelete';
 export * from './events';
-export * from './sendEventPushNotification';
 
 export const cleanupRateLimits = functions.pubsub.schedule('every 1 hour').onRun(async () => {
     await cleanupOldRateLimits();

@@ -300,6 +300,7 @@ service cloud.firestore {
         
         allow create: if request.auth != null &&
           request.auth.uid == participantId &&
+          !getUserData(request.auth.uid).get('isShadowBanned', false) &&
           validateAttendanceStatus(request.resource.data) &&
           !request.resource.data.keys().hasAny([
             'isPaid', 'paymentStatus', 'paymentId', 'role', 'approved'
