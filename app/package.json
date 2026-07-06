@@ -92,7 +92,8 @@
         "react-native-screens": "~4.25.2",
         "react-native-svg": "15.8.0",
         "react-native-web": "~0.19.13",
-        "xlsx": "^0.18.5"
+        "xlsx": "^0.18.5",
+        "expo-sensors": "~12.3.0"
     },
     "devDependencies": {
         "@babel/core": "^7.29.7",
