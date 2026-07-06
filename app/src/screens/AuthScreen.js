@@ -3,7 +3,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
-import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithCredential, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import {
@@ -188,6 +188,7 @@ export default function AuthScreen() {
     const [touched, setTouched] = useState({ email: false, password: false, name: false });
 
     const { signIn, signUp, saveGoogleAccountCredentials } = useAuth();
+    const [successMessage, setSuccessMessage] = useState('');
 
     const [request, response, promptAsync] = Google.useAuthRequest({
         androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
@@ -224,6 +225,7 @@ export default function AuthScreen() {
         setEmailError('');
         setPasswordError('');
         setNameError('');
+        setSuccessMessage('');
         setTouched({ email: false, password: false, name: false });
     }, [isLogin]);
 
@@ -267,6 +269,7 @@ export default function AuthScreen() {
 
     const handleEmailChange = text => {
         setEmail(text);
+        setSuccessMessage('');
         if (touched.email) {
             setEmailError(validateEmail(text));
         }
@@ -299,6 +302,25 @@ export default function AuthScreen() {
     const handleNameBlur = () => {
         setTouched(prev => ({ ...prev, name: true }));
         setNameError(validateName(name));
+    };
+
+    const handleForgotPassword = async () => {
+        const eErr = validateEmail(email);
+        setTouched(prev => ({ ...prev, email: true }));
+        setEmailError(eErr);
+        setSuccessMessage('');
+        if (eErr) return;
+        setLoading(true);
+        try {
+            await sendPasswordResetEmail(auth, email.trim());
+            setSuccessMessage(
+                'If an account exists for this email, you will receive a password reset link shortly.',
+            );
+        } catch (error) {
+            setEmailError(getFirebaseErrorMessage(error));
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleAuth = async () => {
@@ -500,6 +522,27 @@ export default function AuthScreen() {
                         {passwordError ? (
                             <Text style={styles.errorText}>{passwordError}</Text>
                         ) : null}
+                        {successMessage ? (
+                            <Text style={[styles.successText, { color: theme.colors.success }]}>
+                                {successMessage}
+                            </Text>
+                        ) : null}
+                        {isLogin && (
+                            <TouchableOpacity
+                                onPress={handleForgotPassword}
+                                disabled={loading}
+                                style={styles.forgotPasswordContainer}
+                            >
+                                <Text
+                                    style={[
+                                        styles.forgotPasswordText,
+                                        { color: theme.colors.primary },
+                                    ]}
+                                >
+                                    Forgot password?
+                                </Text>
+                            </TouchableOpacity>
+                        )}
 
                         <TouchableOpacity
                             style={[styles.authButton, { backgroundColor: theme.colors.primary }]}
@@ -671,6 +714,20 @@ const styles = StyleSheet.create({
     },
     errorText: {
         color: 'red',
+        fontSize: 12,
+        marginTop: -8,
+        marginLeft: 4,
+    },
+    forgotPasswordContainer: {
+        alignSelf: 'flex-end',
+        marginTop: -8,
+    },
+    forgotPasswordText: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    successText: {
+        color: 'green',
         fontSize: 12,
         marginTop: -8,
         marginLeft: 4,
