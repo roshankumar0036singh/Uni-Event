@@ -490,3 +490,6 @@ If you run into issues or have questions:
 </div>
 
 ---
+
+
+<!-- GSSoC Contribution: Resolves #675 -->
