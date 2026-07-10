@@ -2,10 +2,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // =========================================================================
-    // VALIDATION HELPER FUNCTIONS
-    // =========================================================================
-
     function isValidEventTitle(data) {
       return !('title' in data) || (data.title is string && data.title.size() >= 3 && data.title.size() <= 200);
     }
@@ -84,10 +80,6 @@ service cloud.firestore {
       return !('status' in data) || (data.status in ['rsvp', 'checked_in', 'cancelled']);
     }
 
-    // =========================================================================
-    // AUTH & SAFETY HELPER FUNCTIONS
-    // =========================================================================
-    
     function isAdmin() {
       return request.auth != null && 'admin' in request.auth.token && request.auth.token.admin == true;
     }
@@ -113,16 +105,10 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/events/$(eventId)/participants/$(request.auth.uid));
     }
 
-    // =========================================================================
-    // RATE LIMITING HELPER FUNCTIONS
-    // =========================================================================
-
-    // Helper to fetch user rate limit state
     function getUserData(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
-    // Validate that updates to the rate-limit fields are strictly valid increments or resets
     function validateRateLimitUpdate(userId) {
       let before = resource.data;
       let after = request.resource.data;
@@ -153,7 +139,6 @@ service cloud.firestore {
       );
     }
 
-    // Enforce max 10 writes per user per minute (using request.time and getAfter)
     function checkWriteRate(userId) {
       let userData = getUserData(userId);
       let userAfter = getAfter(/databases/$(database)/documents/users/$(userId)).data;
@@ -167,7 +152,6 @@ service cloud.firestore {
       );
     }
 
-    // Enforce max 5 event creations per user per day
     function checkEventDailyRate(userId) {
       let userData = getUserData(userId);
       let userAfter = getAfter(/databases/$(database)/documents/users/$(userId)).data;
@@ -181,19 +165,14 @@ service cloud.firestore {
       );
     }
 
-    // =========================================================================
-    // ROOT-LEVEL COLLECTIONS
-    // =========================================================================
-
     match /users/{userId} {
       allow create: if request.auth != null && request.auth.uid == userId && (!("role" in request.resource.data) || request.resource.data.role == "student");
-      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin())  ;
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
       allow update: if request.auth != null && resource != null && (
         isAdmin() || 
         (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'points', 'reputation', 'attendanceCount', 'pushToken']) && validateRateLimitUpdate(userId))
       );
 
-      // Subcollections
       match /savedEvents/{eventId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
@@ -236,7 +215,6 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Root-level Certificates Collection
     match /certificates/{certId} {
       allow read: if request.auth != null && (
         isAdmin() ||
@@ -245,22 +223,16 @@ service cloud.firestore {
       );
     }
 
-    // Root-level Analytics Collection
     match /analytics/{analyticsId} {
       allow read: if request.auth != null && (
         isAdmin() ||
         ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
       );
     }
-    
-    // =========================================================================
-    // EVENTS COLLECTION & SUBCOLLECTIONS
-    // =========================================================================
 
     match /events/{eventId} {
       allow read: if request.auth != null;
       
-      // Write operations with rate limit checks
       allow create: if request.auth != null 
                     && (isAdmin() || (isClub() && checkWriteRate(request.auth.uid) && checkEventDailyRate(request.auth.uid)))
                     && validateEventShape(request.resource.data);
@@ -272,32 +244,32 @@ service cloud.firestore {
       allow delete: if request.auth != null 
                     && (isAdmin() || ('ownerId' in resource.data && request.auth.uid == resource.data.ownerId));
 
-      // Attendance fallback subcollection
+      // Fix #623: regular attendees cannot write attendance records directly.
+      // All attendee check-ins must go through the verifyAndCheckIn cloud
+      // function. Only admins and event owners may write from the client.
       match /attendance/{attendanceId} {
-         allow read: if request.auth != null && (
-           isAdmin() ||
-           ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
-           request.auth.uid == attendanceId ||
-           isEventOwner(database, eventId)
-         );
-         allow create, update, delete: if request.auth != null
-           && existsAfter(/databases/$(database)/documents/events/$(eventId))
-           && (
-             isAdmin() ||
-             (isClub() && (isEventOwner(database, eventId) || isEventOwnerAfter(database, eventId))) ||
-             isEventOwner(database, eventId) ||
-             isEventOwnerAfter(database, eventId)
-           );
+        allow read: if request.auth != null && (
+          isAdmin() ||
+          ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+          request.auth.uid == attendanceId ||
+          isEventOwner(database, eventId)
+        );
+        allow create, update, delete: if request.auth != null
+          && existsAfter(/databases/$(database)/documents/events/$(eventId))
+          && (
+            isAdmin() ||
+            (isClub() && (isEventOwner(database, eventId) || isEventOwnerAfter(database, eventId))) ||
+            isEventOwner(database, eventId) ||
+            isEventOwnerAfter(database, eventId)
+          );
       }
 
-      // Event Participants Registry
       match /participants/{participantId} {
         allow read: if request.auth != null && (
           request.auth.uid == participantId ||
           isAdmin() ||
           isEventOwner(database, eventId)
         );
-        
         allow create: if request.auth != null &&
           request.auth.uid == participantId &&
           !getUserData(request.auth.uid).get('isShadowBanned', false) &&
@@ -305,15 +277,12 @@ service cloud.firestore {
           !request.resource.data.keys().hasAny([
             'isPaid', 'paymentStatus', 'paymentId', 'role', 'approved'
           ]);
-          
         allow delete: if request.auth != null && request.auth.uid == participantId;
-        
         allow update: if request.auth != null && request.auth.uid == participantId &&
           validateAttendanceStatus(request.resource.data) &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buddyPreference', 'updatedAt']);
       }
 
-      // Event Check-ins (Contactless Verification)
       match /checkIns/{checkInId} {
         allow read: if request.auth != null && (
           isAdmin() ||
@@ -328,30 +297,26 @@ service cloud.firestore {
         );
       }
 
-      // Subcollection Certificates
       match /certificates/{certId} {
-         allow read: if request.auth != null && (
-           isAdmin() ||
-           ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
-           isEventOwner(database, eventId)
-         );
+        allow read: if request.auth != null && (
+          isAdmin() ||
+          ('userId' in resource.data && request.auth.uid == resource.data.userId) ||
+          isEventOwner(database, eventId)
+        );
       }
 
-      // Subcollection Analytics
       match /analytics/{docId} {
-         allow read: if request.auth != null && (
-           isAdmin() ||
-           isEventOwner(database, eventId)
-         );
+        allow read: if request.auth != null && (
+          isAdmin() ||
+          isEventOwner(database, eventId)
+        );
       }
 
-      // Event Feedback
       match /feedback/{feedbackId} {
         allow read: if request.auth != null;
         allow create: if request.auth != null && request.auth.uid == feedbackId;
       }
 
-      // Realtime Discussion Messages
       match /messages/{messageId} {
         allow read: if request.auth != null && (
           isParticipant(database, eventId) ||
@@ -365,12 +330,7 @@ service cloud.firestore {
         ) && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid);
       }
     }
-    
-    // =========================================================================
-    // OTHER ROOT COLLECTIONS
-    // =========================================================================
 
-    // Student Reminders
     match /reminders/{rid} {
       allow create: if request.auth != null 
                     && (!('userId' in request.resource.data) || request.auth.uid == request.resource.data.userId)
@@ -378,30 +338,24 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null && ('userId' in resource.data) && request.auth.uid == resource.data.userId;
     }
     
-    // Audit Log Collection (admin only)
     match /auditLog/{logId} {
       allow read: if isAdmin();
     }
 
-    // Global Administration Controls
     match /admin/{doc} {
       allow read, write: if isAdmin();
     }
     
-    // General / Platform Feedback
     match /feedback/{docId} {
       allow create: if request.auth != null
                     && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid)
                     && checkWriteRate(request.auth.uid);
-
       allow read: if request.auth != null
                   && (('userId' in resource.data && resource.data.userId == request.auth.uid)
                       || isAdmin());
-
       allow update, delete: if isAdmin();
     }
 
-    // Tickets Collection
     match /tickets/{ticketId} {
       allow read: if request.auth != null && (
         isAdmin() ||
@@ -411,7 +365,6 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Registrations Collection
     match /registrations/{regId} {
       allow read: if request.auth != null && (
         isAdmin() ||
@@ -425,7 +378,6 @@ service cloud.firestore {
       );
     }
 
-    // Feedback Requests Collection
     match /feedbackRequests/{requestId} {
       allow read: if request.auth != null && (
         isAdmin() ||
