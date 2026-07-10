@@ -28,11 +28,11 @@ jobs:
 
             - name: Update app dependencies
               working-directory: ./app
-              run: npm ci
+              run: npm install --no-audit --no-fund
 
             - name: Update cloud-functions dependencies
               working-directory: ./cloud-functions
-              run: npm ci
+              run: npm install --no-audit --no-fund
 
             - name: Create Pull Request for dependency updates
               uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676
@@ -69,11 +69,11 @@ jobs:
 
             - name: Install dependencies (app)
               working-directory: ./app
-              run: npm ci
+              run: npm install --no-audit --no-fund
 
             - name: Install dependencies (cloud-functions)
               working-directory: ./cloud-functions
-              run: npm ci
+              run: npm install --no-audit --no-fund
 
             - name: Auto-format with Prettier (app)
               if: github.event_name == 'push'

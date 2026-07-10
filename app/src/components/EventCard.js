@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated from 'react-native-reanimated';
 import {
     doc,
     getDoc,
@@ -385,7 +386,7 @@ const EventCard = memo(
                             ]}
                         />
                     )}
-                    <Image
+                    <Animated.Image
                         source={{
                             uri:
                                 event.bannerUrl ||
@@ -394,6 +395,7 @@ const EventCard = memo(
                         style={[styles.bannerImage, isRecommended && { height: 140 }]}
                         resizeMode="cover"
                         onLoadEnd={() => setBannerLoaded(true)}
+                        sharedTransitionTag={`event-image-${event.id}`}
                     />
                     <LinearGradient
                         colors={['transparent', 'rgba(0,0,0,0.4)']}

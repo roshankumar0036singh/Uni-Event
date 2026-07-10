@@ -34,7 +34,6 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.auditLog = void 0;
-exports.auditLogSubcollection = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const firestore_1 = require("firebase-admin/firestore");
@@ -64,11 +63,15 @@ function getUserId(action, beforeData, afterData) {
     return null;
 }
 /**
- * Shared handler for audit log triggers.
- * Logs all create, update, and delete operations into the `auditLog` collection.
- * Prevents self-triggering by skipping writes to the 'auditLog' collection.
+ * Firestore trigger that logs all create, update, and delete operations
+ * across collections into the `auditLog` admin-only collection.
+ *
+ * It prevents self-triggering by explicitly checking that the collection
+ * is not 'auditLog'.
  */
-async function auditLogHandler(change, context) {
+exports.auditLog = functions.firestore
+    .document('{collectionId}/{docId}')
+    .onWrite(async (change, context) => {
     const collection = context.params.collectionId;
     // Prevent self-triggering recursion
     if (collection === 'auditLog') {
@@ -95,10 +98,4 @@ async function auditLogHandler(change, context) {
     catch (error) {
         console.error('Failed to write audit log entry:', error);
     }
-}
-exports.auditLog = functions.firestore
-    .document('{collectionId}/{docId}')
-    .onWrite(auditLogHandler);
-exports.auditLogSubcollection = functions.firestore
-    .document('{collectionId}/{docId}/{subcollectionId}/{subdocId}')
-    .onWrite(auditLogHandler);
+});

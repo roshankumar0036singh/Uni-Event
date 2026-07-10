@@ -2,7 +2,7 @@
     "name": "functions",
     "scripts": {
         "build": "tsc -p tsconfig.build.json",
-        "serve": "npm run build && firebase emulators:start --project=eventloop-c3310 --import=./emulator-data --export-on-exit=./emulator-data",
+        "serve": "npm run build && firebase emulators:start --project=demo-no-project --import=./emulator-data --export-on-exit=./emulator-data",
         "test": "jest",
         "shell": "npm run build && firebase functions:shell",
         "start": "node lib/server.js",

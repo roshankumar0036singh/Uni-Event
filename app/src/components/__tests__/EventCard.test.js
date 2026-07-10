@@ -2,6 +2,8 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import EventCard from '../EventCard';
 
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
 const mockNavigate = jest.fn();
 const mockUpdateDoc = jest.fn();
 

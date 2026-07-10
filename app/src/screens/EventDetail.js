@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated from 'react-native-reanimated';
 import {
     addDoc,
     collection,
@@ -21,7 +22,6 @@ import {
     ActivityIndicator,
     Alert,
     Dimensions,
-    ImageBackground,
     Linking,
     Platform,
     ScrollView,
@@ -1428,14 +1428,17 @@ export default function EventDetail({ route, navigation }) {
             )}
             <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
                 {/* Immersive Header Image */}
-                <ImageBackground
-                    source={{
-                        uri:
-                            event.bannerUrl ||
-                            'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image',
-                    }}
-                    style={styles.headerImage}
-                >
+                <View style={styles.headerImage}>
+                    <Animated.Image
+                        source={{
+                            uri:
+                                event.bannerUrl ||
+                                'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image',
+                        }}
+                        style={StyleSheet.absoluteFillObject}
+                        resizeMode="cover"
+                        sharedTransitionTag={`event-image-${event.id}`}
+                    />
                     <LinearGradient
                         colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.8)']}
                         style={styles.headerGradient}
@@ -1483,7 +1486,7 @@ export default function EventDetail({ route, navigation }) {
                                 </View>
                             )}
                     </LinearGradient>
-                </ImageBackground>
+                </View>
 
                 {/* Content Sheet */}
                 <View style={styles.contentSheet}>

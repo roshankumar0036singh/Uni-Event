@@ -83,7 +83,7 @@ function evaluateDailyEventLimit(userData, currentDayInt) {
 async function checkAndUpdateRateLimit(userId, isEventCreation = false) {
     const db = admin.firestore();
     const userRef = db.collection('users').doc(userId);
-    const txResult = await db.runTransaction(async (transaction) => {
+    return db.runTransaction(async (transaction) => {
         const userDoc = await transaction.get(userRef);
         let userData = {};
         if (userDoc.exists) {
@@ -135,12 +135,34 @@ async function checkAndUpdateRateLimit(userId, isEventCreation = false) {
         if (isEventCreation) {
             const dailyResult = evaluateDailyEventLimit(userData, currentDayInt);
             if (!dailyResult.allowed) {
+                // Log suspicious activity for manual review
+                const { logEntry } = require('../logger');
+                logEntry('rate-limiter', 'Suspicious activity: Daily event creation limit exceeded', {
+                    userId: userId,
+                    input: { eventCountDay: dailyResult.eventCountDay },
+                });
+                // Send email alert to admin if rate limit triggered
+                const { sendEmail } = require('./emailSender');
+                sendEmail({
+                    to: process.env.ADMIN_EMAIL || 'admin@uni-event.com',
+                    subject: 'Alert: Event Creation Rate Limit Triggered',
+                    templateName: 'universal_email_template',
+                    templateData: {
+                        subject: 'Alert: Event Creation Rate Limit Triggered',
+                        to_name: 'Admin',
+                        message: `User ${userId} has triggered the daily event creation rate limit (Max 5 per day). Please review this account for suspicious activity.`,
+                        cert_display: 'none',
+                        event_title: 'Abuse Detection',
+                        date: new Date().toLocaleDateString(),
+                        download_btn_display: 'none',
+                        browse_btn_display: 'none',
+                        event_link: '#',
+                    },
+                }).catch((err) => console.error('Failed to send admin alert email:', err));
                 return {
                     allowed: false,
                     statusCode: 429,
                     message: 'Too Many Requests: Daily event creation limit exceeded (Max 5 per day).',
-                    shouldAlert: true,
-                    alertData: { userId, eventCountDay: dailyResult.eventCountDay },
                 };
             }
             updates.eventCountDay = dailyResult.eventCountDay;
@@ -150,30 +172,4 @@ async function checkAndUpdateRateLimit(userId, isEventCreation = false) {
         transaction.update(userRef, updates);
         return { allowed: true, statusCode: 200, message: 'Authorized request within rate limits' };
     });
-    // Perform side effects outside the transaction
-    if (txResult.shouldAlert) {
-        const { logEntry } = require('../logger');
-        logEntry('rate-limiter', 'Suspicious activity: Daily event creation limit exceeded', {
-            userId: txResult.alertData.userId,
-            input: { eventCountDay: txResult.alertData.eventCountDay },
-        });
-        const { sendEmail } = require('./emailSender');
-        sendEmail({
-            to: process.env.ADMIN_EMAIL || 'admin@uni-event.com',
-            subject: 'Alert: Event Creation Rate Limit Triggered',
-            templateName: 'universal_email_template',
-            templateData: {
-                subject: 'Alert: Event Creation Rate Limit Triggered',
-                to_name: 'Admin',
-                message: `User ${txResult.alertData.userId} has triggered the daily event creation rate limit (Max 5 per day). Please review this account for suspicious activity.`,
-                cert_display: 'none',
-                event_title: 'Abuse Detection',
-                date: new Date().toLocaleDateString(),
-                download_btn_display: 'none',
-                browse_btn_display: 'none',
-                event_link: '#',
-            },
-        }).catch((err) => console.error('Failed to send admin alert email:', err));
-    }
-    return txResult;
 }

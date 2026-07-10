@@ -68,12 +68,7 @@ function logError(service, message, error, context) {
         errorMessage = error;
     }
     else if (error && typeof error === 'object') {
-        try {
-            errorMessage = JSON.stringify(error);
-        }
-        catch (_) {
-            errorMessage = '[unserializable error object]';
-        }
+        errorMessage = JSON.stringify(error);
     }
     exports.logger.error({
         message,
