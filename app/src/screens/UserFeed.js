@@ -26,6 +26,7 @@ import {
     TextInput,
     TouchableOpacity,
     View,
+    useWindowDimensions,
 } from 'react-native';
 import EventCard from '../components/EventCard';
 import FeedbackModal from '../components/FeedbackModal';
@@ -191,6 +192,7 @@ const PAGE_SIZE = 10;
 export default function UserFeed() {
     const { user, userData, role } = useAuth();
     const { theme } = useTheme();
+    const { width } = useWindowDimensions();
     const [events, setEvents] = useState([]);
     const [participatingIds, setParticipatingIds] = useState([]); // Track joined events
     const [activeFilter, setActiveFilter] = useState('Upcoming');
@@ -212,6 +214,12 @@ export default function UserFeed() {
     const [friendsEvents, setFriendsEvents] = useState([]);
 
     const isFocused = useIsFocused();
+
+    const numColumns = useMemo(() => {
+        if (width >= 1024) return 3;
+        if (width >= 768) return 2;
+        return 1;
+    }, [width]);
 
     //  debounce effect
     // Debounce effect — 300ms delay before dispatching query to filter (#304)
@@ -486,6 +494,10 @@ export default function UserFeed() {
         return scoredEvents.sort((a, b) => b.score - a.score).slice(0, 3);
     }, [events, participatingIDSet]);
 
+    const recommendedIds = useMemo(() => {
+        return new Set(getRecommendedEvents.map(e => e.id));
+    }, [getRecommendedEvents]);
+
     const getFilteredEvents = () => {
         const now = new Date();
         let filtered = events;
@@ -563,6 +575,14 @@ export default function UserFeed() {
 
     const displayList = getFilteredEvents();
 
+    const groupedData = useMemo(() => {
+        const rows = [];
+        for (let i = 0; i < displayList.length; i += numColumns) {
+            rows.push(displayList.slice(i, i + numColumns));
+        }
+        return rows;
+    }, [displayList, numColumns]);
+
     const onRefresh = useCallback(async () => {
         if (!user) return;
         setRefreshing(true);
@@ -596,23 +616,32 @@ export default function UserFeed() {
         }
     }, [refreshing, onRefresh]);
 
-    const renderEvent = ({ item }) => (
-        <View style={{ paddingHorizontal: 20 }}>
-            <EventCard
-                event={item}
-                isRegistered={participatingIDSet.has(item.id)}
-                onLike={() => {}}
-                onShare={async () => {
-                    try {
-                        await Share.share({
-                            message: `Check out this event: ${item.title} at ${item.location}!`,
-                        });
-                    } catch (e) {
-                        console.error('Share Error:', e);
-                        Alert.alert('Error', 'Failed to share the event.');
-                    }
-                }}
-            />
+    const renderEvent = ({ item: rowItems }) => (
+        <View style={styles.rowContainer}>
+            {rowItems.map(item => (
+                <View key={item.id} style={[styles.columnWrapper, { flex: 1 }]}>
+                    <EventCard
+                        event={item}
+                        isRegistered={participatingIDSet.has(item.id)}
+                        isRecommended={recommendedIds.has(item.id)}
+                        onLike={() => {}}
+                        onShare={async () => {
+                            try {
+                                await Share.share({
+                                    message: `Check out this event: ${item.title} at ${item.location}!`,
+                                });
+                            } catch (e) {
+                                console.error('Share Error:', e);
+                                Alert.alert('Error', 'Failed to share the event.');
+                            }
+                        }}
+                    />
+                </View>
+            ))}
+            {rowItems.length < numColumns &&
+                Array.from({ length: numColumns - rowItems.length }).map((_, i) => (
+                    <View key={`empty-${i}`} style={[styles.columnWrapper, { flex: 1 }]} />
+                ))}
         </View>
     );
 
@@ -641,33 +670,6 @@ export default function UserFeed() {
                     </ScrollView>
                 </View>
             )}
-
-            {/* Recommendations Rail */}
-            <View style={{ marginBottom: 20 }}>
-                <Text style={styles.sectionTitle}>RECOMMENDED FOR YOU</Text>
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: 20 }}
-                >
-                    {getRecommendedEvents.map(event => (
-                        <View key={event.id} style={{ width: 320, marginRight: 15 }}>
-                            <EventCard event={event} isRecommended={true} />
-                        </View>
-                    ))}
-                    {getRecommendedEvents.length === 0 && (
-                        <Text
-                            style={{
-                                color: theme.colors.textSecondary,
-                                fontStyle: 'italic',
-                                marginHorizontal: 20,
-                            }}
-                        >
-                            No recommendations yet.
-                        </Text>
-                    )}
-                </ScrollView>
-            </View>
         </Animated.View>
     );
 
@@ -710,8 +712,8 @@ export default function UserFeed() {
                 </View>
             ) : (
                 <Animated.SectionList
-                    sections={[{ data: displayList }]}
-                    keyExtractor={item => item.id}
+                    sections={[{ data: groupedData }]}
+                    keyExtractor={row => row.map(e => e.id).join('-')}
                     renderItem={renderEvent}
                     renderSectionHeader={renderStickyHeader}
                     ListHeaderComponent={renderHeader}
@@ -786,6 +788,14 @@ export default function UserFeed() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
+    rowContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: 10,
+        width: '100%',
+    },
+    columnWrapper: {
+        paddingHorizontal: 10,
+    },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',

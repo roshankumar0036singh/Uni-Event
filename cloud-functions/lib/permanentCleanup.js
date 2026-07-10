@@ -64,9 +64,9 @@ exports.permanentCleanup = functions.pubsub
                 const eventData = eventDoc.data();
                 if (eventData?.ownerId) {
                     const ownerRef = db.collection('users').doc(eventData.ownerId);
-                    batch.set(ownerRef, {
+                    batch.update(ownerRef, {
                         eventCount: admin.firestore.FieldValue.increment(-1),
-                    }, { merge: true });
+                    });
                 }
                 batch.delete(eventDoc.ref);
                 operationCount++;

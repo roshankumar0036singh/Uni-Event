@@ -38,6 +38,7 @@ const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const dedicatedStudentCertificate_1 = require("./dedicatedStudentCertificate");
 const firestore_2 = require("@google-cloud/firestore");
+const ATTENDANCE_POINTS_REWARD = 10;
 function getISOWeekKey(date) {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -80,6 +81,7 @@ exports.attendanceStreak = (0, firestore_1.onDocumentCreated)('events/{eventId}/
             currentStreak: newStreak,
             longestStreak: newLongestStreak,
             lastAttendanceAt: now,
+            points: admin.firestore.FieldValue.increment(ATTENDANCE_POINTS_REWARD),
         });
         console.log('previous currentStreak:', currentStreak);
         console.log('lastAttendanceAt:', lastAttendanceAt);

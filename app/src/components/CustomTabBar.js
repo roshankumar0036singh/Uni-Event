@@ -32,7 +32,19 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
                 tint={isDarkMode ? 'dark' : 'light'}
                 style={[styles.blurContainer, { borderColor: theme.colors.border }]}
             >
-                <View style={styles.content}>
+                <View
+                    style={[
+                        styles.content,
+                        {
+                            backgroundColor:
+                                Platform.OS === 'android'
+                                    ? isDarkMode
+                                        ? 'rgba(30,30,30,0.85)'
+                                        : 'rgba(255,255,255,0.85)'
+                                    : 'transparent',
+                        },
+                    ]}
+                >
                     {state.routes.map((route, index) => {
                         const { options } = descriptors[route.key];
 
@@ -67,7 +79,7 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
                                 onPress={onPress}
                                 style={styles.tabItem}
                             >
-                                <Ionicons name={iconName} size={24} color={color} />
+                                <Ionicons name={iconName} size={22} color={color} />
                                 {isFocused && (
                                     <View
                                         style={[
@@ -88,7 +100,7 @@ export default function CustomTabBar({ state, descriptors, navigation }) {
 const styles = StyleSheet.create({
     container: {
         position: 'absolute',
-        bottom: 20,
+        bottom: 12,
         left: 20,
         right: 20,
         alignItems: 'center',
@@ -96,33 +108,38 @@ const styles = StyleSheet.create({
     blurContainer: {
         flexDirection: 'row',
         width: '100%',
-        borderRadius: 30,
+        maxWidth: 500,
+        borderRadius: 25,
         overflow: 'hidden',
         borderWidth: 1,
         ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.2 },
-            android: { elevation: 5 },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.15,
+                shadowRadius: 5,
+            },
+            android: { elevation: 4 },
         }),
     },
     content: {
         flexDirection: 'row',
         justifyContent: 'space-around',
         alignItems: 'center',
-        paddingVertical: 15,
-        backgroundColor: Platform.OS === 'android' ? 'rgba(255,255,255,0.8)' : 'transparent', // Android blur fallback
+        paddingVertical: 10,
         width: '100%',
     },
     tabItem: {
         alignItems: 'center',
         justifyContent: 'center',
-        height: 40,
-        width: 40,
+        height: 36,
+        width: 36,
     },
     activeDot: {
         width: 4,
         height: 4,
         borderRadius: 2,
-        marginTop: 4,
+        marginTop: 2,
     },
 });
 

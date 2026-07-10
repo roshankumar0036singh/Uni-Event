@@ -114,13 +114,13 @@ exports.onEventFeedbackCreate = functions.firestore
     .onCreate(async (snap, context) => {
     const data = snap.data();
     const clubRating = data?.clubRating;
-    if (!Number.isFinite(clubRating) || clubRating < 1 || clubRating > 5) {
+    if (!Number.isFinite(clubRating) || clubRating <= 0) {
         return null;
     }
     const eventId = context.params.eventId;
     const eventSnap = await db.doc(`events/${eventId}`).get();
     const eventData = eventSnap.exists ? eventSnap.data() : undefined;
-    const clubId = eventData?.ownerId || data?.clubId;
+    const clubId = data?.clubId || eventData?.ownerId;
     if (!clubId)
         return null;
     const eventDate = (0, exports.toDate)(eventData?.endAt) ||

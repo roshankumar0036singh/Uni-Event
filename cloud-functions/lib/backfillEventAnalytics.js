@@ -66,38 +66,32 @@ exports.backfillEventAnalyticsCounters = functions.https.onCall(async (data, con
     let updated = 0;
     for (const docSnap of eventSnap.docs) {
         const eventData = docSnap.data() || {};
-        try {
-            const missingCounters = eventData.participantCount == null ||
-                eventData.branchCounts == null ||
-                eventData.yearCounts == null;
-            if (!missingCounters)
-                continue;
-            const participantsSnap = await docSnap.ref.collection('participants').get();
-            const participantCount = participantsSnap.size;
-            const branchCounts = {};
-            const yearCounts = {};
-            participantsSnap.forEach(participantDoc => {
-                const participant = participantDoc.data() || {};
-                const branchKey = normalizeCounterKey(participant.branch);
-                const yearKey = normalizeCounterKey(participant.year);
-                branchCounts[branchKey] = (branchCounts[branchKey] || 0) + 1;
-                yearCounts[yearKey] = (yearCounts[yearKey] || 0) + 1;
-            });
-            const updatePayload = {
-                participantCount,
-                branchCounts,
-                yearCounts,
-            };
-            if (eventData.stats?.totalRegistrations == null) {
-                updatePayload.stats = { ...(eventData.stats || {}), totalRegistrations: participantCount };
-            }
-            await docSnap.ref.set(updatePayload, { merge: true });
-            updated += 1;
-        }
-        catch (error) {
-            console.error(`Error backfilling event ${docSnap.id}:`, error);
+        const missingCounters = eventData.participantCount == null ||
+            eventData.branchCounts == null ||
+            eventData.yearCounts == null;
+        if (!missingCounters)
             continue;
+        const participantsSnap = await docSnap.ref.collection('participants').get();
+        const participantCount = participantsSnap.size;
+        const branchCounts = {};
+        const yearCounts = {};
+        participantsSnap.forEach(participantDoc => {
+            const participant = participantDoc.data() || {};
+            const branchKey = normalizeCounterKey(participant.branch);
+            const yearKey = normalizeCounterKey(participant.year);
+            branchCounts[branchKey] = (branchCounts[branchKey] || 0) + 1;
+            yearCounts[yearKey] = (yearCounts[yearKey] || 0) + 1;
+        });
+        const updatePayload = {
+            participantCount,
+            branchCounts,
+            yearCounts,
+        };
+        if (eventData.stats?.totalRegistrations == null) {
+            updatePayload['stats.totalRegistrations'] = participantCount;
         }
+        await docSnap.ref.set(updatePayload, { merge: true });
+        updated += 1;
     }
     const lastDoc = eventSnap.docs[eventSnap.docs.length - 1];
     return {

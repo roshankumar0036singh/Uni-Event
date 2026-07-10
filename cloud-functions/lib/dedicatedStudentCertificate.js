@@ -114,11 +114,11 @@ async function awardDedicatedStudentCertificate(userId) {
         return true;
     });
     if (!claimed) {
-        console.log(`User ${userId.slice(0, 4) + '***'} already has dedicated_student certificate`);
+        console.log(`User ${userId} already has dedicated_student certificate`);
         return;
     }
     if (!userEmail) {
-        console.warn(`User ${userId.slice(0, 4) + '***'} has no email — skipping certificate email`);
+        console.warn(`User ${userId} has no email — skipping certificate email`);
     }
     // load template
     const templatePath = path.join(__dirname, '../assets/certificate_template.pdf');
@@ -163,7 +163,7 @@ async function awardDedicatedStudentCertificate(userId) {
             certificateUrl: signedUrl,
         }),
     });
-    console.log(`Certificate record saved for user ${userId.slice(0, 4) + '***'}`);
+    console.log(`Certificate record saved for user ${userId}`);
     //send email
     if (userEmail) {
         const safeName = escapeHtml(userName);
