@@ -39,7 +39,7 @@ jobs:
                   npm install --package-lock-only --ignore-scripts
 
             - name: Open Pull Request with updated lockfiles
-              uses: peter-evans/create-pull-request@v6
+              uses: peter-evans/create-pull-request@v8
               with:
                   token: ${{ secrets.GITHUB_TOKEN }}
                   commit-message: 'chore: update package-lock.json'
