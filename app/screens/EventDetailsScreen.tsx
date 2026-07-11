@@ -21,7 +21,11 @@ export const EventDetailsScreen: React.FC<EventDetailsScreenProps> = ({ event, u
             <Text style={styles.title}>{event.title}</Text>
 
             {isOverlapping && (
-                <View style={styles.warningContainer}>
+                <View
+                    style={styles.warningContainer}
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="assertive"
+                >
                     <Text style={styles.warningText}>
                         Warning: This event overlaps with your class schedule!
                     </Text>
