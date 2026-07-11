@@ -11,7 +11,7 @@ export const hasScheduleOverlap = (
     return schedule.some(classItem => {
         const classStart = new Date(classItem.startAt);
         const classEnd = new Date(classItem.endAt);
-        if (isNaN(classStart.getTime()) || isNaN(classEnd.getTime())) {
+        if (Number.isNaN(classStart.getTime()) || Number.isNaN(classEnd.getTime())) {
             return false;
         }
         return eventStart < classEnd && eventEnd > classStart;
