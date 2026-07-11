@@ -65,5 +65,5 @@ Now, whenever you run the Expo app (`npx expo start`), it will connect to these 
 ## 5. Troubleshooting
 
 *   **"Network Error"**: Ensure the emulators are running and that no other process is using the emulator ports.
-*   **"Network Error"**: Ensure the emulators are running and that no other process is using the emulator ports.
-* **Data Persistence**: Emulator data is automatically saved to `./emulator-data` when you stop the emulators with `Ctrl+C`. If you force-kill the process, data will not be exported. To manually export or import data, see the [Firebase Emulator docs](https://firebase.google.com/docs/emulator-suite/install_and_configure#export_and_import_emulator_data).
+*   **Data Persistence**: The emulators are configured to auto-export data to `./emulator-data` on exit. Ensure you stop the emulator with `Ctrl+C` (not force-kill) to trigger the export.
+*   **Emulator Token Refresh Errors (`400 Bad Request`)**: This usually happens if the emulator has been wiped but your app still holds a session, or if there is time skew between your host and the emulator. The app is configured to auto-recover by silently re-authenticating with saved credentials or signing out gracefully. If auto-recovery fails, you can manually clear app data (or AsyncStorage on Web) and restart the emulators.
