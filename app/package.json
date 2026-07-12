@@ -102,7 +102,7 @@
         "@eslint/js": "^10.0.1",
         "@testing-library/react-native": "^13.3.3",
         "cypress": "^15.16.0",
-        "eslint": "^9.39.4",
+        "eslint": "^10.7.0",
         "eslint-config-expo": "~8.0.1",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-prettier": "^5.5.6",
