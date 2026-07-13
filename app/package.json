@@ -55,7 +55,7 @@
         "@shopify/flash-list": "1.7.3",
         "@shopify/react-native-skia": "1.5.0",
         "expo": "~52.0.0",
-        "expo-auth-session": "~6.0.3",
+        "expo-auth-session": "~57.0.2",
         "expo-barcode-scanner": "~12.5.3",
         "expo-blur": "~14.0.3",
         "expo-camera": "~16.0.18",
