@@ -10,7 +10,7 @@ import {
 import {
     initializeFirestore,
     persistentLocalCache,
-    persistentMultipleTabManager,
+    //persistentMultipleTabManager,
     connectFirestoreEmulator,
 } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
@@ -44,7 +44,7 @@ export { auth };
 // 🚀 This turns on local storage database caching for offline use
 export const db = initializeFirestore(app, {
     localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager(),
+        //  tabManager: persistentMultipleTabManager(),
     }),
 });
 

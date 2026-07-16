@@ -26,8 +26,10 @@ import {
 import { EventListSkeleton } from '../components/SkeletonLoader';
 import EventCard from '../components/EventCard';
 import { useAuth } from '../lib/AuthContext';
+import { calculateAverageRating, calculateDisplayCount } from '../lib/feedbackService';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
+import { clubThemeColors } from '../lib/theme';
 import PropTypes from 'prop-types';
 
 const PLACEHOLDER_BANNER_URL = 'https://via.placeholder.com/800x400';
@@ -66,7 +68,7 @@ const getTabTextStyle = (tabName, activeTab, theme) => ({
 export default function ClubProfileScreen({ route, navigation }) {
     const { clubId, clubName } = route.params || {};
     const { user } = useAuth();
-    const { theme } = useTheme();
+    const { theme: globalTheme } = useTheme();
     const [club, setClub] = useState(null);
     const [loading, setLoading] = useState(true);
     const [events, setEvents] = useState([]);
@@ -74,6 +76,19 @@ export default function ClubProfileScreen({ route, navigation }) {
     const [followersCount, setFollowersCount] = useState(0);
     const [followLoading, setFollowLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('events'); // 'events' | 'about'
+
+    const isOwner = user?.uid === clubId;
+
+    const theme = useMemo(() => {
+        if (!club?.themeColor || !clubThemeColors.includes(club.themeColor)) return globalTheme;
+        return {
+            ...globalTheme,
+            colors: {
+                ...globalTheme.colors,
+                primary: club.themeColor,
+            },
+        };
+    }, [club?.themeColor, globalTheme]);
 
     // Fetch Club Data
     useEffect(() => {
@@ -93,7 +108,7 @@ export default function ClubProfileScreen({ route, navigation }) {
                 }
 
                 if (id) {
-                    unsubscribeClub = onSnapshot(doc(db, 'users', id), doc => {
+                    unsubscribeClub = onSnapshot(doc(db, 'publicUsers', id), doc => {
                         if (doc.exists()) {
                             setClub({ id: doc.id, ...doc.data() });
                             setFollowersCount(doc.data().followersCount || 0);
@@ -157,12 +172,9 @@ export default function ClubProfileScreen({ route, navigation }) {
         if (!club?.reputation) return { avgRating: 0, totalRatings: 0 };
 
         const reputation = club.reputation;
-        if (reputation.totalRatings && reputation.totalRatings > 0) {
-            const avg = (reputation.totalPoints / reputation.totalRatings).toFixed(1);
-            return { avgRating: avg, totalRatings: reputation.totalRatings };
-        }
-
-        return { avgRating: 0, totalRatings: 0 };
+        const avg = calculateAverageRating(reputation);
+        const count = calculateDisplayCount(reputation);
+        return { avgRating: avg, totalRatings: count };
     }, [club]);
 
     const rawAttendanceRate = Number(club?.metrics?.attendanceRate);
@@ -188,7 +200,7 @@ export default function ClubProfileScreen({ route, navigation }) {
 
         const myFollowingRef = doc(db, 'users', user.uid, 'following', clubId);
         const clubFollowerRef = doc(db, 'users', clubId, 'followers', user.uid);
-        const clubRef = doc(db, 'users', clubId);
+        const clubRef = doc(db, 'publicUsers', clubId);
         const previousFollowing = isFollowing;
 
         // Optimistic update
@@ -309,6 +321,56 @@ export default function ClubProfileScreen({ route, navigation }) {
         </View>
     );
 
+    const handleColorChange = async color => {
+        if (!isOwner || !clubId) return;
+        if (!clubThemeColors.includes(color)) return;
+        try {
+            await setDoc(doc(db, 'publicUsers', clubId), { themeColor: color }, { merge: true });
+        } catch (e) {
+            console.error('Failed to save color', e);
+        }
+    };
+
+    const renderColorPicker = () => {
+        if (!isOwner) return null;
+        return (
+            <View style={styles.colorPickerContainer}>
+                <Text style={[styles.colorPickerTitle, { color: theme.colors.textSecondary }]}>
+                    Custom Theme Color
+                </Text>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.colorPickerScroll}
+                >
+                    {clubThemeColors.map(color => {
+                        const isSelected =
+                            (club?.themeColor || globalTheme.colors.primary) === color;
+                        return (
+                            <TouchableOpacity
+                                key={color}
+                                accessible={true}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Color: ${color}`}
+                                accessibilityState={{ selected: isSelected }}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                style={[
+                                    styles.colorSwatch,
+                                    { backgroundColor: color },
+                                    isSelected && {
+                                        borderWidth: 3,
+                                        borderColor: theme.colors.text,
+                                    },
+                                ]}
+                                onPress={() => handleColorChange(color)}
+                            />
+                        );
+                    })}
+                </ScrollView>
+            </View>
+        );
+    };
+
     const renderEventTab = () => {
         if (events.length === 0) {
             return (
@@ -333,15 +395,6 @@ export default function ClubProfileScreen({ route, navigation }) {
             <Text style={[styles.bioText, { color: theme.colors.textSecondary }]}>
                 {club?.bio || 'No bio available.'}
             </Text>
-            <Text style={[styles.inputLabel, { color: theme.colors.text, marginTop: 20 }]}>
-                Contact
-            </Text>
-            <View style={styles.contactRow}>
-                <Ionicons name="mail-outline" size={20} color={theme.colors.textSecondary} />
-                <Text style={{ color: theme.colors.textSecondary }}>
-                    {club?.email || 'No email available'}
-                </Text>
-            </View>
         </View>
     );
 
@@ -403,6 +456,7 @@ export default function ClubProfileScreen({ route, navigation }) {
                     </View>
                 </View>
 
+                {renderColorPicker()}
                 {renderSocialLinks()}
 
                 <View style={[styles.tabContainer, { borderBottomColor: theme.colors.border }]}>
@@ -508,6 +562,26 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 10,
+    },
+    colorPickerContainer: {
+        marginTop: 20,
+        alignItems: 'center',
+    },
+    colorPickerTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginBottom: 10,
+    },
+    colorPickerScroll: {
+        paddingHorizontal: 20,
+        gap: 15,
+        alignItems: 'center',
+    },
+    colorSwatch: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        elevation: 2,
     },
 });
 

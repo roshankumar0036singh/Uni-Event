@@ -1,0 +1,362 @@
+import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
+
+const EARLY_BIRD_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+const getTimestampMs = (value: any): number | null => {
+    if (!value) return null;
+    if (typeof value === 'string' || typeof value === 'number') {
+        const ms = new Date(value).getTime();
+        return Number.isNaN(ms) ? null : ms;
+    }
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    if (typeof value.toDate === 'function') return value.toDate().getTime();
+    if (typeof value.seconds === 'number') return value.seconds * 1000;
+    return null;
+};
+
+const getEarlyBirdInfo = (event: any) => {
+    if (event?.hasEarlyBird && event?.earlyBirdDeadline) {
+        const deadlineMs = getTimestampMs(event.earlyBirdDeadline);
+        const now = Date.now();
+        const isEligible = deadlineMs !== null && now <= deadlineMs;
+
+        return {
+            isEligible,
+            currentPrice:
+                isEligible && event.earlyBirdPrice != null ? event.earlyBirdPrice : event.price,
+            deadline: event.earlyBirdDeadline,
+        };
+    }
+
+    const createdMs = getTimestampMs(event?.createdAt);
+    if (createdMs === null) {
+        return { isEligible: false, currentPrice: event?.price, deadline: null };
+    }
+
+    const now = Date.now();
+    const elapsed = now - createdMs;
+    const isEligible = elapsed >= 0 && elapsed <= EARLY_BIRD_WINDOW_MS;
+    const deadlineMs = createdMs + EARLY_BIRD_WINDOW_MS;
+
+    return {
+        isEligible,
+        currentPrice: event?.price,
+        deadline: new Date(deadlineMs).toISOString(),
+    };
+};
+
+const normalizeCounterKey = (value: any) => {
+    const raw = String(value ?? 'Unknown').trim();
+    if (!raw) return 'Unknown';
+    return raw.replace(/[./#[\]$]/g, '_');
+};
+
+const buildCounterUpdates = (branch: string, year: string, delta: number, eventData: any) => {
+    const branchKey = normalizeCounterKey(branch);
+    const yearKey = normalizeCounterKey(year);
+
+    const isDecrement = delta < 0;
+    const hasParticipantCount = eventData?.participantCount != null;
+    const hasTotalRegistrations = eventData?.stats?.totalRegistrations != null;
+    const hasBranchCount = eventData?.branchCounts?.[branchKey] != null;
+    const hasYearCount = eventData?.yearCounts?.[yearKey] != null;
+
+    return {
+        participantCount:
+            isDecrement && !hasParticipantCount ? 0 : admin.firestore.FieldValue.increment(delta),
+        'stats.totalRegistrations':
+            isDecrement && !hasTotalRegistrations ? 0 : admin.firestore.FieldValue.increment(delta),
+        [`branchCounts.${branchKey}`]:
+            isDecrement && !hasBranchCount ? 0 : admin.firestore.FieldValue.increment(delta),
+        [`yearCounts.${yearKey}`]:
+            isDecrement && !hasYearCount ? 0 : admin.firestore.FieldValue.increment(delta),
+    };
+};
+
+const buildPreviewUpdate = (eventData: any, participant: any, delta: number) => {
+    const existing = Array.isArray(eventData?.participantsPreview)
+        ? eventData.participantsPreview
+        : [];
+    const normalizedExisting = existing
+        .map((item: any) => ({
+            userId: item?.userId ?? item?.id,
+            name: item?.name,
+        }))
+        .filter((item: any) => item.userId);
+
+    const safeParticipant = {
+        userId: participant.userId,
+        name: participant.name || 'Anonymous',
+    };
+
+    const filtered = normalizedExisting.filter(
+        (item: any) => item?.userId !== safeParticipant.userId,
+    );
+
+    if (delta > 0) {
+        return [safeParticipant, ...filtered].slice(0, 50);
+    }
+
+    return filtered;
+};
+
+interface PaymentDetails {
+    transactionId: string;
+    selectedMethod?: string;
+    expectedPrice?: number;
+}
+
+const processRegistrationTransaction = async (
+    transaction: admin.firestore.Transaction,
+    db: admin.firestore.Firestore,
+    uid: string,
+    email: string | undefined,
+    name: string,
+    eventId: string,
+    responses: any,
+    isPaid: boolean,
+    paymentDetails?: PaymentDetails,
+) => {
+    const eventRef = db.collection('events').doc(eventId);
+    const eventSnap = await transaction.get(eventRef);
+
+    if (!eventSnap.exists) {
+        throw new functions.https.HttpsError('not-found', 'Event not found.');
+    }
+
+    const eventData = eventSnap.data()!;
+
+    // Check overall capacity
+    if (eventData.capacity != null) {
+        const currentParticipants = eventData.participantCount || 0;
+        if (currentParticipants >= eventData.capacity) {
+            throw new functions.https.HttpsError(
+                'failed-precondition',
+                'This event has reached its maximum capacity.',
+            );
+        }
+    }
+
+    const participantRef = eventRef.collection('participants').doc(uid);
+    const participantSnap = await transaction.get(participantRef);
+    if (participantSnap.exists) {
+        throw new functions.https.HttpsError(
+            'already-exists',
+            'You are already registered for this event.',
+        );
+    }
+
+    const userRef = db.collection('users').doc(uid);
+    const userSnap = await transaction.get(userRef);
+    const userData = userSnap.exists ? userSnap.data()! : {};
+
+    let { isEligible: earlyBird } = getEarlyBirdInfo(eventData);
+
+    if (earlyBird && eventData.earlyBirdCapacity != null) {
+        const currentEarlyBirds = eventData.stats?.earlyBirdRegistrations || 0;
+        if (currentEarlyBirds >= eventData.earlyBirdCapacity) {
+            earlyBird = false;
+        }
+    }
+
+    let ticketId = '';
+    let ticketData: any = null;
+    const registrationStatus = isPaid ? 'paid' : 'confirmed';
+
+    if (isPaid && paymentDetails) {
+        const finalPrice =
+            earlyBird && eventData.earlyBirdPrice != null
+                ? eventData.earlyBirdPrice
+                : (eventData.price ?? paymentDetails.expectedPrice ?? 0);
+
+        const ticketRef = db.collection('tickets').doc();
+        ticketId = ticketRef.id;
+
+        ticketData = {
+            eventId: eventId,
+            eventTitle: eventData.title,
+            eventDate: eventData.startAt,
+            eventLocation: eventData.location,
+            userId: uid,
+            userName: name,
+            userEmail: email,
+            userYear: userData.year || 'N/A',
+            userBranch: userData.branch || 'N/A',
+            price: finalPrice,
+            status: 'paid',
+            orderId: paymentDetails.transactionId,
+            paymentMethod: paymentDetails.selectedMethod,
+            purchasedAt: new Date().toISOString(),
+        };
+        transaction.set(ticketRef, ticketData);
+    }
+
+    const participantPayload: any = {
+        userId: uid,
+        name: name,
+        email: email,
+        branch: userData.branch || 'Unknown',
+        year: userData.year || 'Unknown',
+        joinedAt: new Date().toISOString(),
+        status: registrationStatus,
+    };
+    if (ticketId) participantPayload.ticketId = ticketId;
+    transaction.set(participantRef, participantPayload);
+
+    const participatingPayload: any = {
+        eventId: eventId,
+        joinedAt: new Date().toISOString(),
+        status: registrationStatus,
+    };
+    if (isPaid) participatingPayload.role = 'attendee';
+    if (ticketId) participatingPayload.ticketId = ticketId;
+
+    const participatingRef = userRef.collection('participating').doc(eventId);
+    transaction.set(participatingRef, participatingPayload);
+
+    if (!isPaid || responses) {
+        const registrationRef = db.collection('registrations').doc();
+        const regPayload: any = {
+            eventId: eventId,
+            eventId_userId: `${eventId}_${uid}`,
+            userId: uid,
+            userEmail: email,
+            userName: name,
+            responses: responses || {},
+            schemaAtSubmission: eventData.customFormSchema || [],
+            timestamp: new Date().toISOString(),
+            status: registrationStatus,
+        };
+        if (ticketId) regPayload.ticketId = ticketId;
+        transaction.set(registrationRef, regPayload);
+    }
+
+    const userUpdate: any = { points: admin.firestore.FieldValue.increment(10) };
+    if (earlyBird) {
+        userUpdate.badges = admin.firestore.FieldValue.arrayUnion(`early_bird_${eventId}`);
+    }
+    transaction.set(userRef, userUpdate, { merge: true });
+
+    const userPublicProfileRef = db.collection('publicProfiles').doc(uid);
+    const publicProfileUpdate: any = {
+        points: admin.firestore.FieldValue.increment(10),
+    };
+    if (userData.role) {
+        publicProfileUpdate.role = userData.role;
+    }
+    if (typeof userData.displayName === 'string' && userData.displayName !== '') {
+        publicProfileUpdate.displayName = userData.displayName;
+    }
+    if (typeof userData.photoURL === 'string' && userData.photoURL !== '') {
+        publicProfileUpdate.photoURL = userData.photoURL;
+    }
+    if (typeof userData.isVerified === 'boolean') {
+        publicProfileUpdate.isVerified = userData.isVerified;
+    }
+    transaction.set(userPublicProfileRef, publicProfileUpdate, { merge: true });
+
+    const eventUpdates: any = buildCounterUpdates(
+        participantPayload.branch,
+        participantPayload.year,
+        1,
+        eventData,
+    );
+    eventUpdates.participantsPreview = buildPreviewUpdate(eventData, participantPayload, 1);
+    if (earlyBird) {
+        eventUpdates['stats.earlyBirdRegistrations'] = admin.firestore.FieldValue.increment(1);
+    }
+    transaction.update(eventRef, eventUpdates);
+
+    return { finalEarlyBird: earlyBird, ticketId, ticketData };
+};
+
+export const registerForEvent = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const { eventId, responses } = data;
+    if (!eventId) {
+        throw new functions.https.HttpsError('invalid-argument', 'eventId is required.');
+    }
+
+    const uid = context.auth.uid;
+    const email = context.auth.token.email;
+    const name = context.auth.token.name || 'Anonymous';
+    const db = admin.firestore();
+
+    try {
+        let finalEarlyBird = false;
+        await db.runTransaction(async transaction => {
+            const result = await processRegistrationTransaction(
+                transaction,
+                db,
+                uid,
+                email,
+                name,
+                eventId,
+                responses,
+                false,
+            );
+            finalEarlyBird = result.finalEarlyBird;
+        });
+        return { success: true, earlyBird: finalEarlyBird };
+    } catch (error: any) {
+        throw new functions.https.HttpsError(
+            error.code || 'internal',
+            error.message || 'Transaction failed',
+        );
+    }
+});
+
+export const finalizeTicketPayment = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const { eventId, transactionId, selectedMethod, formResponses, expectedPrice } = data;
+    if (!eventId || !transactionId) {
+        throw new functions.https.HttpsError(
+            'invalid-argument',
+            'eventId and transactionId are required.',
+        );
+    }
+
+    const uid = context.auth.uid;
+    const email = context.auth.token.email;
+    const name = context.auth.token.name || 'Anonymous';
+    const db = admin.firestore();
+
+    try {
+        let finalEarlyBird = false;
+        let ticketData: any = null;
+        let ticketId = '';
+
+        await db.runTransaction(async transaction => {
+            const result = await processRegistrationTransaction(
+                transaction,
+                db,
+                uid,
+                email,
+                name,
+                eventId,
+                formResponses,
+                true,
+                { transactionId, selectedMethod, expectedPrice },
+            );
+            finalEarlyBird = result.finalEarlyBird;
+            ticketData = result.ticketData;
+            ticketId = result.ticketId;
+        });
+
+        return { success: true, earlyBird: finalEarlyBird, ticketId, ticketData };
+    } catch (error: any) {
+        throw new functions.https.HttpsError(
+            error.code || 'internal',
+            error.message || 'Transaction failed',
+        );
+    }
+});
+
+export * from './attendance';

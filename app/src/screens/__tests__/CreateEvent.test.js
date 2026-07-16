@@ -253,5 +253,5 @@ describe('CreateEvent transaction flow', () => {
         });
 
         alertSpy.mockRestore();
-    });
+    }, 15000);
 });

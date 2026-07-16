@@ -352,26 +352,10 @@ export default function AttendanceDashboard({ route, navigation }) {
 
             let csv = 'Name,Email,Branch,Year,Joined At\n';
 
-            // Fetch live user profiles to fill in missing Branch/Year
             const rows = await Promise.all(
                 snapshotData.map(async d => {
                     let branch = d.branch;
                     let year = d.year;
-
-                    // If missing, try to fetch from User Profile
-                    if ((!branch || branch === '-' || branch === 'Unknown') && d.userId) {
-                        try {
-                            const { getDoc, doc } = require('firebase/firestore'); // Ensure imports
-                            const userSnap = await getDoc(doc(db, 'users', d.userId));
-                            if (userSnap.exists()) {
-                                const userData = userSnap.data();
-                                branch = userData.branch || branch;
-                                year = userData.year || year;
-                            }
-                        } catch (e) {
-                            console.log('Profile fetch err', e);
-                        }
-                    }
 
                     return `"${d.name || 'Anonymous'}","${d.email || '-'}","${branch || '-'}","${year || '-'}","${d.joinedAt}"\n`;
                 }),

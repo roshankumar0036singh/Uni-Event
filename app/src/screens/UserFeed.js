@@ -1,11 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, limit, onSnapshot, query, where, getDocs } from 'firebase/firestore';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    collection,
+    limit,
+    onSnapshot,
+    query,
+    where,
+    getDocs,
+    orderBy,
+    startAfter,
+    collectionGroup,
+} from 'firebase/firestore';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PropTypes from 'prop-types';
 import {
     Animated,
+    ActivityIndicator,
     Alert,
     Platform,
     ScrollView,
@@ -15,6 +26,7 @@ import {
     TextInput,
     TouchableOpacity,
     View,
+    useWindowDimensions,
 } from 'react-native';
 import EventCard from '../components/EventCard';
 import FeedbackModal from '../components/FeedbackModal';
@@ -175,9 +187,12 @@ UserFeedStickyHeader.propTypes = {
     setActiveFilter: PropTypes.func.isRequired,
 };
 
+const PAGE_SIZE = 10;
+
 export default function UserFeed() {
     const { user, userData, role } = useAuth();
     const { theme } = useTheme();
+    const { width } = useWindowDimensions();
     const [events, setEvents] = useState([]);
     const [participatingIds, setParticipatingIds] = useState([]); // Track joined events
     const [activeFilter, setActiveFilter] = useState('Upcoming');
@@ -187,12 +202,24 @@ export default function UserFeed() {
     const [debouncedQuery, setDebouncedQuery] = useState(''); // filtering — 300ms debounced
     const debounceTimer = useRef(null);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const lastVisibleRef = useRef(null);
     const [refreshing, setRefreshing] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [currentFeedbackRequest, setCurrentFeedbackRequest] = useState(null);
     const scrollY = useRef(new Animated.Value(0)).current;
 
+    const [followingIds, setFollowingIds] = useState([]);
+    const [friendsEvents, setFriendsEvents] = useState([]);
+
     const isFocused = useIsFocused();
+
+    const numColumns = useMemo(() => {
+        if (width >= 1024) return 3;
+        if (width >= 768) return 2;
+        return 1;
+    }, [width]);
 
     //  debounce effect
     // Debounce effect — 300ms delay before dispatching query to filter (#304)
@@ -218,6 +245,8 @@ export default function UserFeed() {
         };
         loadHistory();
     }, []);
+
+    const participatingIDSet = useMemo(() => new Set(participatingIds), [participatingIds]);
 
     const updateHistory = useCallback(query => {
         if (!query) return;
@@ -259,6 +288,72 @@ export default function UserFeed() {
         return unsub;
     }, [user, isFocused]);
 
+    // Fetch Following IDs
+    useEffect(() => {
+        if (!user || !isFocused) return;
+        const q = collection(db, 'users', user.uid, 'following');
+        const unsub = onSnapshot(q, snapshot => {
+            setFollowingIds(snapshot.docs.map(d => d.id));
+        });
+        return unsub;
+    }, [user, isFocused]);
+
+    // Fetch Friends' Events
+    useEffect(() => {
+        const fetchFriendsEvents = async () => {
+            if (followingIds.length === 0) {
+                setFriendsEvents([]);
+                return;
+            }
+
+            try {
+                const topFriends = followingIds.slice(0, 10);
+                const q = query(
+                    collectionGroup(db, 'participants'),
+                    where('userId', 'in', topFriends),
+                );
+                const snapshot = await getDocs(q);
+
+                const eventIds = new Set();
+                snapshot.docs.forEach(doc => {
+                    const eventId = doc.ref.parent?.parent?.id;
+                    if (eventId) eventIds.add(eventId);
+                });
+
+                if (eventIds.size === 0) {
+                    setFriendsEvents([]);
+
+                    return;
+                }
+
+                const fetchIds = Array.from(eventIds).slice(0, 10);
+                // Cannot query __name__ in with more than 10, so sliced to 10
+                const qEvents = query(collection(db, 'events'), where('__name__', 'in', fetchIds));
+                const evSnap = await getDocs(qEvents);
+
+                const now = new Date();
+                const fetchedEvents = [];
+                evSnap.docs.forEach(doc => {
+                    const data = doc.data();
+                    if (data.status === 'suspended' || data.deletedAt != null) return;
+
+                    const end = data.endAt
+                        ? new Date(data.endAt)
+                        : new Date(new Date(data.startAt).getTime() + 24 * 60 * 60 * 1000);
+                    if (end >= now) {
+                        fetchedEvents.push({ id: doc.id, ...data });
+                    }
+                });
+
+                fetchedEvents.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
+                setFriendsEvents(fetchedEvents);
+            } catch (e) {
+                console.error('Error fetching friends events:', e);
+            }
+        };
+        fetchFriendsEvents();
+    }, [followingIds]);
+
     // Listen for pending feedback requests
     useEffect(() => {
         if (!user || !isFocused) return;
@@ -288,37 +383,67 @@ export default function UserFeed() {
         return () => unsubscribe();
     }, [user, isFocused]);
 
-    useEffect(() => {
+    const fetchEventsPage = useCallback(async cursorDoc => {
+        const constraints = [orderBy('startAt', 'desc')];
+        if (cursorDoc) {
+            constraints.push(startAfter(cursorDoc));
+        }
+        constraints.push(limit(PAGE_SIZE + 1));
+        const eventsQuery = query(collection(db, 'events'), ...constraints);
+        const snapshot = await getDocs(eventsQuery);
+        const docs = snapshot.docs;
+        const hasNextPage = docs.length > PAGE_SIZE;
+        const pageDocs = hasNextPage ? docs.slice(0, PAGE_SIZE) : docs;
+        const list = [];
+        pageDocs.forEach(doc => {
+            const data = doc.data();
+            if (data.status === 'suspended') return;
+            if (data.deletedAt != null) return;
+            list.push({ id: doc.id, ...data });
+        });
+        const lastDoc = pageDocs.length > 0 ? pageDocs[pageDocs.length - 1] : null;
+        return { list, lastDoc: lastDoc || null, hasNextPage };
+    }, []);
+
+    const loadInitialEvents = useCallback(async () => {
         if (!user || !isFocused) {
             setLoading(false);
             return;
         }
+        setLoading(true);
+        try {
+            const { list, lastDoc, hasNextPage } = await fetchEventsPage(null);
+            setEvents(list);
+            lastVisibleRef.current = lastDoc;
+            setHasMore(hasNextPage);
+        } catch (error) {
+            console.log('Event Fetch Error', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [user, isFocused, fetchEventsPage]);
 
-        // Fetching events. ideally separate query.
-        const eventsQuery = query(collection(db, 'events'));
+    const loadMore = useCallback(async () => {
+        if (loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            const { list, lastDoc, hasNextPage } = await fetchEventsPage(lastVisibleRef.current);
+            setEvents(prev => [...prev, ...list]);
+            lastVisibleRef.current = lastDoc;
+            setHasMore(hasNextPage);
+        } catch (error) {
+            console.log('Load More Error', error);
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [loadingMore, hasMore, fetchEventsPage]);
 
-        const unsubscribe = onSnapshot(
-            eventsQuery,
-            snapshot => {
-                const list = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.status === 'suspended') return;
-                    if (data.deletedAt != null) return;
-                    list.push({ id: doc.id, ...data });
-                });
-                setEvents(list);
-                setLoading(false);
-                setRefreshing(false);
-            },
-            error => console.log('Event Listener Error', error),
-        );
-
-        return () => unsubscribe();
-    }, [role, user, isFocused]);
+    useEffect(() => {
+        loadInitialEvents();
+    }, [loadInitialEvents]);
 
     // Recommendation Logic: Views + User History + Freshness
-    const getRecommendedEvents = () => {
+    const getRecommendedEvents = useMemo(() => {
         const now = new Date();
         const upcomingEvents = events.filter(e => new Date(e.startAt) >= now);
 
@@ -327,7 +452,7 @@ export default function UserFeed() {
         // 1. Analyze User History (Favorite Categories)
         const categoryCounts = {};
         events
-            .filter(e => participatingIds.includes(e.id))
+            .filter(e => participatingIDSet.has(e.id))
             .forEach(e => {
                 if (e.category) {
                     categoryCounts[e.category] = (categoryCounts[e.category] || 0) + 1;
@@ -367,7 +492,11 @@ export default function UserFeed() {
 
         // 3. Sort by Score Descending
         return scoredEvents.sort((a, b) => b.score - a.score).slice(0, 3);
-    };
+    }, [events, participatingIDSet]);
+
+    const recommendedIds = useMemo(() => {
+        return new Set(getRecommendedEvents.map(e => e.id));
+    }, [getRecommendedEvents]);
 
     const getFilteredEvents = () => {
         const now = new Date();
@@ -446,27 +575,29 @@ export default function UserFeed() {
 
     const displayList = getFilteredEvents();
 
+    const groupedData = useMemo(() => {
+        const rows = [];
+        for (let i = 0; i < displayList.length; i += numColumns) {
+            rows.push(displayList.slice(i, i + numColumns));
+        }
+        return rows;
+    }, [displayList, numColumns]);
+
     const onRefresh = useCallback(async () => {
         if (!user) return;
         setRefreshing(true);
         try {
-            const refreshEventsQuery = query(collection(db, 'events'));
-            const snapshot = await getDocs(refreshEventsQuery);
-            const list = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                if (data.status === 'suspended') return;
-                if (data.deletedAt != null) return;
-                list.push({ id: doc.id, ...data });
-            });
+            const { list, lastDoc, hasNextPage } = await fetchEventsPage(null);
             setEvents(list);
+            lastVisibleRef.current = lastDoc;
+            setHasMore(hasNextPage);
         } catch (error) {
             console.error('Refresh error:', error);
             Alert.alert('Error', 'Failed to refresh events.');
         } finally {
             setRefreshing(false);
         }
-    }, [user]);
+    }, [user, fetchEventsPage]);
 
     const [pullDistance, setPullDistance] = useState(0);
     const lastPullRef = useRef(0);
@@ -485,23 +616,32 @@ export default function UserFeed() {
         }
     }, [refreshing, onRefresh]);
 
-    const renderEvent = ({ item }) => (
-        <View style={{ paddingHorizontal: 20 }}>
-            <EventCard
-                event={item}
-                isRegistered={participatingIds.includes(item.id)}
-                onLike={() => {}}
-                onShare={async () => {
-                    try {
-                        await Share.share({
-                            message: `Check out this event: ${item.title} at ${item.location}!`,
-                        });
-                    } catch (e) {
-                        console.error('Share Error:', e);
-                        Alert.alert('Error', 'Failed to share the event.');
-                    }
-                }}
-            />
+    const renderEvent = ({ item: rowItems }) => (
+        <View style={styles.rowContainer}>
+            {rowItems.map(item => (
+                <View key={item.id} style={[styles.columnWrapper, { flex: 1 }]}>
+                    <EventCard
+                        event={item}
+                        isRegistered={participatingIDSet.has(item.id)}
+                        isRecommended={recommendedIds.has(item.id)}
+                        onLike={() => {}}
+                        onShare={async () => {
+                            try {
+                                await Share.share({
+                                    message: `Check out this event: ${item.title} at ${item.location}!`,
+                                });
+                            } catch (e) {
+                                console.error('Share Error:', e);
+                                Alert.alert('Error', 'Failed to share the event.');
+                            }
+                        }}
+                    />
+                </View>
+            ))}
+            {rowItems.length < numColumns &&
+                Array.from({ length: numColumns - rowItems.length }).map((_, i) => (
+                    <View key={`empty-${i}`} style={[styles.columnWrapper, { flex: 1 }]} />
+                ))}
         </View>
     );
 
@@ -513,32 +653,23 @@ export default function UserFeed() {
 
     const renderHeader = () => (
         <Animated.View style={{ transform: [{ translateY: headerTranslateY }] }}>
-            {/* Recommendations Rail */}
-            <View style={{ marginBottom: 20 }}>
-                <Text style={styles.sectionTitle}>RECOMMENDED FOR YOU</Text>
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: 20 }}
-                >
-                    {getRecommendedEvents().map(event => (
-                        <View key={event.id} style={{ width: 320, marginRight: 15 }}>
-                            <EventCard event={event} isRecommended={true} />
-                        </View>
-                    ))}
-                    {getRecommendedEvents().length === 0 && (
-                        <Text
-                            style={{
-                                color: theme.colors.textSecondary,
-                                fontStyle: 'italic',
-                                marginHorizontal: 20,
-                            }}
-                        >
-                            No recommendations yet.
-                        </Text>
-                    )}
-                </ScrollView>
-            </View>
+            {/* Friends Events Rail */}
+            {friendsEvents.length > 0 && (
+                <View style={{ marginBottom: 20 }}>
+                    <Text style={styles.sectionTitle}>YOUR FRIENDS ARE GOING</Text>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ paddingHorizontal: 20 }}
+                    >
+                        {friendsEvents.map(event => (
+                            <View key={event.id} style={{ width: 320, marginRight: 15 }}>
+                                <EventCard event={event} isRecommended={false} />
+                            </View>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
         </Animated.View>
     );
 
@@ -581,8 +712,8 @@ export default function UserFeed() {
                 </View>
             ) : (
                 <Animated.SectionList
-                    sections={[{ data: displayList }]}
-                    keyExtractor={item => item.id}
+                    sections={[{ data: groupedData }]}
+                    keyExtractor={row => row.map(e => e.id).join('-')}
                     renderItem={renderEvent}
                     renderSectionHeader={renderStickyHeader}
                     ListHeaderComponent={renderHeader}
@@ -606,6 +737,23 @@ export default function UserFeed() {
                                     : 'No events found.'}
                             </Text>
                         </View>
+                    }
+                    ListFooterComponent={
+                        hasMore && events.length > 0 ? (
+                            <TouchableOpacity
+                                style={styles.loadMoreBtn}
+                                onPress={loadMore}
+                                disabled={loadingMore}
+                            >
+                                {loadingMore ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.loadMoreText}>Load More</Text>
+                                )}
+                            </TouchableOpacity>
+                        ) : events.length > 0 ? (
+                            <Text style={styles.endText}>You&apos;ve reached the end</Text>
+                        ) : null
                     }
                 />
             )}
@@ -640,6 +788,14 @@ export default function UserFeed() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
+    rowContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: 10,
+        width: '100%',
+    },
+    columnWrapper: {
+        paddingHorizontal: 10,
+    },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -712,4 +868,20 @@ const styles = StyleSheet.create({
     },
     emptyContainer: { alignItems: 'center', marginTop: 50, padding: 20 },
     emptyText: { marginTop: 10, fontSize: 16 },
+    loadMoreBtn: {
+        backgroundColor: '#6C63FF',
+        paddingVertical: 14,
+        paddingHorizontal: 40,
+        borderRadius: 25,
+        alignSelf: 'center',
+        marginVertical: 20,
+    },
+    loadMoreText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    endText: {
+        textAlign: 'center',
+        marginVertical: 20,
+        fontSize: 13,
+        opacity: 0.5,
+        color: '#fff',
+    },
 });

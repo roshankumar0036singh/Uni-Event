@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated from 'react-native-reanimated';
 import {
     addDoc,
     collection,
@@ -21,7 +22,6 @@ import {
     ActivityIndicator,
     Alert,
     Dimensions,
-    ImageBackground,
     Linking,
     Platform,
     ScrollView,
@@ -55,6 +55,7 @@ import { predictAttendance } from '../lib/capacityPredictor';
 import PropTypes from 'prop-types';
 import logger from '../lib/logger';
 import { BASE_URL } from '../lib/config';
+import { publicProfileRef } from '../lib/publicProfile';
 
 // Constants to eliminate SonarQube Magic Numbers
 const RSVP_POINTS_CHANGE = 10;
@@ -169,7 +170,7 @@ export default function EventDetail({ route, navigation }) {
 
     useEffect(() => {
         if (event?.ownerId) {
-            getDoc(doc(db, 'users', event.ownerId))
+            getDoc(doc(db, 'publicUsers', event.ownerId))
                 .then(snap => {
                     if (snap.exists()) {
                         const userData = snap.data();
@@ -484,6 +485,7 @@ export default function EventDetail({ route, navigation }) {
         const ref = doc(db, 'events', eventId, 'participants', user.uid);
         const userRef = doc(db, 'users', user.uid, 'participating', eventId);
         const userProfileRef = doc(db, 'users', user.uid);
+        const userPublicProfileRef = publicProfileRef(db, user.uid);
         const eventRef = doc(db, 'events', eventId);
 
         try {
@@ -524,6 +526,11 @@ export default function EventDetail({ route, navigation }) {
                     transaction.delete(ref);
                     transaction.delete(userRef);
                     transaction.update(userProfileRef, { points: increment(-RSVP_POINTS_CHANGE) });
+                    transaction.set(
+                        userPublicProfileRef,
+                        { points: increment(-RSVP_POINTS_CHANGE) },
+                        { merge: true },
+                    );
                     transaction.update(eventRef, eventUpdates);
                 } else {
                     const participantPayload = {
@@ -548,6 +555,11 @@ export default function EventDetail({ route, navigation }) {
                         userUpdate.badges = arrayUnion(`early_bird_${eventId}`);
                     }
                     transaction.update(userProfileRef, userUpdate);
+                    transaction.set(
+                        userPublicProfileRef,
+                        { points: increment(RSVP_POINTS_CHANGE) },
+                        { merge: true },
+                    );
 
                     const nextPreview = buildPreviewUpdate({
                         eventData,
@@ -1416,14 +1428,17 @@ export default function EventDetail({ route, navigation }) {
             )}
             <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
                 {/* Immersive Header Image */}
-                <ImageBackground
-                    source={{
-                        uri:
-                            event.bannerUrl ||
-                            'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image',
-                    }}
-                    style={styles.headerImage}
-                >
+                <View style={styles.headerImage}>
+                    <Animated.Image
+                        source={{
+                            uri:
+                                event.bannerUrl ||
+                                'https://dummyimage.com/800x600/cccccc/000000.png&text=No+Image',
+                        }}
+                        style={StyleSheet.absoluteFillObject}
+                        resizeMode="cover"
+                        sharedTransitionTag={`event-image-${event.id}`}
+                    />
                     <LinearGradient
                         colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.8)']}
                         style={styles.headerGradient}
@@ -1471,7 +1486,7 @@ export default function EventDetail({ route, navigation }) {
                                 </View>
                             )}
                     </LinearGradient>
-                </ImageBackground>
+                </View>
 
                 {/* Content Sheet */}
                 <View style={styles.contentSheet}>

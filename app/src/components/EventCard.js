@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated from 'react-native-reanimated';
 import {
     doc,
     getDoc,
@@ -33,26 +34,31 @@ import { triggerBuddyMatchNotification } from '../lib/notificationService';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import PropTypes from 'prop-types';
 
-// Module-level profile cache registry
-// profileCache: resolved data keyed by ownerId
-// profileRequestCache: in-flight promises to prevent duplicate concurrent reads
 const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
 const profileCache = new Map();
 const profileRequestCache = new Map();
 
-/**
- * formatMetric — adaptive pluralization helper for metric badges (Issue #308)
- * Returns a grammatically correct string for any numeric metric.
- *
- * @param {number|undefined|null} value  - Raw numeric value from the database
- * @param {string} singular              - Singular label, e.g. "View"
- * @param {string} plural                - Plural label,   e.g. "Views"
- * @returns {string}                     - e.g. "1 View", "0 Views", "42 Views"
- */
 const formatMetric = (value, singular, plural) => {
     const count = value ?? 0;
     return `${count} ${count === 1 ? singular : plural}`;
 };
+
+// Custom comparison: only re-render if relevant props change
+function arePropsEqual(prevProps, nextProps) {
+    return (
+        prevProps.event?.id === nextProps.event?.id &&
+        prevProps.event?.title === nextProps.event?.title &&
+        prevProps.event?.location === nextProps.event?.location &&
+        prevProps.event?.startAt === nextProps.event?.startAt &&
+        prevProps.event?.isPaid === nextProps.event?.isPaid &&
+        prevProps.event?.status === nextProps.event?.status &&
+        prevProps.isRegistered === nextProps.isRegistered &&
+        prevProps.isLiked === nextProps.isLiked &&
+        prevProps.isRecommended === nextProps.isRecommended &&
+        prevProps.showRegisterButton === nextProps.showRegisterButton &&
+        prevProps.style === nextProps.style
+    );
+}
 
 const EventCard = memo(
     ({
@@ -132,10 +138,8 @@ const EventCard = memo(
         useEffect(() => {
             if (!event?.ownerId) return;
 
-            // Reset immediately to prevent stale FlashList cells showing previous host
             setHostName(event?.organization || 'Club Name');
 
-            // Cache hit: apply memoized data and short-circuit, no network call
             const cachedProfile = profileCache.get(event.ownerId);
             if (cachedProfile && Date.now() - cachedProfile.cachedAt < PROFILE_CACHE_TTL_MS) {
                 setHostName(cachedProfile.data.displayName || event.organization || 'Club Name');
@@ -148,10 +152,11 @@ const EventCard = memo(
 
             let cancelled = false;
 
-            // In-flight cache: reuse existing promise if another card already fired
-            // getDoc for this ownerId, preventing duplicate concurrent Firestore reads
             if (!profileRequestCache.has(event.ownerId)) {
-                profileRequestCache.set(event.ownerId, getDoc(doc(db, 'users', event.ownerId)));
+                profileRequestCache.set(
+                    event.ownerId,
+                    getDoc(doc(db, 'publicUsers', event.ownerId)),
+                );
             }
 
             profileRequestCache
@@ -381,7 +386,7 @@ const EventCard = memo(
                             ]}
                         />
                     )}
-                    <Image
+                    <Animated.Image
                         source={{
                             uri:
                                 event.bannerUrl ||
@@ -390,6 +395,7 @@ const EventCard = memo(
                         style={[styles.bannerImage, isRecommended && { height: 140 }]}
                         resizeMode="cover"
                         onLoadEnd={() => setBannerLoaded(true)}
+                        sharedTransitionTag={`event-image-${event.id}`}
                     />
                     <LinearGradient
                         colors={['transparent', 'rgba(0,0,0,0.4)']}
@@ -488,6 +494,7 @@ const EventCard = memo(
             </TouchableOpacity>
         );
     },
+    arePropsEqual,
 );
 
 const styles = StyleSheet.create({

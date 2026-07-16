@@ -13,6 +13,7 @@ import { Platform, Alert } from 'react-native';
 import { auth, db } from './firebaseConfig';
 import PropTypes from 'prop-types';
 import { getUserLevel, getUserLevelProgress } from './userLevels';
+import { upsertPublicProfile } from './publicProfile';
 
 const AuthContext = createContext({});
 
@@ -68,38 +69,98 @@ export const AuthProvider = ({ children }) => {
         loadSavedAccounts(); // Load accounts on mount
         const unsubscribe = onAuthStateChanged(auth, async currentUser => {
             setLoading(true);
-            if (currentUser) {
-                let userRole = 'student';
-                let dbData = {};
-
-                // 1. Check Custom Claims (Preferred)
-                const tokenResult = await currentUser
-                    .getIdTokenResult()
-                    .catch(() => ({ claims: {} }));
-                if (tokenResult.claims.admin) userRole = 'admin';
-                else if (tokenResult.claims.club) userRole = 'club';
-
-                // 2. Fallback: Check Firestore Document
-                try {
-                    const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-                    if (userDoc.exists()) {
-                        dbData = userDoc.data();
-                        if (dbData.role === 'admin' || dbData.role === 'club') {
-                            userRole = dbData.role;
-                        }
-                    }
-                } catch (e) {
-                    logger.debug('Error fetching user role from db', e);
-                }
-
-                setRole(userRole);
-                setUser(currentUser);
-                setUserData(dbData); // Store profile data separately
-            } else {
+            if (!currentUser) {
                 setUser(null);
                 setUserData(null);
                 setRole('student');
+                setLoading(false);
+                return;
             }
+
+            let userRole = 'student';
+            let dbData = {};
+
+            // 1. Check Custom Claims and handle Emulator Token Refresh Errors
+            try {
+                const tokenResult = await currentUser.getIdTokenResult(true);
+                if (tokenResult.claims.admin) userRole = 'admin';
+                else if (tokenResult.claims.club) userRole = 'club';
+            } catch (authErr) {
+                logger.debug(
+                    'Token refresh failed: ' + (authErr?.message || 'Unknown error'),
+                    authErr,
+                );
+
+                if (authErr?.code === 'auth/network-request-failed') {
+                    logger.debug('Network error during token refresh. Continuing to fallback...');
+                } else if (
+                    authErr?.message?.includes('400') ||
+                    authErr?.code === 'auth/user-not-found' ||
+                    authErr?.code === 'auth/user-token-expired'
+                ) {
+                    logger.debug('Attempting auto-recovery for token refresh error...');
+                    try {
+                        const json = await getItemAsync('saved_accounts');
+                        const currentAccounts = json ? JSON.parse(json) : [];
+                        const account = currentAccounts.find(a => a.email === currentUser.email);
+
+                        if (account && account.password) {
+                            await signInWithEmailAndPassword(auth, account.email, account.password);
+                            logger.debug('Auto-recovery successful for: ' + account.email);
+                            return; // onAuthStateChanged will fire again
+                        } else {
+                            throw new Error('No saved password for auto-recovery');
+                        }
+                    } catch (recoveryErr) {
+                        if (recoveryErr?.code === 'auth/network-request-failed') {
+                            logger.debug(
+                                'Network error during auto-recovery. Continuing to fallback...',
+                            );
+                        } else {
+                            logger.debug(
+                                'Auto-recovery failed, signing out: ' +
+                                    (recoveryErr?.message || 'Unknown error'),
+                                recoveryErr,
+                            );
+                            await firebaseSignOut(auth);
+                            setUser(null);
+                            setUserData(null);
+                            setRole('student');
+                            setLoading(false);
+                            return;
+                        }
+                    }
+                } else {
+                    logger.debug(
+                        'Unknown token refresh error, signing out: ' +
+                            (authErr?.message || 'Unknown error'),
+                        authErr,
+                    );
+                    await firebaseSignOut(auth);
+                    setUser(null);
+                    setUserData(null);
+                    setRole('student');
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            // 2. Fallback: Check Firestore Document
+            try {
+                const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+                if (userDoc.exists()) {
+                    dbData = userDoc.data();
+                    if (dbData.role === 'admin' || dbData.role === 'club') {
+                        userRole = dbData.role;
+                    }
+                }
+            } catch (dbErr) {
+                logger.debug('Error fetching user role from db', dbErr);
+            }
+
+            setRole(userRole);
+            setUser(currentUser);
+            setUserData(dbData); // Store profile data separately
             setLoading(false);
         });
 
@@ -109,7 +170,7 @@ export const AuthProvider = ({ children }) => {
                 delete globalThis.setMockUser;
             }
         };
-    }, [loadSavedAccounts]);
+    }, [loadSavedAccounts, getItemAsync]);
 
     // Unified DRY saving logic that safely stores password on Mobile (SecureStore)
     // and omits it on Web (AsyncStorage) to mitigate plaintext password leaks
@@ -211,8 +272,7 @@ export const AuthProvider = ({ children }) => {
             const result = await createUserWithEmailAndPassword(auth, email, password);
             const { user } = result;
 
-            // Create user document
-            await setDoc(doc(db, 'users', user.uid), {
+            const userProfile = {
                 email: user.email,
                 role: 'student', // Default role
                 points: 0,
@@ -221,7 +281,11 @@ export const AuthProvider = ({ children }) => {
                 longestStreak: 0,
                 lastAttendanceAt: null,
                 ...additionalData,
-            });
+            };
+
+            // Create private and public profile documents.
+            await setDoc(doc(db, 'users', user.uid), userProfile);
+            await upsertPublicProfile(db, user.uid, userProfile);
 
             await saveAccount(user, 'password', password); // Auto-save with password
             return result;

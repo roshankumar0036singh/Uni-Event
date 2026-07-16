@@ -56,7 +56,7 @@ exports.checkReminders = functions.pubsub.schedule('every 1 minutes').onRun(asyn
     const batch = db.batch();
     const messages = [];
     // We need to fetch user tokens
-    // To handle many reminders, we might need efficient querying, but loop is fine for now 
+    // To handle many reminders, we might need efficient querying, but loop is fine for now
     for (const docSnapshot of snapshot.docs) {
         const data = docSnapshot.data();
         const userId = data.userId;
@@ -67,7 +67,7 @@ exports.checkReminders = functions.pubsub.schedule('every 1 minutes').onRun(asyn
             body: `Your event is starting soon!`,
             eventId: data.eventId,
             createdAt: firestore_1.FieldValue.serverTimestamp(),
-            read: false
+            read: false,
         });
         // 2. Prepare Push Notification
         const userDoc = await db.collection('users').doc(userId).get();

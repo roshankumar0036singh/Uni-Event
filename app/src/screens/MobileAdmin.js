@@ -11,11 +11,13 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { db } from '../lib/firebaseConfig';
 import { formatEventDate } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
+import { upsertPublicProfile } from '../lib/publicProfile';
 
 export default function MobileAdmin() {
     const { theme } = useTheme();
@@ -129,7 +131,10 @@ export default function MobileAdmin() {
     const handleApproveClub = async (reqId, ownerId) => {
         try {
             await updateDoc(doc(db, 'clubs', reqId), { approvalStatus: 'approved' });
-            if (ownerId) await updateDoc(doc(db, 'users', ownerId), { role: 'club' });
+            if (ownerId) {
+                await updateDoc(doc(db, 'users', ownerId), { role: 'club', isVerified: true });
+                await upsertPublicProfile(db, ownerId, { role: 'club', isVerified: true });
+            }
             Alert.alert('Approved', 'Club approved and user promoted.');
             fetchData();
         } catch (e) {
@@ -338,7 +343,7 @@ export default function MobileAdmin() {
                 animationType="fade"
                 onRequestClose={() => setSuspendModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
+                <BlurView intensity={60} tint="dark" style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Suspend Event</Text>
                         <Text style={styles.modalSubtitle}>
@@ -369,7 +374,7 @@ export default function MobileAdmin() {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </View>
+                </BlurView>
             </Modal>
         </ScreenWrapper>
     );
@@ -476,7 +481,6 @@ const getStyles = theme =>
         // Modal Styles
         modalOverlay: {
             flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.7)',
             justifyContent: 'center',
             alignItems: 'center',
             padding: 20,

@@ -4,6 +4,7 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     StyleSheet,
     Text,
@@ -14,6 +15,7 @@ import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { formatEventDate } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
+import useShakeGesture from '../hooks/useShakeGesture';
 import PropTypes from 'prop-types';
 
 export default function WalletScreen({ navigation }) {
@@ -21,6 +23,20 @@ export default function WalletScreen({ navigation }) {
     const { theme } = useTheme();
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    useShakeGesture(() => {
+        if (loading) return;
+
+        if (!tickets.length) {
+            Alert.alert('No Tickets', 'You do not have any tickets yet.');
+            return;
+        }
+
+        navigation.navigate('TicketScreen', {
+            ticketId: tickets[0].id,
+            ticketData: tickets[0],
+        });
+    });
 
     useEffect(() => {
         if (!user) return;

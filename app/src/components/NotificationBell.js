@@ -1,6 +1,7 @@
 import { collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
@@ -62,7 +63,7 @@ export default function NotificationBell() {
             </TouchableOpacity>
 
             <Modal visible={showModal} animationType="slide" transparent>
-                <View style={styles.modalOverlay}>
+                <BlurView intensity={60} tint="dark" style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Notifications</Text>
@@ -93,7 +94,7 @@ export default function NotificationBell() {
                             }
                         />
                     </View>
-                </View>
+                </BlurView>
             </Modal>
         </>
     );
@@ -126,7 +127,6 @@ const getStyles = (theme, isDarkMode) =>
         },
         modalOverlay: {
             flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
             justifyContent: 'flex-end',
         },
         modalContent: {

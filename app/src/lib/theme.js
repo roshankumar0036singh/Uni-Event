@@ -137,3 +137,15 @@ export const darkTheme = {
 
 // Default export
 export const theme = lightTheme;
+
+export const clubThemeColors = [
+    '#FFB74D', // default orange
+    '#E53935', // red
+    '#D81B60', // pink
+    '#8E24AA', // purple
+    '#3949AB', // indigo
+    '#1E88E5', // blue
+    '#00ACC1', // cyan
+    '#43A047', // green
+    '#FDD835', // yellow
+];

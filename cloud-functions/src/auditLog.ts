@@ -5,12 +5,10 @@ import { FieldValue } from 'firebase-admin/firestore';
 /**
  * Determines the action type from before/after existence.
  */
-function getAction(
-    beforeExists: boolean, afterExists: boolean,
-): 'create' | 'update' | 'delete' {
-  if (!beforeExists && afterExists) return 'create';
-  if (beforeExists && !afterExists) return 'delete';
-  return 'update';
+function getAction(beforeExists: boolean, afterExists: boolean): 'create' | 'update' | 'delete' {
+    if (!beforeExists && afterExists) return 'create';
+    if (beforeExists && !afterExists) return 'delete';
+    return 'update';
 }
 
 /**
@@ -21,16 +19,16 @@ function getUserId(
     beforeData: admin.firestore.DocumentData | undefined,
     afterData: admin.firestore.DocumentData | undefined,
 ): string | null {
-  if (action === 'create' && afterData) {
-    return afterData.createdBy || afterData.updatedBy || null;
-  }
-  if (action === 'update' && afterData) {
-    return afterData.updatedBy || afterData.createdBy || null;
-  }
-  if (action === 'delete' && beforeData) {
-    return beforeData.updatedBy || beforeData.createdBy || null;
-  }
-  return null;
+    if (action === 'create' && afterData) {
+        return afterData.createdBy || afterData.updatedBy || null;
+    }
+    if (action === 'update' && afterData) {
+        return afterData.updatedBy || afterData.createdBy || null;
+    }
+    if (action === 'delete' && beforeData) {
+        return beforeData.updatedBy || beforeData.createdBy || null;
+    }
+    return null;
 }
 
 /**
@@ -43,35 +41,35 @@ function getUserId(
 export const auditLog = functions.firestore
     .document('{collectionId}/{docId}')
     .onWrite(async (change, context) => {
-      const collection = context.params.collectionId;
+        const collection = context.params.collectionId;
 
-      // Prevent self-triggering recursion
-      if (collection === 'auditLog') {
-        return;
-      }
+        // Prevent self-triggering recursion
+        if (collection === 'auditLog') {
+            return;
+        }
 
-      const beforeExists = change.before?.exists ?? false;
-      const afterExists = change.after?.exists ?? false;
+        const beforeExists = change.before?.exists ?? false;
+        const afterExists = change.after?.exists ?? false;
 
-      const beforeData = beforeExists ? change.before.data() : undefined;
-      const afterData = afterExists ? change.after.data() : undefined;
+        const beforeData = beforeExists ? change.before.data() : undefined;
+        const afterData = afterExists ? change.after.data() : undefined;
 
-      const action = getAction(beforeExists, afterExists);
-      const userId = getUserId(action, beforeData, afterData);
+        const action = getAction(beforeExists, afterExists);
+        const userId = getUserId(action, beforeData, afterData);
 
-      const logEntry = {
-        timestamp: FieldValue.serverTimestamp(),
-        userId,
-        action,
-        collection,
-        documentId: context.params.docId,
-        before: beforeData || null,
-        after: afterData || null,
-      };
+        const logEntry = {
+            timestamp: FieldValue.serverTimestamp(),
+            userId,
+            action,
+            collection,
+            documentId: context.params.docId,
+            before: beforeData || null,
+            after: afterData || null,
+        };
 
-      try {
-        await admin.firestore().collection('auditLog').add(logEntry);
-      } catch (error) {
-        console.error('Failed to write audit log entry:', error);
-      }
+        try {
+            await admin.firestore().collection('auditLog').add(logEntry);
+        } catch (error) {
+            console.error('Failed to write audit log entry:', error);
+        }
     });

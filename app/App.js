@@ -1,11 +1,11 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, Suspense, lazy } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native';
 import PropTypes from 'prop-types';
 
 import 'react-native-gesture-handler';
@@ -62,7 +62,7 @@ LazyScreenFallback.propTypes = {
     color: PropTypes.string.isRequired,
 };
 
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function HomeScreen({ navigation }) {
@@ -186,6 +186,13 @@ function TabNavigator() {
 
 const linking = {
     prefixes: [BASE_URL, 'unievent://', 'http://localhost:19006'],
+    async getInitialURL() {
+        const url = await Linking.getInitialURL();
+        if (url != null) {
+            return url;
+        }
+        return null;
+    },
     config: {
         screens: {
             Main: {

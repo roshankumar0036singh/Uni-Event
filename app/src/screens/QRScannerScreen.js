@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Camera } from 'expo-camera';
+import { Camera, CameraView } from 'expo-camera';
 import { doc, getDoc } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
+    AppState,
     Dimensions,
+    Linking,
     Platform,
     StyleSheet,
     Text,
@@ -56,16 +59,12 @@ const parseScannedTicket = (data, eventId) => {
     };
 };
 
-const getScannedUserData = async (scannedUserId, hasTicketId) => {
-    const userRef = doc(db, 'users', scannedUserId);
+const getScannedUserData = async (scannedUserId, eventId) => {
+    const userRef = doc(db, 'events', eventId, 'participants', scannedUserId);
     const userSnap = await getDoc(userRef);
 
     if (userSnap.exists()) {
         return { userData: userSnap.data() || {} };
-    }
-
-    if (hasTicketId) {
-        return { errorMessage: 'Invalid User QR Code' };
     }
 
     return { userData: {} };
@@ -95,16 +94,79 @@ export default function QRScannerScreen({ navigation, route }) {
     const [scanned, setScanned] = useState(false);
     const [scanResult, setScanResult] = useState(null); // { status: 'success' | 'error', message: '' }
     const [copied, setCopied] = useState(false);
-    useEffect(() => {
-        if (Platform.OS !== 'web') {
-            (async () => {
-                const { status } = await Camera.requestCameraPermissionsAsync();
-                setHasPermission(status === 'granted');
-            })();
-        } else {
+    const [canAskPermissionAgain, setCanAskPermissionAgain] = useState(true);
+    const [permissionError, setPermissionError] = useState(false);
+    const copyTimeoutRef = useRef(null);
+    const permissionRequestRef = useRef(false);
+    const isMountedRef = useRef(true);
+    const appStateRef = useRef(AppState.currentState);
+
+    const requestCameraPermission = useCallback(async () => {
+        if (permissionRequestRef.current) return;
+
+        if (Platform.OS === 'web') {
             setHasPermission(true); // Web handles permission via browser prompt
+            return;
+        }
+
+        permissionRequestRef.current = true;
+        setHasPermission(null);
+        setPermissionError(false);
+
+        try {
+            const permission = await Camera.requestCameraPermissionsAsync();
+            if (!isMountedRef.current) return;
+
+            setHasPermission(permission.granted ?? permission.status === 'granted');
+            setCanAskPermissionAgain(permission.canAskAgain !== false);
+        } catch (error) {
+            console.error('Camera permission request failed:', error);
+            if (!isMountedRef.current) return;
+
+            setHasPermission(false);
+            setPermissionError(true);
+        } finally {
+            permissionRequestRef.current = false;
         }
     }, []);
+
+    const refreshCameraPermission = useCallback(async () => {
+        if (Platform.OS === 'web') return;
+
+        try {
+            const permission = await Camera.getCameraPermissionsAsync();
+            if (!isMountedRef.current) return;
+
+            setHasPermission(permission.granted ?? permission.status === 'granted');
+            setCanAskPermissionAgain(permission.canAskAgain !== false);
+            setPermissionError(false);
+        } catch (error) {
+            console.error('Unable to refresh camera permission:', error);
+        }
+    }, []);
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        requestCameraPermission();
+
+        const appStateSubscription = AppState.addEventListener('change', nextAppState => {
+            const returningToApp =
+                /inactive|background/.test(appStateRef.current) && nextAppState === 'active';
+
+            appStateRef.current = nextAppState;
+            if (returningToApp) {
+                refreshCameraPermission();
+            }
+        });
+
+        return () => {
+            isMountedRef.current = false;
+            appStateSubscription.remove();
+            if (copyTimeoutRef.current) {
+                clearTimeout(copyTimeoutRef.current);
+            }
+        };
+    }, [refreshCameraPermission, requestCameraPermission]);
 
     const handleOfflineCheckIn = async (eventId, scannedUserId, ticketData, userData) => {
         const queued = await queueOfflineCheckIn(eventId, {
@@ -150,7 +212,7 @@ export default function QRScannerScreen({ navigation, route }) {
 
             let userData = {};
             try {
-                const userLookup = await getScannedUserData(scannedUserId, hasTicketId);
+                const userLookup = await getScannedUserData(scannedUserId, eventId);
 
                 if (userLookup.errorMessage) {
                     setScanResult({ status: 'error', message: userLookup.errorMessage });
@@ -216,9 +278,14 @@ export default function QRScannerScreen({ navigation, route }) {
         }
         try {
             await Clipboard.setStringAsync(eventUrl);
+
+            if (copyTimeoutRef.current) {
+                clearTimeout(copyTimeoutRef.current);
+            }
+
             setCopied(true);
 
-            setTimeout(() => {
+            copyTimeoutRef.current = setTimeout(() => {
                 setCopied(false);
             }, 2000);
         } catch (error) {
@@ -262,17 +329,65 @@ export default function QRScannerScreen({ navigation, route }) {
         }
     };
 
+    const handleOpenSettings = async () => {
+        try {
+            await Linking.openSettings();
+        } catch (error) {
+            console.error('Unable to open app settings:', error);
+            Alert.alert(
+                'Unable to Open Settings',
+                'Open your device settings and enable camera access for UniEvent.',
+            );
+        }
+    };
+
     if (hasPermission === null) {
         return (
             <View style={styles.container}>
+                <ActivityIndicator size="large" />
                 <Text>Requesting camera permission...</Text>
             </View>
         );
     }
     if (hasPermission === false) {
+        const permanentlyDenied = !canAskPermissionAgain && !permissionError;
+
         return (
-            <View style={styles.container}>
-                <Text>No access to camera</Text>
+            <View style={[styles.container, styles.permissionContainer]}>
+                <Ionicons name="camera-outline" size={54} color={theme.colors.primary} />
+                <Text style={[styles.permissionTitle, { color: theme.colors.text }]}>
+                    Camera access required
+                </Text>
+                <Text style={[styles.permissionMessage, { color: theme.colors.textSecondary }]}>
+                    {permanentlyDenied
+                        ? 'Enable camera access in your device settings to scan attendee tickets.'
+                        : 'Allow camera access to scan attendee tickets.'}
+                </Text>
+
+                {permanentlyDenied ? (
+                    <TouchableOpacity
+                        style={[styles.permissionButton, { backgroundColor: theme.colors.primary }]}
+                        onPress={handleOpenSettings}
+                    >
+                        <Text style={styles.permissionButtonText}>Open Settings</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity
+                        style={[styles.permissionButton, { backgroundColor: theme.colors.primary }]}
+                        onPress={requestCameraPermission}
+                    >
+                        <Text style={styles.permissionButtonText}>Try Again</Text>
+                    </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                    style={styles.permissionBackButton}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Text style={[styles.permissionBackText, { color: theme.colors.primary }]}>
+                        Go Back
+                    </Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -293,8 +408,9 @@ export default function QRScannerScreen({ navigation, route }) {
                         style={styles.camera}
                     />
                 ) : (
-                    <Camera
-                        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+                    <CameraView
+                        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
                         style={styles.camera}
                     />
                 )}
@@ -363,6 +479,43 @@ export default function QRScannerScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    permissionContainer: {
+        paddingHorizontal: 32,
+    },
+    permissionTitle: {
+        fontSize: 22,
+        fontWeight: '700',
+        marginTop: 18,
+        textAlign: 'center',
+    },
+    permissionMessage: {
+        fontSize: 16,
+        lineHeight: 23,
+        marginTop: 10,
+        textAlign: 'center',
+    },
+    permissionButton: {
+        minWidth: 160,
+        marginTop: 24,
+        paddingHorizontal: 24,
+        paddingVertical: 13,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    permissionButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    permissionBackButton: {
+        marginTop: 10,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+    },
+    permissionBackText: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
     cameraContainer: { flex: 1, position: 'relative' },
     camera: { flex: 1, width: width },
     overlayHeader: {

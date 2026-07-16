@@ -31,6 +31,7 @@ export async function sendPushNotifications(messages: ExpoPushMessage[]) {
     const errors = tickets.filter(t => t.status === 'error');
     if (errors.length > 0) {
         console.warn(`${errors.length} push notifications failed:`, JSON.stringify(errors));
+        throw new Error(`${errors.length} push notifications failed`);
     }
 
     return tickets;

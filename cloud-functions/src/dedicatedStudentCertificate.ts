@@ -1,31 +1,36 @@
-import * as admin from "firebase-admin";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
-import { Resend } from "resend";
-import { Timestamp, FieldValue } from "@google-cloud/firestore";
+import * as admin from 'firebase-admin';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { Resend } from 'resend';
+import { Timestamp, FieldValue } from '@google-cloud/firestore';
 
 function getResendClient() {
-    return new Resend(process.env.RESEND_API_KEY || "re_test_placeholder");
+    return new Resend(process.env.RESEND_API_KEY || 're_test_placeholder');
 }
 
 function escapeHtml(unsafe: string) {
     return unsafe
-        .split("&").join("&amp;")
-        .split("<").join("&lt;")
-        .split(">").join("&gt;")
-        .split('"').join("&quot;")
-        .split("'").join("&#039;");
+        .split('&')
+        .join('&amp;')
+        .split('<')
+        .join('&lt;')
+        .split('>')
+        .join('&gt;')
+        .split('"')
+        .join('&quot;')
+        .split("'")
+        .join('&#039;');
 }
 
 function sanitizeFilename(name: string) {
-    return name.replace(/[^a-zA-Z0-9_.\- ]+/g, "_").slice(0, 200);
+    return name.replace(/[^a-zA-Z0-9_.\- ]+/g, '_').slice(0, 200);
 }
 
 async function generatePdfBuffer(
     templateBytes: Uint8Array | ArrayBuffer | Buffer,
     participantName: string,
-    eventName: string
+    eventName: string,
 ) {
     const pdfDoc = await PDFDocument.load(templateBytes as any);
     const pages = pdfDoc.getPages();
@@ -62,30 +67,30 @@ async function generatePdfBuffer(
 
 export async function awardDedicatedStudentCertificate(userId: string) {
     const db = admin.firestore();
-    const userRef = db.collection("users").doc(userId);
+    const userRef = db.collection('users').doc(userId);
     const now = Timestamp.fromDate(new Date());
 
-    let userName = "Student";
+    let userName = 'Student';
     let userEmail: string | undefined;
 
     //don't re-issue if already awarded
-    const claimed = await db.runTransaction(async (tx) => {
+    const claimed = await db.runTransaction(async tx => {
         const snap = await tx.get(userRef);
         if (!snap.exists) throw new Error(`User ${userId} not found`);
 
         const data = snap.data() || {};
-        userName = data.name || data.displayName || "Student";
+        userName = data.name || data.displayName || 'Student';
         userEmail = data.email;
 
         const already = (data.certificates || []).some(
-            (c: { type: string }) => c.type === "dedicated_student"
+            (c: { type: string }) => c.type === 'dedicated_student',
         );
         if (already) return false;
 
         tx.update(userRef, {
             certificates: FieldValue.arrayUnion({
-                type: "dedicated_student",
-                status: "pending_delivery",
+                type: 'dedicated_student',
+                status: 'pending_delivery',
                 claimedAt: now.toDate().toISOString(),
             }),
         });
@@ -102,51 +107,46 @@ export async function awardDedicatedStudentCertificate(userId: string) {
     }
 
     // load template
-    const templatePath = path.join(
-        __dirname,
-        "../assets/certificate_template.pdf"
-    );
+    const templatePath = path.join(__dirname, '../assets/certificate_template.pdf');
     let templateBytes: Buffer;
     try {
         templateBytes = fs.readFileSync(templatePath);
     } catch {
-        throw new Error(
-            "Certificate template not found at assets/certificate_template.pdf"
-        );
+        throw new Error('Certificate template not found at assets/certificate_template.pdf');
     }
 
-    const certTitle = "Dedicated Student Award";
+    const certTitle = 'Dedicated Student Award';
     const pdfBuffer = await generatePdfBuffer(templateBytes, userName, certTitle);
 
     const bucket = admin.storage().bucket();
     const storagePath = `certificates/dedicated_student/${userId}.pdf`;
     const file = bucket.file(storagePath);
-    await file.save(pdfBuffer, { metadata: { contentType: "application/pdf" } });
+    await file.save(pdfBuffer, { metadata: { contentType: 'application/pdf' } });
 
     let signedUrl: string;
-    if (process.env.FUNCTIONS_EMULATOR === "true") {
+    if (process.env.FUNCTIONS_EMULATOR === 'true') {
         signedUrl = `http://localhost:9199/v0/b/default-bucket/o/certificates%2Fdedicated_student%2F${userId}.pdf?alt=media`;
-        console.log("📧 [EMULATOR] Using mock signed URL:", signedUrl);
+        console.log('📧 [EMULATOR] Using mock signed URL:', signedUrl);
     } else {
         const [url] = await file.getSignedUrl({
-            action: "read",
-            expires: "2499-12-31",
+            action: 'read',
+            expires: '2499-12-31',
         });
         signedUrl = url;
     }
 
-    //add certificate on user doc 
+    //add certificate on user doc
     await userRef.update({
         certificates: FieldValue.arrayRemove({
-            type: "dedicated_student",
-            status: "pending_delivery",
+            type: 'dedicated_student',
+            status: 'pending_delivery',
             claimedAt: now.toDate().toISOString(),
         }),
     });
     await userRef.update({
         certificates: FieldValue.arrayUnion({
-            type: "dedicated_student",
-            status: "delivered",
+            type: 'dedicated_student',
+            status: 'delivered',
             awardedAt: now.toDate().toISOString(),
             certificateUrl: signedUrl,
         }),
@@ -160,14 +160,14 @@ export async function awardDedicatedStudentCertificate(userId: string) {
         const safeCertTitle = escapeHtml(certTitle);
         const safeFilename = `${sanitizeFilename(userName)}_DedicatedStudent_Certificate.pdf`;
 
-        if (process.env.FUNCTIONS_EMULATOR === "true") {
+        if (process.env.FUNCTIONS_EMULATOR === 'true') {
             console.log(`📧 [EMULATOR] Would send certificate email to: ${userEmail}`);
             console.log(`📧 [EMULATOR] Certificate URL: ${signedUrl}`);
             return;
         }
 
         const { error } = await getResendClient().emails.send({
-            from: process.env.EMAIL_SENDER || "onboarding@resend.dev",
+            from: process.env.EMAIL_SENDER || 'onboarding@resend.dev',
             to: [userEmail],
             subject: `You've earned the Dedicated Student Certificate! 🎓`,
             html: `
