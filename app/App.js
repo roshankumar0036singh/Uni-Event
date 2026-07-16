@@ -333,7 +333,7 @@ function Navigation() {
                         <Stack.Screen
                             name="MyVolunteerEvents"
                             component={MyVolunteerEventsScreen}
-                            options={{ title: 'My Volunteer Events' }}
+                            options={{ headerShown: false }}
                         />
                         <Stack.Screen
                             name="SavedEvents"

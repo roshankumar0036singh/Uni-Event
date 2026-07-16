@@ -21,7 +21,6 @@ import { httpsCallable } from 'firebase/functions';
 import { Picker } from '@react-native-picker/picker';
 import { db, functions } from '../lib/firebaseConfig';
 import { useTheme } from '../lib/ThemeContext';
-import { useAuth } from '../lib/AuthContext';
 
 export default function ManageVolunteersScreen({ route, navigation }) {
     const { eventId, eventTitle } = route.params;
@@ -53,17 +52,25 @@ export default function ManageVolunteersScreen({ route, navigation }) {
         const q = query(collection(db, `events/${eventId}/volunteers`));
         const unsubscribe = onSnapshot(q, async snapshot => {
             const list = [];
-            for (const docSnapshot of snapshot.docs) {
-                let userData = { displayName: 'Unknown', email: docSnapshot.id };
+            const userIds = snapshot.docs.map(doc => doc.id);
+
+            let userMap = {};
+            if (userIds.length > 0) {
                 try {
-                    const userDocRef = doc(db, 'users', docSnapshot.id);
-                    const userDoc = await getDoc(userDocRef);
-                    if (userDoc.exists()) {
-                        userData = userDoc.data();
+                    const searchVolunteerCandidates = httpsCallable(functions, 'searchVolunteerCandidates');
+                    const response = await searchVolunteerCandidates({ eventId, userIds });
+                    if (response.data?.users) {
+                        response.data.users.forEach(u => {
+                            userMap[u.id] = u;
+                        });
                     }
                 } catch (e) {
-                    console.error('Error fetching user data:', e);
+                    console.error('Error fetching user data via callable:', e);
                 }
+            }
+
+            for (const docSnapshot of snapshot.docs) {
+                const userData = userMap[docSnapshot.id] || { displayName: 'Unknown', email: docSnapshot.id };
                 list.push({
                     id: docSnapshot.id,
                     ...docSnapshot.data(),
@@ -82,26 +89,10 @@ export default function ManageVolunteersScreen({ route, navigation }) {
         if (!searchQuery.trim()) return;
         setSearching(true);
         try {
-            const usersRef = collection(db, 'users');
-            // Try exact email first
-            let q = query(usersRef, where('email', '==', searchQuery.trim().toLowerCase()));
-            let snapshot = await getDocs(q);
-
-            // If no exact email, try name prefix
-            if (snapshot.empty) {
-                q = query(
-                    usersRef,
-                    where('displayName', '>=', searchQuery),
-                    where('displayName', '<=', searchQuery + '\uf8ff'),
-                );
-                snapshot = await getDocs(q);
-            }
-
-            const results = [];
-            snapshot.forEach(doc => {
-                results.push({ id: doc.id, ...doc.data() });
-            });
-            setSearchResults(results);
+            const searchVolunteerCandidates = httpsCallable(functions, 'searchVolunteerCandidates');
+            const response = await searchVolunteerCandidates({ eventId, searchQuery: searchQuery.trim() });
+            
+            setSearchResults(response.data?.users || []);
         } catch (error) {
             console.error('Search error:', error);
             Alert.alert('Search Failed', error.message);
@@ -181,7 +172,6 @@ export default function ManageVolunteersScreen({ route, navigation }) {
 
             {item.status !== 'dropped' && (
                 <View style={styles.actionButtons}>
-                    {item.status !== 'active' && (
                         <TouchableOpacity
                             style={[
                                 styles.button,
@@ -195,7 +185,6 @@ export default function ManageVolunteersScreen({ route, navigation }) {
                         >
                             <Text style={styles.buttonText}>Award</Text>
                         </TouchableOpacity>
-                    )}
 
                     <TouchableOpacity
                         style={[styles.button, { backgroundColor: theme.colors.error }]}

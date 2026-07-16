@@ -69,23 +69,31 @@ describe('Volunteer Functions', () => {
     describe('draftVolunteer', () => {
         it('throws unauthenticated if no auth context', async () => {
             const mockContext = { auth: undefined };
-            await expect(
-                wrappedDraftVolunteer({ eventId: 'event1', userId: 'user1' }, mockContext),
-            ).rejects.toThrow(
-                new functions.https.HttpsError('unauthenticated', 'Must be logged in.'),
-            );
+            try {
+                await wrappedDraftVolunteer({ eventId: 'event1', userId: 'user1' }, mockContext);
+                fail('Expected to throw unauthenticated');
+            } catch (e: any) {
+                expect(e.code).toBe('unauthenticated');
+            }
         });
 
         it('drafts a volunteer if caller is admin', async () => {
             const mockContext = { auth: { uid: 'admin_uid', token: { admin: true } } };
 
             const docMock = db.collection().doc;
+            const getMock = docMock().get;
             const setMock = docMock().set;
 
-            // When admin, checkEventOwnership doesn't even fetch the event
+            // Mock eventDoc exists, userDoc exists, and eventVolunteerDoc does not exist
+            getMock
+                .mockResolvedValueOnce({ exists: true, data: () => ({ ownerId: 'some_owner' }) }) // eventDoc
+                .mockResolvedValueOnce({ exists: true, data: () => ({}) }) // userDoc
+                .mockResolvedValueOnce({ exists: false, data: () => ({}) }); // eventVolunteerDoc
+
             await wrappedDraftVolunteer({ eventId: 'event1', userId: 'user1' }, mockContext);
 
             expect(setMock).toHaveBeenCalledWith(
+                expect.anything(),
                 expect.objectContaining({
                     status: 'drafted',
                     addedBy: 'admin_uid',
@@ -97,17 +105,15 @@ describe('Volunteer Functions', () => {
     describe('awardVolunteerPoints', () => {
         it('throws invalid argument if remark is invalid', async () => {
             const mockContext = { auth: { uid: 'owner1', token: {} } };
-            await expect(
-                wrappedAwardVolunteerPoints(
+            try {
+                await wrappedAwardVolunteerPoints(
                     { eventId: 'e1', userId: 'u1', remark: 'super_hard' },
                     mockContext,
-                ),
-            ).rejects.toThrow(
-                new functions.https.HttpsError(
-                    'invalid-argument',
-                    'Invalid remark. Must be easy, hard, or major.',
-                ),
-            );
+                );
+                fail('Expected to throw invalid-argument');
+            } catch (e: any) {
+                expect(e.code).toBe('invalid-argument');
+            }
         });
 
         it('awards points successfully for a valid remark', async () => {
@@ -115,27 +121,25 @@ describe('Volunteer Functions', () => {
 
             const docMock = db.collection().doc;
             const getMock = docMock().get;
-            const setMock = docMock().set;
             const updateMock = docMock().update;
 
-            // Mock the volunteer document exists and is not dropped
-            getMock.mockResolvedValueOnce({
-                exists: true,
-                data: () => ({ status: 'active' }),
-            });
-
-            // Mock user document exists in transaction
-            getMock.mockResolvedValueOnce({
-                exists: true,
-                data: () => ({
-                    reputation: {
-                        attendanceCount: 1,
-                        registrationCount: 0,
-                        remindersSet: 0,
-                        volunteerPoints: 0,
-                    },
-                }),
-            });
+            getMock
+                .mockResolvedValueOnce({ exists: true, data: () => ({ ownerId: 'some_owner' }) }) // eventDoc
+                .mockResolvedValueOnce({
+                    exists: true,
+                    data: () => ({ status: 'active' }),
+                })
+                .mockResolvedValueOnce({
+                    exists: true,
+                    data: () => ({
+                        reputation: {
+                            attendanceCount: 1,
+                            registrationCount: 0,
+                            remindersSet: 0,
+                            volunteerPoints: 0,
+                        },
+                    }),
+                });
 
             const res = await wrappedAwardVolunteerPoints(
                 { eventId: 'e1', userId: 'u1', remark: 'easy' },
@@ -143,8 +147,6 @@ describe('Volunteer Functions', () => {
             );
 
             expect(res.success).toBe(true);
-            // It should update the user's reputation.
-            // previous points = 1*10 = 10. new volunteer points = 5 ('easy'). total = 15.
             expect(updateMock).toHaveBeenCalledWith(
                 expect.anything(),
                 expect.objectContaining({
@@ -158,12 +160,12 @@ describe('Volunteer Functions', () => {
     describe('dropVolunteer', () => {
         it('throws invalid argument if missing params', async () => {
             const mockContext = { auth: { uid: 'owner1', token: {} } };
-            await expect(wrappedDropVolunteer({ eventId: 'e1' }, mockContext)).rejects.toThrow(
-                new functions.https.HttpsError(
-                    'invalid-argument',
-                    'eventId and userId are required.',
-                ),
-            );
+            try {
+                await wrappedDropVolunteer({ eventId: 'e1' }, mockContext);
+                fail('Expected to throw invalid-argument');
+            } catch (e: any) {
+                expect(e.code).toBe('invalid-argument');
+            }
         });
 
         it('drops volunteer and revokes points successfully', async () => {
@@ -174,26 +176,29 @@ describe('Volunteer Functions', () => {
             const setMock = docMock().set;
             const updateMock = docMock().update;
 
-            // Mock the volunteerLogs query snapshot
-            getMock.mockResolvedValueOnce({
-                docs: [
-                    { data: () => ({ action: 'awarded', points: 10 }) },
-                    { data: () => ({ action: 'awarded', points: 5 }) },
-                ],
-            });
-
-            // Mock user document exists in transaction
-            getMock.mockResolvedValueOnce({
-                exists: true,
-                data: () => ({
-                    reputation: {
-                        attendanceCount: 1,
-                        registrationCount: 0,
-                        remindersSet: 0,
-                        volunteerPoints: 15,
-                    },
-                }),
-            });
+            getMock
+                .mockResolvedValueOnce({ exists: true, data: () => ({ ownerId: 'some_owner' }) }) // eventDoc
+                .mockResolvedValueOnce({
+                    exists: true,
+                    data: () => ({ status: 'active' }),
+                })
+                .mockResolvedValueOnce({
+                    docs: [
+                        { data: () => ({ action: 'awarded', points: 10 }) },
+                        { data: () => ({ action: 'awarded', points: 5 }) },
+                    ],
+                })
+                .mockResolvedValueOnce({
+                    exists: true,
+                    data: () => ({
+                        reputation: {
+                            attendanceCount: 1,
+                            registrationCount: 0,
+                            remindersSet: 0,
+                            volunteerPoints: 15,
+                        },
+                    }),
+                });
 
             const res = await wrappedDropVolunteer(
                 { eventId: 'e1', userId: 'u1', revokePoints: true },
@@ -201,7 +206,6 @@ describe('Volunteer Functions', () => {
             );
 
             expect(res.success).toBe(true);
-            // It should update the volunteer status to dropped
             expect(setMock).toHaveBeenCalledWith(
                 expect.anything(),
                 expect.objectContaining({
@@ -210,14 +214,14 @@ describe('Volunteer Functions', () => {
                 { merge: true },
             );
 
-            // It should revoke 15 points
             expect(updateMock).toHaveBeenCalledWith(
                 expect.anything(),
                 expect.objectContaining({
-                    'reputation.points': 10, // 1 attendance = 10, new volunteerPoints = 0
+                    'reputation.points': 10,
                     'reputation.volunteerPoints': 0,
                 }),
             );
         });
     });
 });
+

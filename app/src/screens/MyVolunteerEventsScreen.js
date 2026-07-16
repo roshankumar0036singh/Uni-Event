@@ -30,9 +30,14 @@ export default function MyVolunteerEventsScreen() {
         // 1. Get List of Event IDs from "volunteering" subcollection
         const volunteeringRef = collection(db, 'users', user.uid, 'volunteering');
 
+        let currentSnapshotToken = 0;
+
         const unsubscribe = onSnapshot(
             volunteeringRef,
             async snapshot => {
+                currentSnapshotToken++;
+                const snapshotToken = currentSnapshotToken;
+
                 // Filter out 'dropped' status
                 const activeDocs = snapshot.docs.filter(doc => {
                     const data = doc.data();
@@ -41,9 +46,11 @@ export default function MyVolunteerEventsScreen() {
                 const eventIds = activeDocs.map(doc => doc.id);
 
                 if (eventIds.length === 0) {
-                    setEvents([]);
-                    setLoading(false);
-                    setRefreshing(false);
+                    if (snapshotToken === currentSnapshotToken) {
+                        setEvents([]);
+                        setLoading(false);
+                        setRefreshing(false);
+                    }
                     return;
                 }
 
@@ -65,15 +72,18 @@ export default function MyVolunteerEventsScreen() {
                         allEvents = [...allEvents, ...chunkEvents];
                     }
 
-                    // Sort by date (optional)
-                    allEvents.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
-
-                    setEvents(allEvents);
+                    if (snapshotToken === currentSnapshotToken) {
+                        // Sort by date (optional)
+                        allEvents.sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
+                        setEvents(allEvents);
+                    }
                 } catch (error) {
                     console.error('Error fetching volunteer events:', error);
                 } finally {
-                    setLoading(false);
-                    setRefreshing(false);
+                    if (snapshotToken === currentSnapshotToken) {
+                        setLoading(false);
+                        setRefreshing(false);
+                    }
                 }
             },
             error => {
@@ -83,7 +93,10 @@ export default function MyVolunteerEventsScreen() {
             },
         );
 
-        return () => unsubscribe();
+        return () => {
+            currentSnapshotToken++; // invalidate any pending snapshot callbacks
+            unsubscribe();
+        };
     }, [user, refreshNonce]);
 
     const onRefresh = () => {

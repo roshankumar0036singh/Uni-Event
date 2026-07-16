@@ -20,11 +20,11 @@ const REMARK_POINTS: Record<string, number> = {
  * Helper to check if the caller is the owner of the event or an admin
  */
 const checkEventOwnership = async (eventId: string, uid: string, isAdmin: boolean) => {
-    if (isAdmin) return true;
     const eventDoc = await db.collection('events').doc(eventId).get();
     if (!eventDoc.exists) {
         throw new functions.https.HttpsError('not-found', 'Event not found.');
     }
+    if (isAdmin) return true;
     const eventData = eventDoc.data();
     if (eventData?.ownerId !== uid) {
         throw new functions.https.HttpsError(
@@ -42,10 +42,7 @@ export const draftVolunteer = functions.https.onCall(async (data, context) => {
     let uid = context.auth?.uid;
     const isAdmin = context.auth?.token?.admin === true;
 
-    // Temporary bypass for local testing
-    if (!context.auth && process.env.FUNCTIONS_EMULATOR === 'true') {
-        uid = 'test_owner_123';
-    } else if (!context.auth) {
+    if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
     }
 
@@ -59,33 +56,51 @@ export const draftVolunteer = functions.https.onCall(async (data, context) => {
 
     await checkEventOwnership(eventId, uid as string, isAdmin);
 
-    const batch = db.batch();
+    await db.runTransaction(async transaction => {
+        const userRef = db.collection('users').doc(userId);
+        const eventVolunteerRef = db
+            .collection('events')
+            .doc(eventId)
+            .collection('volunteers')
+            .doc(userId);
 
-    // 1. Write to the Event's volunteers subcollection
-    const eventVolunteerRef = db
-        .collection('events')
-        .doc(eventId)
-        .collection('volunteers')
-        .doc(userId);
-    batch.set(eventVolunteerRef, {
-        status: 'drafted',
-        addedBy: uid,
-        updatedAt: FieldValue.serverTimestamp(),
+        const [userDoc, eventVolunteerDoc] = await Promise.all([
+            transaction.get(userRef),
+            transaction.get(eventVolunteerRef),
+        ]);
+
+        if (!userDoc.exists) {
+            throw new functions.https.HttpsError('not-found', 'User not found.');
+        }
+
+        if (eventVolunteerDoc.exists) {
+            const status = eventVolunteerDoc.data()?.status;
+            if (status === 'active' || status === 'dropped') {
+                throw new functions.https.HttpsError(
+                    'failed-precondition',
+                    'User is already active or dropped.',
+                );
+            }
+        }
+
+        const userVolunteeringRef = db
+            .collection('users')
+            .doc(userId)
+            .collection('volunteering')
+            .doc(eventId);
+
+        transaction.set(eventVolunteerRef, {
+            status: 'drafted',
+            addedBy: uid,
+            updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        transaction.set(userVolunteeringRef, {
+            status: 'drafted',
+            addedBy: uid,
+            updatedAt: FieldValue.serverTimestamp(),
+        });
     });
-
-    // 2. Write to the User's volunteering subcollection (for the My Volunteer Events screen)
-    const userVolunteeringRef = db
-        .collection('users')
-        .doc(userId)
-        .collection('volunteering')
-        .doc(eventId);
-    batch.set(userVolunteeringRef, {
-        status: 'drafted',
-        addedBy: uid,
-        updatedAt: FieldValue.serverTimestamp(),
-    });
-
-    await batch.commit();
 
     return { success: true, message: 'Volunteer drafted successfully.' };
 });
@@ -97,10 +112,7 @@ export const awardVolunteerPoints = functions.https.onCall(async (data, context)
     let uid = context.auth?.uid;
     const isAdmin = context.auth?.token?.admin === true;
 
-    // Temporary bypass for local testing
-    if (!context.auth && process.env.FUNCTIONS_EMULATOR === 'true') {
-        uid = 'test_owner_123';
-    } else if (!context.auth) {
+    if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
     }
 
@@ -122,18 +134,19 @@ export const awardVolunteerPoints = functions.https.onCall(async (data, context)
 
     await checkEventOwnership(eventId, uid as string, isAdmin);
 
-    // Verify volunteer is not dropped
     const volunteerRef = db.collection('events').doc(eventId).collection('volunteers').doc(userId);
-    const volunteerDoc = await volunteerRef.get();
-
-    if (!volunteerDoc.exists || volunteerDoc.data()?.status === 'dropped') {
-        throw new functions.https.HttpsError(
-            'failed-precondition',
-            'User is not an active/drafted volunteer for this event.',
-        );
-    }
 
     await db.runTransaction(async transaction => {
+        const volunteerDoc = await transaction.get(volunteerRef);
+
+        const status = volunteerDoc.data()?.status;
+        if (!volunteerDoc.exists || (status !== 'drafted' && status !== 'active')) {
+            throw new functions.https.HttpsError(
+                'failed-precondition',
+                'User is not an active/drafted volunteer for this event.',
+            );
+        }
+
         // Read user data
         const userRef = db.collection('users').doc(userId);
         const userDoc = await transaction.get(userRef);
@@ -211,10 +224,7 @@ export const dropVolunteer = functions.https.onCall(async (data, context) => {
     let uid = context.auth?.uid;
     const isAdmin = context.auth?.token?.admin === true;
 
-    // Temporary bypass for local testing
-    if (!context.auth && process.env.FUNCTIONS_EMULATOR === 'true') {
-        uid = 'test_owner_123';
-    } else if (!context.auth) {
+    if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
     }
 
@@ -234,6 +244,16 @@ export const dropVolunteer = functions.https.onCall(async (data, context) => {
             .doc(eventId)
             .collection('volunteers')
             .doc(userId);
+
+        const volunteerDoc = await transaction.get(volunteerRef);
+
+        const status = volunteerDoc.data()?.status;
+        if (!volunteerDoc.exists || (status !== 'drafted' && status !== 'active')) {
+            throw new functions.https.HttpsError(
+                'failed-precondition',
+                'User is not an active/drafted volunteer for this event.',
+            );
+        }
 
         // 1. Perform all READS first
         let netPointsAwarded = 0;
@@ -336,4 +356,71 @@ export const dropVolunteer = functions.https.onCall(async (data, context) => {
     });
 
     return { success: true, message: 'Volunteer dropped successfully.' };
+});
+
+/**
+ * Searches for users to draft as volunteers or enriches a list of user IDs.
+ */
+export const searchVolunteerCandidates = functions.https.onCall(async (data, context) => {
+    let uid = context.auth?.uid;
+    const isAdmin = context.auth?.token?.admin === true;
+
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    }
+
+    const { eventId, searchQuery, userIds } = data;
+    if (!eventId) {
+        throw new functions.https.HttpsError('invalid-argument', 'eventId is required.');
+    }
+
+    await checkEventOwnership(eventId, uid as string, isAdmin);
+
+    const results: Array<{ id: string; displayName?: string; email?: string }> = [];
+
+    // Mode 1: Enrich specific userIds
+    if (Array.isArray(userIds) && userIds.length > 0) {
+        const fetchPromises = userIds.map(async id => {
+            const userDoc = await db.collection('users').doc(id).get();
+            if (userDoc.exists) {
+                const ud = userDoc.data();
+                results.push({
+                    id,
+                    displayName: ud?.displayName,
+                    email: ud?.email,
+                });
+            }
+        });
+        await Promise.all(fetchPromises);
+        return { users: results };
+    }
+
+    // Mode 2: Search by query (email or display name)
+    if (searchQuery && typeof searchQuery === 'string') {
+        const query = searchQuery.trim().toLowerCase();
+        const usersRef = db.collection('users');
+
+        let snapshot = await usersRef.where('email', '==', query).limit(10).get();
+
+        if (snapshot.empty) {
+            snapshot = await usersRef
+                .where('displayName', '>=', searchQuery.trim())
+                .where('displayName', '<=', searchQuery.trim() + '\uf8ff')
+                .limit(10)
+                .get();
+        }
+
+        snapshot.forEach(doc => {
+            const ud = doc.data();
+            results.push({
+                id: doc.id,
+                displayName: ud?.displayName,
+                email: ud?.email,
+            });
+        });
+
+        return { users: results };
+    }
+
+    return { users: [] };
 });

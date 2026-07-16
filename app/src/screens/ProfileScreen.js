@@ -1205,9 +1205,6 @@ export default function ProfileScreen({ navigation }) {
                         <TouchableOpacity
                             style={styles.logoutBtn}
                             onPress={() => {
-                                if (typeof window !== 'undefined' && window.alert)
-                                    window.alert('Sign out pressed!');
-                                console.log('Button pressed in UI');
                                 signOut();
                             }}
                         >
