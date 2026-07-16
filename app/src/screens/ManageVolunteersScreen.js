@@ -57,7 +57,10 @@ export default function ManageVolunteersScreen({ route, navigation }) {
             let userMap = {};
             if (userIds.length > 0) {
                 try {
-                    const searchVolunteerCandidates = httpsCallable(functions, 'searchVolunteerCandidates');
+                    const searchVolunteerCandidates = httpsCallable(
+                        functions,
+                        'searchVolunteerCandidates',
+                    );
                     const response = await searchVolunteerCandidates({ eventId, userIds });
                     if (response.data?.users) {
                         response.data.users.forEach(u => {
@@ -70,7 +73,10 @@ export default function ManageVolunteersScreen({ route, navigation }) {
             }
 
             for (const docSnapshot of snapshot.docs) {
-                const userData = userMap[docSnapshot.id] || { displayName: 'Unknown', email: docSnapshot.id };
+                const userData = userMap[docSnapshot.id] || {
+                    displayName: 'Unknown',
+                    email: docSnapshot.id,
+                };
                 list.push({
                     id: docSnapshot.id,
                     ...docSnapshot.data(),
@@ -90,8 +96,11 @@ export default function ManageVolunteersScreen({ route, navigation }) {
         setSearching(true);
         try {
             const searchVolunteerCandidates = httpsCallable(functions, 'searchVolunteerCandidates');
-            const response = await searchVolunteerCandidates({ eventId, searchQuery: searchQuery.trim() });
-            
+            const response = await searchVolunteerCandidates({
+                eventId,
+                searchQuery: searchQuery.trim(),
+            });
+
             setSearchResults(response.data?.users || []);
         } catch (error) {
             console.error('Search error:', error);
@@ -172,19 +181,19 @@ export default function ManageVolunteersScreen({ route, navigation }) {
 
             {item.status !== 'dropped' && (
                 <View style={styles.actionButtons}>
-                        <TouchableOpacity
-                            style={[
-                                styles.button,
-                                { backgroundColor: theme.colors.success || '#4CAF50' },
-                            ]}
-                            onPress={() => {
-                                setSelectedVolunteer(item);
-                                setAwardRemark('easy');
-                                setAwardModalVisible(true);
-                            }}
-                        >
-                            <Text style={styles.buttonText}>Award</Text>
-                        </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[
+                            styles.button,
+                            { backgroundColor: theme.colors.success || '#4CAF50' },
+                        ]}
+                        onPress={() => {
+                            setSelectedVolunteer(item);
+                            setAwardRemark('easy');
+                            setAwardModalVisible(true);
+                        }}
+                    >
+                        <Text style={styles.buttonText}>Award</Text>
+                    </TouchableOpacity>
 
                     <TouchableOpacity
                         style={[styles.button, { backgroundColor: theme.colors.error }]}

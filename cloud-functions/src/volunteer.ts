@@ -380,7 +380,8 @@ export const searchVolunteerCandidates = functions.https.onCall(async (data, con
 
     // Mode 1: Enrich specific userIds
     if (Array.isArray(userIds) && userIds.length > 0) {
-        const fetchPromises = userIds.map(async id => {
+        const limitedUserIds = userIds.slice(0, 10);
+        const fetchPromises = limitedUserIds.map(async id => {
             const userDoc = await db.collection('users').doc(id).get();
             if (userDoc.exists) {
                 const ud = userDoc.data();
