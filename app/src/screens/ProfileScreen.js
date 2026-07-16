@@ -976,6 +976,17 @@ export default function ProfileScreen({ navigation }) {
                             </View>
                             <View style={styles.bentoRow}>
                                 <MenuItem
+                                    icon="hand-left-outline"
+                                    label="My Volunteer Events"
+                                    description="Events you are volunteering for"
+                                    width="100%"
+                                    onPress={() => navigation.navigate('MyVolunteerEvents')}
+                                    theme={theme}
+                                    styles={styles}
+                                />
+                            </View>
+                            <View style={styles.bentoRow}>
+                                <MenuItem
                                     icon="lightning-bolt-outline"
                                     label="Streak"
                                     description="Your consistency in events"
@@ -1127,7 +1138,15 @@ export default function ProfileScreen({ navigation }) {
                         </View>
 
                         {/* Logout Button */}
-                        <TouchableOpacity style={styles.logoutBtn} onPress={signOut}>
+                        <TouchableOpacity
+                            style={styles.logoutBtn}
+                            onPress={() => {
+                                if (typeof window !== 'undefined' && window.alert)
+                                    window.alert('Sign out pressed!');
+                                console.log('Button pressed in UI');
+                                signOut();
+                            }}
+                        >
                             <Ionicons name="log-out-outline" size={20} color={'#FF5A3C'} />
                             <Text style={styles.logoutText}>Sign Out</Text>
                         </TouchableOpacity>

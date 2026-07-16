@@ -144,6 +144,10 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
 
+      match /volunteering/{eventId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+      }
+
       match /notifications/{notifId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
@@ -282,6 +286,13 @@ service cloud.firestore {
           isClub()
         ) && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid);
       }
+      
+      // Volunteers List
+      match /volunteers/{userId} {
+        allow read: if true;
+        // All writes must go through Cloud Functions to ensure proper point logging
+        allow create, update, delete: if false; 
+      }
     }
     
     // =========================================================================
@@ -299,6 +310,16 @@ service cloud.firestore {
     // Audit Log Collection (admin only)
     match /auditLog/{logId} {
       allow read: if isAdmin();
+    }
+    
+    // Volunteer Logs (Fraud Traceability)
+    match /volunteerLogs/{logId} {
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        ('eventId' in resource.data && isEventOwner(database, resource.data.eventId))
+      );
+      // Immutable log - written only by Cloud Functions
+      allow create, update, delete: if false;
     }
 
     // Global Administration Controls
