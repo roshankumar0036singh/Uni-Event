@@ -50,8 +50,8 @@ const db = admin.firestore();
  * - Registration: 2 points each
  * - Reminder: 1 point each
  */
-const calculatePoints = (attendanceCount, registrationCount, remindersSet) => {
-    return attendanceCount * 10 + registrationCount * 2 + remindersSet;
+const calculatePoints = (attendanceCount, registrationCount, remindersSet, volunteerPoints = 0) => {
+    return attendanceCount * 10 + registrationCount * 2 + remindersSet + volunteerPoints;
 };
 exports.calculatePoints = calculatePoints;
 /**
@@ -75,12 +75,14 @@ exports.calculateReputation = functions.https.onCall(async (_data, context) => {
         const attendanceCount = userData.reputation?.attendanceCount ?? userData.attendanceCount ?? 0;
         const registrationCount = userData.reputation?.registrationCount ?? userData.registrationCount ?? 0;
         const remindersSet = userData.reputation?.remindersSet ?? userData.remindersSet ?? 0;
-        const points = (0, exports.calculatePoints)(attendanceCount, registrationCount, remindersSet);
+        const volunteerPoints = userData.reputation?.volunteerPoints ?? userData.volunteerPoints ?? 0;
+        const points = (0, exports.calculatePoints)(attendanceCount, registrationCount, remindersSet, volunteerPoints);
         batch.update(userDoc.ref, {
             'reputation.points': points,
             'reputation.attendanceCount': attendanceCount,
             'reputation.registrationCount': registrationCount,
             'reputation.remindersSet': remindersSet,
+            'reputation.volunteerPoints': volunteerPoints,
             'reputation.updatedAt': firestore_1.FieldValue.serverTimestamp(),
         });
         opCount += 1;
@@ -125,6 +127,7 @@ exports.refreshTopContributorsLeaderboard = functions.pubsub
             attendanceCount: userData.reputation?.attendanceCount || 0,
             registrationCount: userData.reputation?.registrationCount || 0,
             remindersSet: userData.reputation?.remindersSet || 0,
+            volunteerPoints: userData.reputation?.volunteerPoints || 0,
         };
     });
     await db.collection('leaderboards').doc('topContributors').set({
@@ -171,6 +174,7 @@ exports.getTopContributors = functions.https.onCall(async (data, context) => {
             attendanceCount: userData.reputation?.attendanceCount || 0,
             registrationCount: userData.reputation?.registrationCount || 0,
             remindersSet: userData.reputation?.remindersSet || 0,
+            volunteerPoints: userData.reputation?.volunteerPoints || 0,
         };
     });
     const lastContributor = contributors.length > 0 ? contributors[contributors.length - 1] : null;

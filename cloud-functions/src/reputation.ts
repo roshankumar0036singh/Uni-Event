@@ -21,8 +21,9 @@ export const calculatePoints = (
     attendanceCount: number,
     registrationCount: number,
     remindersSet: number,
+    volunteerPoints: number = 0,
 ) => {
-    return attendanceCount * 10 + registrationCount * 2 + remindersSet;
+    return attendanceCount * 10 + registrationCount * 2 + remindersSet + volunteerPoints;
 };
 
 /**
@@ -57,12 +58,21 @@ export const calculateReputation = functions.https.onCall(async (_data, context)
 
         const remindersSet = userData.reputation?.remindersSet ?? userData.remindersSet ?? 0;
 
-        const points = calculatePoints(attendanceCount, registrationCount, remindersSet);
+        const volunteerPoints =
+            userData.reputation?.volunteerPoints ?? userData.volunteerPoints ?? 0;
+
+        const points = calculatePoints(
+            attendanceCount,
+            registrationCount,
+            remindersSet,
+            volunteerPoints,
+        );
         batch.update(userDoc.ref, {
             'reputation.points': points,
             'reputation.attendanceCount': attendanceCount,
             'reputation.registrationCount': registrationCount,
             'reputation.remindersSet': remindersSet,
+            'reputation.volunteerPoints': volunteerPoints,
             'reputation.updatedAt': FieldValue.serverTimestamp(),
         });
         opCount += 1;
@@ -114,6 +124,7 @@ export const refreshTopContributorsLeaderboard = functions.pubsub
                 attendanceCount: userData.reputation?.attendanceCount || 0,
                 registrationCount: userData.reputation?.registrationCount || 0,
                 remindersSet: userData.reputation?.remindersSet || 0,
+                volunteerPoints: userData.reputation?.volunteerPoints || 0,
             };
         });
 
@@ -181,6 +192,7 @@ export const getTopContributors = functions.https.onCall(async (data, context) =
             attendanceCount: userData.reputation?.attendanceCount || 0,
             registrationCount: userData.reputation?.registrationCount || 0,
             remindersSet: userData.reputation?.remindersSet || 0,
+            volunteerPoints: userData.reputation?.volunteerPoints || 0,
         };
     });
 

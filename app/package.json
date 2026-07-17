@@ -101,6 +101,7 @@
         "@eslint/eslintrc": "^3.3.5",
         "@eslint/js": "^10.0.1",
         "@testing-library/react-native": "^13.3.3",
+        "@types/react": "~18.3.12",
         "cypress": "^15.16.0",
         "eslint": "^9.39.4",
         "eslint-config-expo": "~8.0.1",

@@ -2258,6 +2258,33 @@ export default function EventDetail({ route, navigation }) {
                                         { borderColor: theme.colors.primary },
                                     ]}
                                     onPress={() =>
+                                        navigation.navigate('ManageVolunteers', {
+                                            eventId: event.id,
+                                            eventTitle: event.title,
+                                        })
+                                    }
+                                >
+                                    <Ionicons
+                                        name="people-outline"
+                                        size={20}
+                                        color={theme.colors.primary}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.compactButtonText,
+                                            { color: theme.colors.primary },
+                                        ]}
+                                    >
+                                        Volunteers
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[
+                                        styles.compactButton,
+                                        { borderColor: theme.colors.primary },
+                                    ]}
+                                    onPress={() =>
                                         navigation.navigate('AttendanceDashboard', {
                                             eventId: event.id,
                                             eventTitle: event.title,
@@ -2786,7 +2813,7 @@ const getStyles = theme =>
             paddingHorizontal: 16,
             borderWidth: 1,
             borderRadius: 12,
-            flexGrow: 1, // Allow buttons to grow to fill space
+            flex: 1, // Ensure buttons share space equally
             minWidth: '45%', // Ensure 2 per row roughly
         },
         compactButtonText: {

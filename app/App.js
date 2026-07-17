@@ -36,6 +36,7 @@ import MyRegisteredEventsScreen from './src/screens/MyRegisteredEventsScreen';
 import ParticipatingEventsScreen from './src/screens/ParticipatingEventsScreen';
 import PaymentScreen from './src/screens/PaymentScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import MyVolunteerEventsScreen from './src/screens/MyVolunteerEventsScreen';
 import QRScannerScreen from './src/screens/QRScannerScreen';
 import RemindersScreen from './src/screens/RemindersScreen';
 import SavedEventsScreen from './src/screens/SavedEventsScreen';
@@ -44,6 +45,7 @@ import UserFeed from './src/screens/UserFeed';
 import WalletScreen from './src/screens/WalletScreen';
 import StreakScreen from './src/screens/StreakScreen';
 import WrappedScreen from './src/screens/WrappedScreen';
+import ManageVolunteersScreen from './src/screens/ManageVolunteersScreen';
 
 const CustomTabBarWrapper = props => <CustomTabBar {...props} />;
 const AppearanceScreen = lazy(() => import('./src/screens/AppearanceScreen'));
@@ -275,6 +277,11 @@ function Navigation() {
                             options={{ title: 'Attendance', headerShown: false }}
                         />
                         <Stack.Screen
+                            name="ManageVolunteers"
+                            component={ManageVolunteersScreen}
+                            options={{ title: 'Manage Volunteers', headerShown: false }}
+                        />
+                        <Stack.Screen
                             name="QRScanner"
                             component={QRScannerScreen}
                             options={{ title: 'Scan QR', headerShown: false }}
@@ -322,6 +329,11 @@ function Navigation() {
                             name="MyRegisteredEvents"
                             component={MyRegisteredEventsScreen}
                             options={{ title: 'My Calendar' }}
+                        />
+                        <Stack.Screen
+                            name="MyVolunteerEvents"
+                            component={MyVolunteerEventsScreen}
+                            options={{ headerShown: false }}
                         />
                         <Stack.Screen
                             name="SavedEvents"
