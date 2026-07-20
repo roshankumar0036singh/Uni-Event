@@ -72,7 +72,7 @@
         "expo-secure-store": "~14.0.1",
         "expo-sharing": "~13.0.1",
         "expo-status-bar": "~2.0.1",
-        "expo-web-browser": "~14.0.2",
+        "expo-web-browser": "~57.0.1",
         "firebase": "11.6.0",
         "generator-function": "^2.0.1",
         "html5-qrcode": "^2.3.8",
