@@ -28,7 +28,7 @@
         "dotenv": "^17.2.3",
         "expo-server-sdk": "^6.1.0",
         "express": "^5.2.1",
-        "firebase-admin": "^11.11.1",
+        "firebase-admin": "^14.2.0",
         "firebase-functions": "~4.9.0",
         "geolib": "^3.3.14",
         "pdf-lib": "^1.17.1",
