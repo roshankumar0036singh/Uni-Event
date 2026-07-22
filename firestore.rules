@@ -19,7 +19,9 @@ service cloud.firestore {
     }
 
     function validateEventShape(data) {
-      return isValidEventTitle(data) && isValidEventCapacity(data) && isValidEventDate(data);
+      return isValidEventTitle(data) && isValidEventCapacity(data) && isValidEventDate(data)
+        && (!('campusId' in data) || data.campusId is string)
+        && (!('federatedToAll' in data) || data.federatedToAll is bool);
     }
 
     function isValidThemeColor(data) {
@@ -122,6 +124,17 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
+    function getUserCampus() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? getUserData(request.auth.uid).get('campusId', null)
+        : null;
+    }
+
+    function isSameCampus(campusId) {
+      return getUserCampus() == campusId;
+    }
+
+  
     // Validate that updates to the rate-limit fields are strictly valid increments or resets
     function validateRateLimitUpdate(userId) {
       let before = resource.data;
@@ -262,7 +275,12 @@ service cloud.firestore {
     // =========================================================================
 
     match /events/{eventId} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        (resource.data.get('federatedToAll', false) == true) ||
+        isSameCampus(resource.data.get('campusId', null)) ||
+        (getUserCampus() != null && getUserCampus() in resource.data.get('allowedCampusIds', []))
+      );
       
       // Write operations with rate limit checks
       allow create: if request.auth != null 
