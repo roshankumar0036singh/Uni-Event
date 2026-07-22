@@ -124,8 +124,14 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
+    function getUserCampus() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? getUserData(request.auth.uid).get('campusId', null)
+        : null;
+    }
+
     function isSameCampus(campusId) {
-      return getUserData(request.auth.uid).get('campusId', null) == campusId;
+      return getUserCampus() == campusId;
     }
 
   
@@ -273,7 +279,7 @@ service cloud.firestore {
         isAdmin() ||
         (resource.data.get('federatedToAll', false) == true) ||
         isSameCampus(resource.data.get('campusId', null)) ||
-        (getUserData(request.auth.uid).get('campusId', null) in resource.data.get('allowedCampusIds', []))
+        (getUserCampus() != null && getUserCampus() in resource.data.get('allowedCampusIds', []))
       );
       
       // Write operations with rate limit checks
