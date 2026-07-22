@@ -21,3 +21,13 @@ export const getTopContributorsSchema = z
             path: ['lastPoints'],
         },
     );
+
+export const handoverClubAdminSchema = z
+    .object({
+        newAdminUid: z.string().optional(),
+        newAdminEmail: z.string().email('Invalid email address').optional(),
+    })
+    .refine(data => data.newAdminUid || data.newAdminEmail, {
+        message: 'Either newAdminUid or newAdminEmail must be provided',
+        path: ['newAdminEmail'],
+    });
