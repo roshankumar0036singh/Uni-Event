@@ -11,45 +11,45 @@ async function getCallerPermissions(callerUid: string) {
     return { isClubAdmin, callerIsSystemAdmin };
 }
 
+async function lookupUidByEmail(email: string): Promise<string> {
+    try {
+        const userRecord = await admin.auth().getUserByEmail(email);
+        return userRecord.uid;
+    } catch (error: any) {
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/email-not-found') {
+            throw new functions.https.HttpsError(
+                'not-found',
+                `User with email ${email} not found.`,
+            );
+        }
+        throw new functions.https.HttpsError('internal', 'Error looking up user by email.', error);
+    }
+}
+
+async function verifyUserExists(uid: string): Promise<void> {
+    try {
+        await admin.auth().getUser(uid);
+    } catch (error: any) {
+        if (error.code === 'auth/user-not-found') {
+            throw new functions.https.HttpsError(
+                'not-found',
+                `Target user with ID ${uid} not found.`,
+            );
+        }
+        throw new functions.https.HttpsError('internal', 'Error looking up target user.', error);
+    }
+}
+
 async function resolveTargetUid(newAdminUid?: string, newAdminEmail?: string): Promise<string> {
     if (newAdminUid) {
         if (!newAdminEmail) {
-            try {
-                await admin.auth().getUser(newAdminUid);
-            } catch (error: any) {
-                if (error.code === 'auth/user-not-found') {
-                    throw new functions.https.HttpsError(
-                        'not-found',
-                        `Target user with ID ${newAdminUid} not found.`,
-                    );
-                }
-                throw new functions.https.HttpsError(
-                    'internal',
-                    'Error looking up target user.',
-                    error,
-                );
-            }
+            await verifyUserExists(newAdminUid);
         }
         return newAdminUid;
     }
 
     if (newAdminEmail) {
-        try {
-            const userRecord = await admin.auth().getUserByEmail(newAdminEmail);
-            return userRecord.uid;
-        } catch (error: any) {
-            if (error.code === 'auth/user-not-found' || error.code === 'auth/email-not-found') {
-                throw new functions.https.HttpsError(
-                    'not-found',
-                    `User with email ${newAdminEmail} not found.`,
-                );
-            }
-            throw new functions.https.HttpsError(
-                'internal',
-                'Error looking up user by email.',
-                error,
-            );
-        }
+        return lookupUidByEmail(newAdminEmail);
     }
 
     throw new functions.https.HttpsError(
