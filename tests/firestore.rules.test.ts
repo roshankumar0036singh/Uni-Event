@@ -349,6 +349,92 @@ describe('Firestore Security Rules', () => {
         );
     });
 
+    // Regression for #753: free RSVP check-in writes checkInStatus/checkedInAt/
+    // checkedInBy to the participant doc on behalf of the EVENT OWNER. Before
+    // the fix the update rule only allowed the participant themselves, so the
+    // check-in transaction always failed.
+    test('Event owner applies check-in fields to participant -> allowed (Issue #753)', async () => {
+        await seedDocument('events/event1', { title: 'Tech Fest', ownerId: 'clubOwner1' });
+        await seedDocument('events/event1/participants/student1', { status: 'attending' });
+        await assertSucceeds(
+            setDoc(
+                doc(getFirestoreContext('clubOwner1'), 'events/event1/participants/student1'),
+                {
+                    checkInStatus: 'checked-in',
+                    checkedInAt: serverTimestamp(),
+                    checkedInBy: 'clubOwner1',
+                },
+                { merge: true },
+            ),
+        );
+    });
+
+    test('Non-owner student cannot apply check-in fields to another participant -> denied (Issue #753)', async () => {
+        await seedDocument('events/event1', { title: 'Tech Fest', ownerId: 'clubOwner1' });
+        await seedDocument('events/event1/participants/student2', { status: 'attending' });
+        await assertFails(
+            setDoc(
+                doc(getFirestoreContext('student1'), 'events/event1/participants/student2'),
+                {
+                    checkInStatus: 'checked-in',
+                    checkedInBy: 'student1',
+                },
+                { merge: true },
+            ),
+        );
+    });
+
+    test('Owner cannot rewrite registration payload through update -> denied (Issue #753)', async () => {
+        await seedDocument('events/event1', { title: 'Tech Fest', ownerId: 'clubOwner1' });
+        await seedDocument('events/event1/participants/student1', { status: 'attending' });
+        await assertFails(
+            setDoc(
+                doc(getFirestoreContext('clubOwner1'), 'events/event1/participants/student1'),
+                {
+                    status: 'attending',
+                    name: 'Student One',
+                    email: 'student1@example.com',
+                    joinedAt: '2026-01-01T00:00:00.000Z',
+                    checkInStatus: 'checked-in',
+                },
+                { merge: true },
+            ),
+        );
+    });
+
+    // Regression for #754: offline check-in sync marks the registration
+    // document (top-level `registrations/{eventId}_{userId}`) as attended.
+    test('Event owner updates registration status -> allowed (Issue #754)', async () => {
+        await seedDocument('events/event1', { title: 'Tech Fest', ownerId: 'clubOwner1' });
+        await seedDocument('registrations/event1_student1', {
+            eventId: 'event1',
+            userId: 'student1',
+            status: 'confirmed',
+        });
+        await assertSucceeds(
+            setDoc(
+                doc(getFirestoreContext('clubOwner1'), 'registrations/event1_student1'),
+                { status: 'attended' },
+                { merge: true },
+            ),
+        );
+    });
+
+    test('Student cannot update another registration record -> denied (Issue #754)', async () => {
+        await seedDocument('events/event1', { title: 'Tech Fest', ownerId: 'clubOwner1' });
+        await seedDocument('registrations/event1_student2', {
+            eventId: 'event1',
+            userId: 'student2',
+            status: 'confirmed',
+        });
+        await assertFails(
+            setDoc(
+                doc(getFirestoreContext('student1'), 'registrations/event1_student2'),
+                { status: 'attended' },
+                { merge: true },
+            ),
+        );
+    });
     // ---------------- EVENT CHECK-INS ----------------
 
     test('Club user writes event check-in -> allowed', async () => {

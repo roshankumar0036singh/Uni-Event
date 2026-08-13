@@ -423,8 +423,11 @@ const syncOfflineCheckInItem = async (item, eventId, organizerId) => {
             'stats.lastCheckInAt': serverTimestamp(),
         }).catch(() => {});
 
-        const registrationRef = doc(db, 'events', eventId, 'registrations', item.userId);
-        await updateDoc(registrationRef, { status: 'attended' }).catch(() => {});
+        const registrationRef = doc(db, 'registrations', `${eventId}_${item.userId}`);
+        await updateDoc(registrationRef, {
+            status: 'attended',
+            checkedInAt: offlineCheckedInAt,
+        }).catch(() => {});
     }
 };
 

@@ -338,7 +338,12 @@ service cloud.firestore {
         
         allow update: if request.auth != null && request.auth.uid == participantId &&
           validateAttendanceStatus(request.resource.data) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buddyPreference', 'updatedAt']);
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buddyPreference', 'updatedAt'])
+          || (request.auth != null &&
+            (isEventOwner(database, eventId) || isEventOwnerAfter(database, eventId)) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+              ['checkInStatus', 'checkedInAt', 'checkedInBy', 'updatedAt']
+            ));
       }
 
       // Event Check-ins (Contactless Verification)
