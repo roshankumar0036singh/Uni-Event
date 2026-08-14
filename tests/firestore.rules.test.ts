@@ -349,6 +349,44 @@ describe('Firestore Security Rules', () => {
         );
     });
 
+    test('Event owner checks in free RSVP participant -> allowed', async () => {
+        await seedDocument('events/event1', { title: 'Tech Fest', ownerId: 'clubOwner1' });
+        await seedDocument('events/event1/participants/student1', {
+            status: 'rsvp',
+            userName: 'Student One',
+        });
+        await assertSucceeds(
+            setDoc(
+                doc(getFirestoreContext('clubOwner1'), 'events/event1/participants/student1'),
+                {
+                    checkInStatus: 'checked-in',
+                    checkedInAt: serverTimestamp(),
+                    checkedInBy: 'clubOwner1',
+                },
+                { merge: true },
+            ),
+        );
+    });
+
+    test('Non-owner student checks in another participant -> denied', async () => {
+        await seedDocument('events/event1', { title: 'Tech Fest', ownerId: 'clubOwner1' });
+        await seedDocument('events/event1/participants/student1', {
+            status: 'rsvp',
+            userName: 'Student One',
+        });
+        await assertFails(
+            setDoc(
+                doc(getFirestoreContext('student2'), 'events/event1/participants/student1'),
+                {
+                    checkInStatus: 'checked-in',
+                    checkedInAt: serverTimestamp(),
+                    checkedInBy: 'student2',
+                },
+                { merge: true },
+            ),
+        );
+    });
+
     // ---------------- EVENT CHECK-INS ----------------
 
     test('Club user writes event check-in -> allowed', async () => {

@@ -336,9 +336,16 @@ service cloud.firestore {
           
         allow delete: if request.auth != null && request.auth.uid == participantId;
         
-        allow update: if request.auth != null && request.auth.uid == participantId &&
-          validateAttendanceStatus(request.resource.data) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buddyPreference', 'updatedAt']);
+        allow update: if (
+          (request.auth != null && request.auth.uid == participantId &&
+            validateAttendanceStatus(request.resource.data) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buddyPreference', 'updatedAt']))
+          ||
+          (isEventOwner(database, eventId) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'checkInStatus', 'checkedInAt', 'checkedInBy'
+            ]))
+        );
       }
 
       // Event Check-ins (Contactless Verification)
