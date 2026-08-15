@@ -6,6 +6,8 @@ import {
     signOut as firebaseSignOut,
     onAuthStateChanged,
     signInWithEmailAndPassword,
+    sendEmailVerification,
+    reload,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
@@ -18,6 +20,13 @@ import { upsertPublicProfile } from './publicProfile';
 const AuthContext = createContext({});
 
 export const useAuth = () => useContext(AuthContext);
+
+export const createEmailNotVerifiedError = () => {
+    const error = new Error('Please verify your email before signing in.');
+    error.code = 'auth/email-not-verified';
+    error.name = 'AuthError';
+    return error;
+};
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -258,13 +267,27 @@ export const AuthProvider = ({ children }) => {
 
     // --- Auth Actions ---
 
+    // Emulator mode cannot send real verification emails, so verification
+    // gating is skipped there (Google emulator flows rely on signUp).
+    const isEmulatorMode = process.env.EXPO_PUBLIC_USE_EMULATORS === 'true';
+
     const signIn = useCallback(
         async (email, password) => {
             const result = await signInWithEmailAndPassword(auth, email, password);
-            await saveAccount(result.user, 'password', password); // Auto-save with password
+            const { user } = result;
+
+            if (!isEmulatorMode) {
+                await reload(user);
+                if (!user.emailVerified) {
+                    await firebaseSignOut(auth);
+                    throw createEmailNotVerifiedError();
+                }
+            }
+
+            await saveAccount(user, 'password', password); // Auto-save with password
             return result;
         },
-        [saveAccount],
+        [saveAccount, isEmulatorMode],
     );
 
     const signUp = useCallback(
@@ -288,10 +311,26 @@ export const AuthProvider = ({ children }) => {
             await upsertPublicProfile(db, user.uid, userProfile);
 
             await saveAccount(user, 'password', password); // Auto-save with password
-            return result;
+
+            if (!isEmulatorMode) {
+                await sendEmailVerification(user);
+                // Keep the user on the auth screen until they verify their
+                // email, so they cannot access the app unverified.
+                await firebaseSignOut(auth);
+            }
+
+            return { ...result, verificationEmailSent: !isEmulatorMode };
         },
-        [saveAccount],
+        [saveAccount, isEmulatorMode],
     );
+
+    // Re-authenticates the unverified account, resends the verification
+    // email, and signs out again, leaving the user on the auth screen.
+    const resendVerificationEmail = useCallback(async (email, password) => {
+        const { user } = await signInWithEmailAndPassword(auth, email, password);
+        await sendEmailVerification(user);
+        await firebaseSignOut(auth);
+    }, []);
 
     const signOut = useCallback(() => {
         return firebaseSignOut(auth);
@@ -311,6 +350,7 @@ export const AuthProvider = ({ children }) => {
             loading,
             signIn,
             signUp,
+            resendVerificationEmail,
             signOut,
             savedAccounts,
             switchAccount,
@@ -324,6 +364,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         signIn,
         signUp,
+        resendVerificationEmail,
         signOut,
         savedAccounts,
         switchAccount,

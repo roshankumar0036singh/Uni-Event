@@ -43,6 +43,8 @@ const FIREBASE_ERROR_MESSAGES = {
     'auth/network-request-failed': 'Network error. Please check your connection.',
     'auth/user-disabled': 'This account has been disabled.',
     'auth/operation-not-allowed': 'This sign-in method is not enabled.',
+    'auth/email-not-verified': 'Please verify your email before signing in.',
+    'auth/verification-email-sent': 'Verification email sent. Check your inbox.',
 };
 
 function getFirebaseErrorMessage(error) {
@@ -187,8 +189,9 @@ export default function AuthScreen() {
 
     const [touched, setTouched] = useState({ email: false, password: false, name: false });
 
-    const { signIn, signUp, saveGoogleAccountCredentials } = useAuth();
+    const { signIn, signUp, resendVerificationEmail, saveGoogleAccountCredentials } = useAuth();
     const [successMessage, setSuccessMessage] = useState('');
+    const [verificationEmail, setVerificationEmail] = useState('');
 
     const [request, response, promptAsync] = Google.useAuthRequest({
         androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
@@ -270,6 +273,7 @@ export default function AuthScreen() {
     const handleEmailChange = text => {
         setEmail(text);
         setSuccessMessage('');
+        setVerificationEmail('');
         if (touched.email) {
             setEmailError(validateEmail(text));
         }
@@ -341,8 +345,37 @@ export default function AuthScreen() {
             if (isLogin) {
                 await signIn(email.trim(), password);
             } else {
-                await signUp(email.trim(), password, { displayName: name.trim() });
+                const result = await signUp(email.trim(), password, { displayName: name.trim() });
+                if (result.verificationEmailSent) {
+                    setSuccessMessage(
+                        'Account created! A verification email has been sent to your inbox. Please verify your email before signing in.',
+                    );
+                    setIsLogin(true);
+                    setPassword('');
+                }
             }
+        } catch (error) {
+            if (error.code === 'auth/email-not-verified') {
+                setVerificationEmail(email.trim());
+            }
+            const msg = getFirebaseErrorMessage(error);
+            routeAuthError(error, msg, setEmailError, setPasswordError);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResendVerification = async () => {
+        const targetEmail = verificationEmail || email.trim();
+        const eErr = validateEmail(targetEmail);
+        if (eErr) {
+            setEmailError(eErr);
+            return;
+        }
+        setLoading(true);
+        try {
+            await resendVerificationEmail(targetEmail, password);
+            setSuccessMessage('Verification email sent. Check your inbox.');
         } catch (error) {
             const msg = getFirebaseErrorMessage(error);
             routeAuthError(error, msg, setEmailError, setPasswordError);
@@ -526,6 +559,46 @@ export default function AuthScreen() {
                             <Text style={[styles.successText, { color: theme.colors.success }]}>
                                 {successMessage}
                             </Text>
+                        ) : null}
+                        {verificationEmail ? (
+                            <View
+                                style={[
+                                    styles.verificationContainer,
+                                    {
+                                        backgroundColor: theme.colors.warning + '22',
+                                        borderColor: theme.colors.warning + '55',
+                                    },
+                                ]}
+                            >
+                                <Ionicons
+                                    name="mail-unread-outline"
+                                    size={18}
+                                    color={theme.colors.warning}
+                                />
+                                <Text
+                                    style={[
+                                        styles.verificationText,
+                                        { color: theme.colors.warning },
+                                    ]}
+                                >
+                                    Verification required for {verificationEmail}. Check your inbox
+                                    and click the link, then sign in again.
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={handleResendVerification}
+                                    disabled={loading}
+                                    style={styles.resendButton}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.resendButtonText,
+                                            { color: theme.colors.primary },
+                                        ]}
+                                    >
+                                        Resend verification email
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
                         ) : null}
                         {isLogin && (
                             <TouchableOpacity
@@ -731,5 +804,27 @@ const styles = StyleSheet.create({
         fontSize: 12,
         marginTop: -8,
         marginLeft: 4,
+    },
+    verificationContainer: {
+        marginTop: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        gap: 4,
+    },
+    verificationText: {
+        fontSize: 12,
+        lineHeight: 17,
+        flexShrink: 1,
+    },
+    resendButton: {
+        marginTop: 4,
+        alignSelf: 'flex-start',
+    },
+    resendButtonText: {
+        fontSize: 13,
+        fontWeight: '700',
+        textDecorationLine: 'underline',
     },
 });
