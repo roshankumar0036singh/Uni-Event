@@ -7,7 +7,7 @@
         "lint:fix": "npm run lint --prefix app -- --fix && npm run lint --prefix cloud-functions -- --fix && prettier --write app/ cloud-functions/"
     },
     "devDependencies": {
-        "@firebase/rules-unit-testing": "^5.0.1",
+        "@firebase/rules-unit-testing": "^5.0.2",
         "@types/jest": "^30.0.0",
         "@types/node": "^25.9.1",
         "eslint": "^10.4.0",
