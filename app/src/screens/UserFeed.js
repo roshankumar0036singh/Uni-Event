@@ -13,6 +13,8 @@ import {
 } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
+import { cacheJson, formatCacheAge, isOfflineError, readCachedJson } from '../lib/offlineCache';
 import PropTypes from 'prop-types';
 import EmptyState from '../components/EmptyState';
 import {
@@ -197,14 +199,26 @@ export default function UserFeed() {
     const [events, setEvents] = useState([]);
     const [institutions, setInstitutions] = useState([]);
     const [selectedCampus, setSelectedCampus] = useState('all');
+    const [offline, setOffline] = useState(false);
+    const [cachedAt, setCachedAt] = useState(null);
 
     useEffect(() => {
         (async () => {
             try {
                 const snap = await getDocs(collection(db, 'institutions'));
-                setInstitutions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                const institutionsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                setInstitutions(institutionsList);
+                cacheJson('institutions', institutionsList);
             } catch (e) {
                 console.log('Institutions fetch error', e);
+                if (isOfflineError(e)) {
+                    const cached = await readCachedJson('institutions');
+                    if (cached) {
+                        setInstitutions(cached.data);
+                        setOffline(true);
+                        setCachedAt(cached.savedAt);
+                    }
+                }
             }
         })();
     }, []);
@@ -421,6 +435,9 @@ export default function UserFeed() {
             list.push({ id: doc.id, ...data });
         });
         const lastDoc = pageDocs.length > 0 ? pageDocs[pageDocs.length - 1] : null;
+        if (!cursorDoc) {
+            cacheJson('feed_events', list);
+        }
         return { list, lastDoc: lastDoc || null, hasNextPage };
     }, []);
 
@@ -437,6 +454,15 @@ export default function UserFeed() {
             setHasMore(hasNextPage);
         } catch (error) {
             console.log('Event Fetch Error', error);
+            if (isOfflineError(error)) {
+                const cached = await readCachedJson('feed_events');
+                if (cached) {
+                    setEvents(cached.data);
+                    setHasMore(false);
+                    setOffline(true);
+                    setCachedAt(cached.savedAt);
+                }
+            }
         } finally {
             setLoading(false);
         }
@@ -460,6 +486,20 @@ export default function UserFeed() {
     useEffect(() => {
         loadInitialEvents();
     }, [loadInitialEvents]);
+
+    // Auto-recover when the network comes back: clear the offline state
+    // and re-fetch fresh data.
+    useEffect(() => {
+        if (!offline) return undefined;
+        const unsubscribe = NetInfo.addEventListener(state => {
+            if (state.isConnected) {
+                setOffline(false);
+                setCachedAt(null);
+                loadInitialEvents();
+            }
+        });
+        return unsubscribe;
+    }, [offline, loadInitialEvents]);
 
     // Recommendation Logic: Views + User History + Freshness
     const getRecommendedEvents = useMemo(() => {
@@ -763,52 +803,74 @@ export default function UserFeed() {
                     <SkeletonLoader />
                 </View>
             ) : (
-                <Animated.SectionList
-                    sections={[{ data: groupedData }]}
-                    keyExtractor={row => row.map(e => e.id).join('-')}
-                    renderItem={renderEvent}
-                    renderSectionHeader={renderStickyHeader}
-                    ListHeaderComponent={renderHeader}
-                    stickySectionHeadersEnabled={true}
-                    onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-                        useNativeDriver: true,
-                    })}
-                    onScrollEndDrag={handleScrollEndDrag}
-                    contentContainerStyle={{ paddingBottom: 100 }}
-                    ListEmptyComponent={
-                        <EmptyState
-                            icon={searchQuery ? 'search-outline' : 'calendar-outline'}
-                            title={
-                                searchQuery
-                                    ? `No events found for "${searchQuery}"`
-                                    : 'No events yet!'
-                            }
-                            subtitle={
-                                searchQuery
-                                    ? 'Try a different search term or check your filters.'
-                                    : 'Check back soon for new events near you.'
-                            }
-                            theme={theme}
-                        />
-                    }
-                    ListFooterComponent={
-                        hasMore && events.length > 0 ? (
-                            <TouchableOpacity
-                                style={styles.loadMoreBtn}
-                                onPress={loadMore}
-                                disabled={loadingMore}
+                <>
+                    {offline && (
+                        <View
+                            style={[
+                                styles.offlineBanner,
+                                { backgroundColor: theme.colors.warning + '22' },
+                            ]}
+                        >
+                            <Ionicons
+                                name="cloud-offline-outline"
+                                size={16}
+                                color={theme.colors.warning}
+                            />
+                            <Text
+                                style={[styles.offlineBannerText, { color: theme.colors.warning }]}
                             >
-                                {loadingMore ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.loadMoreText}>Load More</Text>
-                                )}
-                            </TouchableOpacity>
-                        ) : events.length > 0 ? (
-                            <Text style={styles.endText}>You&apos;ve reached the end</Text>
-                        ) : null
-                    }
-                />
+                                You're offline — showing cached events
+                                {cachedAt ? ` (updated ${formatCacheAge(cachedAt)})` : ''}.
+                            </Text>
+                        </View>
+                    )}
+                    <Animated.SectionList
+                        sections={[{ data: groupedData }]}
+                        keyExtractor={row => row.map(e => e.id).join('-')}
+                        renderItem={renderEvent}
+                        renderSectionHeader={renderStickyHeader}
+                        ListHeaderComponent={renderHeader}
+                        stickySectionHeadersEnabled={true}
+                        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+                            useNativeDriver: true,
+                        })}
+                        onScrollEndDrag={handleScrollEndDrag}
+                        contentContainerStyle={{ paddingBottom: 100 }}
+                        ListEmptyComponent={
+                            <EmptyState
+                                icon={searchQuery ? 'search-outline' : 'calendar-outline'}
+                                title={
+                                    searchQuery
+                                        ? `No events found for "${searchQuery}"`
+                                        : 'No events yet!'
+                                }
+                                subtitle={
+                                    searchQuery
+                                        ? 'Try a different search term or check your filters.'
+                                        : 'Check back soon for new events near you.'
+                                }
+                                theme={theme}
+                            />
+                        }
+                        ListFooterComponent={
+                            hasMore && events.length > 0 ? (
+                                <TouchableOpacity
+                                    style={styles.loadMoreBtn}
+                                    onPress={loadMore}
+                                    disabled={loadingMore}
+                                >
+                                    {loadingMore ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={styles.loadMoreText}>Load More</Text>
+                                    )}
+                                </TouchableOpacity>
+                            ) : events.length > 0 ? (
+                                <Text style={styles.endText}>You&apos;ve reached the end</Text>
+                            ) : null
+                        }
+                    />
+                </>
             )}
 
             <LiquidPullToRefresh
@@ -928,6 +990,17 @@ const styles = StyleSheet.create({
         marginVertical: 20,
     },
     loadMoreText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    offlineBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginHorizontal: 16,
+        marginTop: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 12,
+    },
+    offlineBannerText: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
     endText: {
         textAlign: 'center',
         marginVertical: 20,
