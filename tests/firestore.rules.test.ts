@@ -313,6 +313,39 @@ describe('Firestore Security Rules', () => {
     });
 
     test('Authenticated user creates participant -> allowed', async () => {
+        await seedDocument('users/student1', { role: 'student' });
+        await assertSucceeds(
+            setDoc(doc(getFirestoreContext('student1'), 'events/event1/participants/student1'), {
+                joined: true,
+            }),
+        );
+    });
+
+    test('Duplicate RSVP create at own participant path -> denied', async () => {
+        await seedDocument('users/student1', { role: 'student' });
+        await seedDocument('events/event1/participants/student1', {
+            userId: 'student1',
+            name: 'Student One',
+            email: 'student1@test.edu',
+            joinedAt: '2026-08-01T10:00:00.000Z',
+        });
+        await assertFails(
+            setDoc(doc(getFirestoreContext('student1'), 'events/event1/participants/student1'), {
+                userId: 'student1',
+                name: 'Student One',
+                email: 'student1@test.edu',
+                joinedAt: '2026-08-02T10:00:00.000Z',
+            }),
+        );
+    });
+
+    test('Re-register is allowed after withdrawing (delete then create)', async () => {
+        await seedDocument('users/student1', { role: 'student' });
+        await seedDocument('events/event1/participants/student1', { status: 'attending' });
+        const ctx = getFirestoreContext('student1');
+        await assertSucceeds(
+            deleteDoc(doc(ctx, 'events/event1/participants/student1')),
+        );
         await assertSucceeds(
             setDoc(doc(getFirestoreContext('student1'), 'events/event1/participants/student1'), {
                 joined: true,
