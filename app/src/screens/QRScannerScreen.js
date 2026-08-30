@@ -204,6 +204,23 @@ export default function QRScannerScreen({ navigation, route }) {
                 return;
             }
 
+            // Security: only the event owner (or an admin) may record a
+            // check-in on behalf of an attendee. Rules enforce this too,
+            // but verifying up-front prevents ghost attendance attempts
+            // from reaching the database and gives a clear error (#623).
+            const eventSnap = await getDoc(doc(db, 'events', eventId)).catch(() => null);
+            const ownerId = eventSnap?.data()?.ownerId;
+            const isOwner = ownerId && user && user.uid === ownerId;
+            const isAdmin = user?.role === 'admin';
+            if (!isOwner && !isAdmin) {
+                setScanResult({
+                    status: 'error',
+                    message:
+                        'Only the event organizer (or an admin) can check in attendees.',
+                });
+                return;
+            }
+
             const { ticketData, scannedUserId } = parsedScan;
             const hasTicketId = Boolean(ticketData?.ticketId);
             const operatorName = getOperatorName(user);
