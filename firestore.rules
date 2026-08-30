@@ -336,9 +336,21 @@ service cloud.firestore {
           
         allow delete: if request.auth != null && request.auth.uid == participantId;
         
-        allow update: if request.auth != null && request.auth.uid == participantId &&
-          validateAttendanceStatus(request.resource.data) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buddyPreference', 'updatedAt']);
+        allow update: if request.auth != null && (
+          (
+            request.auth.uid == participantId &&
+            validateAttendanceStatus(request.resource.data) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buddyPreference', 'updatedAt'])
+          ) || (
+            // Organizer/owner check-in writes (Issue #753): the frontend
+            // marks a participant as checked-in via checkInParticipant(),
+            // which runs as the organizer, not the participant. Restrict
+            // owner updates to the check-in fields only.
+            isEventOwner(database, eventId) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checkInStatus', 'checkedInAt', 'checkedInBy']) &&
+            (!('checkInStatus' in request.resource.data) || request.resource.data.checkInStatus in ['checked-in', 'checked-out'])
+          )
+        );
       }
 
       // Event Check-ins (Contactless Verification)

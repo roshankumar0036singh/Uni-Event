@@ -342,6 +342,52 @@ describe('Firestore Security Rules', () => {
         );
     });
 
+    // Issue #753: free-RSVP check-in runs as the organizer; the owner may
+    // write only the check-in fields on a participant document.
+    test('Event owner marks participant checked-in -> allowed', async () => {
+        await seedDocument('events/event1', { title: 'Tech Fest', ownerId: 'clubOwner1' });
+        await seedDocument('events/event1/participants/student1', { status: 'attending' });
+        await assertSucceeds(
+            setDoc(
+                doc(getFirestoreContext('clubOwner1'), 'events/event1/participants/student1'),
+                {
+                    checkInStatus: 'checked-in',
+                    checkedInAt: serverTimestamp(),
+                    checkedInBy: 'clubOwner1',
+                },
+                { merge: true },
+            ),
+        );
+    });
+
+    test('Event owner writes non-check-in field on participant -> denied', async () => {
+        await seedDocument('events/event1', { title: 'Tech Fest', ownerId: 'clubOwner1' });
+        await seedDocument('events/event1/participants/student1', { status: 'attending' });
+        await assertFails(
+            setDoc(
+                doc(getFirestoreContext('clubOwner1'), 'events/event1/participants/student1'),
+                { status: 'cancelled' },
+                { merge: true },
+            ),
+        );
+    });
+
+    test('Non-owner organizer writes check-in fields on participant -> denied', async () => {
+        await seedDocument('events/event1', { title: 'Tech Fest', ownerId: 'clubOwner1' });
+        await seedDocument('events/event1/participants/student1', { status: 'attending' });
+        await assertFails(
+            setDoc(
+                doc(getFirestoreContext('otherUser'), 'events/event1/participants/student1'),
+                {
+                    checkInStatus: 'checked-in',
+                    checkedInAt: serverTimestamp(),
+                    checkedInBy: 'otherUser',
+                },
+                { merge: true },
+            ),
+        );
+    });
+
     test("Student deletes another user's participant record -> denied", async () => {
         await seedDocument('events/event1/participants/student2', { joined: true });
         await assertFails(
