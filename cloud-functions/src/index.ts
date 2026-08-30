@@ -23,6 +23,7 @@ export * from './auditLog';
 export * from './attendanceStreak';
 export * from './permanentCleanup';
 export * from './volunteer';
+export * from './retryDeadLetterEmail';
 export * from './clubReputation';
 export * from './onEventDelete';
 export * from './events';
