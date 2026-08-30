@@ -10,6 +10,7 @@ import {
     getDoc,
     where,
     updateDoc,
+    setDoc,
 } from 'firebase/firestore';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
@@ -37,6 +38,7 @@ import { useTheme } from '../lib/ThemeContext';
 import { sendBulkAnnouncement, sendBulkFeedbackRequest } from '../lib/EmailService';
 import PropTypes from 'prop-types';
 import { COLLECTIONS, getEventCheckInsPath, getEventFeedbackPath } from '../lib/firestorePaths';
+import { parseCsv, parseAttendeeRows, participantIdForEmail } from '../lib/csvImport';
 import { useAuth } from '../lib/AuthContext';
 
 export default function AttendanceDashboard({ route, navigation }) {
@@ -66,6 +68,11 @@ export default function AttendanceDashboard({ route, navigation }) {
 
     // Feedback Request Modal State
     const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+
+    // CSV Bulk Import State (#559)
+    const [importModalVisible, setImportModalVisible] = useState(false);
+    const [importCsvText, setImportCsvText] = useState('');
+    const [importing, setImporting] = useState(false);
 
     useEffect(
         () => () => {
@@ -110,6 +117,78 @@ export default function AttendanceDashboard({ route, navigation }) {
             Alert.alert('Error', e.message || 'Failed to send requests.');
         } finally {
             setSending(false);
+        }
+    };
+
+    const handleImportCsv = async () => {
+        if (importing) return;
+        if (!importCsvText.trim()) {
+            Alert.alert('No Data', 'Paste CSV rows containing attendee emails first.');
+            return;
+        }
+
+        setImporting(true);
+        try {
+            const rows = parseCsv(importCsvText);
+
+            const existingSnapshot = await participantService.fetchParticipantsOnce(db, eventId);
+            const existingEmails = (existingSnapshot || [])
+                .map(p => p.email)
+                .filter(email => typeof email === 'string');
+
+            const { attendees, errors, skipped } = parseAttendeeRows(rows, existingEmails);
+
+            if (errors.length > 0 && attendees.length === 0) {
+                Alert.alert(
+                    'Invalid CSV',
+                    errors.slice(0, 8).join('\n') +
+                        (errors.length > 8 ? `\n…and ${errors.length - 8} more.` : ''),
+                );
+                setImporting(false);
+                return;
+            }
+
+            const CHUNK = 450;
+            for (let i = 0; i < attendees.length; i += CHUNK) {
+                const chunk = attendees.slice(i, i + CHUNK);
+                await Promise.all(
+                    chunk.map(attendee =>
+                        setDoc(
+                            doc(
+                                db,
+                                COLLECTIONS.EVENTS,
+                                eventId,
+                                'participants',
+                                participantIdForEmail(attendee.email),
+                            ),
+                            {
+                                email: attendee.email,
+                                name: attendee.name || '',
+                                rollNumber: attendee.rollNumber || '',
+                                attended: false,
+                                checkInMethod: 'bulk-import',
+                                importedAt: new Date().toISOString(),
+                            },
+                        ),
+                    ),
+                );
+            }
+
+            setImportModalVisible(false);
+            setImportCsvText('');
+            Alert.alert(
+                'Import Complete',
+                `${attendees.length} attendee${attendees.length === 1 ? '' : 's'} imported, ` +
+                    `${skipped} already registered.` +
+                    (errors.length > 0
+                        ? `\n${errors.length} invalid row${errors.length === 1 ? '' : 's'} skipped.`
+                        : ''),
+            );
+        } catch (e) {
+            console.error(e);
+            Alert.alert('Error', e.message || 'Failed to import attendees.');
+        } finally {
+            setImporting(false);
         }
     };
 
@@ -737,6 +816,29 @@ export default function AttendanceDashboard({ route, navigation }) {
                                 </>
                             )}
                         </TouchableOpacity>
+
+                        {/* CSV Bulk Import Button (#559) */}
+                        <TouchableOpacity
+                            style={[
+                                styles.exportBtn,
+                                styles.premiumBtn,
+                                {
+                                    borderColor: theme.colors.primary,
+                                    backgroundColor: theme.colors.surface,
+                                },
+                            ]}
+                            onPress={() => setImportModalVisible(true)}
+                            disabled={importing}
+                        >
+                            <Ionicons
+                                name="document-attach-outline"
+                                size={24}
+                                color={theme.colors.primary}
+                            />
+                            <Text style={[styles.exportBtnText, { color: theme.colors.primary }]}>
+                                Import CSV
+                            </Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
 
@@ -941,6 +1043,96 @@ export default function AttendanceDashboard({ route, navigation }) {
                                         />
                                         <Text style={[styles.modalButtonText, { color: '#fff' }]}>
                                             Send Emails
+                                        </Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* CSV Bulk Import Modal (#559) */}
+            <Modal
+                animationType="slide"
+                transparent
+                visible={importModalVisible}
+                onRequestClose={() => setImportModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View
+                        style={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
+                    >
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                                Import Attendees from CSV
+                            </Text>
+                            <TouchableOpacity onPress={() => setImportModalVisible(false)}>
+                                <Ionicons name="close" size={24} color={theme.colors.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={[styles.modalSubtitle, { color: theme.colors.textSecondary }]}>
+                            Paste rows with an email column: email,name,roll. Rows are validated;
+                            duplicate and invalid emails are skipped.
+                        </Text>
+
+                        <TextInput
+                            style={[
+                                styles.importInput,
+                                {
+                                    backgroundColor: theme.colors.background,
+                                    borderColor: theme.colors.border,
+                                    color: theme.colors.text,
+                                },
+                            ]}
+                            multiline
+                            placeholder={'alice@example.com,Alice,CS21B001\nbob@example.com,Bob'}
+                            placeholderTextColor={theme.colors.textSecondary}
+                            value={importCsvText}
+                            onChangeText={setImportCsvText}
+                        />
+
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.modalButton,
+                                    {
+                                        backgroundColor: theme.colors.surface,
+                                        borderWidth: 1,
+                                        borderColor: theme.colors.border,
+                                        flex: 1,
+                                    },
+                                ]}
+                                onPress={() => setImportModalVisible(false)}
+                            >
+                                <Text
+                                    style={[styles.modalButtonText, { color: theme.colors.text }]}
+                                >
+                                    Cancel
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.modalButton,
+                                    { backgroundColor: theme.colors.primary, flex: 1 },
+                                ]}
+                                onPress={handleImportCsv}
+                                disabled={importing}
+                            >
+                                {importing ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <>
+                                        <Ionicons
+                                            name="cloud-upload-outline"
+                                            size={16}
+                                            color="#fff"
+                                            style={{ marginRight: 6 }}
+                                        />
+                                        <Text style={[styles.modalButtonText, { color: '#fff' }]}>
+                                            Import
                                         </Text>
                                     </>
                                 )}
@@ -1238,6 +1430,20 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     modalTitle: { fontSize: 20, fontWeight: 'bold' },
+    modalSubtitle: { fontSize: 13, marginBottom: 16, lineHeight: 18 },
+    modalActions: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 16,
+    },
+    importInput: {
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 12,
+        minHeight: 140,
+        textAlignVertical: 'top',
+        fontSize: 14,
+    },
     inputLabel: { fontSize: 14, marginBottom: 8, fontWeight: '600' },
     input: {
         borderWidth: 1,
