@@ -35,6 +35,7 @@ import * as CalendarService from '../lib/CalendarService';
 import { db, storage } from '../lib/firebaseConfig';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
 import { useTheme } from '../lib/ThemeContext';
+import { validateEventInput } from '../lib/validators';
 import { extractTags } from '../lib/tagExtractor';
 import { predictAttendance } from '../lib/capacityPredictor';
 import { enforceRateLimit } from '../lib/rateLimiter';
@@ -477,6 +478,13 @@ export default function CreateEvent({ navigation, route }) {
                 hasCustomForm: useCustomForm,
                 customFormSchema: useCustomForm ? customFormSchema : [],
             };
+
+            const validation = validateEventInput(eventData);
+            if (!validation.valid) {
+                Alert.alert('Invalid Input', validation.errors.join('\n'));
+                setLoading(false);
+                return;
+            }
 
             if (isEditMode) {
                 await updateDoc(doc(db, 'events', event.id), eventData);
