@@ -7,27 +7,59 @@ import { checkAndUpdateRateLimit } from './utils/rateLimiter';
 // Load environment variables
 dotenv.config();
 
-// Initialize Firebase Admin (ensure service account is available or uses default credentials)
-// For Render, we might need to rely on strict env vars or a service account file
-if (admin.apps.length === 0) {
-    // Try to load credentials from environment variable
-    const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+export type FirebaseCredentialSource = 'env' | 'default';
+
+/**
+ * Initializes Firebase Admin. When `GOOGLE_APPLICATION_CREDENTIALS_JSON` is
+ * set but malformed, this fails loudly instead of silently falling back to
+ * Application Default Credentials (Issue #613): a misconfigured credential
+ * must never quietly run with unintended privileges.
+ */
+export const initFirebaseAdmin = (
+    credentialsJson: string | undefined = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON,
+): FirebaseCredentialSource => {
+    if (admin.apps.length > 0) {
+        return 'default';
+    }
 
     if (credentialsJson) {
+        let serviceAccount: admin.ServiceAccount;
         try {
-            const serviceAccount = JSON.parse(credentialsJson);
+            serviceAccount = JSON.parse(credentialsJson);
+        } catch (error) {
+            throw new Error(
+                '❌ Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON: ' +
+                    (error instanceof Error ? error.message : String(error)) +
+                    '. Refusing to fall back to default credentials.',
+            );
+        }
+        try {
             admin.initializeApp({
                 credential: admin.credential.cert(serviceAccount),
             });
-            console.log('✅ Firebase Admin initialized with service account from env');
         } catch (error) {
-            console.error('❌ Failed to parse service account JSON:', error);
-            admin.initializeApp();
+            throw new Error(
+                '❌ Failed to initialize GOOGLE_APPLICATION_CREDENTIALS_JSON (' +
+                    (error instanceof Error ? error.message : String(error)) +
+                    '). Refusing to fall back to default credentials.',
+            );
         }
-    } else {
-        // Fallback to default credentials
-        admin.initializeApp();
-        console.log('⚠️  Firebase Admin initialized with default credentials');
+        console.log('✅ Firebase Admin initialized with service account from env');
+        return 'env';
+    }
+
+    // Fallback to default credentials
+    admin.initializeApp();
+    console.log('⚠️  Firebase Admin initialized with default credentials');
+    return 'default';
+};
+
+if (admin.apps.length === 0) {
+    try {
+        initFirebaseAdmin();
+    } catch (error) {
+        console.error(error instanceof Error ? error.message : error);
+        throw error;
     }
 }
 
@@ -347,6 +379,10 @@ app.get('/', (req, res) => {
 
 // Start Server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+
+// Skip actually listening during unit tests (the module is imported directly there)
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
