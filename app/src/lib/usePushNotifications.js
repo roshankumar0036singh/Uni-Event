@@ -52,24 +52,4 @@ export const usePushNotifications = () => {
 
     useEffect(() => {
         registerForPushNotificationsAsync().then(token => setExpoPushToken(token));
-
-        notificationListener.current = Notifications.addNotificationReceivedListener(
-            notification => {
-                setNotification(notification);
-            },
-        );
-
-        responseListener.current = Notifications.addNotificationResponseReceivedListener(
-            response => {
-                logger.debug(response);
-            },
-        );
-
-        return () => {
-            Notifications.removeNotificationSubscription(notificationListener.current);
-            Notifications.removeNotificationSubscription(responseListener.current);
-        };
-    }, []);
-
-    return { expoPushToken, notification };
-};
+        .catch(err => console.error(err))

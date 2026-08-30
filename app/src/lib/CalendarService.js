@@ -84,7 +84,8 @@ export const createMeetEvent = async (accessToken, eventDetails) => {
             },
         );
 
-        const data = await response.json();
+        if (!response.ok) throw new Error("Request failed");
+const data = await response.json();
 
         if (data.error) throw new Error(data.error.message);
 
@@ -125,7 +126,8 @@ export const addToCalendar = async (accessToken, event) => {
             },
         );
 
-        const data = await response.json();
+        if (!response.ok) throw new Error("Request failed");
+const data = await response.json();
         if (data.error) throw new Error(data.error.message);
         return data;
     } catch (error) {
