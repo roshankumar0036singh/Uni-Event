@@ -128,7 +128,7 @@ export async function scheduleEventReminder(event) {
         return null; // Already passed
     }
 
-    if (isNaN(triggerDate.getTime())) {
+    if (Number.isNaN(triggerDate.getTime())) {
         logger.error('Invalid event date:', event.startAt);
         return null;
     }
