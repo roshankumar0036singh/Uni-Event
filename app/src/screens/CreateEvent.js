@@ -34,6 +34,7 @@ import { useAuth } from '../lib/AuthContext';
 import * as CalendarService from '../lib/CalendarService';
 import { db, storage } from '../lib/firebaseConfig';
 import { formatEventDate, formatEventTime } from '../lib/formatEventDate';
+import { findProfanity } from '../lib/profanity';
 import { useTheme } from '../lib/ThemeContext';
 import { extractTags } from '../lib/tagExtractor';
 import { predictAttendance } from '../lib/capacityPredictor';
@@ -415,6 +416,17 @@ export default function CreateEvent({ navigation, route }) {
             Alert.alert('Invalid Dates', 'End date must be after start date');
             return;
         }
+
+        const blockedWord =
+            findProfanity(title) || findProfanity(description) || findProfanity(location);
+        if (blockedWord) {
+            Alert.alert(
+                'Profanity Detected',
+                `Please remove inappropriate language ("${blockedWord}") before publishing.`,
+            );
+            return;
+        }
+
         setLoading(true);
         try {
             // Symmetrical, client-side rate-limiting checks prior to side-effects
