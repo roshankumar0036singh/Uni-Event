@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
@@ -19,6 +19,10 @@ import { AuthProvider, useAuth } from './src/lib/AuthContext';
 import { ThemeProvider, useTheme } from './src/lib/ThemeContext';
 import { db } from './src/lib/firebaseConfig';
 import { BASE_URL } from './src/lib/config';
+import {
+    extractEventIdFromNotification,
+    waitForNavigationReady,
+} from './src/lib/notificationLinks';
 import { registerForPushNotificationsAsync } from './src/lib/notificationService';
 import AdminDashboard from './src/screens/AdminDashboard';
 import AttendanceDashboard from './src/screens/AttendanceDashboard';
@@ -64,6 +68,21 @@ LazyScreenFallback.propTypes = {
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+const navigationRef = createNavigationContainerRef();
+
+/**
+ * Navigates to an event's detail screen, queuing the navigation until the
+ * navigation container is ready (needed for cold-start notification taps,
+ * where the tap arrives before the tree mounts).
+ */
+async function navigateToEvent(eventId) {
+    if (!eventId) return;
+    const ready = await waitForNavigationReady(() => navigationRef.isReady());
+    if (ready) {
+        navigationRef.navigate('EventDetail', { eventId });
+    }
+}
 
 function HomeScreen({ navigation }) {
     const { user, role } = useAuth();
@@ -228,7 +247,7 @@ function Navigation() {
     }
 
     return (
-        <NavigationContainer linking={linking}>
+        <NavigationContainer linking={linking} ref={navigationRef}>
             <Stack.Navigator
                 screenOptions={{
                     headerStyle: {
@@ -423,9 +442,23 @@ function AppContent() {
 
         responseListener.current = Notifications.addNotificationResponseReceivedListener(
             response => {
-                console.log('Notification Tapped:', response);
+                const eventId = extractEventIdFromNotification(response.notification);
+                if (eventId) {
+                    navigateToEvent(eventId);
+                } else {
+                    console.log('Notification Tapped (no event payload):', response);
+                }
             },
         );
+
+        // Cold start: handle a notification tap that launched the app
+        Notifications.getLastNotificationResponseAsync()
+            .then(lastResponse => {
+                if (!lastResponse) return;
+                const eventId = extractEventIdFromNotification(lastResponse.notification);
+                if (eventId) navigateToEvent(eventId);
+            })
+            .catch(err => console.log('Failed to read last notification response', err));
 
         return () => {
             if (notificationListener.current)
