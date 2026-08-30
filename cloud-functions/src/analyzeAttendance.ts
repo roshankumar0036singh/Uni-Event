@@ -7,6 +7,39 @@ import { createFraudResult } from './utils/fraudScore';
 
 const db = admin.firestore();
 
+const BATCH_SIZE = 100;
+
+/**
+ * Runs a Firestore query in bounded batches of BATCH_SIZE documents using
+ * cursor pagination, invoking `visit` for every document (Issue #328).
+ * Large result sets (10k+ docs) are streamed instead of materialized all
+ * at once, avoiding memory exhaustion in the function runtime.
+ */
+async function forEachInBatches(
+    query: admin.firestore.Query<admin.firestore.DocumentData>,
+    visit: (
+        doc: admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData>,
+    ) => void | Promise<void>,
+): Promise<void> {
+    let lastDoc: admin.firestore.QueryDocumentSnapshot<admin.firestore.DocumentData> | undefined;
+
+    for (;;) {
+        const pageQuery = lastDoc ? query.startAfter(lastDoc) : query;
+
+        const snapshot = await pageQuery.limit(BATCH_SIZE).get();
+
+        if (snapshot.empty) break;
+
+        for (const doc of snapshot.docs) {
+            await visit(doc);
+        }
+
+        if (snapshot.size < BATCH_SIZE) break;
+
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    }
+}
+
 export const analyzeAttendance = onDocumentCreated(
     'events/{eventId}/checkIns/{userId}',
     async event => {
@@ -61,14 +94,13 @@ async function checkRapidDuplicate(
     checkedInAt: any,
     result: any,
 ) {
-    const snapshot = await db
+    const query = db
         .collection('events')
         .doc(eventId)
         .collection('checkIns')
-        .where('qrId', '==', qrId)
-        .get();
+        .where('qrId', '==', qrId);
 
-    snapshot.forEach(doc => {
+    await forEachInBatches(query, doc => {
         // Skip current check-in
         if (doc.id === currentUserId) {
             return;
@@ -132,11 +164,11 @@ async function checkImpossibleDistance(
 }
 
 async function checkDeviceAbuse(deviceId: string, result: any) {
-    const snapshot = await db.collectionGroup('checkIns').where('deviceId', '==', deviceId).get();
+    const query = db.collectionGroup('checkIns').where('deviceId', '==', deviceId);
 
     const users = new Set();
 
-    snapshot.forEach(doc => {
+    await forEachInBatches(query, doc => {
         users.add(doc.data().userId);
     });
 
@@ -153,9 +185,9 @@ async function checkMultipleEvents(
     currentEventId: string,
     result: any,
 ) {
-    const snapshot = await db.collectionGroup('checkIns').where('userId', '==', userId).get();
+    const query = db.collectionGroup('checkIns').where('userId', '==', userId);
 
-    snapshot.forEach(doc => {
+    await forEachInBatches(query, doc => {
         const data = doc.data();
 
         const currentTime = checkedInAt?.toDate
