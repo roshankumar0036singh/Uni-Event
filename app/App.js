@@ -49,6 +49,9 @@ import ManageVolunteersScreen from './src/screens/ManageVolunteersScreen';
 
 const CustomTabBarWrapper = props => <CustomTabBar {...props} />;
 const AppearanceScreen = lazy(() => import('./src/screens/AppearanceScreen'));
+const NotificationPreferencesScreen = lazy(
+    () => import('./src/screens/NotificationPreferencesScreen'),
+);
 const LocationHeatmapScreen = lazy(() => import('./src/screens/LocationHeatmapScreen'));
 const ReportBugScreen = lazy(() => import('./src/screens/ReportBugScreen'));
 
@@ -292,6 +295,18 @@ function Navigation() {
                                     fallback={<LazyScreenFallback color={theme.colors.primary} />}
                                 >
                                     <AppearanceScreen {...props} />
+                                </Suspense>
+                            )}
+                        </Stack.Screen>
+                        <Stack.Screen
+                            name="NotificationPreferences"
+                            options={{ title: 'Notification Preferences' }}
+                        >
+                            {props => (
+                                <Suspense
+                                    fallback={<LazyScreenFallback color={theme.colors.primary} />}
+                                >
+                                    <NotificationPreferencesScreen {...props} />
                                 </Suspense>
                             )}
                         </Stack.Screen>

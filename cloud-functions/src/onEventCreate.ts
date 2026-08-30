@@ -32,11 +32,27 @@ export const onEventCreate = functions.firestore
         // Ideally use topics or pagination for large user bases
         const usersSnapshot = await db.collection('users').get();
 
+        // Fetch notification preferences for every user so the broadcast
+        // respects opt-outs (users/{userId}/notificationPreferences).
+        const preferenceSnaps = await Promise.all(
+            usersSnapshot.docs.map(userDoc =>
+                userDoc.ref.collection('notificationPreferences').doc('prefs').get(),
+            ),
+        );
+
         const messages: any[] = [];
         const batch = db.batch();
 
-        usersSnapshot.forEach(userDoc => {
+        let preferenceIndex = 0;
+        for (const userDoc of usersSnapshot.docs) {
             const userData = userDoc.data();
+
+            // Skip users who disabled "new events nearby" notifications.
+            const preferenceSnap = preferenceSnaps[preferenceIndex++];
+            const preferences = preferenceSnap.exists ? preferenceSnap.data() : null;
+            if (preferences?.newEventsNearby === false) {
+                continue;
+            }
 
             // 1. In-App Notification
             const notifRef = userDoc.ref.collection('notifications').doc();
@@ -59,7 +75,7 @@ export const onEventCreate = functions.firestore
                     data: { eventId: eventId, url: `/event/${eventId}` },
                 });
             }
-        });
+        }
 
         await batch.commit();
 

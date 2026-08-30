@@ -1097,6 +1097,17 @@ export default function ProfileScreen({ navigation }) {
                                     }
                                 />
                             </View>
+                            <View style={styles.bentoRow}>
+                                <MenuItem
+                                    icon="bell-outline"
+                                    label="Notification Preferences"
+                                    description="Manage notification categories"
+                                    width="100%"
+                                    onPress={() => navigation.navigate('NotificationPreferences')}
+                                    theme={theme}
+                                    styles={styles}
+                                />
+                            </View>
 
                             {/* Account Switching Horizontal Scroll inside Menu */}
                             <View

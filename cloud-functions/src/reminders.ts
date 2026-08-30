@@ -31,6 +31,21 @@ export const checkReminders = functions.pubsub.schedule('every 1 minutes').onRun
         const data = docSnapshot.data();
         const userId = data.userId;
 
+        // Honor per-user notification preferences
+        const prefsSnap = await db
+            .collection('users')
+            .doc(userId)
+            .collection('notificationPreferences')
+            .doc('prefs')
+            .get();
+        const preferences = prefsSnap.exists ? prefsSnap.data() : null;
+
+        if (preferences?.eventReminders === false) {
+            // User opted out of event reminders; only mark the reminder as sent.
+            batch.update(docSnapshot.ref, { sent: true });
+            continue;
+        }
+
         // 1. Create in-app notification
         const notifRef = db.collection('users').doc(userId).collection('notifications').doc();
         batch.set(notifRef, {

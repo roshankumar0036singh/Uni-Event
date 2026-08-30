@@ -487,6 +487,30 @@ describe('Firestore Security Rules', () => {
             targetSeedDoc: { path: 'analytics/a1', data: { eventId: 'event1' } },
             unrelatedUserId: 'student1',
         }),
+        makeAccessSuite('user notification preferences', {
+            path: 'users/student1/notificationPreferences/prefs',
+            targetSeedDoc: {
+                path: 'users/student1/notificationPreferences/prefs',
+                data: { eventReminders: false, leaderboardUpdates: true },
+            },
+            documentOwnerUserId: 'student1',
+        }),
+        makeAccessSuite('user notifications', {
+            path: 'users/student1/notifications/notif1',
+            targetSeedDoc: {
+                path: 'users/student1/notifications/notif1',
+                data: { title: 'New Event', read: false },
+            },
+            documentOwnerUserId: 'student1',
+        }),
+        makeAccessSuite('user savedEvents', {
+            path: 'users/student1/savedEvents/event1',
+            targetSeedDoc: {
+                path: 'users/student1/savedEvents/event1',
+                data: { savedAt: '2025-01-01' },
+            },
+            documentOwnerUserId: 'student1',
+        }),
         makeAccessSuite('event attendance', {
             path: 'events/event1/attendance/att1',
             targetSeedDoc: { path: 'events/event1/attendance/att1', data: { userId: 'student1' } },

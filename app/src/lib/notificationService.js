@@ -2,7 +2,10 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { getAuth } from 'firebase/auth';
 import logger from './logger';
+import { db } from './firebaseConfig';
+import { getNotificationPreferences } from './notificationPreferences';
 
 // Configure how notifications behave when the app is in the foreground
 // Configure how notifications behave when the app is in the foreground
@@ -101,6 +104,12 @@ export async function registerForPushNotificationsAsync() {
 // Schedule a local notification
 export async function scheduleEventReminder(event) {
     if (!event?.startAt) return;
+
+    const preferences = await getNotificationPreferences(db, getAuth().currentUser?.uid);
+    if (preferences.eventReminders === false) {
+        logger.info('Event reminder skipped: notifications are disabled in preferences.');
+        return;
+    }
 
     const eventDate = new Date(event.startAt);
     const triggerDate = new Date(eventDate.getTime() - 10 * 60000); // 10 minutes before
