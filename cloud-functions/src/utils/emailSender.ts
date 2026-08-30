@@ -1,5 +1,14 @@
 import { renderTemplate } from './emailTemplateRenderer';
 import { Resend } from 'resend';
+import * as admin from 'firebase-admin';
+import { logger } from '../logger';
+import {
+    emailCircuitBreaker,
+    retryWithExponentialBackoff,
+    enqueueDeadLetter,
+    alertAdmins,
+    type DeadLetterEntry,
+} from './emailResilience';
 
 /**
  * Options for sending (or dry-running) an email.
@@ -97,4 +106,65 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
             error: err instanceof Error ? err.message : String(err),
         };
     }
+}
+
+/**
+ * Sends an email through `sendEmail` with exponential-backoff retries and
+ * circuit-breaking (#326). On final failure the message is logged with
+ * context and queued to the dead-letter queue for manual retry.
+ */
+export async function sendEmailWithRetry(
+    options: SendEmailOptions,
+    retryContext: { eventId?: string; attempts?: number } = {},
+): Promise<SendEmailResult> {
+    if (emailCircuitBreaker.isOpen()) {
+        logger.error({
+            message: 'email circuit breaker is OPEN; skipping send',
+            to: options.to,
+            eventId: retryContext.eventId ?? null,
+        });
+        return { success: false, error: 'Email circuit breaker is open. Please retry later.' };
+    }
+
+    const finalResult = await retryWithExponentialBackoff(
+        async () => {
+            const result = await sendEmail(options);
+            if (!result.success) {
+                throw new Error(result.error ?? 'Unknown email send failure');
+            }
+            return result;
+        },
+        { label: `email to ${options.to}` },
+    ).catch((error: unknown) => {
+        const reason = error instanceof Error ? error.message : String(error);
+        return { success: false, error: reason };
+    });
+
+    if (finalResult.success) {
+        emailCircuitBreaker.recordSuccess();
+        return finalResult;
+    }
+
+    emailCircuitBreaker.recordFailure();
+    if (emailCircuitBreaker.isOpen()) {
+        const db = admin.firestore();
+        await alertAdmins(db, {
+            title: 'Email circuit breaker tripped',
+            message: `The email circuit breaker opened after ${emailCircuitBreaker.failureThreshold} consecutive failures. Check the email provider (Resend) configuration.`,
+            context: { to: options.to, eventId: retryContext.eventId ?? null },
+        });
+    }
+
+    const deadLetter: DeadLetterEntry = {
+        to: options.to,
+        provider: 'resend',
+        subject: options.subject,
+        templateId: options.templateName,
+        eventId: retryContext.eventId,
+        reason: finalResult.error ?? 'Unknown email send failure',
+        attempts: retryContext.attempts ?? 1,
+    };
+    await enqueueDeadLetter(admin.firestore(), deadLetter);
+
+    return finalResult;
 }

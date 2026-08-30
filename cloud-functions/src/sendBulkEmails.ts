@@ -1,6 +1,14 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { FieldValue } from 'firebase-admin/firestore';
+import { logger } from './logger';
+import {
+    emailCircuitBreaker,
+    retryWithExponentialBackoff,
+    enqueueDeadLetter,
+    alertAdmins,
+    type DeadLetterEntry,
+} from './utils/emailResilience';
 
 // Interface for Email Participant
 interface Participant {
@@ -150,30 +158,73 @@ export const sendBulkEmails = functions.https.onCall(
                     };
 
                     try {
-                        const response = await fetch(
-                            'https://api.emailjs.com/api/v1.0/email/send',
-                            {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify(payload),
-                                signal: controller.signal,
+                        const response = await retryWithExponentialBackoff(
+                            async () => {
+                                const controller = new AbortController();
+                                const timeout = setTimeout(() => controller.abort(), 10000);
+                                try {
+                                    const res = await fetch(
+                                        'https://api.emailjs.com/api/v1.0/email/send',
+                                        {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                            },
+                                            body: JSON.stringify(payload),
+                                            signal: controller.signal,
+                                        },
+                                    );
+                                    if (!res.ok) {
+                                        throw new Error(
+                                            `EmailJS rejected send: ${res.status} ${await res
+                                                .text()
+                                                .catch(() => '')}`,
+                                        );
+                                    }
+                                    return res;
+                                } finally {
+                                    clearTimeout(timeout);
+                                }
                             },
+                            { label: `bulk email to ${p.email}` },
                         );
 
                         if (response.ok) {
+                            emailCircuitBreaker.recordSuccess();
                             successCount++;
                         } else {
-                            const errorText = await response.text();
-                            console.error('EmailJS Error:', errorText);
                             failureCount++;
                         }
                     } catch (error) {
-                        console.error('Email Network Error:', error);
+                        const reason =
+                            error instanceof Error ? error.message : String(error);
+                        logger.error({
+                            message: 'bulk email failed after retries',
+                            to: p.email,
+                            templateId,
+                            reason,
+                        });
+
+                        emailCircuitBreaker.recordFailure();
+                        if (emailCircuitBreaker.isOpen()) {
+                            await alertAdmins(admin.firestore(), {
+                                title: 'Bulk email circuit breaker tripped',
+                                message:
+                                    'The email circuit breaker opened after consecutive EmailJS failures during a bulk send.',
+                                context: { templateId, senderId: uid },
+                            });
+                        }
+
+                        const deadLetter: DeadLetterEntry = {
+                            to: p.email,
+                            provider: 'emailjs',
+                            subject,
+                            templateId,
+                            reason,
+                            attempts: 6,
+                        };
+                        await enqueueDeadLetter(admin.firestore(), deadLetter);
                         failureCount++;
-                    } finally {
-                        clearTimeout(timeout);
                     }
                 }),
             );
